@@ -30,6 +30,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 public class CorsFilter extends OncePerRequestFilter {
@@ -67,7 +68,7 @@ public class CorsFilter extends OncePerRequestFilter {
                             .format("URL '%s' allows 'X-Requested-With' header in CORS requests.", allowedUrl));
                 }
             } catch (PatternSyntaxException patternSyntaxException) {
-                LOG.error("Invalid regular expression pattern in cors.xhr.allowed.urls " + allowedUrl);
+                LOG.error("Invalid regular expression pattern in cors.xhr.allowed.urls: " + allowedUrl);
             }
         }
 
@@ -76,11 +77,11 @@ public class CorsFilter extends OncePerRequestFilter {
                 this.corsXhrAllowedOriginPatterns.add(Pattern.compile(allowedOrigin));
 
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug(String.format("Origin '%s' allowed 'X-Requested-With' header in CORS requests."
-                            + allowedOrigin));
+                    LOG.debug(String.format("Origin '%s' allowed 'X-Requested-With' header in CORS requests.",
+                            allowedOrigin));
                 }
             } catch (PatternSyntaxException patternSyntaxException) {
-                LOG.error("Invalid regular expression pattern in cors.xhr.allowed.origins " + allowedOrigin);
+                LOG.error("Invalid regular expression pattern in cors.xhr.allowed.origins: " + allowedOrigin);
             }
         }
     }
@@ -106,12 +107,19 @@ public class CorsFilter extends OncePerRequestFilter {
         String method = request.getMethod();
         String origin = request.getHeader(HttpHeaders.ORIGIN);
 
-        if (method.equalsIgnoreCase("GET") && isCorsXhrAllowedForRequestUrl(url) && StringUtils.isNotEmpty(origin)
+        if (isMethodAllowed(method) && isCorsXhrAllowedForRequestUrl(url) && StringUtils.isNotEmpty(origin)
                 && isCorsXhrAllowedForRequestOrigin(origin)) {
             return HttpHeaders.AUTHORIZATION + ", X-Requested-With";
         }
 
         return HttpHeaders.AUTHORIZATION;
+    }
+
+    private boolean isMethodAllowed(final String method) {
+        if (method.equalsIgnoreCase(HttpMethod.GET.name()) || method.equalsIgnoreCase(HttpMethod.OPTIONS.name())) {
+            return true;
+        }
+        return false;
     }
 
     boolean isCorsXhrAllowedForRequestUrl(final String url) {
