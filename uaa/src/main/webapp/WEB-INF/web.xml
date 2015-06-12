@@ -18,6 +18,17 @@
     <absolute-ordering/>
     <display-name>Oauth 2 / Open ID / Identity Server</display-name>
     <description>CloudFoundry Identity Server</description>
+
+    <filter>
+        <filter-name>corsPreFlightFilter</filter-name>
+        <filter-class>org.cloudfoundry.identity.uaa.web.CorsPreFlightFilter</filter-class>
+     </filter>
+
+    <filter-mapping>
+        <filter-name>corsPreFlightFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
     <filter>
         <filter-name>springSecurityFilterChain</filter-name>
         <filter-class>org.springframework.web.filter.DelegatingFilterProxy</filter-class>
@@ -36,6 +47,16 @@
         <filter-name>xFrameOptionsFilter</filter-name>
         <filter-class>org.cloudfoundry.identity.uaa.login.XFrameOptionsFilter</filter-class>
     </filter>
+
+    <filter>
+        <filter-name>corsFilter</filter-name>
+        <filter-class>org.cloudfoundry.identity.uaa.web.CorsFilter</filter-class>
+    </filter>
+
+    <filter-mapping>
+        <filter-name>corsFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
 
     <!-- After we merge in epic/multitenancy, we can add this to the post process of the security filter -->
     <filter-mapping>
