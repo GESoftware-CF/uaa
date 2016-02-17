@@ -385,7 +385,8 @@ public class UaaAuthorizationRequestManager implements OAuth2RequestFactory {
     }
 
     protected Set<String> extractScopes(Map<String, String> requestParameters, ClientDetails clientDetails) {
-        boolean clientCredentials = "client_credentials".equals(requestParameters.get(OAuth2Utils.GRANT_TYPE));
+        boolean clientCredentials = "client_credentials".equals(requestParameters.get(OAuth2Utils.GRANT_TYPE)) || 
+                "urn:ietf:params:oauth:grant-type:jwt-bearer".equals(requestParameters.get(OAuth2Utils.GRANT_TYPE));
         Set<String> scopes = OAuth2Utils.parseParameterList(requestParameters.get(OAuth2Utils.SCOPE));
         if ((scopes == null || scopes.isEmpty())) {
             // If no scopes are specified in the incoming data, use the default values registered with the client

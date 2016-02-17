@@ -40,7 +40,8 @@ public class UaaOauth2RequestValidator implements OAuth2RequestValidator {
     }
 
     public void validateScope(TokenRequest tokenRequest, ClientDetails client) throws InvalidScopeException {
-        if (CLIENT_CREDENTIALS.equalsIgnoreCase(tokenRequest.getGrantType())) {
+        if (CLIENT_CREDENTIALS.equalsIgnoreCase(tokenRequest.getGrantType()) ||
+                "urn:ietf:params:oauth:grant-type:jwt-bearer".equals(tokenRequest.getGrantType())) {
             validateScope(tokenRequest.getScope(), getAuthorities(client.getAuthorities()), false);
         } else {
             validateScope(tokenRequest.getScope(), client.getScope(), true);

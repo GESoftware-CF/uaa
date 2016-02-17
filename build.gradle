@@ -219,8 +219,8 @@ cargo {
   }
 
   local {
-    jvmArgs = "-javaagent:${jacocoJarPath}=output=file,dumponexit=true,append=false,destfile=${integrationTestCoverageExecutionData}"
-
+    //jvmArgs = "-javaagent:${jacocoJarPath}=output=file,dumponexit=true,append=false,destfile=${integrationTestCoverageExecutionData}"
+    jvmArgs = "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
     systemProperties {
       property 'spring.profiles.active', System.getProperty('spring.profiles.active', 'default')
     }
