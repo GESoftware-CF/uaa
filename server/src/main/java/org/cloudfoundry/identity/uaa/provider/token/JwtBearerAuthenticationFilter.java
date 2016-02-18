@@ -58,8 +58,8 @@ public class JwtBearerAuthenticationFilter extends OncePerRequestFilter {
         Authentication authentication;
         LOGGER.debug("Validate the JWT assertion from the client");
         
-        UsernamePasswordAuthenticationToken authRequest = new UsernamePasswordAuthenticationToken("admin",
-                "adminsecret");
+        UsernamePasswordAuthenticationToken authRequest = new UsernamePasswordAuthenticationToken("jb-client",
+                "secret");
         authRequest.setDetails(authenticationDetailsSource.buildDetails(request));
         authentication = this.authenticationManager.authenticate(authRequest);
         return authentication;

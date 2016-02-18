@@ -144,6 +144,12 @@
 #    expirePasswordInMonths: 0
 
 oauth:
+  clients:
+    jb-client:
+      id: jb-client
+      authorities: machine.admin
+      authorized-grant-types: client_credentials,"urn:ietf:params:oauth:grant-type:jwt-bearer"
+      secret: secret
   user:
     authorities:
       - openid
