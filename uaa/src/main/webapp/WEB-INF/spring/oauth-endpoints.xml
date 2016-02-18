@@ -93,7 +93,7 @@
         <property name="authorizationCodeServices" ref="authorizationCodeServices"/>
         <property name="OAuth2RequestValidator" ref="oauth2RequestValidator"/>
         <property name="userApprovalHandler" ref="userManagedApprovalHandler"/>
-        <property name="tokenGranter" ref="oauth2TokenGranter"/> <!--this bean created by <oauth:authorization-server/> -->
+        <property name="tokenGranter" ref="oauth2TokenGranter"/> <!--this bean is created by <oauth:authorization-server/> -->
         <property name="clientDetailsService" ref="jdbcClientDetailsService"/>
         <property name="OAuth2RequestFactory" ref="authorizationRequestManager"/>
         <property name="hybridTokenGranterForAuthCode" ref="hybridTokenGranterForAuthCodeGrant"/>
@@ -111,9 +111,9 @@
         <intercept-url pattern="/**" access="IS_AUTHENTICATED_FULLY" />
         <anonymous enabled="false" />
         <custom-filter ref="backwardsCompatibleScopeParameter" position="FIRST"/>
+        <custom-filter ref="jwtBearerAuthenticationFilter" before="FILTER_SECURITY_INTERCEPTOR" />
         <custom-filter ref="clientAuthenticationFilter" position="BASIC_AUTH_FILTER" />
         <custom-filter ref="clientParameterAuthenticationFilter" before="BASIC_AUTH_FILTER" />
-        <custom-filter ref="jwtBearerAuthenticationFilter" after="FILTER_SECURITY_INTERCEPTOR" />
         <custom-filter ref="tokenEndpointAuthenticationFilter" after="BASIC_AUTH_FILTER" />
         <access-denied-handler ref="oauthAccessDeniedHandler" />
         <csrf disabled="true"/>
@@ -127,7 +127,8 @@
     
     <bean id="jwtBearerAuthenticationFilter"
         class="org.cloudfoundry.identity.uaa.provider.token.JwtBearerAuthenticationFilter">
-        <constructor-arg><bean class="org.cloudfoundry.identity.uaa.provider.token.JwtBearerGrantClientAuthenticationManager"/></constructor-arg>
+        <constructor-arg ref="clientAuthenticationManager" />
+        <property name="authenticationDetailsSource" ref="authenticationDetailsSource" />
     </bean>
 
     <!-- Version of the /authorize endpoint for stateless clients such as cf
