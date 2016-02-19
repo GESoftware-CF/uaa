@@ -26,31 +26,35 @@ import org.springframework.security.oauth2.provider.ClientDetailsService;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 
-public class JWTBearerAssertionTokenValidator {
+//TODO: Change this to implement AuthenticationProvider and register to authenticationManager for the http resource 
+//server in oauth-endpoints.xml
+public class JwtBearerAssertionTokenAuthenticator {
 
     private ClientDetailsService clientDetailsService;
-    private JWTBearerAssertionPublicKeyProvider clientPublicKeyProvider;
+    private JwtBearerAssertionPublicKeyProvider clientPublicKeyProvider;
     private final int maxAcceptableClockSkewSeconds = 60;
     
     private final String issuerURL;
     
-    public JWTBearerAssertionTokenValidator(String issuerURL) {
+    public JwtBearerAssertionTokenAuthenticator(String issuerURL) {
         this.issuerURL = issuerURL;
     }
     
-    public Authentication performClientAuthentication(String token) {
-        Jwt decodedToken = JwtHelper.decode(token);
-        Map<String, Object> claims = JsonUtils.readValue(decodedToken.getClaims(),
-                new TypeReference<Map<String, Object>>() {
-                    // Nothing to add here.
-                });
-        if(validateToken(token)) {
-            return new UsernamePasswordAuthenticationToken(claims.get(ClaimConstants.ISS), null, Collections.emptyList());
+    public Authentication authenticate(String token) {
+        if(token != null) {
+            Jwt decodedToken = JwtHelper.decode(token);
+            Map<String, Object> claims = JsonUtils.readValue(decodedToken.getClaims(),
+                    new TypeReference<Map<String, Object>>() {
+                        // Nothing to add here.
+                    });
+            if(validateToken(token)) {
+                return new UsernamePasswordAuthenticationToken(claims.get(ClaimConstants.ISS), null, Collections.emptyList());
+            }
         }
         return null;
     }
 
-    public boolean validateToken(String token) {
+    private boolean validateToken(String token) {
         // decode token
         try {
             Jwt decodedToken = JwtHelper.decode(token);
@@ -74,7 +78,7 @@ public class JWTBearerAssertionTokenValidator {
         return true;
     }
     
-    public void setClientPublicKeyProvider(JWTBearerAssertionPublicKeyProvider clientPublicKeyProvider) {
+    public void setClientPublicKeyProvider(JwtBearerAssertionPublicKeyProvider clientPublicKeyProvider) {
         this.clientPublicKeyProvider = clientPublicKeyProvider;
     }
 

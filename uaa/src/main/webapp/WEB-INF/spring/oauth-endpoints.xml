@@ -119,15 +119,14 @@
         <csrf disabled="true"/>
     </http>
     
-    <bean id="jwtBearerTokenGranter" class="org.cloudfoundry.identity.uaa.provider.token.JwtBearerTokenGranter">
+    <bean id="jwtBearerTokenGranter" class="org.cloudfoundry.identity.uaa.provider.token.JwtBearerAssertionTokenGranter">
        <constructor-arg index="0" ref="tokenServices"/>
         <constructor-arg index="1" ref="jdbcClientDetailsService"/>
         <constructor-arg index="2" ref="authorizationRequestManager"/>
     </bean>
     
     <bean id="jwtBearerAuthenticationFilter" 
-        class="org.cloudfoundry.identity.uaa.provider.token.JwtBearerAuthenticationFilter">
-        <property name="authenticationDetailsSource" ref="authenticationDetailsSource" />
+        class="org.cloudfoundry.identity.uaa.provider.token.JwtBearerAssertionAuthenticationFilter">
         <property name="clientDetailsService" ref="jdbcClientDetailsService" />
     </bean>
 

@@ -2,7 +2,7 @@ package org.cloudfoundry.identity.uaa.provider.token;
 
 import java.util.Map;
 
-public interface JWTBearerAssertionPublicKeyProvider {
+public interface JwtBearerAssertionPublicKeyProvider {
 
     /**
      * This method must provide the registered public key for the client requesting a jwt-bearer authorization grant.
