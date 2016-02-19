@@ -36,7 +36,7 @@ public class ClientAdminEndpointsValidator implements InitializingBean, ClientDe
     private final Log logger = LogFactory.getLog(getClass());
 
     private static final Set<String> VALID_GRANTS = new HashSet<String>(Arrays.asList("implicit", "password",
-                    "client_credentials", "authorization_code", "refresh_token"));
+                    "client_credentials", "authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:jwt-bearer"));
 
     private static final Collection<String> NON_ADMIN_INVALID_GRANTS = new HashSet<String>(Arrays.asList("password"));
 

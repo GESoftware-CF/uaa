@@ -3,12 +3,15 @@ package org.cloudfoundry.identity.uaa.provider.token;
 import org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 
+import java.util.Collections;
 import java.util.Date;
 import java.util.Map;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.jwt.Jwt;
 import org.springframework.security.jwt.JwtHelper;
 import org.springframework.security.jwt.crypto.sign.InvalidSignatureException;
@@ -17,6 +20,7 @@ import org.springframework.security.jwt.crypto.sign.SignatureVerifier;
 import org.springframework.security.oauth2.common.exceptions.InvalidTokenException;
 import org.springframework.security.oauth2.provider.ClientDetails;
 import org.springframework.security.oauth2.provider.client.BaseClientDetails;
+import org.springframework.stereotype.Component;
 import org.springframework.security.oauth2.provider.ClientRegistrationException;
 import org.springframework.security.oauth2.provider.ClientDetailsService;
 
@@ -32,6 +36,18 @@ public class JWTBearerAssertionTokenValidator {
     
     public JWTBearerAssertionTokenValidator(String issuerURL) {
         this.issuerURL = issuerURL;
+    }
+    
+    public Authentication performClientAuthentication(String token) {
+        Jwt decodedToken = JwtHelper.decode(token);
+        Map<String, Object> claims = JsonUtils.readValue(decodedToken.getClaims(),
+                new TypeReference<Map<String, Object>>() {
+                    // Nothing to add here.
+                });
+        if(validateToken(token)) {
+            return new UsernamePasswordAuthenticationToken(claims.get(ClaimConstants.ISS), null, Collections.emptyList());
+        }
+        return null;
     }
 
     public boolean validateToken(String token) {

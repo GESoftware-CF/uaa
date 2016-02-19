@@ -16,7 +16,7 @@ import org.springframework.security.oauth2.provider.client.BaseClientDetails;
 public class JwtTokenValidationTest {
 
     private final static String TENANT_ID = "tenant_id";
-    private final static String ISSUER_ID = "device_id";
+    private final static String ISSUER_ID = "jb-machine-client";
     private final static String AUDIENCE =  "https://zone1.uaa.ge.com/oauth/token";
     
     @InjectMocks
@@ -32,11 +32,31 @@ public class JwtTokenValidationTest {
         when(clientDetailsService.loadClientByClientId(anyString()))
         .thenReturn(new BaseClientDetails(ISSUER_ID, null, null, null, null, null));
     }
+    
+    @Test
+    public void testPerformAuthenticationSuccess() {
+        String token = new MockAssertionToken().mockAssertionToken(ISSUER_ID, System.currentTimeMillis() - 240000,
+                600, TENANT_ID, AUDIENCE);
+        System.out.println("Token: " + token);
+        this.tokenValidator.setClientDetailsService(this.clientDetailsService);
+        Assert.assertTrue(tokenValidator.performClientAuthentication(token)!=null);
+    }
+    
+    @Test
+    public void testPerformAuthenticationFailed() {
+        String token = new MockAssertionToken().mockAssertionToken("nonexistent-client", System.currentTimeMillis() - 240000,
+                600, TENANT_ID, AUDIENCE);
+        System.out.println("Token: " + token);
+        when(clientDetailsService.loadClientByClientId(anyString())).thenReturn(null);
+        this.tokenValidator.setClientDetailsService(this.clientDetailsService);
+        Assert.assertNull(tokenValidator.performClientAuthentication(token));
+    }
 
     @Test
     public void testTokenValidateSuccess() {
         String token = new MockAssertionToken().mockAssertionToken(ISSUER_ID, System.currentTimeMillis() - 240000,
                 600, TENANT_ID, AUDIENCE);
+        System.out.println("Token: " + token);
         this.tokenValidator.setClientDetailsService(this.clientDetailsService);
         Assert.assertEquals(true, tokenValidator.validateToken(token));
     }
