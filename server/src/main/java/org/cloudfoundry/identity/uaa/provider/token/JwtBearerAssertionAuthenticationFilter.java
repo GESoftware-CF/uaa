@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.provider.ClientDetailsService;
 import org.springframework.web.filter.OncePerRequestFilter;
+import com.ge.predix.pki.device.spi.DevicePublicKeyProvider;
 
 public class JwtBearerAssertionAuthenticationFilter extends OncePerRequestFilter {
 
@@ -20,7 +21,7 @@ public class JwtBearerAssertionAuthenticationFilter extends OncePerRequestFilter
     private static final String RFC_JWT_BEARER_GRANT = "urn:ietf:params:oauth:grant-type:jwt-bearer";
  
     private ClientDetailsService clientDetailsService;
-    private JwtBearerAssertionPublicKeyProvider publicKeyProvider;
+    private DevicePublicKeyProvider publicKeyProvider;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -47,7 +48,7 @@ public class JwtBearerAssertionAuthenticationFilter extends OncePerRequestFilter
         this.clientDetailsService = clientDetailsService;
     }
 
-    public void setPublicKeyProvider(JwtBearerAssertionPublicKeyProvider publicKeyProvider) {
+    public void setPublicKeyProvider(DevicePublicKeyProvider publicKeyProvider) {
         this.publicKeyProvider = publicKeyProvider;
     }
 

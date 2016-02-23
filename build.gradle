@@ -2,6 +2,7 @@ buildscript {
   apply from: file('shared_versions.gradle')
 
   repositories {
+    mavenLocal()
     mavenCentral()
     jcenter()
     maven {
@@ -223,6 +224,7 @@ cargo {
     jvmArgs = "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
     systemProperties {
       property 'spring.profiles.active', System.getProperty('spring.profiles.active', 'default')
+      property 'key.provider.service.url', 'https://certificate.run.asv-pr.ice.predix.io/cs/v1/certificate/{tenantid}/{deviceid}/publickey'
     }
 
     installer {

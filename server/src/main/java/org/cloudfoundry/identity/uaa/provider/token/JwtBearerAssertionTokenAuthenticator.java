@@ -1,37 +1,35 @@
 package org.cloudfoundry.identity.uaa.provider.token;
 
-import org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants;
-import org.cloudfoundry.identity.uaa.util.JsonUtils;
-
 import java.util.Collections;
 import java.util.Date;
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
-
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants;
+import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.jwt.Jwt;
 import org.springframework.security.jwt.JwtHelper;
-import org.springframework.security.jwt.crypto.sign.InvalidSignatureException;
 import org.springframework.security.jwt.crypto.sign.RsaVerifier;
 import org.springframework.security.jwt.crypto.sign.SignatureVerifier;
 import org.springframework.security.oauth2.common.exceptions.InvalidTokenException;
 import org.springframework.security.oauth2.provider.ClientDetails;
-import org.springframework.security.oauth2.provider.client.BaseClientDetails;
-import org.springframework.stereotype.Component;
-import org.springframework.security.oauth2.provider.ClientRegistrationException;
 import org.springframework.security.oauth2.provider.ClientDetailsService;
+import com.ge.predix.pki.device.spi.DevicePublicKeyProvider;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 
 //TODO: Change this to implement AuthenticationProvider and register to authenticationManager for the http resource 
 //server in oauth-endpoints.xml
 public class JwtBearerAssertionTokenAuthenticator {
+    
+    private final Log logger = LogFactory.getLog(getClass());
 
     private ClientDetailsService clientDetailsService;
-    private JwtBearerAssertionPublicKeyProvider clientPublicKeyProvider;
+    private DevicePublicKeyProvider clientPublicKeyProvider;
     private final int maxAcceptableClockSkewSeconds = 60;
     
     private final String issuerURL;
@@ -67,18 +65,19 @@ public class JwtBearerAssertionTokenAuthenticator {
             verifyAudience(claims, issuerURL);
             verifyTimeWindow(claims);
 
-            String publicKey = this.clientPublicKeyProvider.getPublicKey(claims);
+            String publicKey = this.clientPublicKeyProvider.getPublicKey(claims.get(ClaimConstants.TENANT_ID),claims.get(ClaimConstants.SUB));
 
             // verify signature
             SignatureVerifier verifier = getVerifier(publicKey);
             decodedToken.verifySignature(verifier);
         } catch (RuntimeException e) {
+            logger.error(e.getMessage());
             return false;
         }
         return true;
     }
     
-    public void setClientPublicKeyProvider(JwtBearerAssertionPublicKeyProvider clientPublicKeyProvider) {
+    public void setClientPublicKeyProvider(DevicePublicKeyProvider clientPublicKeyProvider) {
         this.clientPublicKeyProvider = clientPublicKeyProvider;
     }
 
