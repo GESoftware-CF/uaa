@@ -1,21 +1,20 @@
 package org.cloudfoundry.identity.uaa.oauth;
 
-public enum OauthGrant {
-    JWT_BEARER("jwt_bearer"),
-    CLIENT_CREDENTIALS("client_credentials"),
-    PASSWORD("password"),
-    IMPLICIT("implicit"),
-    AUTHORIZTION_CODE("authorization_code"),
-    REFRESH_TOKEN("refresh_token")
-    ;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
+public class OauthGrant {
     
-    private final String value;
+    public static final String CLIENT_CREDENTIALS = "client_credentials";
+    public static final String PASSWORD = "password";
+    public static final String IMPLICIT = "implicit";
+    public static final String AUTHORIZATION_CODE = "authorization_code";
+    public static final String REFRESH_TOKEN = "refresh_token";
+    public static final String JWT_BEARER = "urn:ietf:params:oauth:grant-type:jwt-bearer";
     
-    OauthGrant(String value) {
-        this.value = value;
-    }
-    
-    public String value() {
-        return this.value;
-    }
- }
+    public static final Set<String> SUPPORTED_GRANTS =  
+            Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+                    CLIENT_CREDENTIALS, PASSWORD, IMPLICIT, AUTHORIZATION_CODE, REFRESH_TOKEN, JWT_BEARER)));
+}
