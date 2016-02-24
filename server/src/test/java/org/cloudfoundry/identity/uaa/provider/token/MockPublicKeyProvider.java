@@ -2,10 +2,13 @@ package org.cloudfoundry.identity.uaa.provider.token;
 
 import java.util.Map;
 
-public class MockPublicKeyProvider implements JwtBearerAssertionPublicKeyProvider {
+import com.ge.predix.pki.device.spi.PublicKeyNotFoundException;
+import com.ge.predix.pki.device.spi.DevicePublicKeyProvider;
+
+public class MockPublicKeyProvider implements DevicePublicKeyProvider {
 
     @Override
-    public String getPublicKey(Map<String, Object> claims) {
+    public String getPublicKey(String tenantId, String deviceId) throws PublicKeyNotFoundException {
         return TestKeys.TOKEN_VERIFYING_KEY;
     }
 

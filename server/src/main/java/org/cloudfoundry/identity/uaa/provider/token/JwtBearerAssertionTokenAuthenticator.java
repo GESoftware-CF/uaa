@@ -1,6 +1,7 @@
 package org.cloudfoundry.identity.uaa.provider.token;
 
 import java.util.Collections;
+
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +20,8 @@ import org.springframework.security.oauth2.common.exceptions.InvalidTokenExcepti
 import org.springframework.security.oauth2.provider.ClientDetails;
 import org.springframework.security.oauth2.provider.ClientDetailsService;
 import com.ge.predix.pki.device.spi.DevicePublicKeyProvider;
+import com.ge.predix.pki.device.spi.PublicKeyNotFoundException;
+
 
 import com.fasterxml.jackson.core.type.TypeReference;
 
@@ -65,12 +68,12 @@ public class JwtBearerAssertionTokenAuthenticator {
             verifyAudience(claims, issuerURL);
             verifyTimeWindow(claims);
 
-            String publicKey = this.clientPublicKeyProvider.getPublicKey(claims.get(ClaimConstants.TENANT_ID),claims.get(ClaimConstants.SUB));
+            String publicKey = this.clientPublicKeyProvider.getPublicKey((String)claims.get(ClaimConstants.TENANT_ID),(String)claims.get(ClaimConstants.SUB));
 
             // verify signature
             SignatureVerifier verifier = getVerifier(publicKey);
             decodedToken.verifySignature(verifier);
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | PublicKeyNotFoundException e) {
             logger.error(e.getMessage());
             return false;
         }

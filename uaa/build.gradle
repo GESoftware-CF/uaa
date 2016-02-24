@@ -27,25 +27,12 @@ eclipse {
   }
 }
 
-repositories {
-  mavenLocal()
-  mavenCentral()
-  maven {
-   credentials {
-     username 'svc-dsp-reader'
-     password 'xeY3MegUdr'
-    }
-    url 'https://devcloud.swcoe.ge.com/artifactory/predix-virtual'
-  }
-}
-
 description = 'UAA'
 dependencies {
   compile(identityServer){
     exclude(module: 'jna')
   }
   compile group: 'cglib', name: 'cglib', version:parent.cglibVersion
-  compile group: 'com.ge.predix', name: 'jwt-bearer-key-provider', version:parent.predixpublickeyProviderVersion
   runtime group: 'org.springframework.security', name: 'spring-security-config', version:parent.springSecurityVersion
   runtime group: 'org.springframework.security', name: 'spring-security-jwt', version:parent.springSecurityJwtVersion
   runtime group: 'org.springframework.retry', name: 'spring-retry', version:parent.springRetryVersion
