@@ -386,8 +386,8 @@ public class UaaAuthorizationRequestManager implements OAuth2RequestFactory {
 
     protected Set<String> extractScopes(Map<String, String> requestParameters, ClientDetails clientDetails) {
         boolean clientCredentials = 
-                OauthGrant.CLIENT_CREDENTIALS.equalsIgnoreCase(requestParameters.get(OAuth2Utils.GRANT_TYPE)) ||
-                OauthGrant.JWT_BEARER.equalsIgnoreCase(requestParameters.get(OAuth2Utils.GRANT_TYPE)) ;
+                OauthGrant.CLIENT_CREDENTIALS.equals(requestParameters.get(OAuth2Utils.GRANT_TYPE)) ||
+                OauthGrant.JWT_BEARER.equals(requestParameters.get(OAuth2Utils.GRANT_TYPE)) ;
         
         Set<String> scopes = OAuth2Utils.parseParameterList(requestParameters.get(OAuth2Utils.SCOPE));
         if ((scopes == null || scopes.isEmpty())) {

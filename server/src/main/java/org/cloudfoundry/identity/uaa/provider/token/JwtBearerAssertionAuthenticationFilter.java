@@ -29,7 +29,7 @@ public class JwtBearerAssertionAuthenticationFilter extends OncePerRequestFilter
         
         String grantType = request.getParameter("grant_type");
 
-        if (grantType.equalsIgnoreCase(OauthGrant.JWT_BEARER)) {
+        if (grantType.equals(OauthGrant.JWT_BEARER)) {
             String assertion = request.getParameter("assertion");
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (assertion != null) {
