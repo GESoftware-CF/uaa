@@ -12,14 +12,15 @@ import org.apache.commons.logging.LogFactory;
 import org.cloudfoundry.identity.uaa.oauth.OauthGrant;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.common.util.OAuth2Utils;
 import org.springframework.security.oauth2.provider.ClientDetailsService;
 import org.springframework.web.filter.OncePerRequestFilter;
+
 import com.ge.predix.pki.device.spi.DevicePublicKeyProvider;
 
 public class JwtBearerAssertionAuthenticationFilter extends OncePerRequestFilter {
 
     private final Log LOGGER = LogFactory.getLog(getClass());
- 
     private ClientDetailsService clientDetailsService;
     private DevicePublicKeyProvider publicKeyProvider;
 
@@ -27,16 +28,14 @@ public class JwtBearerAssertionAuthenticationFilter extends OncePerRequestFilter
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         
-        String grantType = request.getParameter("grant_type");
+        String grantType = request.getParameter(OAuth2Utils.GRANT_TYPE);
 
         if (grantType.equals(OauthGrant.JWT_BEARER)) {
             String assertion = request.getParameter("assertion");
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (assertion != null) {
                 authentication = performClientAuthentication(request, assertion);
-                if (authentication != null && authentication.isAuthenticated()) {
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                }
+                SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         }
         

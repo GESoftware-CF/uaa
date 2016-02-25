@@ -1,7 +1,6 @@
 package org.cloudfoundry.identity.uaa.provider.token;
 
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -19,17 +18,15 @@ import org.springframework.security.oauth2.common.exceptions.InvalidTokenExcepti
 import org.springframework.security.oauth2.provider.ClientDetails;
 import org.springframework.security.oauth2.provider.ClientDetailsService;
 import org.springframework.util.Base64Utils;
+import org.springframework.util.StringUtils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.ge.predix.pki.device.spi.DevicePublicKeyProvider;
 import com.ge.predix.pki.device.spi.PublicKeyNotFoundException;
 
-//TODO: Change this to implement AuthenticationProvider and register to authenticationManager for the http resource 
-//server in oauth-endpoints.xml
 public class JwtBearerAssertionTokenAuthenticator {
-    
-    private final Log logger = LogFactory.getLog(getClass());
 
+    private final Log logger = LogFactory.getLog(getClass());
     private ClientDetailsService clientDetailsService;
     private DevicePublicKeyProvider clientPublicKeyProvider;
     private final int maxAcceptableClockSkewSeconds = 60;
@@ -39,33 +36,45 @@ public class JwtBearerAssertionTokenAuthenticator {
     public JwtBearerAssertionTokenAuthenticator(String issuerURL) {
         this.issuerURL = issuerURL;
     }
-    
+
+    public void setClientPublicKeyProvider(DevicePublicKeyProvider clientPublicKeyProvider) {
+        this.clientPublicKeyProvider = clientPublicKeyProvider;
+    }
+
+    public void setClientDetailsService(ClientDetailsService clientDetailsService) {
+        this.clientDetailsService = clientDetailsService;
+    }
+
     public Authentication authenticate(String token) {
-        if(token != null) {
+        if (StringUtils.hasText(token)) {
             Jwt decodedToken = JwtHelper.decode(token);
             Map<String, Object> claims = JsonUtils.readValue(decodedToken.getClaims(),
                     new TypeReference<Map<String, Object>>() {
                         // Nothing to add here.
                     });
-            if(validateToken(token)) {
-                return new UsernamePasswordAuthenticationToken(claims.get(ClaimConstants.ISS), null, Collections.emptyList());
+
+            if (validateToken(token)) {
+                return new UsernamePasswordAuthenticationToken(claims.get(ClaimConstants.ISS), null,
+                        Collections.emptyList());
             }
         }
         return null;
     }
 
     private boolean validateToken(String token) {
-        // decode token
+        boolean result = false;
         try {
+            // decode token
             Jwt decodedToken = JwtHelper.decode(token);
             Map<String, Object> claims = JsonUtils.readValue(decodedToken.getClaims(),
                     new TypeReference<Map<String, Object>>() {
                         // Nothing to add here.
                     });
+
             // verify iss, aud, sub, exp
-            verifyIssuer(claims);
-            verifyAudience(claims, issuerURL);
-            verifyTimeWindow(claims);
+            assertKnownIssuer(claims);
+            assertAudience(claims, issuerURL);
+            assertTokenIsCurrent(claims);
 
             String base64UrlEncodedPublicKey = this.clientPublicKeyProvider.getPublicKey((String)claims.
                     get(ClaimConstants.TENANT_ID),(String)claims.get(ClaimConstants.SUB));
@@ -79,26 +88,19 @@ public class JwtBearerAssertionTokenAuthenticator {
             logger.error(e.getMessage());
             return false;
         }
-        return true;
-    }
-    
-    public void setClientPublicKeyProvider(DevicePublicKeyProvider clientPublicKeyProvider) {
-        this.clientPublicKeyProvider = clientPublicKeyProvider;
+        return result;
     }
 
-    public void setClientDetailsService(ClientDetailsService clientDetailsService) {
-        this.clientDetailsService = clientDetailsService;
-    }
-
-    private void verifyIssuer(Map<String, Object> claims) {
+    private void assertKnownIssuer(Map<String, Object> claims) {
         String client = (String) claims.get(ClaimConstants.ISS);
         ClientDetails expectedClient = clientDetailsService.loadClientByClientId(client);
         if (expectedClient == null) {
-            throw new InvalidTokenException("Invalid client.");
+            throw new InvalidTokenException("Unknown token issuer : " + client);
         }
     }
 
-    private void verifyAudience(Map<String, Object> claims, String issuerURL) {
+    private void assertAudience(Map<String, Object> claims, String issuerURL) {
+        @SuppressWarnings("unchecked")
         List<String> audience = (List<String>) claims.get(ClaimConstants.AUD);
         
         if (audience.size() != 1 || !audience.get(0).equals(issuerURL)) {
@@ -107,29 +109,22 @@ public class JwtBearerAssertionTokenAuthenticator {
     }
 
     private static SignatureVerifier getVerifier(final String signingKey) {
-        if (isAssymetricKey(signingKey)) {
+        if (signingKey.startsWith("-----BEGIN PUBLIC KEY-----")) {
             return new RsaVerifier(signingKey);
         }
 
         throw new IllegalArgumentException(
-                "Unsupported key detected. FastRemoteTokenService only supports RSA public keys for token verification.");
+                "No RSA public key available for token verification.");
     }
 
-    private static boolean isAssymetricKey(final String key) {
-        return key.startsWith("-----BEGIN PUBLIC KEY-----");
-    }
-
-    private void verifyTimeWindow(final Map<String, Object> claims) {
-        Date expDate = getExpDate(claims);
-        Date currentDate = new Date();
-
-        if (expDate != null && expDate.before(currentDate)) {
+    private void assertTokenIsCurrent(final Map<String, Object> claims) {
+        Integer expSeconds = (Integer) claims.get(ClaimConstants.EXP);
+        long expWithSkewMillis = (expSeconds.longValue() + this.maxAcceptableClockSkewSeconds) * 1000; 
+        long currentTime = System.currentTimeMillis();
+        
+        if ( currentTime > expWithSkewMillis) {
             throw new InvalidTokenException("Token is expired");
         }
     }
 
-    protected Date getExpDate(final Map<String, Object> claims) {
-        Integer exp = (Integer) claims.get(ClaimConstants.EXP);
-        return new Date((exp.longValue() + this.maxAcceptableClockSkewSeconds) * 1000l);
-    }
 }
