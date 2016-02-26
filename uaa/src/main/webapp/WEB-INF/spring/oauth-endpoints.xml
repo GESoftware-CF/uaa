@@ -133,9 +133,8 @@
         <property name="publicKeyProvider" ref="publicKeyProvider" />
     </bean>
     
-     <!-- Public Key Provider -->
+    <!-- Public Key Provider -->
     <import resource="classpath:META-INF/jwt-bearer-key-provider.xml" />
-    
     <bean id="publicKeyProvider" class="com.ge.predix.pki.device.provider.PredixDeviceRegistryPublicKeyProvider"/>
     
     <!-- Version of the /authorize endpoint for stateless clients such as cf

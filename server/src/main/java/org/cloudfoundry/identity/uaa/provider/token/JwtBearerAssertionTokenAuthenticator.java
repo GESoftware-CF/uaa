@@ -1,7 +1,6 @@
 package org.cloudfoundry.identity.uaa.provider.token;
 
 import java.util.Collections;
-
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -19,11 +18,11 @@ import org.springframework.security.jwt.crypto.sign.SignatureVerifier;
 import org.springframework.security.oauth2.common.exceptions.InvalidTokenException;
 import org.springframework.security.oauth2.provider.ClientDetails;
 import org.springframework.security.oauth2.provider.ClientDetailsService;
-import com.ge.predix.pki.device.spi.DevicePublicKeyProvider;
-import com.ge.predix.pki.device.spi.PublicKeyNotFoundException;
-
+import org.springframework.util.Base64Utils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.ge.predix.pki.device.spi.DevicePublicKeyProvider;
+import com.ge.predix.pki.device.spi.PublicKeyNotFoundException;
 
 //TODO: Change this to implement AuthenticationProvider and register to authenticationManager for the http resource 
 //server in oauth-endpoints.xml
@@ -68,7 +67,10 @@ public class JwtBearerAssertionTokenAuthenticator {
             verifyAudience(claims, issuerURL);
             verifyTimeWindow(claims);
 
-            String publicKey = this.clientPublicKeyProvider.getPublicKey((String)claims.get(ClaimConstants.TENANT_ID),(String)claims.get(ClaimConstants.SUB));
+            String base64UrlEncodedPublicKey = this.clientPublicKeyProvider.getPublicKey((String)claims.
+                    get(ClaimConstants.TENANT_ID),(String)claims.get(ClaimConstants.SUB));
+            // base64url decode this public key
+            String publicKey = new String(Base64Utils.decodeFromString(base64UrlEncodedPublicKey));
 
             // verify signature
             SignatureVerifier verifier = getVerifier(publicKey);

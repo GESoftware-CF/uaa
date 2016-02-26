@@ -1,17 +1,17 @@
 package org.cloudfoundry.identity.uaa.integration.feature;
 
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.cloudfoundry.identity.uaa.ServerRunning;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
+import org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants;
 import org.cloudfoundry.identity.uaa.provider.token.MockAssertionToken;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -29,10 +29,12 @@ import org.springframework.security.jwt.Jwt;
 import org.springframework.security.jwt.JwtHelper;
 import org.springframework.security.oauth2.client.OAuth2RestTemplate;
 import org.springframework.security.oauth2.common.OAuth2AccessToken;
+import org.springframework.security.oauth2.common.util.OAuth2Utils;
 import org.springframework.security.oauth2.provider.client.BaseClientDetails;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -41,10 +43,11 @@ import com.fasterxml.jackson.core.type.TypeReference;
 @ContextConfiguration(classes = DefaultIntegrationTestConfig.class)
 public class JwtBearerGrantIT {
     
+    private static final String SCOPE = "machine.m1.admin";
     private static final String GRANT_TYPE_JWT_BEARER = "urn:ietf:params:oauth:grant-type:jwt-bearer";
-    private static final String TENANT_ID = "1234";
-    private static final String ISSUER_ID = "jwt-machine-client";
-    private static final String UNREGISTERED_ISSUER_ID = "jwt-unregistered-client";
+    private static final String TENANT_ID = "t13";
+    private static final String ISSUER_ID = "d13";
+    private static final String INCORRECT_TENANT_ID = "t0";
     private static final String AUDIENCE =  "http://localhost:8080/uaa/oauth/token";
 
     @Value("${integration.test.base_url}")
@@ -60,54 +63,60 @@ public class JwtBearerGrantIT {
     
     private RestTemplate machineClient;
     
+    private HttpHeaders headers;
+    
     @Before
     public void setup() throws Exception {
-        System.out.println("baseurl:"+baseUrl);
         //create client with jwt-bearer grant
         this.adminClient = (OAuth2RestTemplate) IntegrationTestUtils.getClientCredentialsTemplate(
                 IntegrationTestUtils.getClientCredentialsResource(this.baseUrl, new String[0], "admin", "adminsecret"));
         BaseClientDetails client = new BaseClientDetails(ISSUER_ID, "none","uaa.none", 
-                GRANT_TYPE_JWT_BEARER, "machine.m1.admin", null);
+                GRANT_TYPE_JWT_BEARER, SCOPE, null);
         IntegrationTestUtils.createClient(adminClient.getAccessToken().getValue(), baseUrl, client);
+        //create rest template
+        this.machineClient = new RestTemplate();
+        this.headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        List<MediaType> acceptMediaTypes = new ArrayList<MediaType>();
+        acceptMediaTypes.add(MediaType.APPLICATION_JSON);
+        headers.setAccept(acceptMediaTypes);
+    }
+    
+    @After
+    public void cleanup() throws Exception {
+        //delete client with jwt-bearer grant
+        IntegrationTestUtils.deleteClient(this.adminClient, baseUrl, ISSUER_ID);
     }
     
     @Test
     public void testJwtBearerGrantNoPublicKey() {
         //create bearer token
-        String token = new MockAssertionToken().mockAssertionToken(UNREGISTERED_ISSUER_ID, System.currentTimeMillis() - 240000,
-                600, TENANT_ID, AUDIENCE);
+        String token = new MockAssertionToken().mockAssertionToken(ISSUER_ID, System.currentTimeMillis() - 240000,
+                600, INCORRECT_TENANT_ID, AUDIENCE);
         //call uaa/oauth/token
-        this.machineClient = new RestTemplate();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(new MediaType("application", "x-www-form-urlencoded", StandardCharsets.UTF_8));
-        List<MediaType> acceptMediaTypes = new ArrayList<MediaType>();
-        acceptMediaTypes.add(new MediaType("application", "json", StandardCharsets.UTF_8));
-        headers.setAccept(acceptMediaTypes);
         LinkedMultiValueMap<String, String> formData = new LinkedMultiValueMap<String,String>();
-        formData.add("grant_type", GRANT_TYPE_JWT_BEARER);
+        formData.add(OAuth2Utils.GRANT_TYPE, GRANT_TYPE_JWT_BEARER);
         formData.add("assertion", token);
 
-        HttpEntity<LinkedMultiValueMap<String, String>> requestEntity = new HttpEntity<>(formData, headers);
-        
-        ResponseEntity<String> response = this.machineClient.postForEntity(baseUrl + "/oauth/token",
-                requestEntity, String.class);
-        Assert.assertEquals(HttpStatus.UNAUTHORIZED,response.getStatusCode());
+        HttpEntity<LinkedMultiValueMap<String, String>> requestEntity = new HttpEntity<>(formData, this.headers);
+        try {
+            this.machineClient.postForEntity(baseUrl + "/oauth/token",requestEntity, String.class);
+        }
+        catch (HttpClientErrorException e) {
+        Assert.assertEquals(HttpStatus.UNAUTHORIZED, e.getStatusCode());
+        return;
+        }
+        Assert.fail("Expected HttpClientErrorException.");
     }
     
-//    @Test
+    @Test
     public void testJwtBearerGrantSuccess() {
         //create bearer token
         String token = new MockAssertionToken().mockAssertionToken(ISSUER_ID, System.currentTimeMillis() - 240000,
                 600, TENANT_ID, AUDIENCE);
         //call uaa/oauth/token
-        this.machineClient = new RestTemplate();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(new MediaType("application", "x-www-form-urlencoded", StandardCharsets.UTF_8));
-        List<MediaType> acceptMediaTypes = new ArrayList<MediaType>();
-        acceptMediaTypes.add(new MediaType("application", "json", StandardCharsets.UTF_8));
-        headers.setAccept(acceptMediaTypes);
         LinkedMultiValueMap<String, String> formData = new LinkedMultiValueMap<String,String>();
-        formData.add("grant_type", GRANT_TYPE_JWT_BEARER);
+        formData.add(OAuth2Utils.GRANT_TYPE, GRANT_TYPE_JWT_BEARER);
         formData.add("assertion", token);
 
         HttpEntity<LinkedMultiValueMap<String, String>> requestEntity = new HttpEntity<>(formData, headers);
@@ -121,41 +130,15 @@ public class JwtBearerGrantIT {
                 new TypeReference<Map<String, Object>>() {
                     // Nothing to add here.
                 });
-        System.out.println("Token: " + accessToken + "--------Token Type:" + accessToken.getTokenType());
-        Collection<GrantedAuthority> authorities = (Collection<GrantedAuthority>) claims.get("authorities");
-        List<String> scopes = (List<String>) claims.get("scope");
-        Assert.assertTrue(scopes.contains("machine.m1.admin"));
-        Assert.assertTrue(authorities.contains("machine.m1.admin"));
-        Assert.assertEquals(ISSUER_ID, claims.get("sub"));
-        Assert.assertEquals(ISSUER_ID, claims.get("client_id"));
-        Assert.assertEquals(GRANT_TYPE_JWT_BEARER, claims.get("grant_type"));
-        Assert.assertEquals("http://localhost:8080/uaa/oauth/token", claims.get("iss"));
+        Collection<GrantedAuthority> authorities = (Collection<GrantedAuthority>) claims.get(ClaimConstants.AUTHORITIES);
+        List<String> scopes = (List<String>) claims.get(ClaimConstants.SCOPE);
+        Assert.assertTrue(scopes.contains(SCOPE));
+        Assert.assertTrue(authorities.contains(SCOPE));
+        Assert.assertEquals(ISSUER_ID, claims.get(ClaimConstants.SUB));
+        Assert.assertEquals(ISSUER_ID, claims.get(ClaimConstants.CLIENT_ID));
+        Assert.assertEquals(GRANT_TYPE_JWT_BEARER, claims.get(ClaimConstants.GRANT_TYPE));
+        Assert.assertEquals("http://localhost:8080/uaa/oauth/token", claims.get(ClaimConstants.ISS));
         Assert.assertEquals("bearer", accessToken.getTokenType());
         Assert.assertFalse(accessToken.isExpired());
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
