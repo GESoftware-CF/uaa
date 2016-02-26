@@ -8,6 +8,7 @@ import java.util.Map;
 
 import org.cloudfoundry.identity.uaa.ServerRunning;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
+import org.cloudfoundry.identity.uaa.oauth.OauthGrant;
 import org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants;
 import org.cloudfoundry.identity.uaa.provider.token.MockAssertionToken;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
@@ -43,8 +44,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 @ContextConfiguration(classes = DefaultIntegrationTestConfig.class)
 public class JwtBearerGrantIT {
     
-    private static final String SCOPE = "machine.m1.admin";
-    private static final String GRANT_TYPE_JWT_BEARER = "urn:ietf:params:oauth:grant-type:jwt-bearer";
+    private static final String CONFIGURED_SCOPE = "machine.m1.admin";
     private static final String TENANT_ID = "t13";
     private static final String ISSUER_ID = "d13";
     private static final String INCORRECT_TENANT_ID = "t0";
@@ -61,20 +61,19 @@ public class JwtBearerGrantIT {
    
     private OAuth2RestTemplate adminClient;
     
-    private RestTemplate machineClient;
+    private RestTemplate tokenRestTemplate = new RestTemplate();
     
     private HttpHeaders headers;
     
     @Before
     public void setup() throws Exception {
-        //create client with jwt-bearer grant
+        //register client for jwt-bearer grant
         this.adminClient = (OAuth2RestTemplate) IntegrationTestUtils.getClientCredentialsTemplate(
                 IntegrationTestUtils.getClientCredentialsResource(this.baseUrl, new String[0], "admin", "adminsecret"));
         BaseClientDetails client = new BaseClientDetails(ISSUER_ID, "none","uaa.none", 
-                GRANT_TYPE_JWT_BEARER, SCOPE, null);
+                OauthGrant.JWT_BEARER, CONFIGURED_SCOPE, null);
         IntegrationTestUtils.createClient(adminClient.getAccessToken().getValue(), baseUrl, client);
-        //create rest template
-        this.machineClient = new RestTemplate();
+        
         this.headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         List<MediaType> acceptMediaTypes = new ArrayList<MediaType>();
@@ -89,24 +88,24 @@ public class JwtBearerGrantIT {
     }
     
     @Test
-    public void testJwtBearerGrantNoPublicKey() {
+    public void testJwtBearerGrantForUnknownClient() {
         //create bearer token
         String token = new MockAssertionToken().mockAssertionToken(ISSUER_ID, System.currentTimeMillis() - 240000,
                 600, INCORRECT_TENANT_ID, AUDIENCE);
+        
         //call uaa/oauth/token
         LinkedMultiValueMap<String, String> formData = new LinkedMultiValueMap<String,String>();
-        formData.add(OAuth2Utils.GRANT_TYPE, GRANT_TYPE_JWT_BEARER);
+        formData.add(OAuth2Utils.GRANT_TYPE, OauthGrant.JWT_BEARER);
         formData.add("assertion", token);
 
-        HttpEntity<LinkedMultiValueMap<String, String>> requestEntity = new HttpEntity<>(formData, this.headers);
+        HttpEntity<LinkedMultiValueMap<String, String>> requestEntity = new HttpEntity<>(formData, headers);
+        
         try {
-            this.machineClient.postForEntity(baseUrl + "/oauth/token",requestEntity, String.class);
+            this.tokenRestTemplate.postForEntity(baseUrl + "/oauth/token", requestEntity, String.class);
+            Assert.fail("authz grant with unknown client did not fail.");
+        } catch (HttpClientErrorException e) {
+            Assert.assertEquals(HttpStatus.UNAUTHORIZED, e.getStatusCode());
         }
-        catch (HttpClientErrorException e) {
-        Assert.assertEquals(HttpStatus.UNAUTHORIZED, e.getStatusCode());
-        return;
-        }
-        Assert.fail("Expected HttpClientErrorException.");
     }
     
     @Test
@@ -116,12 +115,12 @@ public class JwtBearerGrantIT {
                 600, TENANT_ID, AUDIENCE);
         //call uaa/oauth/token
         LinkedMultiValueMap<String, String> formData = new LinkedMultiValueMap<String,String>();
-        formData.add(OAuth2Utils.GRANT_TYPE, GRANT_TYPE_JWT_BEARER);
+        formData.add(OAuth2Utils.GRANT_TYPE, OauthGrant.JWT_BEARER);
         formData.add("assertion", token);
 
         HttpEntity<LinkedMultiValueMap<String, String>> requestEntity = new HttpEntity<>(formData, headers);
         
-        ResponseEntity<OAuth2AccessToken> response = this.machineClient.postForEntity(baseUrl + "/oauth/token",
+        ResponseEntity<OAuth2AccessToken> response = this.tokenRestTemplate.postForEntity(baseUrl + "/oauth/token",
                 requestEntity, OAuth2AccessToken.class);
         //verify access token received
         OAuth2AccessToken accessToken = response.getBody();
@@ -132,11 +131,11 @@ public class JwtBearerGrantIT {
                 });
         Collection<GrantedAuthority> authorities = (Collection<GrantedAuthority>) claims.get(ClaimConstants.AUTHORITIES);
         List<String> scopes = (List<String>) claims.get(ClaimConstants.SCOPE);
-        Assert.assertTrue(scopes.contains(SCOPE));
-        Assert.assertTrue(authorities.contains(SCOPE));
+        Assert.assertTrue(scopes.contains(CONFIGURED_SCOPE));
+        Assert.assertTrue(authorities.contains(CONFIGURED_SCOPE));
         Assert.assertEquals(ISSUER_ID, claims.get(ClaimConstants.SUB));
         Assert.assertEquals(ISSUER_ID, claims.get(ClaimConstants.CLIENT_ID));
-        Assert.assertEquals(GRANT_TYPE_JWT_BEARER, claims.get(ClaimConstants.GRANT_TYPE));
+        Assert.assertEquals(OauthGrant.JWT_BEARER, claims.get(ClaimConstants.GRANT_TYPE));
         Assert.assertEquals("http://localhost:8080/uaa/oauth/token", claims.get(ClaimConstants.ISS));
         Assert.assertEquals("bearer", accessToken.getTokenType());
         Assert.assertFalse(accessToken.isExpired());

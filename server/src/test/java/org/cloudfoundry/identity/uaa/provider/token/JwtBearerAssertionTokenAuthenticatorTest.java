@@ -1,7 +1,6 @@
 package org.cloudfoundry.identity.uaa.provider.token;
 
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import org.junit.Assert;
@@ -12,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.security.oauth2.provider.ClientDetailsService;
 import org.springframework.security.oauth2.provider.client.BaseClientDetails;
+import org.springframework.security.core.AuthenticationException;
 
 public class JwtBearerAssertionTokenAuthenticatorTest {
 
@@ -42,44 +42,44 @@ public class JwtBearerAssertionTokenAuthenticatorTest {
         Assert.assertNotNull(tokenAuthenticator.authenticate(token));
     }
     
-    @Test
+    @Test(expected=AuthenticationException.class)
     public void testNonExistentClient() {
         String token = new MockAssertionToken().mockAssertionToken("nonexistent-client", System.currentTimeMillis() - 240000,
                 600, TENANT_ID, AUDIENCE);
         when(clientDetailsService.loadClientByClientId(anyString())).thenReturn(null);
         this.tokenAuthenticator.setClientDetailsService(this.clientDetailsService);
-        Assert.assertNull(tokenAuthenticator.authenticate(token));
+        tokenAuthenticator.authenticate(token);
     }
 
-    @Test
+    @Test(expected=AuthenticationException.class)
     public void testInvalidSigningKey() {
         MockAssertionToken testTokenUtil = new MockAssertionToken(TestKeys.INCORRECT_TOKEN_SIGNING_KEY);
         String token = testTokenUtil.mockAssertionToken(ISSUER_ID, System.currentTimeMillis() - 240000,
                 600, TENANT_ID, AUDIENCE);
-        Assert.assertNull(tokenAuthenticator.authenticate(token));
+        tokenAuthenticator.authenticate(token);
     }
 
-    @Test
+    @Test(expected=AuthenticationException.class)
     public void testMissingToken() {
-        Assert.assertNull(tokenAuthenticator.authenticate(null));
+        tokenAuthenticator.authenticate(null);
     }
 
-    @Test
+    @Test(expected=AuthenticationException.class)
     public void testExpiredToken() {
         MockAssertionToken testTokenUtil = new MockAssertionToken();
         String token = testTokenUtil.mockAssertionToken(ISSUER_ID, System.currentTimeMillis() - 240000,
                 60, TENANT_ID, AUDIENCE);
         tokenAuthenticator.setClientDetailsService(this.clientDetailsService);
-        Assert.assertNull(tokenAuthenticator.authenticate(token));
+        tokenAuthenticator.authenticate(token);
     }
 
-    @Test
+    @Test(expected=AuthenticationException.class)
     public void testAudienceMismatch() {
         MockAssertionToken testTokenUtil = new MockAssertionToken();
         String token = testTokenUtil.mockAssertionToken(ISSUER_ID, System.currentTimeMillis() - 240000,
                 600, TENANT_ID, "https://zone1.wrong-uaa.com");
         tokenAuthenticator.setClientDetailsService(this.clientDetailsService);
-        Assert.assertNull(tokenAuthenticator.authenticate(token));
+        tokenAuthenticator.authenticate(token);
     }
 
 }

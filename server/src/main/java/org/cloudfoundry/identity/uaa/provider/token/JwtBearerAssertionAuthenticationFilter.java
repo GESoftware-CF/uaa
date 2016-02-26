@@ -7,8 +7,6 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.cloudfoundry.identity.uaa.oauth.OauthGrant;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -20,7 +18,6 @@ import com.ge.predix.pki.device.spi.DevicePublicKeyProvider;
 
 public class JwtBearerAssertionAuthenticationFilter extends OncePerRequestFilter {
 
-    private final Log LOGGER = LogFactory.getLog(getClass());
     private ClientDetailsService clientDetailsService;
     private DevicePublicKeyProvider publicKeyProvider;
 
@@ -34,6 +31,7 @@ public class JwtBearerAssertionAuthenticationFilter extends OncePerRequestFilter
             String assertion = request.getParameter("assertion");
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (assertion != null) {
+                //This throws AuthenticationException if authentication fails.
                 authentication = performClientAuthentication(request, assertion);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
@@ -52,7 +50,6 @@ public class JwtBearerAssertionAuthenticationFilter extends OncePerRequestFilter
     }
 
     private Authentication performClientAuthentication(HttpServletRequest request, String assertion) {
-        LOGGER.debug("Validating JWT assertion from the client");
         JwtBearerAssertionTokenAuthenticator tokenAuthenticator = 
                 new JwtBearerAssertionTokenAuthenticator(request.getRequestURL().toString());
         tokenAuthenticator.setClientDetailsService(clientDetailsService);

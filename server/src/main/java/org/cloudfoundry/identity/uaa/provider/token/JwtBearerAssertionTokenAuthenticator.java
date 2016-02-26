@@ -8,8 +8,10 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.jwt.Jwt;
 import org.springframework.security.jwt.JwtHelper;
 import org.springframework.security.jwt.crypto.sign.RsaVerifier;
@@ -45,53 +47,55 @@ public class JwtBearerAssertionTokenAuthenticator {
         this.clientDetailsService = clientDetailsService;
     }
 
-    public Authentication authenticate(String token) {
-        if (StringUtils.hasText(token)) {
-            Jwt decodedToken = JwtHelper.decode(token);
-            Map<String, Object> claims = JsonUtils.readValue(decodedToken.getClaims(),
-                    new TypeReference<Map<String, Object>>() {
-                        // Nothing to add here.
-                    });
-
-            if (validateToken(token)) {
-                return new UsernamePasswordAuthenticationToken(claims.get(ClaimConstants.ISS), null,
-                        Collections.emptyList());
-            }
-        }
-        return null;
-    }
-
-    private boolean validateToken(String token) {
-        boolean result = false;
+    /**
+     * @return An Authentication object if authentication is successful
+     * @throws AuthenticationException if authentication failed
+     */
+    public Authentication authenticate(String token) throws AuthenticationException {
+        Jwt jwt = null;
         try {
-            // decode token
-            Jwt decodedToken = JwtHelper.decode(token);
-            Map<String, Object> claims = JsonUtils.readValue(decodedToken.getClaims(),
-                    new TypeReference<Map<String, Object>>() {
-                        // Nothing to add here.
-                    });
+            if (StringUtils.hasText(token)) {
+                jwt = JwtHelper.decode(token);
+                Map<String, Object> claims = JsonUtils.readValue(jwt.getClaims(),
+                        new TypeReference<Map<String, Object>>() {
+                            // Nothing to add here.
+                        });
 
-            // verify iss, aud, sub, exp
-            assertKnownIssuer(claims);
-            assertAudience(claims, issuerURL);
-            assertTokenIsCurrent(claims);
-
-            String base64UrlEncodedPublicKey = this.clientPublicKeyProvider.getPublicKey((String)claims.
-                    get(ClaimConstants.TENANT_ID),(String)claims.get(ClaimConstants.SUB));
-            // base64url decode this public key
-            String publicKey = new String(Base64Utils.decodeFromString(base64UrlEncodedPublicKey));
-
-            // verify signature
-            SignatureVerifier verifier = getVerifier(publicKey);
-            decodedToken.verifySignature(verifier);
-        } catch (RuntimeException | PublicKeyNotFoundException e) {
-            logger.error(e.getMessage());
-            return false;
+                assertValidToken(jwt, claims);
+                
+                return new UsernamePasswordAuthenticationToken(claims.get(ClaimConstants.ISS), null,
+                        //Authorities are populated later?
+                        Collections.emptyList());
+            } 
+        } catch (RuntimeException e) {
+            logger.debug("Validation failed for jwt-bearer assertion token. token:{"+jwt+"} error: "+e);
         }
-        return result;
+
+        //Do not include error detail in this exception.
+        throw new BadCredentialsException("Authentication of client failed.");
+    }
+    
+
+    private String getPublicKey(Map<String, Object> claims)  {
+        String base64UrlEncodedPublicKey;
+        try {
+            base64UrlEncodedPublicKey = this.clientPublicKeyProvider.getPublicKey((String)claims.
+                    get(ClaimConstants.TENANT_ID),(String)claims.get(ClaimConstants.SUB));
+        } catch (PublicKeyNotFoundException e) {
+            throw new InvalidTokenException("Unknown client.");
+        }
+        // base64url decode this public key
+        return new String(Base64Utils.decodeFromString(base64UrlEncodedPublicKey));
+    }
+    
+    private void assertValidToken(Jwt jwt, Map<String, Object> claims) {
+        assertJwtIssuer(claims);
+        assertAudience(claims, issuerURL);
+        assertTokenIsCurrent(claims);
+        jwt.verifySignature(getVerifier(getPublicKey(claims)));
     }
 
-    private void assertKnownIssuer(Map<String, Object> claims) {
+    private void assertJwtIssuer(Map<String, Object> claims) {
         String client = (String) claims.get(ClaimConstants.ISS);
         ClientDetails expectedClient = clientDetailsService.loadClientByClientId(client);
         if (expectedClient == null) {
@@ -112,9 +116,7 @@ public class JwtBearerAssertionTokenAuthenticator {
         if (signingKey.startsWith("-----BEGIN PUBLIC KEY-----")) {
             return new RsaVerifier(signingKey);
         }
-
-        throw new IllegalArgumentException(
-                "No RSA public key available for token verification.");
+        throw new InvalidTokenException("No RSA public key available for token verification.");
     }
 
     private void assertTokenIsCurrent(final Map<String, Object> claims) {
