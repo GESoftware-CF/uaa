@@ -619,7 +619,7 @@ This endpoint mirrors the OpenID Connect ``/check_id`` endpoint, so not very RES
         POST /check_token HTTP/1.1
         Host: server.example.com
         Authorization: Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==
-        Content-Type: application/x-www-form-encoded
+        Content-Type: application/x-www-form-urlencoded
 
         token=eyJ0eXAiOiJKV1QiL
 
@@ -2013,7 +2013,7 @@ ENDPOINT DEPRECATED - Will always return score:0 and requiredScore:0
 
     POST /password/score HTTP/1.1
     Host: uaa.example.com
-    Content-Type: application/x-www-form-encoded
+    Content-Type: application/x-www-form-urlencoded
 
     password=password1&userData=jane,janesdogsname,janescity
 
