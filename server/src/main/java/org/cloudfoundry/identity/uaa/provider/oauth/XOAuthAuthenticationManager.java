@@ -64,7 +64,7 @@ import static org.cloudfoundry.identity.uaa.oauth.token.CompositeAccessToken.ID_
 import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.GROUP_ATTRIBUTE_NAME;
 import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.USER_NAME_ATTRIBUTE_PREFIX;
 import static org.cloudfoundry.identity.uaa.util.TokenValidation.validate;
-import static org.cloudfoundry.identity.uaa.util.UaaHttpRequestUtils.getNoValidatingClientHttpRequestFactory;
+import static org.cloudfoundry.identity.uaa.util.UaaHttpRequestUtils.createRequestFactory;
 
 public class XOAuthAuthenticationManager extends ExternalLoginAuthenticationManager {
 
@@ -271,12 +271,12 @@ public class XOAuthAuthenticationManager extends ExternalLoginAuthenticationMana
         }
 
         try {
-            if (config.isSkipSslValidation()) {
-                restTemplate.setRequestFactory(getNoValidatingClientHttpRequestFactory());
-            }
-            ResponseEntity<Map<String, String>> responseEntity = restTemplate.exchange(requestUri, HttpMethod.POST, requestEntity, new ParameterizedTypeReference<Map<String, String>>() {});
+            restTemplate.setRequestFactory(createRequestFactory(config.isSkipSslValidation()));
+            ResponseEntity<Map<String, String>> responseEntity = restTemplate.exchange(requestUri, HttpMethod.POST,
+                    requestEntity, new ParameterizedTypeReference<Map<String, String>>() {
+                    });
             return responseEntity.getBody().get(ID_TOKEN);
-        } catch (HttpServerErrorException|HttpClientErrorException ex) {
+        } catch (HttpServerErrorException | HttpClientErrorException ex) {
             throw ex;
         }
     }
