@@ -1,6 +1,6 @@
 # Configuration in this file ixs overridden by an external file
 # if any of these exist:
-# [$UAA_CONFIG_URL, $UAA_CONFIG_PATH/uaa.yml, $CLOUD_FOUNDRY_CONFIG_PATH/uaa.yml]
+
 
 device:
   assertion:
@@ -19,6 +19,11 @@ device:
 #spring_profiles: ldap,default,hsqldb
 #spring_profiles: saml
 #spring_profiles: keystone,default,hsqldb
+#database:
+#  driverClassName: org.mariadb.jdbc.Driver
+#  url: jdbc:mysql://localhost:8889/uaa
+#  username: test
+#  password: test
 
 #database:
 #  driverClassName: org.postgresql.Driver

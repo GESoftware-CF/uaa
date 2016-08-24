@@ -2,8 +2,13 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head lang="en">
     <meta charset="UTF-8" />
+
 </head>
 <body>
+  <div class="box box--has-header u-m">
+    	<div class="top-header u-pv">
+    		<a href="https://predix.io" target="_blank" class="brand">Predix</a>
+    	</div>
 <p>
     A request has been made to change the email for <th:block th:text="${servicePhrase}">an ExampleService</th:block> from <th:block th:text="${email}">user@example.com</th:block> to <th:block th:text="${newEmail}">new@example.com</th:block>.
 </p>
@@ -16,8 +21,9 @@
     If you did not make this request, simply ignore this message and your old email will continue to work.
 </p>
 <p>
-    Thank you,<br />
-    <th:block th:text="${serviceName}">The Administration</th:block>
+Thank you,<br />
+  <th:block th:text="${serviceName}">The Administration</th:block>
 </p>
+</div>
 </body>
 </html>

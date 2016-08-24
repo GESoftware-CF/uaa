@@ -8,7 +8,7 @@
  *     This product includes a number of subcomponents with
  *     separate copyright notices and license terms. Your use of these
  *     subcomponents is subject to the terms and conditions of the
- *     subcomponent's license, as noted in the LICENSE file.
+ *     subcomponent's license, as noted in  the LICENSE file.
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.integration.feature;
 
@@ -138,12 +138,12 @@ public class LoginIT {
         assertEquals("Predix", webDriver.getTitle());
 
         //assert Predix logo
-        assertThat(webDriver.findElement(By.id("logo-header")).getCssValue("background"), 
-                   Matchers.containsString("Predix_Halo_Wordmark.svg"));
+        assertThat(webDriver.findElement(By.id("logo-header")).getCssValue("background"),
+                   Matchers.containsString("predix-word.svg"));
 
         attemptLogin(testAccounts.getUserName(), testAccounts.getPassword());
 
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), 
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(),
                    Matchers.containsString("You should not see this page. Set up your redirect URI."));
     }
 
