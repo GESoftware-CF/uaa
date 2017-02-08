@@ -13,6 +13,8 @@
 package org.cloudfoundry.identity.uaa.authentication;
 
 import java.io.IOException;
+import java.sql.Timestamp;
+import java.util.Calendar;
 
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
@@ -21,9 +23,13 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.cloudfoundry.identity.uaa.authentication.manager.LoginPolicy;
 import org.cloudfoundry.identity.uaa.authentication.manager.LoginPolicy.Result;
+import org.cloudfoundry.identity.uaa.oauth.client.ClientConstants;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.codec.Base64;
+import org.springframework.security.oauth2.provider.ClientDetailsService;
+import org.springframework.security.oauth2.provider.ClientRegistrationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 
@@ -36,6 +42,8 @@ import org.springframework.security.web.authentication.www.BasicAuthenticationFi
 public class ClientBasicAuthenticationFilter extends BasicAuthenticationFilter {
 
     protected LoginPolicy loginPolicy;
+
+    protected ClientDetailsService clientDetailsService;
 
     public ClientBasicAuthenticationFilter(AuthenticationManager authenticationManager,
             AuthenticationEntryPoint authenticationEntryPoint) {
@@ -55,12 +63,15 @@ public class ClientBasicAuthenticationFilter extends BasicAuthenticationFilter {
             }
 
             String[] decodedHeader = extractAndDecodeHeader(header, request);
+            //Validate against client lockout policy
             String clientId = decodedHeader[0];
             Result policyResult = loginPolicy.isAllowed(clientId);
             if(!policyResult.isAllowed()){
                 throw new ClientLockoutException("Client " + clientId + " has "
                         + policyResult.getFailureCount() + " failed authentications within the last checking period.");
             }
+
+            //TODO Validate against client secret expiration in the zone configured client secret policy
         } catch(BadCredentialsException e) {
             super.getAuthenticationEntryPoint().commence(request, response, e);
             return;
@@ -75,6 +86,14 @@ public class ClientBasicAuthenticationFilter extends BasicAuthenticationFilter {
 
     public void setLoginPolicy(LoginPolicy loginPolicy) {
         this.loginPolicy = loginPolicy;
+    }
+
+    public ClientDetailsService getClientDetailsService() {
+        return clientDetailsService;
+    }
+
+    public void setClientDetailsService(ClientDetailsService clientDetailsService) {
+        this.clientDetailsService = clientDetailsService;
     }
 
     private String[] extractAndDecodeHeader(String header, HttpServletRequest request)

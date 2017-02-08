@@ -18,6 +18,7 @@ import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.resources.QueryableResourceManager;
 import org.cloudfoundry.identity.uaa.security.DefaultSecurityContextAccessor;
 import org.cloudfoundry.identity.uaa.security.SecurityContextAccessor;
+import org.cloudfoundry.identity.uaa.zone.ClientSecretValidator;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.oauth2.provider.ClientDetails;
@@ -56,6 +57,7 @@ public class ClientAdminEndpointsValidator implements InitializingBean, ClientDe
 
     private static final Collection<String> NON_ADMIN_VALID_AUTHORITIES = new HashSet<>(Arrays.asList("uaa.none"));
 
+    private ClientSecretValidator clientSecretValidator;
 
     private QueryableResourceManager<ClientDetails> clientDetailsService;
 
@@ -82,8 +84,8 @@ public class ClientAdminEndpointsValidator implements InitializingBean, ClientDe
     }
 
     /* (non-Javadoc)
-     * @see org.cloudfoundry.identity.uaa.oauth.ClientDetailsValidatorInterface#validate(org.springframework.security.oauth2.provider.ClientDetails, boolean)
-     */
+         * @see org.cloudfoundry.identity.uaa.oauth.ClientDetailsValidatorInterface#validate(org.springframework.security.oauth2.provider.ClientDetails, boolean)
+         */
     @Override
     public ClientDetails validate(ClientDetails prototype, Mode mode) {
         return validate(prototype, mode == Mode.CREATE, true);
@@ -216,11 +218,13 @@ public class ClientAdminEndpointsValidator implements InitializingBean, ClientDe
         }
         if (create) {
             // Only check for missing secret if client is being created.
-            if ((requestedGrantTypes.contains("client_credentials") || requestedGrantTypes
-                            .contains("authorization_code"))
-                            && !StringUtils.hasText(client.getClientSecret())) {
-                throw new InvalidClientDetailsException(
-                                "Client secret is required for client_credentials and authorization_code grant types");
+            if (requestedGrantTypes.contains("client_credentials") || requestedGrantTypes
+                            .contains("authorization_code")) {
+                if(!StringUtils.hasText(client.getClientSecret())) {
+                    throw new InvalidClientDetailsException(
+                            "Client secret is required for client_credentials and authorization_code grant types");
+                }
+                clientSecretValidator.validate(client.getClientSecret());
             }
         }
 
@@ -237,5 +241,12 @@ public class ClientAdminEndpointsValidator implements InitializingBean, ClientDe
         }
     }
 
+    @Override
+    public ClientSecretValidator getClientSecretValidator() {
+        return this.clientSecretValidator;
+    }
 
+    public void setClientSecretValidator(ClientSecretValidator clientSecretValidator) {
+        this.clientSecretValidator = clientSecretValidator;
+    }
 }

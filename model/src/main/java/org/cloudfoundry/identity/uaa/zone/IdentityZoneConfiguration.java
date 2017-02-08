@@ -25,6 +25,7 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class IdentityZoneConfiguration {
 
+    private ClientSecretPolicy clientSecretPolicy = new ClientSecretPolicy();
     private LockoutPolicy clientLockoutPolicy = new LockoutPolicy();
     private TokenPolicy tokenPolicy = new TokenPolicy();
     private SamlConfig samlConfig = new SamlConfig();
@@ -44,6 +45,15 @@ public class IdentityZoneConfiguration {
     public IdentityZoneConfiguration(TokenPolicy tokenPolicy) {
         this.tokenPolicy = tokenPolicy;
     }
+
+    public ClientSecretPolicy getClientSecretPolicy() {
+        return clientSecretPolicy;
+    }
+
+    public void setClientSecretPolicy(ClientSecretPolicy clientSecretPolicy) {
+        this.clientSecretPolicy = clientSecretPolicy;
+    }
+
 
     public LockoutPolicy getClientLockoutPolicy() {
         return clientLockoutPolicy;
