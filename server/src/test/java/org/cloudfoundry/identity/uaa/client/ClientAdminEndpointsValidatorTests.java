@@ -16,6 +16,9 @@ package org.cloudfoundry.identity.uaa.client;
 
 import org.cloudfoundry.identity.uaa.resources.QueryableResourceManager;
 import org.cloudfoundry.identity.uaa.security.SecurityContextAccessor;
+import org.cloudfoundry.identity.uaa.zone.ClientSecretPolicy;
+import org.cloudfoundry.identity.uaa.zone.ClientSecretValidator;
+import org.cloudfoundry.identity.uaa.zone.ZoneAwareClientSecretPolicyValidator;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -38,6 +41,7 @@ public class ClientAdminEndpointsValidatorTests {
     BaseClientDetails client;
     BaseClientDetails caller;
     ClientAdminEndpointsValidator validator;
+    ClientSecretValidator secretValidator;
 
     @Before
     public void createClient() throws Exception {
@@ -45,6 +49,8 @@ public class ClientAdminEndpointsValidatorTests {
         client.setClientSecret("secret");
         caller = new BaseClientDetails("caller","","","client_credentials","clients.write");
         validator = new ClientAdminEndpointsValidator();
+        secretValidator = new ZoneAwareClientSecretPolicyValidator(new ClientSecretPolicy(0,255,0,0,0,0,6));
+        validator.setClientSecretValidator(secretValidator);
 
         QueryableResourceManager<ClientDetails> clientDetailsService = mock(QueryableResourceManager.class);
         SecurityContextAccessor accessor = mock(SecurityContextAccessor.class);
@@ -71,7 +77,7 @@ public class ClientAdminEndpointsValidatorTests {
 
 
 
-        @Test
+    @Test
     public void testValidate_Should_Allow_Prefix_Names() throws Exception {
 
         client.setAuthorities(Arrays.asList(new SimpleGrantedAuthority("uaa.resource")));

@@ -32,4 +32,14 @@ oauth:
       scope: scim.read,scim.write,password.write
       authorities: uaa.resource,scim.read,scim.write,password.write
       resource-ids: none
-  
+
+client:
+  secret:
+    policy:
+      minLength: 0
+      maxLength: 7
+      requireUpperCaseCharacter: 0
+      requireLowerCaseCharacter: 0
+      requireDigit: 0
+      requireSpecialCharacter: 0
+      expireSecretInMonths: 6
