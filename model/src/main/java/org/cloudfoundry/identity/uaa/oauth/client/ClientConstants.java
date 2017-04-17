@@ -19,5 +19,6 @@ public class ClientConstants {
     public static final String CLIENT_NAME = "name";
     public static final String APPROVALS_DELETED = "approvals_deleted";
     public static final String TOKEN_SALT = "token_salt";
+    public static final String LAST_MODIFIED = "lastModified";
     public static final String ALLOWED_DEVICE_ID = "allowed_device_id";
 }

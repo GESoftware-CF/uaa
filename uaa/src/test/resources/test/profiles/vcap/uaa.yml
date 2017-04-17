@@ -46,4 +46,15 @@ oauth:
       id: admin
       secret: adminsecret
       resource-ids: clients,tokens
+
+client:
+  secret:
+    policy:
+      minLength: 0
+      maxLength: 7
+      requireUpperCaseCharacter: 0
+      requireLowerCaseCharacter: 0
+      requireDigit: 0
+      requireSpecialCharacter: 0
+      expireSecretInMonths: 6
   

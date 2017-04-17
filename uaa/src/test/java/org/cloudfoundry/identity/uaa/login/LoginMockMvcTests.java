@@ -49,6 +49,7 @@ import org.cloudfoundry.identity.uaa.zone.Links;
 import org.cloudfoundry.identity.uaa.zone.MultitenancyFixture;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -70,9 +71,11 @@ import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 import org.springframework.security.web.savedrequest.DefaultSavedRequest;
 import org.springframework.security.web.savedrequest.SavedRequest;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.ResultMatcher;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.result.MockMvcResultHandlers;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.context.support.XmlWebApplicationContext;
@@ -84,6 +87,7 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.sql.Timestamp;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -353,6 +357,7 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
             .andExpect(content().string(not(containsString("/create_account"))));
     }
 
+    @Ignore  //Predix branding uses css for logo, need a way to assert on css.
     @Test
     public void testDefaultLogo() throws Exception {
         mockEnvironment.setProperty("assetBaseUrl", "//cdn.example.com/resources");
@@ -361,6 +366,9 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
                 .andExpect(content().string(containsString("url(//cdn.example.com/resources/images/product-logo.png)")));
     }
 
+    //Predix does not use a image tag for logo, uses header.background in css. (see main.html/predix-styles.css)
+    //Adding a assertion in LoginIT for custom logo.
+    @Ignore
     @Test
     public void testCustomLogo() throws Exception {
         setZoneFavIconAndProductLogo(null, "/bASe/64+");
@@ -383,7 +391,9 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
 
         getMockMvc().perform(get("/login"))
             .andExpect(content().string(allOf(containsString("<link href=\"data:image/png;base64,/sM4\n\nlL==\" rel=\"shortcut icon\""), not(containsString("square-logo.png")))))
-            .andExpect(content().string(allOf(containsString("style>.header-image {background-image: url(data:image/png;base64,/sM4lL==);}</style>"), not(containsString("product-logo.png")))));
+            //background image set in predix-styles.css, doesn't show in html
+            //.andExpect(content().string(allOf(containsString("style>.header-image {background-image: url(data:image/png;base64,/sM4lL==);}</style>"), not(containsString("product-logo.png")))));
+            ;
     }
 
     private void setZoneFavIconAndProductLogo(String favIcon, String productLogo) throws Exception {
@@ -395,15 +405,18 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
     }
 
 
-    private static final String defaultCopyrightTemplate =  "Copyright &#169; %s";
-    private static final String cfCopyrightText = String.format(defaultCopyrightTemplate, "CloudFoundry.org Foundation, Inc.");
+    private static final String defaultCopyrightTemplate =  "Copyright &#169; %d %s";
+    private static final int currentYear = Calendar.getInstance().get(Calendar.YEAR);
+    private static final String cfCopyrightText = String.format(defaultCopyrightTemplate, currentYear, "CloudFoundry.org Foundation, Inc.");
 
+    @Ignore //footer is setup as predix. see testPredixCopyright
     @Test
     public void testDefaultFooter() throws Exception {
         getMockMvc().perform(get("/login"))
                 .andExpect(content().string(containsString(cfCopyrightText)));
     }
 
+    @Ignore // not used by predix-uaa.
     @Test
     public void testCustomizedFooter() throws Exception {
         String customFooterText = "This text should be in the footer.";
@@ -416,6 +429,7 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
                 .andExpect(content().string(allOf(containsString(customFooterText), not(containsString(cfCopyrightText)))));
     }
 
+    @Ignore //Test Predix branding, instead. see #testPredixCopyright
     @Test
     public void testCustomCompanyName() throws Exception {
         String companyName = "Big Company";
@@ -424,9 +438,15 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
         identityZoneConfiguration.setBranding(branding);
         setZoneConfiguration(identityZoneConfiguration);
 
-        String expectedFooterText = String.format(defaultCopyrightTemplate, companyName);
+        String expectedFooterText = String.format(defaultCopyrightTemplate, currentYear, companyName);
         getMockMvc().perform(get("/login"))
             .andExpect(content().string(allOf(containsString(expectedFooterText))));
+    }
+
+    private static final String predixCopyright =  "Copyright \u00a9 2016 General Electric Company. All rights reserved.";
+    @Test
+    public void testPredixCopyright() throws Exception {
+        getMockMvc().perform(get("/login")) .andExpect(content().string(allOf(containsString(predixCopyright))));
     }
 
     @Test
@@ -445,7 +465,7 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
 
         IdentityZone identityZone = setupZone(config);
 
-        String expectedFooterText = String.format(defaultCopyrightTemplate, zoneCompanyName);
+        String expectedFooterText = String.format(defaultCopyrightTemplate, currentYear, zoneCompanyName);
 
         getMockMvc().perform(get("/login").accept(TEXT_HTML).with(new SetServerNameRequestPostProcessor(identityZone.getSubdomain() + ".localhost")))
           .andExpect(status().isOk())
@@ -463,9 +483,8 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
         identityZoneConfiguration.setBranding(branding);
         setZoneConfiguration(identityZoneConfiguration);
 
-        getMockMvc().perform(get("/login")).andExpect(content().string(containsString("\n" +
-                "          <a href=\"/privacy\">Privacy</a>\n" +
-                "          &mdash; <a href=\"/terms.html\">Terms of Use</a>")));
+        getMockMvc().perform(get("/login")).andExpect(content().string(containsString("<a href=\"/privacy\">Privacy</a>")));
+        getMockMvc().perform(get("/login")).andExpect(content().string(containsString("<a href=\"/terms.html\">Terms of Use</a>")));
     }
 
     @Test
@@ -689,7 +708,7 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
         try {
             String clientId = generator.generate();
             String accessToken = MockMvcUtils.getClientOAuthAccessToken(getMockMvc(), "admin", "adminsecret", "");
-            BaseClientDetails client = new BaseClientDetails(clientId, "", "", "client_credentials", "uaa.none", "http://*.wildcard.testing,http://testing.com");
+            BaseClientDetails client = new BaseClientDetails(clientId, "", "", "authorization_code", "uaa.none", "http://*.wildcard.testing,http://testing.com");
             client.setClientSecret(clientId);
             MockMvcUtils.createClient(getMockMvc(), accessToken, client);
             getMockMvc().perform(
@@ -819,19 +838,26 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
                 .andExpect(xpath("//body/script[contains(text(),'example.com')]").exists());
     }
 
+    @Ignore //conflicts with predix branding
     @Test
     public void testDefaultAndExternalizedBranding() throws Exception {
+        mockEnvironment.setProperty("assetBaseUrl", "/resources/oss");
+
         getMockMvc().perform(MockMvcRequestBuilders.get("/login"))
             .andExpect(xpath("//head/link[@rel='shortcut icon']/@href").string("/resources/oss/images/square-logo.png"))
-            .andExpect(xpath("//head/link[@href='/resources/oss/stylesheets/application.css']").exists())
-            .andExpect(xpath("//head/style[text()[contains(.,'/resources/oss/images/product-logo.png')]]").exists());
+            .andExpect(xpath("//head/link[@href='/resources/oss/stylesheets/application.css']").exists());
+
+            // no style tag in login page with predix.
+            //.andExpect(xpath("//head/style[text()[contains(.,'/resources/oss/images/product-logo.png')]]").exists());
 
         mockEnvironment.setProperty("assetBaseUrl", "//cdn.example.com/pivotal");
 
         getMockMvc().perform(MockMvcRequestBuilders.get("/login"))
             .andExpect(xpath("//head/link[@rel='shortcut icon']/@href").string("//cdn.example.com/pivotal/images/square-logo.png"))
-            .andExpect(xpath("//head/link[@href='//cdn.example.com/pivotal/stylesheets/application.css']").exists())
-            .andExpect(xpath("//head/style[text()[contains(.,'//cdn.example.com/pivotal/images/product-logo.png')]]").exists());
+            .andExpect(xpath("//head/link[@href='//cdn.example.com/pivotal/stylesheets/application.css']").exists());
+
+            // see comment above
+            //.andExpect(xpath("//head/style[text()[contains(.,'//cdn.example.com/pivotal/images/product-logo.png')]]").exists());
     }
 
     @Test
@@ -1214,6 +1240,12 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
 
         MockMvcUtils.IdentityZoneCreationResult identityZoneCreationResult = MockMvcUtils.createOtherIdentityZoneAndReturnResult("puppy-" + new RandomValueStringGenerator().generate(), getMockMvc(), getWebApplicationContext(), zoneAdminClient);
         IdentityZone identityZone = identityZoneCreationResult.getIdentityZone();
+        
+        IdentityZoneConfiguration config = new IdentityZoneConfiguration();
+        config.setIdpDiscoveryEnabled(true);
+        
+        identityZone.setConfig(config);
+        getWebApplicationContext().getBean(IdentityZoneProvisioning.class).update(identityZone);
 
         String zoneAdminToken = identityZoneCreationResult.getZoneAdminToken();
 
@@ -1257,9 +1289,77 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
                         )
                 );
         IdentityZoneHolder.clear();
+    }
+
+    @Test
+    public void testLoginHintFallbackToLoginPage() throws Exception {
+        final String zoneAdminClientId = "admin";
+        BaseClientDetails zoneAdminClient = new BaseClientDetails(zoneAdminClientId, null, "openid", "client_credentials,authorization_code", "clients.admin,scim.read,scim.write","http://test.redirect.com");
+        zoneAdminClient.setClientSecret("admin-secret");
+
+        MockMvcUtils.IdentityZoneCreationResult identityZoneCreationResult = MockMvcUtils.createOtherIdentityZoneAndReturnResult("puppy-" + new RandomValueStringGenerator().generate(), getMockMvc(), getWebApplicationContext(), zoneAdminClient);
+        IdentityZone identityZone = identityZoneCreationResult.getIdentityZone();
+
+        IdentityZoneConfiguration config = new IdentityZoneConfiguration();
+        config.setIdpDiscoveryEnabled(true);
+        
+        identityZone.setConfig(config);
+        getWebApplicationContext().getBean(IdentityZoneProvisioning.class).update(identityZone);
+
+        String zoneAdminToken = identityZoneCreationResult.getZoneAdminToken();
+
+        OIDCIdentityProviderDefinition definition = new OIDCIdentityProviderDefinition();
+
+        definition.setAuthUrl(new URL("http://auth.url"));
+        definition.setTokenUrl(new URL("http://token.url"));
+        definition.setTokenKey("key");
+        definition.setRelyingPartyId("uaa");
+        definition.setRelyingPartySecret("secret");
+        definition.setShowLinkText(false);
+        definition.setScopes(asList("openid", "roles"));
+        String oauthAlias = "login-oauth-" + generator.generate();
+
+        IdentityProvider<OIDCIdentityProviderDefinition> oauthIdentityProvider = MultitenancyFixture.identityProvider(oauthAlias, "uaa");
+        oauthIdentityProvider.setConfig(definition);
+        oauthIdentityProvider.setActive(true);
+        oauthIdentityProvider.getConfig().setEmailDomain(singletonList("example.com"));
+
+        MockMvcUtils.createIdpUsingWebRequest(getMockMvc(), identityZone.getId(), zoneAdminToken, oauthIdentityProvider, status().isCreated());
+
+        IdentityZoneHolder.set(identityZone);
+
+        MockHttpSession session = new MockHttpSession();
+        SavedRequest savedRequest = mock(DefaultSavedRequest.class);
+        when(savedRequest.getParameterValues("login_hint")).thenReturn(new String[] { "other.com" });
+        session.putValue(SAVED_REQUEST_SESSION_ATTRIBUTE, savedRequest);
 
 
+        MvcResult result = getMockMvc().perform(get("/")
+                .accept(TEXT_HTML)
+                .session(session)
+                .servletPath("")
+                .param("login_hint", "other.com")
+                .with(new SetServerNameRequestPostProcessor(identityZone.getSubdomain() + ".localhost"))
+        )
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("http://" + identityZone.getSubdomain() + ".localhost/login")).andReturn();
 
+        MockHttpSession redirectSession = new MockHttpSession();
+        SavedRequest redirectSavedRequest = mock(DefaultSavedRequest.class);
+        when(redirectSavedRequest.getParameterValues("login_hint")).thenReturn(new String[] { "other.com" });
+        redirectSession.putValue(SAVED_REQUEST_SESSION_ATTRIBUTE, redirectSavedRequest);
+        
+        MvcResult result2 = getMockMvc().perform(get(result.getResponse().getRedirectedUrl())
+                .accept(TEXT_HTML)
+                .session(redirectSession)
+                .param("login_hint", "other.com")
+                .servletPath("/login")
+                .cookie(result.getResponse().getCookies())
+                .with(new SetServerNameRequestPostProcessor(identityZone.getSubdomain() + ".localhost"))
+        ).andReturn();
+        System.out.println("result2 " + result2.getResponse().getContentAsString());
+        //.andExpect(xpath("//input[@name='password']").exists()).andReturn();
+        IdentityZoneHolder.clear();
     }
 
     @Test
@@ -1866,7 +1966,6 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
                 .andExpect(view().name("idp_discovery/email"))
                 .andExpect(content().string(containsString("Sign in")))
                 .andExpect(xpath("//input[@name='email']").exists())
-                .andExpect(xpath("//div[@class='action']//a").string("Create account"))
                 .andExpect(xpath("//input[@type='submit']/@value").string("Next"));
     }
 
@@ -1896,7 +1995,7 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
         BaseClientDetails client = new BaseClientDetails(clientId, "", "", "client_credentials", "uaa.none", "http://*.wildcard.testing,http://testing.com");
         client.setClientSecret("secret");
         client.addAdditionalInformation(ClientConstants.CLIENT_NAME, clientName);
-        MockMvcUtils.createClient(getMockMvc(), adminToken, client, zone);
+        MockMvcUtils.createClient(getMockMvc(), adminToken, client, zone, status().isCreated());
 
         SavedRequest savedRequest = getSavedRequest(client);
         session.setAttribute(SAVED_REQUEST_SESSION_ATTRIBUTE, savedRequest);
@@ -1909,7 +2008,6 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
             .andExpect(view().name("idp_discovery/email"))
             .andExpect(content().string(containsString("Sign in to continue to "+clientName)))
             .andExpect(xpath("//input[@name='email']").exists())
-            .andExpect(xpath("//div[@class='action']//a").string("Create account"))
             .andExpect(xpath("//input[@type='submit']/@value").string("Next"));
     }
 
@@ -1926,7 +2024,7 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
         BaseClientDetails client = new BaseClientDetails(clientId, "", "", "client_credentials", "uaa.none", "http://*.wildcard.testing,http://testing.com");
         client.setClientSecret("secret");
         client.addAdditionalInformation(ClientConstants.CLIENT_NAME, clientName);
-        MockMvcUtils.createClient(getMockMvc(), adminToken, client, zone);
+        MockMvcUtils.createClient(getMockMvc(), adminToken, client, zone, status().isCreated());
 
         SavedAccountOption savedAccount = new SavedAccountOption();
         savedAccount.setEmail("test@example.org");
@@ -1954,7 +2052,7 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
         BaseClientDetails client = new BaseClientDetails(clientId, "", "", "client_credentials", "uaa.none", "http://*.wildcard.testing,http://testing.com");
         client.setClientSecret("secret");
         client.addAdditionalInformation(ClientConstants.CLIENT_NAME, clientName);
-        MockMvcUtils.createClient(getMockMvc(), adminToken, client, zone);
+        MockMvcUtils.createClient(getMockMvc(), adminToken, client, zone, status().isCreated());
 
         SavedAccountOption savedAccount = new SavedAccountOption();
         savedAccount.setEmail("test@example.org");
@@ -2118,13 +2216,20 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
 
         MockHttpSession session = setUpClientAndProviderForIdpDiscovery(originKey, zone);
 
-        getMockMvc().perform(post("/login/idp_discovery")
+        MvcResult result = getMockMvc().perform(post("/login/idp_discovery")
             .header("Accept", TEXT_HTML)
             .session(session)
             .param("email", "marissa@other.domain")
             .with(new SetServerNameRequestPostProcessor(zone.getSubdomain() + ".localhost")))
-            .andExpect(model().attributeExists("zone_name"))
-            .andExpect(view().name("idp_discovery/password"));
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/login?discoveryPerformed=true")).andReturn();
+
+        getMockMvc().perform(get(result.getResponse().getRedirectedUrl())
+                .accept(TEXT_HTML)
+                .session(session)
+        )
+                .andExpect(xpath("//input[@name='username']").exists())
+                .andExpect(xpath("//input[@name='password']").exists());
     }
 
     @Test
@@ -2151,36 +2256,18 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
     }
 
     @Test
-    public void passwordPageDisplayed_ifUaaIsFallbackIDPForEmailDomain() throws Exception {
-        getMockMvc().perform(post("/login/idp_discovery")
+    public void loginPageDisplayed_ifUaaIsFallbackIDPForEmailDomain() throws Exception {
+        MvcResult result = getMockMvc().perform(post("/login/idp_discovery")
             .header("Accept", TEXT_HTML)
             .param("email", "marissa@koala.com"))
-            .andExpect(status().isOk())
-            .andExpect(view().name("idp_discovery/password"))
-            .andExpect(xpath("//input[@name='password']").exists())
-            .andExpect(xpath("//h4[@id='email']").string("marissa@koala.com"))
-            .andExpect(xpath("//div[@class='action pull-right']//a").string("Reset password"))
-            .andExpect(xpath("//input[@type='submit']/@value").string("Sign in"));
-    }
-
-    @Test
-    public void passwordPageIdpDiscoveryEnabled_SelfServiceLinksDisabled() throws Exception {
-        setSelfServiceLinksEnabled(false);
-
-        getMockMvc().perform(post("/login/idp_discovery")
-            .header("Accept", TEXT_HTML)
-            .param("email", "marissa@koala.org"))
-            .andExpect(status().isOk())
-            .andExpect(xpath("//div[@class='action pull-right']//a").doesNotExist());
-    }
-
-    @Test
-    public void userNamePresentInPasswordPage() throws Exception {
-        getMockMvc().perform(post("/login/idp_discovery")
-            .with(cookieCsrf())
-            .param("email", "test@email.com"))
-            .andExpect(xpath("//input[@name='username']/@value").string("test@email.com"))
-            .andExpect(xpath("//input[@name='X-Uaa-Csrf']").exists());
+	        .andExpect(status().is3xxRedirection())
+	        .andExpect(redirectedUrl("/login?discoveryPerformed=true")).andReturn();
+        
+        getMockMvc().perform(get(result.getResponse().getRedirectedUrl())
+                .accept(TEXT_HTML)
+        )
+        .andExpect(xpath("//input[@name='username']").exists())
+        .andExpect(xpath("//input[@name='password']").exists());
     }
 
     @Test
@@ -2221,7 +2308,7 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
         HashSet<String> registeredRedirectUris = new HashSet<>();
         registeredRedirectUris.add("http://idp-not-allowed.localhost/");
         client.setRegisteredRedirectUri(registeredRedirectUris);
-        MockMvcUtils.createClient(getMockMvc(), adminToken, client, zone);
+        MockMvcUtils.createClient(getMockMvc(), adminToken, client, zone, status().isCreated());
 
         MockHttpServletRequestBuilder authorize = get("/oauth/authorize")
           .with(inZone)
@@ -2257,7 +2344,7 @@ public class LoginMockMvcTests extends InjectedMockContextTest {
         client.setClientSecret("secret");
         client.addAdditionalInformation(ClientConstants.CLIENT_NAME, "woohoo");
         client.addAdditionalInformation(ClientConstants.ALLOWED_PROVIDERS, asList(originKey, "other-provider", UAA, LDAP));
-        MockMvcUtils.createClient(getMockMvc(), adminToken, client, zone);
+        MockMvcUtils.createClient(getMockMvc(), adminToken, client, zone, status().isCreated());
 
         SavedRequest savedRequest = getSavedRequest(client);
         MockHttpSession session = new MockHttpSession();

@@ -12,7 +12,16 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.integration.feature;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assume.assumeTrue;
+
+import java.net.Inet4Address;
+import java.net.UnknownHostException;
+import java.util.Arrays;
+import java.util.List;
 
 import org.apache.commons.lang.StringUtils;
 import org.cloudfoundry.identity.uaa.ServerRunning;
@@ -61,16 +70,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestOperations;
 import org.springframework.web.client.RestTemplate;
 
-import java.net.Inet4Address;
-import java.net.UnknownHostException;
-import java.util.Arrays;
-import java.util.List;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assume.assumeTrue;
+import com.fasterxml.jackson.core.type.TypeReference;
 
 @RunWith(LoginServerClassRunner.class)
 @ContextConfiguration(classes = DefaultIntegrationTestConfig.class)
@@ -343,7 +343,6 @@ public class SamlLoginWithLocalIdpIT {
         ResponseEntity<CompositeAccessToken> token = restOperations.exchange(baseUrl + "/oauth/token/alias/cloudfoundry-saml-login",
                                                                              HttpMethod.POST, new HttpEntity<>(postBody, headers),
                                                                              CompositeAccessToken.class);
-
         Assert.assertEquals(HttpStatus.OK, token.getStatusCode());
         Assert.assertTrue(token.hasBody());
         provider.setActive(false);
@@ -353,7 +352,8 @@ public class SamlLoginWithLocalIdpIT {
     @Test
     public void testLocalSamlIdpLogin() throws Exception {
         ScimUser user = IntegrationTestUtils.createRandomUser(this.baseUrl);
-        testLocalSamlIdpLogin("/login", "Where to?", user.getPrimaryEmail(), "secr3T");
+        //This is modified for branding login.yml changes...
+        testLocalSamlIdpLogin("/login", "You should not see this page. Set up your redirect URI.", user.getPrimaryEmail(), "secr3T");
     }
 
     private void testLocalSamlIdpLogin(String firstUrl, String lookfor, String username, String password)
@@ -370,7 +370,8 @@ public class SamlLoginWithLocalIdpIT {
         assumeTrue("Expected testzone1/2.localhost to resolve to 127.0.0.1", doesSupportZoneDNS());
 
         webDriver.get(baseUrl + firstUrl);
-        Assert.assertEquals("Cloud Foundry", webDriver.getTitle());
+        //This is modified for branding login.yml changes...
+        Assert.assertEquals("Predix", webDriver.getTitle());
         webDriver.findElement(By.xpath("//a[text()='" + provider.getConfig().getLinkText() + "']")).click();
         webDriver.findElement(By.xpath("//h1[contains(text(), 'Welcome!')]"));
         webDriver.findElement(By.name("username")).clear();
@@ -455,7 +456,8 @@ public class SamlLoginWithLocalIdpIT {
         webDriver.findElement(By.name("username")).sendKeys(zoneUserEmail);
         webDriver.findElement(By.name("password")).sendKeys("secr3T");
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to?"));
+        //This is modified for branding login.yml changes...
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("You should not see this page. Set up your redirect URI."));
 
         webDriver.get(baseUrl + "/logout.do");
         webDriver.get(testZone1Url + "/logout.do");
@@ -565,7 +567,9 @@ public class SamlLoginWithLocalIdpIT {
         webDriver.findElement(By.name("username")).sendKeys(idpZoneUserEmail);
         webDriver.findElement(By.name("password")).sendKeys("secr3T");
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to?"));
+
+        //This is modified for branding login.yml changes...
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("You should not see this page. Set up your redirect URI."));
         Cookie afterLogin = webDriver.manage().getCookieNamed("JSESSIONID");
         assertNotNull(afterLogin);
         assertNotNull(afterLogin.getValue());
