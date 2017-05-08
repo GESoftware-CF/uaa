@@ -3,9 +3,9 @@
 <head>
     <meta http-equiv="refresh" th:content="${@loginCookieCsrfRepository.getCookieMaxAge()}" />
 </head>
-<div class="island" layout:fragment="page-content">
+<div class="login island" layout:fragment="page-content">
     <h1 th:text="${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).uaa ? 'Welcome!':'Welcome to '+zone_name+'!'}">Welcome!</h1>
-    <div class="island-content">
+    <div class="island-content predix-uaa__login">
 
         <div th:if="${error}"
              class="alert alert-error">
@@ -29,6 +29,7 @@
                    th:type="${prompt.value[0]}"
                    th:placeholder="${prompt.value[1]}"
                    th:attr="autocomplete=${(prompt.value[0] == 'password') ? 'off' : null}"
+                   th:autofocus="${iter.index} == 0"
                    class="form-control"/>
             <input type="submit" value="Sign in" class="island-button"/>
             <input th:if="${session.SPRING_SECURITY_SAVED_REQUEST}"
@@ -53,22 +54,23 @@
         </th:block>
         <div class="saml-login">
             <p th:if="${showLoginLinks==true and fieldUsernameShow}">or sign in with: </p>
-            <div th:each="idp : ${idpDefinitions}" th:if="${idp.showSamlLink}">
-                <a href="" th:href="@{saml/discovery(returnIDParam=idp,entityID=${entityID},idp=${idp.idpEntityAlias},isPassive=true)}" th:text="${idp.linkText}" class="saml-login-link">Use your corporate credentials</a>
+            <div class="u-p--" th:each="idp : ${idpDefinitions}" th:if="${idp.showSamlLink}">
+                <a href="" th:class="${fieldUsernameShow} ? 'saml-login-link' : 'btn btn--full'" th:href="@{saml/discovery(returnIDParam=idp,entityID=${entityID},idp=${idp.idpEntityAlias},isPassive=true)}" th:text="${idp.linkText}">Use your corporate credentials</a>
             </div>
-            <div th:each="oauthLink : ${oauthLinks}" >
-                <div>
-                    <a href="" th:href="${oauthLink.key}" th:text="${oauthLink.value}" class="saml-login-link">Use your corporate credentials</a>
-                </div>
+            <div class="u-p--" th:each="oauthLink : ${oauthLinks}" >
+                <a href="" th:class="${fieldUsernameShow} ? 'saml-login-link' : 'btn btn--full'" th:href="${oauthLink.key}" th:text="${oauthLink.value}">Use your corporate credentials</a>
             </div>
         </div>
-        <th:block th:if="${linkCreateAccountShow}">
-        <span class="left">
-            <a th:unless="${#strings.isEmpty(links['createAccountLink'])}" href="/create_account" th:href="@{${links['createAccountLink']}}" class="link-lowlight">Create account</a>
-        </span><span class="right" th:unless="${#strings.isEmpty(links['forgotPasswordLink'])}">
-            <a href="/forgot_password" th:href="@{${links['forgotPasswordLink']}}" class="link-lowlight">Reset password</a>
-        </span>
-        </th:block>
+        <div class="island-footer" th:style="${#strings.isEmpty(links['createAccountLink'])?'display:inline-block':''}">
+          <th:block th:if="${linkCreateAccountShow} and not ${disableInternalUserManagement}">
+          <span th:unless="${#strings.isEmpty(links['createAccountLink'])}" class="left">
+              <a href="/create_account" th:href="@{${links['createAccountLink']}}" class="link-lowlight">Create account</a>
+          </span>
+          <span class="right" th:unless="${#strings.isEmpty(links['forgotPasswordLink'])}">
+              <a href="/forgot_password" th:href="@{${links['forgotPasswordLink']}}" class="link-lowlight">Reset password</a>
+          </span>
+          </th:block>
+        </div>
     </div>
 </div>
 </html>

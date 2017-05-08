@@ -387,8 +387,8 @@ class InvitationsEndpointMockMvcTests {
     @Test
     void acceptInvitationEmailWithDefaultCompanyName() throws Exception {
         mockMvc.perform(get(getAcceptInvitationLink(webApplicationContext, mockMvc, clientId, clientSecret, generator, emailDomain, null, "admin", "adminsecret")))
-                .andExpect(content().string(containsString("Create your account")))
-                .andExpect(content().string(containsString("Create account")));
+                .andExpect(content().string(containsString("Create your Predix account")))
+                .andExpect(content().string(containsString("Create Predix account")));
     }
 
     @Test

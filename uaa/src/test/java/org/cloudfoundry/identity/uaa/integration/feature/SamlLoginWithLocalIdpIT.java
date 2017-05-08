@@ -33,6 +33,7 @@ import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter;
 import org.cloudfoundry.identity.uaa.zone.SamlConfig;
+import org.hamcrest.Matchers;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -264,7 +265,7 @@ public class SamlLoginWithLocalIdpIT {
     @Test
     public void testLocalSamlIdpLogin() throws Exception {
         ScimUser user = IntegrationTestUtils.createRandomUser(this.baseUrl);
-        testLocalSamlIdpLogin("/login", "Where to?", user.getPrimaryEmail(), "secr3T");
+        testLocalSamlIdpLogin("/login", IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE, user.getPrimaryEmail(), "secr3T");
     }
 
     @Test
@@ -296,7 +297,8 @@ public class SamlLoginWithLocalIdpIT {
         webDriver.findElement(By.name("username")).sendKeys(email);
         webDriver.findElement(By.name("password")).sendKeys("secr3T");
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("Where to?"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE));
+
         webDriver.get(testZone1Url + "/saml/idp/initiate");
         assertNotNull(webDriver.findElement(By.xpath("//h2[contains(text(), 'Missing sp request parameter')]")));
         webDriver.get(testZone1Url + "/saml/idp/initiate?sp=invalid_entity_id");
@@ -356,7 +358,8 @@ public class SamlLoginWithLocalIdpIT {
         webDriver.findElement(By.name("username")).sendKeys(email);
         webDriver.findElement(By.name("password")).sendKeys("secr3T");
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("Where to?"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE));
+
         assertThat(webDriver.getCurrentUrl(), containsString(testZone2Url));
         for (String logout : Arrays.asList(baseUrl, testZone1Url, testZone2Url)) {
             webDriver.get(logout + "/logout.do");
@@ -419,7 +422,7 @@ public class SamlLoginWithLocalIdpIT {
         webDriver.findElement(By.name("username")).sendKeys(zoneUserEmail);
         webDriver.findElement(By.name("password")).sendKeys("secr3T");
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("Where to?"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE));
 
         webDriver.get(baseUrl + "/logout.do");
         webDriver.get(testZone1Url + "/logout.do");
@@ -831,7 +834,7 @@ public class SamlLoginWithLocalIdpIT {
 
         webDriver.get(baseUrl + firstUrl);
         IntegrationTestUtils.takeScreenShot(webDriver);
-        assertEquals("Cloud Foundry", webDriver.getTitle());
+        assertEquals(IntegrationTestUtils.PREDIX_TITLE, webDriver.getTitle());
         webDriver.findElement(By.xpath("//a[text()='" + provider.getConfig().getLinkText() + "']")).click();
 
         webDriver.findElement(By.xpath("//h1[contains(text(), 'Welcome!')]"));
@@ -953,7 +956,7 @@ public class SamlLoginWithLocalIdpIT {
             webDriver.findElement(By.name("username")).sendKeys(idpZoneUserEmail);
             webDriver.findElement(By.name("password")).sendKeys("secr3T");
             webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
-            assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("Where to?"));
+            assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE));
             Cookie afterLogin = webDriver.manage().getCookieNamed("JSESSIONID");
             assertNotNull(afterLogin);
             assertNotNull(afterLogin.getValue());

@@ -98,7 +98,7 @@ public class CreateAccountIT {
         String body = message.getBody();
         assertThat(body, containsString("Activate your account"));
 
-        assertEquals("Create your account", webDriver.findElement(By.tagName("h1")).getText());
+        assertEquals("Create your Predix account", webDriver.findElement(By.tagName("h1")).getText());
         assertEquals("Please check email for an activation link.", webDriver.findElement(By.cssSelector(".instructions-sent")).getText());
 
         String link = testClient.extractLink(body);
@@ -107,13 +107,13 @@ public class CreateAccountIT {
         assertFalse(contains(link, "%40"));
 
         webDriver.get(link);
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), not(containsString("Where to?")));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), not(containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE)));
 
         webDriver.findElement(By.name("username")).sendKeys(userEmail);
         webDriver.findElement(By.name("password")).sendKeys(SECRET);
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
 
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("Where to?"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE));
     }
 
     @Test
@@ -122,7 +122,7 @@ public class CreateAccountIT {
 
         webDriver.get(baseUrl + "/create_account?client_id=app");
 
-        assertEquals("Create your account", webDriver.findElement(By.tagName("h1")).getText());
+        assertEquals("Create your Predix account", webDriver.findElement(By.tagName("h1")).getText());
 
         int receivedEmailSize = simpleSmtpServer.getReceivedEmailSize();
 
@@ -144,7 +144,7 @@ public class CreateAccountIT {
         assertFalse(isEmpty(link));
 
         webDriver.get(link);
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), not(containsString("Where to?")));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), not(containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE)));
 
         webDriver.findElement(By.name("username")).sendKeys(userEmail);
         webDriver.findElement(By.name("password")).sendKeys(SECRET);
@@ -168,7 +168,7 @@ public class CreateAccountIT {
         webDriver.get(baseUrl + "/");
         webDriver.findElement(By.xpath("//*[text()='Create account']")).click();
 
-        assertEquals("Create your account", webDriver.findElement(By.tagName("h1")).getText());
+        assertEquals("Create your Predix account", webDriver.findElement(By.tagName("h1")).getText());
 
 
         webDriver.findElement(By.name("email")).sendKeys(userEmail);
