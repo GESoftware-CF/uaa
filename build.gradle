@@ -149,6 +149,8 @@ task manifests(dependsOn: assemble, type: Copy) {
   into 'build/sample-manifests'
 }
 
+
+
 subprojects {
   apply plugin: 'java'
   [compileJava, compileTestJava]*.options*.compilerArgs = ['-Xlint:none', '-nowarn']
@@ -337,6 +339,17 @@ task integrationTest {
   finalizedBy cargoStopLocal
 }
 integrationTest.dependsOn subprojects.integrationTest
+
+task setupDegradedTestsForJwtBearerCloud(type: Exec) {
+  workingDir 'scripts'
+  commandLine './setupDegradedTestsForJwtBearer.sh'
+}
+
+task setupDegradedTestsForJwtBearerLocal(type: Exec, dependsOn: cargoStartLocal) {
+  workingDir 'scripts'
+  commandLine './setupDegradedTestsForJwtBearer.sh'
+  finalizedBy cargoStopLocal
+}
 
 test.dependsOn subprojects.test
 test.mustRunAfter integrationTest

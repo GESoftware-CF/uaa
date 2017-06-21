@@ -73,6 +73,7 @@ ext {
 test {
   exclude 'org/cloudfoundry/identity/uaa/integration/*.class'
   exclude '**/*IT.class'
+  exclude 'org/cloudfoundry/identity/uaa/jwt/degraded/*.class'
   systemProperty "mock.suite.test", "true"
   systemProperty "java.io.tmpdir", "/tmp"
 }
@@ -95,11 +96,26 @@ generateDocs {
 }
 
 integrationTest {
+  exclude 'org/cloudfoundry/identity/uaa/jwt/degraded/*.class'
   filter {
     includeTestsMatching "org.cloudfoundry.identity.uaa.integration.*"
     includeTestsMatching "*IT"
   }
 }
+
+
+task degradedJwtTestCloud(type: Test) {
+  systemProperty "RUN_AGAINST_CLOUD", true
+  include "org/cloudfoundry/identity/uaa/jwt/degraded/*.class"
+}
+
+task degradedJwtTestLocal(type: Test) {
+  systemProperty "RUN_AGAINST_CLOUD", false
+  dependsOn rootProject.cargoStartLocal
+  finalizedBy rootProject.cargoStopLocal
+  include "org/cloudfoundry/identity/uaa/jwt/degraded/*.class"
+}
+
 
 //asciidoctor {
 //  sourceDir 'src/asciidoc'
