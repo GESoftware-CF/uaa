@@ -35,9 +35,11 @@ import org.cloudfoundry.identity.uaa.provider.saml.SamlRedirectUtils;
 import org.cloudfoundry.identity.uaa.util.ColorHash;
 import org.cloudfoundry.identity.uaa.util.DomainFilter;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
+import org.cloudfoundry.identity.uaa.util.JsonUtils.JsonUtilException;
 import org.cloudfoundry.identity.uaa.util.MapCollector;
 import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
 import org.cloudfoundry.identity.uaa.util.UaaUrlUtils;
+import org.cloudfoundry.identity.uaa.web.UaaSavedRequestAwareAuthenticationSuccessHandler;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
@@ -100,6 +102,7 @@ import static org.cloudfoundry.identity.uaa.util.UaaUrlUtils.addSubdomainToUrl;
 import static org.cloudfoundry.identity.uaa.web.UaaSavedRequestAwareAuthenticationSuccessHandler.SAVED_REQUEST_SESSION_ATTRIBUTE;
 import static org.springframework.util.StringUtils.hasText;
 import static org.springframework.web.bind.annotation.RequestMethod.GET;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * Controller that sends login info (e.g. prompts) to clients wishing to
@@ -253,12 +256,18 @@ public class LoginInfoEndpoint {
         return login(model, principal, Arrays.asList(PASSCODE), false, request);
     }
 
-    private static <T extends SavedAccountOption> List<T> getSavedAccounts(Cookie[] cookies, Class<T> clazz) {
+    private static <T extends SavedAccountOption> List<T> getSavedAccounts(
+            Cookie[] cookies, Class<T> clazz) {
         return Arrays.asList(ofNullable(cookies).orElse(new Cookie[]{}))
-                .stream()
-                .filter(c -> c.getName().startsWith("Saved-Account"))
-                .map(c -> JsonUtils.readValue(decodeCookieValue(c.getValue()), clazz))
-                .collect(Collectors.toList());
+                .stream().filter(c -> c.getName().startsWith("Saved-Account"))
+                .map(c -> {
+                    try {
+                        return JsonUtils.readValue(
+                                decodeCookieValue(c.getValue()), clazz);
+                    } catch (JsonUtilException e) {
+                        return null;
+                    }
+                }).filter(c -> c != null).collect(Collectors.toList());
     }
 
     private static String decodeCookieValue(String inValue) {
@@ -326,7 +335,6 @@ public class LoginInfoEndpoint {
         }
 
         Map.Entry<String, AbstractIdentityProviderDefinition> idpForRedirect = null;
-
         Optional<String> loginHintParam =
             ofNullable(session)
             .flatMap(s -> ofNullable((SavedRequest) s.getAttribute(SAVED_REQUEST_SESSION_ATTRIBUTE)))
@@ -444,8 +452,13 @@ public class LoginInfoEndpoint {
             boolean discoveryNeeded = IdentityZoneHolder.get().getConfig().isIdpDiscoveryEnabled()
                 && (request == null || !Boolean.parseBoolean(request.getParameter("discoveryPerformed")));
 
-            if(discoveryNeeded) {
+            if(discoveryNeeded && !loginHintParam.isPresent()) {
                 return "idp_discovery/email";
+            }
+
+            String formRedirectUri = request.getParameter(UaaSavedRequestAwareAuthenticationSuccessHandler.FORM_REDIRECT_PARAMETER);
+            if(hasText(formRedirectUri)) {
+                model.addAttribute(UaaSavedRequestAwareAuthenticationSuccessHandler.FORM_REDIRECT_PARAMETER, formRedirectUri);
             }
 
             return "login";
@@ -592,7 +605,7 @@ public class LoginInfoEndpoint {
         if (identityProviders.size() == 1) {
             IdentityProvider matchedIdp = identityProviders.get(0);
             if (matchedIdp.getType().equals(UAA)) {
-                return goToPasswordPage(email, model);
+                return "redirect:/login?discoveryPerformed=true";
             } else {
                 String redirectUrl;
                 if ((redirectUrl = redirectToExternalProvider(matchedIdp.getConfig(), matchedIdp.getOriginKey(), request)) != null) {
@@ -601,16 +614,6 @@ public class LoginInfoEndpoint {
             }
         }
         return "redirect:/login?discoveryPerformed=true";
-    }
-
-    private String goToPasswordPage(String email, Model model) {
-        model.addAttribute(ZONE_NAME, IdentityZoneHolder.get().getName());
-        model.addAttribute("email", email);
-        String forgotPasswordLink;
-        if ((forgotPasswordLink = getSelfServiceLinks().get(FORGOT_PASSWORD_LINK)) != null) {
-            model.addAttribute(FORGOT_PASSWORD_LINK, forgotPasswordLink);
-        }
-        return "idp_discovery/password";
     }
 
     @RequestMapping(value = "/autologin", method = RequestMethod.POST)

@@ -86,6 +86,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -268,6 +269,23 @@ public class XOAuthAuthenticationManagerTest {
         mockUaaServer.verify();
 
     }
+
+    @Test
+    public void clientAuthInBody_is_used() throws MalformedURLException {
+        config.setClientAuthInBody(true);
+        mockUaaServer.expect(requestTo(config.getTokenUrl().toString()))
+                .andExpect(request -> assertThat("Check Auth header not present", request.getHeaders().get("Authorization"), nullValue()))
+                .andExpect(content().string(containsString("client_id="+config.getRelyingPartyId())))
+                .andExpect(content().string(containsString("client_secret="+config.getRelyingPartySecret())))
+                .andRespond(withStatus(OK).contentType(APPLICATION_JSON).body(getIdTokenResponse()));
+        IdentityProvider<AbstractXOAuthIdentityProviderDefinition> identityProvider = getProvider();
+        when(provisioning.retrieveByOrigin(eq(ORIGIN), anyString())).thenReturn(identityProvider);
+
+        xoAuthAuthenticationManager.getClaimsFromToken(xCodeToken, config);
+
+        mockUaaServer.verify();
+    }
+
 
     @Test
     public void idToken_In_Redirect_Should_Use_it() throws Exception {
@@ -720,6 +738,28 @@ public class XOAuthAuthenticationManagerTest {
         mockToken();
         UaaAuthentication authentication = (UaaAuthentication)xoAuthAuthenticationManager.authenticate(xCodeToken);
         assertThat(authentication.getAuthenticationMethods(), containsInAnyOrder("mfa", "rba", "ext"));
+    }
+
+    @Test
+    public void test_user_existing_attributes_mapping() throws Exception {
+        addTheUserOnAuth();
+
+        claims.put("emailClaim", "test@email.org");
+        claims.put("firstName", "first_name");
+        claims.put("lastName", "last_name");
+        claims.put("phoneNum", "randomNumber");
+        attributeMappings.put("email", "emailClaim");
+        attributeMappings.put("given_name", "firstName");
+        attributeMappings.put("family_name", "lastName");
+        attributeMappings.put("phone_number", "phoneNum");
+        config.setStoreCustomAttributes(true);
+        mockToken();
+        UaaAuthentication authentication = (UaaAuthentication)xoAuthAuthenticationManager.authenticate(xCodeToken);
+        UaaUser actualUaaUser = xoAuthAuthenticationManager.getUserDatabase().retrieveUserById(authentication.getPrincipal().getId());
+        assertEquals("test@email.org", actualUaaUser.getEmail());
+        assertEquals("first_name", actualUaaUser.getGivenName());
+        assertEquals("last_name", actualUaaUser.getFamilyName());
+        assertEquals("randomNumber", actualUaaUser.getPhoneNumber());
     }
 
     @Test

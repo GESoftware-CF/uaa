@@ -22,6 +22,8 @@ eclipse {
 
 repositories {
   maven { url 'https://repo.spring.io/libs-milestone' }
+  mavenLocal()
+  mavenCentral()
 }
 
 description = 'UAA'
@@ -29,6 +31,7 @@ dependencies {
   compile(identityServer){
     exclude(module: 'jna')
   }
+
   compile group: 'cglib', name: 'cglib', version:parent.cglibVersion
   runtime group: 'org.springframework.security', name: 'spring-security-config', version:parent.springSecurityVersion
   runtime group: 'org.springframework.security', name: 'spring-security-jwt', version:parent.springSecurityJwtVersion
@@ -37,6 +40,21 @@ dependencies {
   runtime group: 'org.apache.tomcat', name: 'tomcat-jdbc', version:parent.tomcatJdbcPoolVersion
   runtime group: 'org.postgresql', name: 'postgresql', version:parent.postgresqlVersion
   providedCompile group: 'javax.servlet', name: 'javax.servlet-api', version: parent.servletVersion
+  runtime group: 'com.ge.predix', name: 'spring-log-filter', version:'1.1.0'
+
+  // For Spring Metering Filter support
+  runtime(group: 'com.ge.predix', name: 'spring-metering-filter', version:'1.2.3') {
+    exclude(group: 'javax.mail')
+  }
+  //Audit service dependency
+  runtime group: 'com.ge.predix.audit', name: 'audit-sdk', version:'0.0.6'
+  runtime group: 'org.apache.httpcomponents', name: 'httpasyncclient', version:'4.1'
+  runtime group: 'org.springframework.data', name: 'spring-data-commons', version:'1.9.1.RELEASE'
+  runtime group: 'com.nurego', name: 'nurego-java', version:'1.0.18'
+
+  // For dynamic log level configuration
+  runtime group: 'com.ge.predix', name: 'security-dynamic-log-configurer', version: '1.1.1'
+
 
   testCompile identityServer.configurations.testCompile.dependencies
   testCompile identityServer.sourceSets.test.output
@@ -51,6 +69,7 @@ dependencies {
     exclude(module: 'slf4j-api')
     exclude(module: 'slf4j-log4j12')
   }
+  testCompile group: 'org.hamcrest', name: 'hamcrest-all', version: parent.hamcrestVersion
   testCompile group: 'junit', name: 'junit', version: parent.junitVersion
   testCompile group: 'org.seleniumhq.selenium', name: 'selenium-java', version:'2.42.2'
   testCompile(group: 'com.github.detro.ghostdriver', name: 'phantomjsdriver', version:'1.1.0') {
@@ -61,17 +80,23 @@ dependencies {
   testCompile group: 'org.skyscreamer', name:'jsonassert', version: '0.9.0'
   testCompile group: 'org.springframework', name: 'spring-test', version: parent.springVersion
   testCompile group: 'org.springframework.security', name: 'spring-security-test', version: parent.springSecurityVersion
-  testCompile group: 'org.hamcrest', name: 'hamcrest-all', version: parent.hamcrestVersion
   testCompile group: 'org.mockito', name: 'mockito-core', version: parent.mockitoVersion
   testCompile group: 'org.apache.tomcat', name: 'tomcat-jdbc', version:parent.tomcatJdbcPoolVersion
+  testCompile group: 'org.hamcrest', name: 'hamcrest-all', version: parent.hamcrestVersion
   testCompile 'org.springframework.restdocs:spring-restdocs-mockmvc:1.2.0.RC1'
+  testCompile group: 'com.nurego', name: 'nurego-java', version:'1.0.18'
 }
 ext {
   snippetsDir = file('build/generated-snippets')
 }
+
 test {
   exclude 'org/cloudfoundry/identity/uaa/integration/*.class'
   exclude '**/*IT.class'
+  exclude '**/*AT.class'
+  exclude 'org/cloudfoundry/identity/uaa/degraded/*.class'
+  systemProperty 'java.io.tmpdir', '/tmp'
+  exclude 'org/cloudfoundry/identity/uaa/jwt/degraded/*.class'
   systemProperty "mock.suite.test", "true"
 }
 task customizeSlate(type: Copy) {
@@ -102,16 +127,50 @@ task(slate, type: Exec) {
 //  executable 'echo'
 //  args 'hello', 'world'
 }
+
+
 generateDocs {
   dependsOn slate
 }
 
 integrationTest {
+  exclude 'org/cloudfoundry/identity/uaa/jwt/degraded/*.class'
   filter {
+    exclude '**/*AT.class'
+    exclude 'org/cloudfoundry/identity/uaa/degraded/*.class'
     includeTestsMatching "org.cloudfoundry.identity.uaa.integration.*"
     includeTestsMatching "*IT"
   }
 }
+
+task acceptanceTest(type: Test) {
+  include "org/cloudfoundry/identity/uaa/acceptance/*.class"
+}
+
+task degradedTestCloud(type: Test) {
+  systemProperty "RUN_AGAINST_CLOUD", true
+  include "org/cloudfoundry/identity/uaa/degraded/*.class"
+}
+
+task degradedTestLocal(type: Test) {
+  systemProperty "RUN_AGAINST_CLOUD", false
+  dependsOn rootProject.cargoStartLocal
+  finalizedBy rootProject.cargoStopLocal
+  include "org/cloudfoundry/identity/uaa/degraded/*.class"
+}
+
+task degradedJwtTestCloud(type: Test) {
+  systemProperty "RUN_AGAINST_CLOUD", true
+  include "org/cloudfoundry/identity/uaa/jwt/degraded/*.class"
+}
+
+task degradedJwtTestLocal(type: Test) {
+  systemProperty "RUN_AGAINST_CLOUD", false
+  dependsOn rootProject.cargoStartLocal
+  finalizedBy rootProject.cargoStopLocal
+  include "org/cloudfoundry/identity/uaa/jwt/degraded/*.class"
+}
+
 
 //asciidoctor {
 //  sourceDir 'src/asciidoc'

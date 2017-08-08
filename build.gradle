@@ -8,7 +8,7 @@ buildscript {
 
   repositories {
     mavenCentral()
-    jcenter()
+    //jcenter()
     maven {
       url 'https://repo.spring.io/plugins-release'
     }
@@ -21,7 +21,6 @@ buildscript {
     classpath group: 'com.bmuschko', name: 'gradle-cargo-plugin', version: '2.2.3'
     classpath group: 'org.jfrog.buildinfo', name: 'build-info-extractor-gradle', version: '2.2.4'
     classpath group: 'org.kt3k.gradle.plugin', name: 'coveralls-gradle-plugin', version: '2.4.0'
-    classpath group: 'org.mariadb.jdbc', name: 'mariadb-java-client', version:'1.1.8'
     classpath group: 'postgresql', name: 'postgresql', version:'9.1-901.jdbc3'
     classpath group: 'com.microsoft.sqlserver', name: 'mssql-jdbc', version: '6.1.0.jre8'
     classpath group: 'org.flywaydb', name: 'flyway-gradle-plugin', version: flywayVersion
@@ -108,12 +107,11 @@ task pushUaaImage(type: DockerPushImage) {
 
 apply plugin: "com.dorongold.task-tree"
 
+
 ext {
   databaseType = {
     List activeProfiles = System.getProperty('spring.profiles.active', 'default').split(',')
-    if (activeProfiles.contains('mysql')) {
-      'mysql'
-    } else if (activeProfiles.contains('postgresql')) {
+    if (activeProfiles.contains('postgresql')) {
       'postgresql'
     } else if (activeProfiles.contains('sqlserver')){
       'sqlserver'
@@ -127,6 +125,11 @@ ext {
 apply from: file('shared_versions.gradle')
 
 def uaaVersion = version
+def geArtifactoryReader = System.getenv('ARTIFACTORY_READER')
+def geArtifactoryReaderPassword  = System.getenv('ARTIFACTORY_READER_PW')
+def proxyHost  = System.getenv('PROXY_HOST')
+def proxyPort  = System.getenv('PROXY_PORT')
+def nonProxyHosts = 'localhost|*.localhost'
 
 allprojects {
   apply plugin: 'maven'
@@ -142,10 +145,32 @@ allprojects {
   apply plugin: 'eclipse-wtp'
 
   repositories {
+    mavenLocal()
     mavenCentral()
+    maven {
+      credentials {
+        username geArtifactoryReader
+        password geArtifactoryReaderPassword
+      }
+      url 'https://devcloud.swcoe.ge.com/artifactory/PREDIX'
+    }
+    maven {
+    credentials {
+      username geArtifactoryReader
+      password geArtifactoryReaderPassword
+      }
+      url 'https://devcloud.swcoe.ge.com/artifactory/PREDIX-SNAPSHOT'
+    }
     maven {
         url 'https://build.shibboleth.net/nexus/content/repositories/releases/'
     }
+    maven {
+      credentials {
+        username geArtifactoryReader
+        password geArtifactoryReaderPassword
+      }
+      url 'https://devcloud.swcoe.ge.com/artifactory/predix-virtual'
+   }
   }
 }
 
@@ -156,13 +181,6 @@ apply plugin: 'jacoco'
 
 flyway {
   switch (databaseType()) {
-    case 'mysql':
-      driver = 'org.mariadb.jdbc.Driver'
-      url = 'jdbc:mysql://localhost:3306/uaa'
-      user = 'root'
-      password = 'changeme'
-      schemas = ['uaa']
-      break
     case 'postgresql':
       driver = 'org.postgresql.Driver'
       url = 'jdbc:postgresql:uaa'
@@ -215,6 +233,8 @@ task manifests(dependsOn: assemble, type: Copy) {
   into 'build/sample-manifests'
 }
 
+
+
 subprojects {
   apply plugin: 'java'
   [compileJava, compileTestJava]*.options*.compilerArgs = ['-Xlint:none', '-nowarn']
@@ -224,8 +244,14 @@ subprojects {
     jvmArgs += [ "-Xmx1024m" ]
   }
 
+  tasks.withType(Test) {
+    systemProperties = System.properties
+    systemProperties['user.dir'] = workingDir
+  }
+
   task integrationTest(type: Test) {
     dependsOn rootProject.cargoStartLocal
+    finalizedBy rootProject.cargoStopLocal
   }
 
   task packageSources(type: Jar) {
@@ -256,6 +282,26 @@ subprojects {
     maven { url "https://repo.spring.io/snapshot" }
     maven { url "https://repo.spring.io/ext-release-local" }
     maven { url "https://repo.maven.apache.org/maven2" }
+    maven {
+     credentials {
+       username geArtifactoryReader
+       password geArtifactoryReaderPassword
+      }
+      url 'https://devcloud.swcoe.ge.com/artifactory/PREDIX'
+    }
+
+    maven {
+     credentials {
+       username geArtifactoryReader
+       password geArtifactoryReaderPassword
+      }
+      url 'https://devcloud.swcoe.ge.com/artifactory/PREDIX-SNAPSHOT'
+    }
+  }
+
+  tasks.withType(Test) {
+    systemProperties = System.properties
+    systemProperties['user.dir'] = workingDir
   }
 
   install {
@@ -337,15 +383,27 @@ cargo {
   }
 
   local {
-    jvmArgs = "-javaagent:${jacocoLocation}=output=file,dumponexit=true,append=false,destfile=${integrationTestCoverageExecutionData} -DLOGIN_CONFIG_URL=file://"+new File(".").absolutePath+"/uaa/src/main/resources/required_configuration.yml"
+    //jvmArgs = "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
+    jvmArgs = "-javaagent:${jacocoLocation}=output=file,dumponexit=true,append=false,destfile=${integrationTestCoverageExecutionData} -DLOGIN_CONFIG_URL=file://"+ projectDir +"/uaa/src/main/resources/required_configuration.yml"
     outputFile = file('uaa/build/reports/tests/uaa-server.log')
     configFile {
       file = file('scripts/travis/tomcat-conf/context.xml')
       toDir = 'conf'
-
     }
     systemProperties {
       property 'spring.profiles.active', System.getProperty('spring.profiles.active', 'default')
+      if (System.getProperty('mode') == 'truststoreWithLdapCerts') {
+        property 'javax.net.ssl.trustStore', "${projectDir}/scripts/ldap/truststore-with-ldap-certs.jks"
+        property 'javax.net.ssl.trustStoreType', 'JKS'
+      }
+      property 'http.proxyHost', proxyHost
+      property 'http.proxyPort', proxyPort
+      property 'https.proxyHost', proxyHost
+      property 'https.proxyPort', proxyPort
+      property 'http.nonProxyHosts', nonProxyHosts
+      property 'NUREGO_BATCH_INTERVAL_SECONDS', '1'
+      property 'NUREGO_BATCH_MAX_MAP_SIZE', '1'
+      property 'METER_BASE_DOMAIN', 'localhost'
     }
 
     installer {
@@ -365,7 +423,6 @@ project.gradle.taskGraph.whenReady { TaskExecutionGraph graph ->
 
     local {
 //      jvmArgs = jvmArgs + " -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"
-
       systemProperties {
           //property 'uaa.allowUnverifiedUsers', 'false'
           property 'smtp.host', 'localhost'
@@ -389,9 +446,21 @@ def publishedProjects = subprojects
 assemble.dependsOn subprojects.assemble
 
 task integrationTest {
+  dependsOn cargoStartLocal
   finalizedBy cargoStopLocal
 }
 integrationTest.dependsOn subprojects.integrationTest
+
+task setupDegradedTestsForJwtBearerCloud(type: Exec) {
+  workingDir 'scripts'
+  commandLine './setupDegradedTestsForJwtBearer.sh'
+}
+
+task setupDegradedTestsForJwtBearerLocal(type: Exec, dependsOn: cargoStartLocal) {
+  workingDir 'scripts'
+  commandLine './setupDegradedTestsForJwtBearer.sh'
+  finalizedBy cargoStopLocal
+}
 
 test.dependsOn subprojects.test
 test.mustRunAfter integrationTest
@@ -449,6 +518,16 @@ tasks.coveralls {
   description = 'Uploads the aggregated coverage report to Coveralls'
 }
 
+task setupDegradedTestLocal(type: Exec, dependsOn: cargoStartLocal) {
+  workingDir 'scripts'
+  commandLine './setupDegradedTests.sh'
+  finalizedBy 'cargoStopLocal'
+}
+
+task setupDegradedTestCloud(type: Exec) {
+  workingDir 'scripts'
+  commandLine './setupDegradedTests.sh'
+}
 
 // Log timings per task.
 class TimingsListener implements TaskExecutionListener, BuildListener, org.gradle.api.tasks.testing.TestListener {

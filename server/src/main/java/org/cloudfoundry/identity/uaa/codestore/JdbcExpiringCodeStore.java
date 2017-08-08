@@ -170,7 +170,6 @@ public class JdbcExpiringCodeStore implements ExpiringCodeStore {
             String data = rs.getString("data");
             return new ExpiringCode(code, expiresAt, data, intent);
         }
-
     }
 
 }

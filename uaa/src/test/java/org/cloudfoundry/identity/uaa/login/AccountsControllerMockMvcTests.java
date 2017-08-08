@@ -24,6 +24,7 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
@@ -60,6 +61,9 @@ import static org.springframework.util.StringUtils.isEmpty;
 
 public class AccountsControllerMockMvcTests extends InjectedMockContextTest {
 
+    private static final String ACCOUNT_CREATE_MESSAGE = "Create your Predix account";
+    private static final String ACCOUNT_OTHER_ZONE_CREATE_MESSAGE = "Create your account";
+    private static final String UAA_AUTHOR = "Predix";
     private static SimpleSmtpServer mailServer;
     private String userEmail;
     private MockMvcTestClient mockMvcTestClient;
@@ -115,7 +119,7 @@ public class AccountsControllerMockMvcTests extends InjectedMockContextTest {
     @Test
     public void testCreateActivationEmailPage() throws Exception {
         getMockMvc().perform(get("/create_account"))
-                .andExpect(content().string(containsString("Create your account")));
+                .andExpect(content().string(containsString(ACCOUNT_CREATE_MESSAGE)));
     }
 
     @Test
@@ -125,14 +129,14 @@ public class AccountsControllerMockMvcTests extends InjectedMockContextTest {
 
         getMockMvc().perform(get("/create_account")
             .with(new SetServerNameRequestPostProcessor(subdomain + ".localhost")))
-            .andExpect(content().string(containsString("Create your account")));
+            .andExpect(content().string(containsString(ACCOUNT_OTHER_ZONE_CREATE_MESSAGE)));
     }
 
     @Test
     public void testActivationEmailSentPage() throws Exception {
         getMockMvc().perform(get("/accounts/email_sent"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Create your account")))
+                .andExpect(content().string(containsString(ACCOUNT_CREATE_MESSAGE)))
                 .andExpect(xpath("//input[@disabled='disabled']/@value").string("Email successfully sent"));
     }
 
@@ -144,15 +148,14 @@ public class AccountsControllerMockMvcTests extends InjectedMockContextTest {
         getMockMvc().perform(get("/accounts/email_sent")
             .with(new SetServerNameRequestPostProcessor(subdomain + ".localhost")))
             .andExpect(status().isOk())
-            .andExpect(content().string(containsString("Create your account")))
-            .andExpect(xpath("//input[@disabled='disabled']/@value").string("Email successfully sent"))
-            .andExpect(content().string(containsString("Cloud Foundry")));
+            .andExpect(content().string(containsString(ACCOUNT_OTHER_ZONE_CREATE_MESSAGE)))
+            .andExpect(xpath("//input[@disabled='disabled']/@value").string("Email successfully sent"));
     }
 
     @Test
     public void testPageTitle() throws Exception {
         getMockMvc().perform(get("/create_account"))
-            .andExpect(content().string(containsString("<title>Cloud Foundry</title>")));
+            .andExpect(content().string(containsString("<title>Predix</title>")));
     }
 
     @Test
@@ -165,6 +168,7 @@ public class AccountsControllerMockMvcTests extends InjectedMockContextTest {
             .andExpect(content().string(containsString("<title>" + zone.getName() + "</title>")));
     }
 
+    @Ignore //predix branding does not have this image.
     @Test
     public void testCreateAccountWithdisableSelfService() throws Exception {
         String subdomain = generator.generate();
@@ -198,6 +202,7 @@ public class AccountsControllerMockMvcTests extends InjectedMockContextTest {
                 .andExpect(status().isNotFound());
     }
 
+    @Ignore //predix branding does not have this image.
     @Test
     public void defaultZoneLogoNull_useAssetBaseUrlImage() throws Exception {
         ((MockEnvironment) getWebApplicationContext().getEnvironment()).setProperty("assetBaseUrl", "/resources/oss");
@@ -302,8 +307,8 @@ public class AccountsControllerMockMvcTests extends InjectedMockContextTest {
 
         Iterator receivedEmail = mailServer.getReceivedEmail();
         SmtpMessage message = (SmtpMessage) receivedEmail.next();
-        assertTrue(message.getBody().contains("Cloud Foundry"));
-        assertTrue(message.getHeaderValue("From").contains("Cloud Foundry"));
+        assertTrue(message.getBody().contains(UAA_AUTHOR));
+        assertTrue(message.getHeaderValue("From").contains(UAA_AUTHOR));
 
         MvcResult mvcResult = getMockMvc().perform(get("/verify_user")
             .param("code", "test" + generator.counter.get()))
@@ -351,7 +356,6 @@ public class AccountsControllerMockMvcTests extends InjectedMockContextTest {
         String link = mockMvcTestClient.extractLink(message.getBody());
         assertTrue(message.getBody().contains(subdomain+"zone"));
         assertTrue(message.getHeaderValue("From").contains(subdomain+"zone"));
-        assertFalse(message.getBody().contains("Cloud Foundry"));
         assertFalse(message.getBody().contains("Pivotal"));
         assertFalse(isEmpty(link));
         assertTrue(link.contains(subdomain+".localhost"));
@@ -425,6 +429,7 @@ public class AccountsControllerMockMvcTests extends InjectedMockContextTest {
         return clientDetails;
     }
 
+    @Ignore // user verification is disabled
     @Test
     public void redirectToSavedRequest_ifPresent() throws Exception {
         MockHttpSession session = mockMvcUtils.getSavedRequestSession();
@@ -503,8 +508,8 @@ public class AccountsControllerMockMvcTests extends InjectedMockContextTest {
 
         Iterator receivedEmail = mailServer.getReceivedEmail();
         SmtpMessage message = (SmtpMessage) receivedEmail.next();
-        assertTrue(message.getBody().contains("Cloud Foundry"));
-        assertTrue(message.getHeaderValue("From").contains("Cloud Foundry"));
+        assertTrue(message.getBody().contains(UAA_AUTHOR));
+        assertTrue(message.getHeaderValue("From").contains(UAA_AUTHOR));
 
         MvcResult mvcResult = getMockMvc().perform(get("/verify_user")
                 .param("code", "test" + generator.counter.get()))

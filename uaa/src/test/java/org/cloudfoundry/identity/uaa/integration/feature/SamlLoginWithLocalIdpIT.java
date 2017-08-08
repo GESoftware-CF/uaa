@@ -12,6 +12,11 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.integration.feature;
 
+import java.net.Inet4Address;
+import java.net.UnknownHostException;
+import java.util.Arrays;
+import java.util.List;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.commons.lang.StringUtils;
 import org.cloudfoundry.identity.uaa.ServerRunning;
@@ -61,10 +66,6 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestOperations;
 import org.springframework.web.client.RestTemplate;
 
-import java.net.Inet4Address;
-import java.net.UnknownHostException;
-import java.util.Arrays;
-import java.util.List;
 
 import static org.cloudfoundry.identity.uaa.provider.saml.SamlKeyManagerFactoryTests.certificate1;
 import static org.cloudfoundry.identity.uaa.provider.saml.SamlKeyManagerFactoryTests.certificate2;
@@ -349,7 +350,6 @@ public class SamlLoginWithLocalIdpIT {
         ResponseEntity<CompositeAccessToken> token = restOperations.exchange(baseUrl + "/oauth/token/alias/cloudfoundry-saml-login",
                                                                              HttpMethod.POST, new HttpEntity<>(postBody, headers),
                                                                              CompositeAccessToken.class);
-
         Assert.assertEquals(HttpStatus.OK, token.getStatusCode());
         Assert.assertTrue(token.hasBody());
         provider.setActive(false);
@@ -359,7 +359,8 @@ public class SamlLoginWithLocalIdpIT {
     @Test
     public void testLocalSamlIdpLogin() throws Exception {
         ScimUser user = IntegrationTestUtils.createRandomUser(this.baseUrl);
-        testLocalSamlIdpLogin("/login", "Where to?", user.getPrimaryEmail(), "secr3T");
+        //This is modified for branding login.yml changes...
+        testLocalSamlIdpLogin("/login", "You should not see this page. Set up your redirect URI.", user.getPrimaryEmail(), "secr3T");
     }
 
     private void testLocalSamlIdpLogin(String firstUrl, String lookfor, String username, String password)
@@ -376,7 +377,8 @@ public class SamlLoginWithLocalIdpIT {
         assumeTrue("Expected testzone1/2.localhost to resolve to 127.0.0.1", doesSupportZoneDNS());
 
         webDriver.get(baseUrl + firstUrl);
-        Assert.assertEquals("Cloud Foundry", webDriver.getTitle());
+        //This is modified for branding login.yml changes...
+        Assert.assertEquals("Predix", webDriver.getTitle());
         webDriver.findElement(By.xpath("//a[text()='" + provider.getConfig().getLinkText() + "']")).click();
         webDriver.findElement(By.xpath("//h1[contains(text(), 'Welcome!')]"));
         webDriver.findElement(By.name("username")).clear();
@@ -461,7 +463,8 @@ public class SamlLoginWithLocalIdpIT {
         webDriver.findElement(By.name("username")).sendKeys(zoneUserEmail);
         webDriver.findElement(By.name("password")).sendKeys("secr3T");
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to?"));
+        //This is modified for branding login.yml changes...
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("You should not see this page. Set up your redirect URI."));
 
         webDriver.get(baseUrl + "/logout.do");
         webDriver.get(testZone1Url + "/logout.do");
@@ -488,6 +491,116 @@ public class SamlLoginWithLocalIdpIT {
         assertNotNull(elements);
         assertEquals(1, elements.size());
     }
+
+    /**
+     *
+     * In this test testzone1 acts as the SAML IdP and testzone2 acts as the SAML SP.
+     * SP makes the first SAMLAUthnRequest using Http-Redirect binding and must succeed.
+     * SP's IDP is updated, so that SP makes the Second SAMLAunthnRequest using Http-POST
+     * binding and must succeed.
+     */
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testWebSSOProfileWithRedirectPostSamlIntegration() throws Exception {
+        assumeTrue("Expected testzone1/2.localhost to resolve to 127.0.0.1", doesSupportZoneDNS());
+        String idpZoneId = "testzone1";
+        String spZoneId = "testzone2";
+
+        RestTemplate adminClient =
+                IntegrationTestUtils.getClientCredentialsTemplate(
+                        IntegrationTestUtils.getClientCredentialsResource(
+                                baseUrl, new String[0], "admin", "adminsecret")
+                );
+
+        RestTemplate identityClient =
+                IntegrationTestUtils.getClientCredentialsTemplate(
+                        IntegrationTestUtils.getClientCredentialsResource(
+                                baseUrl,new String[]{"zones.write", "zones.read", "scim.zones"}, "identity", "identitysecret")
+                );
+
+        IntegrationTestUtils.createZoneOrUpdateSubdomain(identityClient, baseUrl, idpZoneId, idpZoneId);
+        String idpZoneAdminEmail = new RandomValueStringGenerator().generate() + "@samltesting.org";
+        ScimUser idpZoneAdminUser = IntegrationTestUtils.createUser(adminClient, baseUrl, idpZoneAdminEmail, "firstname", "lastname", idpZoneAdminEmail, true);
+        IntegrationTestUtils.makeZoneAdmin(identityClient, baseUrl, idpZoneAdminUser.getId(), idpZoneId);
+        String idpZoneAdminToken =
+                IntegrationTestUtils.getAuthorizationCodeToken(
+                        serverRunning,
+                        UaaTestAccounts.standard(serverRunning),
+                        "identity",
+                        "identitysecret",
+                        idpZoneAdminEmail,
+                        "secr3T"
+                );
+
+        String idpZoneUserEmail = new RandomValueStringGenerator().generate() + "@samltesting.org";
+        String idpZoneUrl = baseUrl.replace("localhost", idpZoneId + ".localhost");
+        createZoneUser(idpZoneId, idpZoneAdminToken, idpZoneUserEmail, idpZoneUrl);
+
+        IdentityZoneConfiguration config = new IdentityZoneConfiguration();
+        IdentityZone spZone = IntegrationTestUtils.createZoneOrUpdateSubdomain(identityClient, baseUrl, spZoneId, spZoneId, config);
+
+        String spZoneAdminEmail = new RandomValueStringGenerator().generate() + "@samltesting.org";
+        ScimUser spZoneAdminUser = IntegrationTestUtils.createUser(
+                adminClient,
+                baseUrl,
+                spZoneAdminEmail,
+                "firstname",
+                "lastname",
+                spZoneAdminEmail,
+                true
+        );
+        IntegrationTestUtils.makeZoneAdmin(identityClient, baseUrl, spZoneAdminUser.getId(), spZoneId);
+        String spZoneAdminToken =
+                IntegrationTestUtils.getAuthorizationCodeToken(
+                        serverRunning,
+                        UaaTestAccounts.standard(serverRunning),
+                        "identity",
+                        "identitysecret",
+                        spZoneAdminEmail,
+                        "secr3T"
+                );
+        String spZoneUrl = baseUrl.replace("localhost", spZoneId + ".localhost");
+
+        SamlIdentityProviderDefinition samlIdentityProviderDefinition = createZone1IdpDefinition(IDP_ENTITY_ID);
+        samlIdentityProviderDefinition.setMetaDataLocation(SamlTestUtils.SAML_IDP_METADATA_REDIRECT_FIRST);
+        IdentityProvider<SamlIdentityProviderDefinition> idp = new IdentityProvider<>();
+        idp.setIdentityZoneId(spZoneId);
+        idp.setType(OriginKeys.SAML);
+        idp.setActive(true);
+        idp.setConfig(samlIdentityProviderDefinition);
+        idp.setOriginKey(samlIdentityProviderDefinition.getIdpEntityAlias());
+        idp.setName("Local SAML IdP for testzone1");
+        idp = IntegrationTestUtils.createOrUpdateProvider(spZoneAdminToken, baseUrl, idp);
+        assertNotNull(idp.getId());
+
+        SamlServiceProviderDefinition samlServiceProviderDefinition = createZone2SamlSpDefinition("cloudfoundry-saml-login");
+        SamlServiceProvider sp = new SamlServiceProvider();
+        samlServiceProviderDefinition.setMetaDataLocation(SamlTestUtils.SAML_SP_METADATA_TESTZONE2);
+
+        sp.setIdentityZoneId(idpZoneId);
+        sp.setActive(true);
+        sp.setConfig(samlServiceProviderDefinition);
+        sp.setEntityId("testzone2.cloudfoundry-saml-login");
+        sp.setName("Local SAML SP for testzone2");
+        sp = createOrUpdateSamlServiceProvider(idpZoneAdminToken, baseUrl, sp);
+
+        performLogin(idpZoneId, idpZoneUserEmail, idpZoneUrl, spZone, spZoneUrl, samlIdentityProviderDefinition);
+
+        webDriver.get(baseUrl + "/logout.do");
+        webDriver.get(spZoneUrl + "/logout.do");
+
+        // Switch up the Identity Provider SSO binding list to start with HTTP-POST
+        samlIdentityProviderDefinition.setMetaDataLocation(SamlTestUtils.SAML_IDP_METADATA_POST_FIRST);
+        idp.setConfig(samlIdentityProviderDefinition);
+        idp.setOriginKey(samlIdentityProviderDefinition.getIdpEntityAlias());
+        idp.setName("Local SAML IdP for testzone1");
+        idp = IntegrationTestUtils.createOrUpdateProvider(spZoneAdminToken, baseUrl, idp);
+        assertNotNull(idp.getId());
+
+        performLogin(idpZoneId, idpZoneUserEmail, idpZoneUrl, spZone, spZoneUrl, samlIdentityProviderDefinition);
+    }
+
+
 
     /**
      * In this test testzone1 acts as the SAML IdP and testzone2 acts as the SAML SP.
@@ -646,7 +759,9 @@ public class SamlLoginWithLocalIdpIT {
         webDriver.findElement(By.name("username")).sendKeys(idpZoneUserEmail);
         webDriver.findElement(By.name("password")).sendKeys("secr3T");
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to?"));
+
+        //This is modified for branding login.yml changes...
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("You should not see this page. Set up your redirect URI."));
         Cookie afterLogin = webDriver.manage().getCookieNamed("JSESSIONID");
         assertNotNull(afterLogin);
         assertNotNull(afterLogin.getValue());
@@ -690,5 +805,4 @@ public class SamlLoginWithLocalIdpIT {
     public SamlIdentityProviderDefinition createZone3IdpDefinition(String alias) {
         return createLocalSamlIdpDefinition(alias, "testzone3");
     }
-
 }

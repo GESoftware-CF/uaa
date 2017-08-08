@@ -294,8 +294,6 @@ public class BootstrapTests {
             zoneConfiguration.getPrompts()
         );
 
-        Object links = context.getBean("links");
-        assertEquals(Collections.EMPTY_MAP, links);
 
         //check java mail sender
         EmailService emailService = context.getBean("emailService", EmailService.class);
@@ -352,6 +350,7 @@ public class BootstrapTests {
 
         ZoneAwareMetadataGenerator zoneAwareMetadataGenerator = context.getBean(ZoneAwareMetadataGenerator.class);
         assertTrue(zoneAwareMetadataGenerator.isRequestSigned());
+        //Default value of isWantAssertionSigned is true for predix-uaa
         assertTrue(zoneAwareMetadataGenerator.isWantAssertionSigned());
 
         CorsFilter corFilter = context.getBean(CorsFilter.class);

@@ -285,8 +285,8 @@ public class InvitationsEndpointMockMvcTests extends InjectedMockContextTest {
     @Test
     public void accept_Invitation_Email_With_Default_CompanyName() throws Exception {
         getMockMvc().perform(get(getAcceptInvitationLink(null)))
-                .andExpect(content().string(containsString("Create your account")))
-                .andExpect(content().string(containsString("Create account")));
+                .andExpect(content().string(containsString("Create your Predix account")))
+                .andExpect(content().string(containsString("Create Predix account")));
     }
 
     @Test
@@ -348,7 +348,6 @@ public class InvitationsEndpointMockMvcTests extends InjectedMockContextTest {
         sendRequestWithToken(userToken, null, clientId, "example.com", "user1@"+domain);
 
         String code = getWebApplicationContext().getBean(JdbcTemplate.class).queryForObject("SELECT code FROM expiring_code_store", String.class);
-        code = new InMemoryExpiringCodeStore().extractCode(code);
         assertNotNull("Invite Code Must be Present", code);
 
         MockHttpServletRequestBuilder accept = get("/invitations/accept")
