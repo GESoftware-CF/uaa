@@ -95,6 +95,7 @@ import static org.mockito.Matchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class LoginInfoEndpointTests {
 
@@ -208,6 +209,55 @@ public class LoginInfoEndpointTests {
         assertEquals("ldap", savedAccount1.getOrigin());
         assertEquals("zzzz", savedAccount1.getUserId());
     }
+    
+
+    @Test
+    public void testIgnoresBadJsonSavedAccount() throws Exception {
+        LoginInfoEndpoint endpoint = getEndpoint();
+        assertThat(model, not(hasKey("savedAccounts")));
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        SavedAccountOption savedAccount = new SavedAccountOption();
+
+        savedAccount.setUsername("bob");
+        savedAccount.setEmail("bob@example.com");
+        savedAccount.setUserId("xxxx");
+        savedAccount.setOrigin("uaa");
+        Cookie cookieGood = new Cookie("Saved-Account-xxxx", JsonUtils.writeValueAsString(savedAccount));
+
+        Cookie cookieBadJson = new Cookie("Saved-Account-Bad", "{");
+
+        request.setCookies(cookieGood, cookieBadJson);
+        endpoint.loginForHtml(model, null, request);
+
+        assertThat(model, hasKey("savedAccounts"));
+        assertThat(model.get("savedAccounts"), instanceOf(List.class));
+        List<SavedAccountOption> savedAccounts = (List<SavedAccountOption>) model.get("savedAccounts");
+        assertThat(savedAccounts, hasSize(1));
+    }
+
+    @Test
+    public void testSavedAccountsInvalidCookie() throws Exception {
+        LoginInfoEndpoint endpoint = getEndpoint();
+        assertThat(model, not(hasKey("savedAccounts")));
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        SavedAccountOption savedAccount = new SavedAccountOption();
+
+        savedAccount.setUsername("bob");
+        savedAccount.setEmail("bob@example.com");
+        savedAccount.setUserId("xxxx");
+        savedAccount.setOrigin("uaa");
+
+        Cookie cookie1 = new Cookie("Saved-Account-xxxx", "%2");
+
+        request.setCookies(cookie1);
+        endpoint.loginForHtml(model, null, request);
+        
+        assertThat(model, hasKey("savedAccounts"));
+        assertThat(model.get("savedAccounts"), instanceOf(List.class));
+        List<SavedAccountOption> savedAccounts = (List<SavedAccountOption>) model.get("savedAccounts");
+        assertThat(savedAccounts, hasSize(0));
+
+    }
 
     @Test
     public void testSavedAccountsEncodedAndUnEncoded() throws Exception {
@@ -251,24 +301,6 @@ public class LoginInfoEndpointTests {
         assertEquals("bill@example.com", savedAccount1.getEmail());
         assertEquals("uaa", savedAccount1.getOrigin());
         assertEquals("xxxx", savedAccount1.getUserId());
-    }
-
-    @Test(expected=NullPointerException.class)
-    public void testSavedAccountsInvalidCookie() throws Exception {
-        LoginInfoEndpoint endpoint = getEndpoint();
-        assertThat(model, not(hasKey("savedAccounts")));
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        SavedAccountOption savedAccount = new SavedAccountOption();
-
-        savedAccount.setUsername("bob");
-        savedAccount.setEmail("bob@example.com");
-        savedAccount.setUserId("xxxx");
-        savedAccount.setOrigin("uaa");
-
-        Cookie cookie1 = new Cookie("Saved-Account-xxxx", "%2");
-
-        request.setCookies(cookie1);
-        endpoint.loginForHtml(model, null, request);
     }
 
     @Test
@@ -400,7 +432,6 @@ public class LoginInfoEndpointTests {
         assertNull(links.get("createAccountLink"));
         assertEquals("http://someurl", links.get("login"));
         assertEquals("http://someurl", links.get("uaa"));
-        assertEquals("/create_account", links.get("register"));
         assertEquals("/forgot_password", links.get("passwd"));
     }
 

@@ -20,10 +20,12 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -143,13 +145,15 @@ public class LoginIT {
         String newUserEmail = createAnotherUser();
         webDriver.get(baseUrl + "/logout.do");
         webDriver.get(baseUrl + "/login");
-        assertEquals("Cloud Foundry", webDriver.getTitle());
-        attemptLogin(newUserEmail, "sec3Tas");
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to?"));
-        webDriver.get(baseUrl + "/logout.do");
-        attemptLogin(newUserEmail, "sec3Tas");
+        assertEquals("Predix", webDriver.getTitle());
 
-        assertNotNull(webDriver.findElement(By.cssSelector("#last_login_time")));
+        //assert Predix logo
+        assertThat(webDriver.findElement(By.id("logo-header")).getCssValue("background"),
+           Matchers.containsString("predix-word.svg"));
+
+        attemptLogin(testAccounts.getUserName(), testAccounts.getPassword());
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(),
+                   Matchers.containsString("You should not see this page. Set up your redirect URI."));
 
         IntegrationTestUtils.validateAccountChooserCookie(baseUrl, webDriver);
     }
@@ -171,7 +175,7 @@ public class LoginIT {
     @Test
     public void testPasscodeRedirect() throws Exception {
         webDriver.get(baseUrl + "/passcode");
-        assertEquals("Cloud Foundry", webDriver.getTitle());
+        assertEquals("Predix", webDriver.getTitle());
 
         attemptLogin(testAccounts.getUserName(), testAccounts.getPassword());
 
@@ -181,11 +185,10 @@ public class LoginIT {
     @Test
     public void testFailedLogin() throws Exception {
         webDriver.get(baseUrl + "/login");
-        assertEquals("Cloud Foundry", webDriver.getTitle());
+        assertEquals("Predix", webDriver.getTitle());
 
         attemptLogin(testAccounts.getUserName(), "invalidpassword");
-
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Welcome!"));
+        assertThat(webDriver.findElement(By.cssSelector("p")).getText(), Matchers.containsString("Unable to verify email or password. Please try again."));
     }
 
     @Test
@@ -253,6 +256,13 @@ public class LoginIT {
     }
 
     @Test
+    public void testLoginPageReloadBasedOnCsrf() {
+        webDriver.get(baseUrl + "/login");
+        assertTrue(webDriver.getPageSource().contains("http-equiv=\"refresh\""));
+    }
+
+    @Test
+    @Ignore
     public void userLockedoutAfterFailedAttempts() throws Exception {
         String userEmail = createAnotherUser();
 
@@ -280,6 +290,21 @@ public class LoginIT {
         String regex = "Version: \\S+, Commit: \\w{7}, Timestamp: .+, UAA: " + baseUrl;
         assertTrue(webDriver.findElement(By.cssSelector(".footer .copyright")).getAttribute("title").matches(regex));
     }
+
+    @Test
+    public void testLoginReloadRetainsFormRedirect() {
+
+        String redirectUri = "http://expected.com";
+        webDriver.get(baseUrl + "/oauth/authorize?client_id=test&redirect_uri="+redirectUri);
+        ((JavascriptExecutor)webDriver).executeScript("document.getElementsByName('X-Uaa-Csrf')[0].value=''");
+        webDriver.manage().deleteCookieNamed("JSESSIONID");
+
+        webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
+
+        assertThat(webDriver.getCurrentUrl(), Matchers.containsString("/login"));
+        assertThat(webDriver.findElement(By.name("form_redirect_uri")).getAttribute("value"), Matchers.containsString("redirect_uri="+redirectUri));
+
+}
 
     private String createAnotherUser() {
         String userEmail = "user" + new SecureRandom().nextInt() + "@example.com";

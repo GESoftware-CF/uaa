@@ -20,12 +20,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 public class OpenIdConnectEndpointsMockMvcTests extends InjectedMockContextTest {
 
+    static final String WELL_KNOWN_PATH = "/oauth/token/.well-known/openid-configuration";
+
     @Test
     public void testWellKnownEndpoint() throws Exception {
         createOtherIdentityZone("subdomain", getMockMvc(), getWebApplicationContext());
-        MockHttpServletResponse response = getMockMvc().perform(get("/.well-known/openid-configuration")
+        MockHttpServletResponse response = getMockMvc().perform(get(WELL_KNOWN_PATH)
             .with(new SetServerNameRequestPostProcessor("subdomain.localhost"))
-            .servletPath("/.well-known/openid-configuration")
+            .servletPath(WELL_KNOWN_PATH)
             .accept(APPLICATION_JSON))
             .andExpect(status().isOk())
             .andReturn().getResponse();

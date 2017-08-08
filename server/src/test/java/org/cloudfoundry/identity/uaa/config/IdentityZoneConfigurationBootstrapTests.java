@@ -14,6 +14,7 @@ package org.cloudfoundry.identity.uaa.config;
 
 import org.cloudfoundry.identity.uaa.impl.config.IdentityZoneConfigurationBootstrap;
 import org.cloudfoundry.identity.uaa.login.Prompt;
+import org.cloudfoundry.identity.uaa.zone.ClientSecretPolicy;
 import org.cloudfoundry.identity.uaa.provider.saml.idp.SamlTestUtils;
 import org.cloudfoundry.identity.uaa.test.JdbcTestBase;
 import org.cloudfoundry.identity.uaa.zone.*;
@@ -87,6 +88,20 @@ public class IdentityZoneConfigurationBootstrapTests extends JdbcTestBase {
         assertEquals(SamlTestUtils.PROVIDER_PRIVATE_KEY, config.getKeys().get("key1").getKey());
         assertEquals(SamlTestUtils.PROVIDER_PRIVATE_KEY_PASSWORD, config.getKeys().get("key1").getPassphrase());
         assertEquals(SamlTestUtils.PROVIDER_CERTIFICATE, config.getKeys().get("key1").getCertificate());
+    }
+    
+    @Test
+    public void testClientSecretPolicy() throws Exception {
+        bootstrap.setClientSecretPolicy(new ClientSecretPolicy(0, 255, 0, 1, 1, 1, 6));
+        bootstrap.afterPropertiesSet();
+        IdentityZone uaa = provisioning.retrieve(IdentityZone.getUaa().getId());
+        assertEquals(0, uaa.getConfig().getClientSecretPolicy().getMinLength());
+        assertEquals(255, uaa.getConfig().getClientSecretPolicy().getMaxLength());
+        assertEquals(0, uaa.getConfig().getClientSecretPolicy().getRequireUpperCaseCharacter());
+        assertEquals(1, uaa.getConfig().getClientSecretPolicy().getRequireLowerCaseCharacter());
+        assertEquals(1, uaa.getConfig().getClientSecretPolicy().getRequireDigit());
+        assertEquals(1, uaa.getConfig().getClientSecretPolicy().getRequireSpecialCharacter());
+        assertEquals(6, uaa.getConfig().getClientSecretPolicy().getExpireSecretInMonths());
     }
 
     @Test
@@ -176,6 +191,17 @@ public class IdentityZoneConfigurationBootstrapTests extends JdbcTestBase {
         assertFalse(config.getLinks().getLogout().isDisableRedirectParameter());
     }
 
+    @Test
+    public void test_default_prompts() throws Exception {
+        List<Prompt> prompts = Arrays.asList(
+                new Prompt("username", "text", "Username"),
+                new Prompt("password", "password", "Password"),
+                new Prompt("passcode", "password", "One Time Code (Get on at /passcode)")
+            );
+        bootstrap.afterPropertiesSet();
+        IdentityZoneConfiguration config = provisioning.retrieve(IdentityZone.getUaa().getId()).getConfig();
+        assertEquals(prompts, config.getPrompts());
+    }
 
     @Test
     public void test_prompts() throws Exception {

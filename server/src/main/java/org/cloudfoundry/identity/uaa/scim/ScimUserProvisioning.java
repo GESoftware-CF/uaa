@@ -23,6 +23,10 @@ public interface ScimUserProvisioning extends ResourceManager<ScimUser>, Queryab
 
     ScimUser createUser(ScimUser user, String password) throws InvalidPasswordException, InvalidScimResourceException;
 
+    default ScimUser createUser(ScimUser user, String password, boolean isBatchCall) throws InvalidPasswordException, InvalidScimResourceException {
+        return null;
+    }
+
     void changePassword(String id, String oldPassword, String newPassword) throws ScimResourceNotFoundException;
 
     void updatePasswordChangeRequired(String userId, boolean passwordChangeRequired) throws ScimResourceNotFoundException;

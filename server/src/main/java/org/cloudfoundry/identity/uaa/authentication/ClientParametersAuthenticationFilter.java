@@ -37,7 +37,7 @@ public class ClientParametersAuthenticationFilter extends AbstractClientParamete
 
     @Override
     public void wrapClientCredentialLogin(HttpServletRequest req, HttpServletResponse res, Map<String, String> loginInfo, String clientId) throws IOException, ServletException {
-        if (!StringUtils.hasText(req.getHeader("Authorization"))  && isUrlEncodedForm(req)) {
+        if (!StringUtils.hasText(req.getHeader("Authorization")) && StringUtils.hasText(req.getParameter(CLIENT_ID)) && isUrlEncodedForm(req)) {
             doClientCredentialLogin(req, loginInfo, clientId);
         }
     }

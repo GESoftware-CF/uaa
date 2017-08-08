@@ -22,6 +22,10 @@ public interface ResourceManager<T> {
 
     T create(T resource);
 
+    default T create(T resource, boolean isBatchCall) {
+      return null;
+    }
+
     T update(String id, T resource);
 
     T delete(String id, int version);

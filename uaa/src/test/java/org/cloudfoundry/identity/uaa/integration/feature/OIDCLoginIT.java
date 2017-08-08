@@ -141,6 +141,7 @@ public class OIDCLoginIT {
         identityProvider.setIdentityZoneId(OriginKeys.UAA);
         OIDCIdentityProviderDefinition config = new OIDCIdentityProviderDefinition();
         config.addAttributeMapping(USER_NAME_ATTRIBUTE_NAME, "user_name");
+        config.addAttributeMapping("given_name", "user_name");
         config.addAttributeMapping("user.attribute." + "the_client_id", "cid");
         config.setStoreCustomAttributes(true);
 
@@ -204,8 +205,9 @@ public class OIDCLoginIT {
     private void validateSuccessfulOIDCLogin(String zoneUrl, String userName, String password) {
         login(zoneUrl, userName, password);
 
-        webDriver.findElement(By.cssSelector(".dropdown-trigger")).click();
-        webDriver.findElement(By.linkText("Sign Out")).click();
+        //Predix version does not have logout link
+        //webDriver.findElement(By.cssSelector(".dropdown-trigger")).click();
+        //webDriver.findElement(By.linkText("Sign Out")).click();
         IntegrationTestUtils.validateAccountChooserCookie(zoneUrl, webDriver);
     }
 
@@ -222,11 +224,14 @@ public class OIDCLoginIT {
         webDriver.findElement(By.name("password")).sendKeys(password);
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
         Assert.assertThat(webDriver.getCurrentUrl(), Matchers.containsString(zoneUrl));
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to?"));
+        Assert.assertThat(webDriver.getCurrentUrl(), Matchers.containsString("localhost"));
         Cookie afterLogin = webDriver.manage().getCookieNamed("JSESSIONID");
         assertNotNull(afterLogin);
         assertNotNull(afterLogin.getValue());
-        assertNotEquals(beforeLogin.getValue(), afterLogin.getValue());
+
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(),
+                //Predix specific message on landing page.
+                Matchers.containsString("You should not see this page. Set up your redirect URI."));
     }
 
     @Test
@@ -237,6 +242,7 @@ public class OIDCLoginIT {
         String zoneAdminToken = IntegrationTestUtils.getClientCredentialsToken(serverRunning, "admin", "adminsecret");
         ScimUser user = IntegrationTestUtils.getUserByZone(zoneAdminToken, baseUrl, subdomain, testAccounts.getUserName());
         IntegrationTestUtils.validateUserLastLogon(user, beforeTest, afterTest);
+        assertEquals(user.getGivenName(), user.getUserName());
     }
 
     @Test
@@ -303,7 +309,7 @@ public class OIDCLoginIT {
             webDriver.findElement(By.xpath("//input[@value='Login']")).click();
 
             Assert.assertThat(webDriver.getCurrentUrl(), Matchers.containsString(zoneUrl));
-            assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to?"));
+            assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("You should not see this page. Set up your redirect URI."));
 
             Cookie cookie= webDriver.manage().getCookieNamed("JSESSIONID");
             System.out.println("cookie = " + String.format("%s=%s",cookie.getName(), cookie.getValue()));

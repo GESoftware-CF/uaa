@@ -37,7 +37,7 @@
         <constructor-arg name="requireLowerCaseCharacter" value="${password.policy.global.requireLowerCaseCharacter:0}"/>
         <constructor-arg name="requireDigit" value="${password.policy.global.requireDigit:0}"/>
         <constructor-arg name="requireSpecialCharacter" value="${password.policy.global.requireSpecialCharacter:0}"/>
-        <constructor-arg name="expirePasswordsInMonths" value="${password.policy.global.expirePasswordInMonths:0}"/>
+        <constructor-arg name="expirePasswordInMonths" value="${password.policy.global.expirePasswordInMonths:0}"/>
     </bean>
 
     <bean id="defaultUaaPasswordPolicy" class="org.cloudfoundry.identity.uaa.provider.PasswordPolicy">
@@ -47,7 +47,7 @@
         <constructor-arg name="requireLowerCaseCharacter" value="${password.policy.requireLowerCaseCharacter:#{globalPasswordPolicy.getRequireLowerCaseCharacter()}}"/>
         <constructor-arg name="requireDigit" value="${password.policy.requireDigit:#{globalPasswordPolicy.getRequireDigit()}}"/>
         <constructor-arg name="requireSpecialCharacter" value="${password.policy.requireSpecialCharacter:#{globalPasswordPolicy.getRequireSpecialCharacter()}}"/>
-        <constructor-arg name="expirePasswordsInMonths" value="${password.policy.expirePasswordInMonths:#{globalPasswordPolicy.getExpirePasswordInMonths()}}"/>
+        <constructor-arg name="expirePasswordInMonths" value="${password.policy.expirePasswordInMonths:#{globalPasswordPolicy.getExpirePasswordInMonths()}}"/>
     </bean>
 
     <bean id="scimEventPublisher" class="org.cloudfoundry.identity.uaa.scim.event.ScimEventPublisher"/>
@@ -215,7 +215,8 @@
         <intercept-url pattern="/Users/*" access="#oauth2.hasAnyScope('scim.write') or #oauth2.hasScopeInAuthZone('zones.{zone.id}.admin') or @self.isUserSelf(request,1)" method="PUT" /> <!-- add self logic -->
         <intercept-url pattern="/Users/*" access="#oauth2.hasAnyScope('scim.write') or #oauth2.hasScopeInAuthZone('zones.{zone.id}.admin') or @self.isUserSelf(request,1)" method="PATCH" />
         <intercept-url pattern="/Users" access="#oauth2.hasAnyScope('scim.write','scim.create') or #oauth2.hasScopeInAuthZone('zones.{zone.id}.admin')" method="POST" />
-        <intercept-url pattern="/**" access="ROLE_NONEXISTENT" />
+        <intercept-url pattern="/Users/tx" access="#oauth2.hasAnyScope('scim.write','scim.create') or #oauth2.hasScopeInAuthZone('zones.{zone.id}.admin')" method="POST" />
+        <intercept-url pattern="/**" access="denyAll" />
         <expression-handler ref="oauthWebExpressionHandler" />
         <custom-filter ref="resourceAgnosticAuthenticationFilter" position="PRE_AUTH_FILTER" />
         <access-denied-handler ref="oauthAccessDeniedHandler" />

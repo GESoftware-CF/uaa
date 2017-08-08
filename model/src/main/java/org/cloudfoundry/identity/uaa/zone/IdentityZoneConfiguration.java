@@ -16,6 +16,7 @@ package org.cloudfoundry.identity.uaa.zone;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import org.cloudfoundry.identity.uaa.login.Prompt;
+import org.cloudfoundry.identity.uaa.provider.LockoutPolicy;
 
 import java.util.Arrays;
 import java.util.List;
@@ -24,12 +25,14 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class IdentityZoneConfiguration {
 
+    private ClientSecretPolicy clientSecretPolicy = new ClientSecretPolicy();
+    private LockoutPolicy clientLockoutPolicy = new LockoutPolicy();
     private TokenPolicy tokenPolicy = new TokenPolicy();
     private SamlConfig samlConfig = new SamlConfig();
     private CorsPolicy corsPolicy = new CorsPolicy();
     private Links links = new Links();
     private List<Prompt> prompts = Arrays.asList(
-        new Prompt("username", "text", "Email"),
+        new Prompt("username", "text", "Username"),
         new Prompt("password", "password", "Password"),
         new Prompt("passcode", "password", "One Time Code (Get on at /passcode)")
     );
@@ -41,6 +44,23 @@ public class IdentityZoneConfiguration {
 
     public IdentityZoneConfiguration(TokenPolicy tokenPolicy) {
         this.tokenPolicy = tokenPolicy;
+    }
+
+    public ClientSecretPolicy getClientSecretPolicy() {
+        return clientSecretPolicy;
+    }
+
+    public void setClientSecretPolicy(ClientSecretPolicy clientSecretPolicy) {
+        this.clientSecretPolicy = clientSecretPolicy;
+    }
+
+
+    public LockoutPolicy getClientLockoutPolicy() {
+        return clientLockoutPolicy;
+    }
+
+    public void setClientLockoutPolicy(LockoutPolicy clientLockoutPolicy) {
+        this.clientLockoutPolicy = clientLockoutPolicy;
     }
 
     public TokenPolicy getTokenPolicy() {

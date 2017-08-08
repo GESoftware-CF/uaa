@@ -41,6 +41,7 @@ import org.cloudfoundry.identity.uaa.util.RestTemplateFactory;
 import org.cloudfoundry.identity.uaa.util.TokenValidation;
 import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -83,12 +84,12 @@ import static java.util.Optional.ofNullable;
 import static org.cloudfoundry.identity.uaa.oauth.jwk.JsonWebKey.KeyType.MAC;
 import static org.cloudfoundry.identity.uaa.oauth.jwk.JsonWebKey.KeyType.RSA;
 import static org.cloudfoundry.identity.uaa.oauth.token.CompositeAccessToken.ID_TOKEN;
-import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.GROUP_ATTRIBUTE_NAME;
-import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.USER_NAME_ATTRIBUTE_NAME;
+import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.*;
 import static org.cloudfoundry.identity.uaa.util.TokenValidation.validate;
+import static org.cloudfoundry.identity.uaa.util.UaaHttpRequestUtils.createRequestFactory;
 import static org.cloudfoundry.identity.uaa.util.UaaHttpRequestUtils.isAcceptedInvitationAuthentication;
 
-public class XOAuthAuthenticationManager extends ExternalLoginAuthenticationManager<XOAuthAuthenticationManager.AuthenticationData> {
+public class XOAuthAuthenticationManager extends ExternalLoginAuthenticationManager<XOAuthAuthenticationManager.AuthenticationData>  implements InitializingBean {
 
     public static Log logger = LogFactory.getLog(XOAuthAuthenticationManager.class);
 
@@ -97,6 +98,11 @@ public class XOAuthAuthenticationManager extends ExternalLoginAuthenticationMana
     public XOAuthAuthenticationManager(IdentityProviderProvisioning providerProvisioning, RestTemplateFactory restTemplateFactory) {
         super(providerProvisioning);
         this.restTemplateFactory = restTemplateFactory;
+    }
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+    	restTemplateHolder.get().getRestTemplate(false).setRequestFactory(createRequestFactory());
     }
 
     @Override
@@ -216,9 +222,15 @@ public class XOAuthAuthenticationManager extends ExternalLoginAuthenticationMana
     protected UaaUser getUser(Authentication request, AuthenticationData authenticationData) {
         if (authenticationData != null) {
 
+            String emailClaim = (String) authenticationData.getAttributeMappings().get(EMAIL_ATTRIBUTE_NAME);
+            String givenNameClaim = (String) authenticationData.getAttributeMappings().get(GIVEN_NAME_ATTRIBUTE_NAME);
+            String familyNameClaim = (String) authenticationData.getAttributeMappings().get(FAMILY_NAME_ATTRIBUTE_NAME);
+            String phoneClaim = (String) authenticationData.getAttributeMappings().get(PHONE_NUMBER_ATTRIBUTE_NAME);
+
             Map<String, Object> claims = authenticationData.getClaims();
+            //TODO call userinfo?
             String username = authenticationData.getUsername();
-            String email = (String) claims.get("email");
+            String email = (String) claims.get(emailClaim != null ? emailClaim : "email");
             if (email == null) {
                 email = generateEmailIfNull(username);
             }
@@ -226,9 +238,9 @@ public class XOAuthAuthenticationManager extends ExternalLoginAuthenticationMana
             return new UaaUser(
                 new UaaUserPrototype()
                     .withEmail(email)
-                    .withGivenName((String) claims.get("given_name"))
-                    .withFamilyName((String) claims.get("family_name"))
-                    .withPhoneNumber((String) claims.get("phone_number"))
+                    .withGivenName((String) claims.get(givenNameClaim != null ? givenNameClaim : "given_name"))
+                    .withFamilyName((String) claims.get(familyNameClaim != null ? familyNameClaim : "family_name"))
+                    .withPhoneNumber((String) claims.get(phoneClaim != null ? phoneClaim : "phone_number"))
                     .withModified(new Date())
                     .withUsername(username)
                     .withPassword("")
@@ -316,6 +328,31 @@ public class XOAuthAuthenticationManager extends ExternalLoginAuthenticationMana
         return provider.getConfig().isAddShadowUserOnLogin();
     }
 
+    /*
+    * BEGIN
+    * The following thread local only exists to satisfy that the unit test
+    * that require the template to be bound to the mock server
+    */
+    public static class RestTemplateHolder {
+        private final RestTemplate skipSslValidationTemplate;
+        private final RestTemplate restTemplate;
+
+        public RestTemplateHolder() {
+            skipSslValidationTemplate = new RestTemplate(createRequestFactory(true));
+            restTemplate = new RestTemplate(createRequestFactory(false));
+        }
+
+        public RestTemplate getRestTemplate(boolean skipSslValidation) {
+            return skipSslValidation ? skipSslValidationTemplate : restTemplate;
+        }
+    }
+
+    private ThreadLocal<RestTemplateHolder> restTemplateHolder = new ThreadLocal<RestTemplateHolder>() {
+        @Override
+        protected RestTemplateHolder initialValue() {return new RestTemplateHolder();
+        }
+    };
+
     public RestTemplate getRestTemplate(AbstractXOAuthIdentityProviderDefinition config) {
         return restTemplateFactory.getRestTemplate(config.isSkipSslValidation());
     }
@@ -397,8 +434,14 @@ public class XOAuthAuthenticationManager extends ExternalLoginAuthenticationMana
         body.add("redirect_uri", codeToken.getRedirectUrl());
 
         HttpHeaders headers = new HttpHeaders();
-        String clientAuthHeader = getClientAuthHeader(config);
-        headers.add("Authorization", clientAuthHeader);
+
+        if(config.isClientAuthInBody()) {
+            body.add("client_id", config.getRelyingPartyId());
+            body.add("client_secret", config.getRelyingPartySecret());
+        } else {
+            String clientAuthHeader = getClientAuthHeader(config);
+            headers.add("Authorization", clientAuthHeader);
+        }
         headers.add("Accept", "application/json");
 
         URI requestUri;
@@ -422,7 +465,12 @@ public class XOAuthAuthenticationManager extends ExternalLoginAuthenticationMana
                               new ParameterizedTypeReference<Map<String, String>>() {
                               }
                     );
+
             logger.debug(String.format("Request completed with status:%s", responseEntity.getStatusCode()));
+            //TODO how to reincorporate
+//            if (config.isSkipSslValidation()) {
+//                restTemplate.setRequestFactory(createRequestFactory(true));
+//            }
             return responseEntity.getBody().get(ID_TOKEN);
         } catch (HttpServerErrorException | HttpClientErrorException ex) {
             throw ex;
@@ -433,7 +481,7 @@ public class XOAuthAuthenticationManager extends ExternalLoginAuthenticationMana
         String clientAuth = new String(Base64.encodeBase64((config.getRelyingPartyId() + ":" + config.getRelyingPartySecret()).getBytes()));
         return "Basic " + clientAuth;
     }
-
+    
     protected static class AuthenticationData {
 
         private Map<String, Object> claims;

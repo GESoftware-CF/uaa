@@ -23,6 +23,7 @@ import org.cloudfoundry.identity.uaa.scim.ScimGroupMembershipManager;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupProvisioning;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.scim.ScimUserProvisioning;
+import org.cloudfoundry.identity.uaa.scim.ScimGroupMember.Role;
 import org.cloudfoundry.identity.uaa.scim.exception.InvalidScimResourceException;
 import org.cloudfoundry.identity.uaa.scim.exception.MemberAlreadyExistsException;
 import org.cloudfoundry.identity.uaa.scim.exception.MemberNotFoundException;
@@ -41,6 +42,7 @@ import org.springframework.jdbc.core.SingleColumnRowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
+import java.util.stream.Collectors;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -352,8 +354,20 @@ public class JdbcScimGroupMembershipManager extends AbstractQueryable<ScimGroupM
         List<ScimGroupMember> membersToUpdate = new ArrayList<>(members);
         membersToUpdate.retainAll(currentMembers);
         logger.debug("updating members: " + membersToUpdate);
+        Map<String, ScimGroupMember> currentMembersMap = 
+                currentMembers.stream().collect(Collectors.toMap(
+                        ScimGroupMember::getMemberId, member -> member));
         for (ScimGroupMember member : membersToUpdate) {
-            updateMember(groupId, member);
+            ScimGroupMember currentMemberMatch = currentMembersMap.get(member.getMemberId());
+            List<Role> sortedCurrentMemberRoles = currentMemberMatch.getRoles() != null ?
+                    currentMemberMatch.getRoles() : Collections.emptyList();
+            List<Role> sortedMemberRoles = member.getRoles() != null ?
+                    member.getRoles() : Collections.emptyList();
+            Collections.sort(sortedCurrentMemberRoles);
+            Collections.sort(sortedMemberRoles);
+            if(!sortedMemberRoles.equals(sortedCurrentMemberRoles)){
+                updateMember(groupId, member);
+            }
         }
 
         return getMembers(groupId, null, false);
