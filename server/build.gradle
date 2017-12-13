@@ -58,6 +58,8 @@ dependencies {
     implementation(libraries.hsqldb)
 
     implementation(libraries.snakeyaml)
+    implementation(group: "org.springframework.cloud", name: "spring-cloud-spring-service-connector", version:"1.2.1.RELEASE")
+    implementation(group: "org.springframework.cloud", name: "spring-cloud-cloudfoundry-connector", version:"1.2.1.RELEASE")
 
     implementation(libraries.springSecurityLdap)
     implementation(libraries.springLdapCore)

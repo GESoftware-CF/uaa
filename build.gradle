@@ -8,6 +8,7 @@ buildscript {
 
     repositories {
         mavenCentral()
+        jcenter()
         maven {
             url("https://repo.spring.io/plugins-release")
         }
@@ -28,11 +29,18 @@ def applicationPort = project.hasProperty('port') ? project.getProperty('port').
 
 apply(plugin: "com.bmuschko.cargo")
 
+def geArtifactoryReader = System.getenv('ARTIFACTORY_READER')
+def geArtifactoryReaderPassword  = System.getenv('ARTIFACTORY_READER_PW')
+def proxyHost  = System.getenv('PROXY_HOST')
+def proxyPort  = System.getenv('PROXY_PORT')
+def nonProxyHosts = 'localhost|*.localhost'
+
 allprojects {
     apply(plugin: "propdeps")
     apply(plugin: "propdeps-maven")
     apply(plugin: "propdeps-idea")
     apply(plugin: "io.spring.dependency-management")
+    apply(plugin: "jacoco")
 
     dependencyManagement {
         imports {
@@ -46,11 +54,28 @@ allprojects {
     repositories {
         mavenCentral()
         maven {
-            url("https://build.shibboleth.net/nexus/content/repositories/releases/")
+            credentials {
+                username geArtifactoryReader
+                password geArtifactoryReaderPassword
+            }
+            url("https://artifactory.build.ge.com/predix-virtual")
         }
-        maven { url("https://repository.mulesoft.org/releases/") }
+        // shibboleth.net is not reachable from the Jenkins nodes due to GE selling "3.0.0.0/8 address space" to Amazon.
+        // Now, within GE, when Propel sends the wget command to the 3.213.250.186 address that shibboleth has,
+        // it never makes it out of the GE network because it thinks 3.x.x.x is within GE network.
+        // See https://docs.gecloudpod.com/misc/3pocalypse
+        // As of August 2020, relevant dependencies were uploaded to GE artifactory and should be available in predix-virtual
+        // maven { url 'https://build.shibboleth.net/nexus/content/repositories/releases/' }
+        maven { url ("https://repository.mulesoft.org/releases/") }
     }
 }
+
+apply(plugin: "jacoco")
+
+def jacocoJarPath = project.zipTree(configurations.jacocoAgent.singleFile).filter({
+    it.name == 'jacocoagent.jar'
+}).asPath
+def jacocoLocation = System.getProperty('java.io.tmpdir') + '/cargo/jacocoagent.jar'
 
 subprojects {
     apply(plugin: "java")
@@ -142,8 +167,34 @@ subprojects {
         maven {
             url("https://repo.maven.apache.org/maven2")
         }
+        maven {
+            credentials {
+                username geArtifactoryReader
+                password geArtifactoryReaderPassword
+            }
+            url("https://artifactory.build.ge.com/predix-virtual")
+        }
+    }
+
+    tasks.withType(Test) {
+        systemProperties = System.properties
+        systemProperties['user.dir'] = workingDir
+    }
+
+    jacocoTestReport {
+        additionalSourceDirs.setFrom files(sourceSets.main.allSource.srcDirs)
+        sourceDirectories.setFrom files(sourceSets.main.allSource.srcDirs)
+        classDirectories.setFrom files(sourceSets.main.output)
+        executionData.setFrom project.fileTree(dir: '.', include: '**/build/jacoco/test.exec')
+        reports {
+            html.enabled = true
+            xml.enabled = true
+            csv.enabled = false
+        }
     }
 }
+
+// def integrationTestCoverageExecutionData = "${buildDir}/integrationTestCoverageReport.exec"
 
 cargo {
     containerId = "tomcat9x"
@@ -169,7 +220,7 @@ cargo {
         startStopTimeout = 540000
         rmiPort = applicationPort + 10
 
-        jvmArgs = ""
+        jvmArgs = jvmArgs = "-javaagent:${jacocoLocation}=output=file,dumponexit=true,append=false"
         jvmArgs = String.format("%s -DCLOUDFOUNDRY_CONFIG_PATH=%s", jvmArgs, file("scripts/cargo").getAbsolutePath())
         jvmArgs = String.format("%s -Dlog4j.configurationFile=%s", jvmArgs, file("scripts/cargo/log4j2.properties").getAbsolutePath())
         jvmArgs = String.format("%s -Dstatsd.enabled=true", jvmArgs)
@@ -189,6 +240,14 @@ cargo {
             property("metrics.perRequestMetrics", System.getProperty("metrics.perRequestMetrics", "true"))
             property("smtp.host", "localhost")
             property("smtp.port", 2525)
+
+            if (proxyHost != null && proxyHost.trim() != '') {
+                property("http.proxyHost", proxyHost)
+                property("http.proxyPort", proxyPort)
+                property("https.proxyHost", proxyHost)
+                property("https.proxyPort", proxyPort)
+                property("http.nonProxyHosts", nonProxyHosts)
+            }
         }
 
         containerProperties {
@@ -232,10 +291,59 @@ task cleanCargoConfDir {
     try {
         Files.createDirectory(Paths.get(System.getProperty("java.io.tmpdir") + "/uaa-${applicationPort}"))
     } catch (ignored) {}
+
+    try {
+        Files.createDirectory(Paths.get(System.getProperty("java.io.tmpdir") + '/cargo'))
+    } catch (Exception e) {
+        printf "error occurred during directory creation: ${e} \n"
+    }
+    delete file(jacocoLocation)
+    Files.copy(Paths.get(jacocoJarPath), Paths.get(jacocoLocation))
 }
 
 task integrationTest(type: Test, dependsOn: subprojects.integrationTest) {
     finalizedBy cargoStopLocal
+}
+
+def jacocoRootReportConfiguration = {
+    additionalSourceDirs.setFrom files(subprojects.sourceSets.main.allSource.srcDirs)
+    sourceDirectories.setFrom files(subprojects.sourceSets.main.allSource.srcDirs)
+    classDirectories.setFrom files(subprojects.sourceSets.main.output)
+    executionData.setFrom files(subprojects.jacocoTestReport.executionData)
+    reports {
+        html.enabled = true
+        xml.enabled = true
+        xml.destination = file("${buildDir}/reports/jacoco/jacocoRootReport/jacocoRootReport.xml")
+        csv.enabled = false
+    }
+    onlyIf = {
+        true
+    }
+    doFirst {
+        executionData.setFrom files(executionData.findAll {
+            it.exists()
+        })
+    }
+}
+
+task jacocoRootReportIntegrationTest(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
+    configure jacocoRootReportConfiguration
+    dependsOn = [integrationTest]
+}
+
+task jacocoRootReportTest(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
+    configure jacocoRootReportConfiguration
+    dependsOn = [test]
+}
+
+task jacocoRootReportServerTest(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
+    configure jacocoRootReportConfiguration
+    dependsOn(':cloudfoundry-identity-server:test')
+}
+
+task jacocoRootReportUaaTest(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
+    configure jacocoRootReportConfiguration
+    dependsOn(':cloudfoundry-identity-uaa:test')
 }
 
 // task dependencies
