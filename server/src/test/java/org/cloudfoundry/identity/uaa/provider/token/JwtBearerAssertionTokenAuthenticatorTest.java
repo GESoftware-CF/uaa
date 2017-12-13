@@ -18,6 +18,8 @@ import java.util.Base64;
 import org.bouncycastle.openssl.PEMWriter;
 import org.cloudfoundry.identity.uaa.oauth.client.ClientConstants;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
+import org.cloudfoundry.identity.uaa.zone.IdentityZone;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -47,10 +49,12 @@ public class JwtBearerAssertionTokenAuthenticatorTest {
     private ClientDetailsService clientDetailsService = Mockito.mock(ClientDetailsService.class);
     
     private long currentTimeSecs;
+    private MockKeyProvider mockKeyProvider;
 
     @Before
     public void beforeMethod() {
-        this.tokenAuthenticator.setClientPublicKeyProvider(new MockKeyProvider());
+        mockKeyProvider = new MockKeyProvider();
+        this.tokenAuthenticator.setClientPublicKeyProvider(mockKeyProvider);
         BaseClientDetails testUaaClient = new BaseClientDetails(DEVICE_1_CLIENT_ID, null, null, null, null, null);
         testUaaClient.addAdditionalInformation(ClientConstants.ALLOWED_DEVICE_ID, DEVICE_1_ID);
         when(this.clientDetailsService.loadClientByClientId(DEVICE_1_CLIENT_ID)) .thenReturn(testUaaClient);
@@ -62,11 +66,15 @@ public class JwtBearerAssertionTokenAuthenticatorTest {
         long currentTime = System.currentTimeMillis();
         String token = new MockAssertionToken().mockAssertionToken(DEVICE_1_CLIENT_ID, DEVICE_1_ID,
                 currentTime, 600, TENANT_ID, AUDIENCE);
+        IdentityZoneHolder.get().getConfig().setPublicKeyProviderInstanceId("test-zone-guid");
         String header = new MockClientAssertionHeader().mockSignedHeader(this.currentTimeSecs, DEVICE_1_ID, TENANT_ID);
         this.tokenAuthenticator.setClientDetailsService(this.clientDetailsService);
+
         Authentication authn = this.tokenAuthenticator.authenticate(token, header, MockKeyProvider.DEVICE1_PUBLIC_KEY);
+
         Assert.assertEquals(DEVICE_1_CLIENT_ID, authn.getPrincipal());
         Assert.assertEquals(true, authn.isAuthenticated());
+        Assert.assertEquals("test-zone-guid", mockKeyProvider.receivedZoneId);
     }
 
     @Test
@@ -76,7 +84,9 @@ public class JwtBearerAssertionTokenAuthenticatorTest {
                 currentTime, 600, TENANT_ID, new String[] {"https://other-aud.com/path", AUDIENCE});
         String header = new MockClientAssertionHeader().mockSignedHeader(this.currentTimeSecs, DEVICE_1_ID, TENANT_ID);
         this.tokenAuthenticator.setClientDetailsService(this.clientDetailsService);
+
         Authentication authn = this.tokenAuthenticator.authenticate(token, header, MockKeyProvider.DEVICE1_PUBLIC_KEY);
+
         Assert.assertEquals(DEVICE_1_CLIENT_ID, authn.getPrincipal());
         Assert.assertEquals(true, authn.isAuthenticated());
     }
@@ -223,7 +233,7 @@ public class JwtBearerAssertionTokenAuthenticatorTest {
         }
         
         @Override
-        public String getPublicKey(final String tenantId, final String deviceId) throws PublicKeyNotFoundException {
+        public String getPublicKey(final String tenantId, final String deviceId, final String predixZoneId) throws PublicKeyNotFoundException {
             try {
                 byte[] publicKey = Base64.getUrlEncoder().encode(getPEMPublicKey(this.testPair.getPublic()));
                 return new String(publicKey, UTF8);
@@ -360,7 +370,7 @@ public class JwtBearerAssertionTokenAuthenticatorTest {
     public void testPublicKeyNotFound() {
         class NotFoundKeyProvider implements DevicePublicKeyProvider {
             @Override
-            public String getPublicKey(final String tenantId, final String deviceId) throws PublicKeyNotFoundException {
+            public String getPublicKey(final String tenantId, final String deviceId, final String predixZoneId) throws PublicKeyNotFoundException {
                 throw new PublicKeyNotFoundException();
             }
 
@@ -374,7 +384,7 @@ public class JwtBearerAssertionTokenAuthenticatorTest {
     public void testPublicKeyIsNull() {
         class NullKeyProvider implements DevicePublicKeyProvider {
             @Override
-            public String getPublicKey(final String tenantId, final String deviceId) throws PublicKeyNotFoundException {
+            public String getPublicKey(final String tenantId, final String deviceId, final String predixZoneId) throws PublicKeyNotFoundException {
                 return null;
             }
 

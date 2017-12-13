@@ -39,5 +39,5 @@ ext {
   tomcatJdbcPoolVersion = '8.5.16'
   tomcatContainerId = 'tomcat8x'
   validationAPIVersion = '1.0.0.GA'
-  predixpublickeyProviderVersion = '1.1.0'
+  predixpublickeyProviderVersion = '1.2.0-SNAPSHOT'
 }
