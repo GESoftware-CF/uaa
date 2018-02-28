@@ -12,13 +12,7 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.acceptance;
 
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
-import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
-
-import java.io.File;
-import java.util.List;
-
+import com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.commons.io.FileUtils;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.integration.feature.DefaultIntegrationTestConfig;
@@ -58,7 +52,12 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestOperations;
 import org.springframework.web.client.RestTemplate;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import java.io.File;
+import java.util.List;
+
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThat;
+import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = DefaultIntegrationTestConfig.class)
@@ -151,6 +150,7 @@ public class SamlLoginAT {
 
         IdentityProvider<SamlIdentityProviderDefinition> provider = createGESSOIdentityProvider(SAML_ENTITY_ID);
         this.webDriver.get(this.baseUrl + firstUrl);
+        logger.info("reached " + this.webDriver.getTitle());
         this.webDriver.findElement(By.xpath("//a[text()='" + provider.getConfig().getLinkText() + "']")).click();
         logger.info(this.webDriver.getCurrentUrl());
         String page = this.webDriver.getPageSource();
