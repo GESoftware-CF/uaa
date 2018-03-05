@@ -88,7 +88,6 @@ pipeline {
             }
             post{
                 always {
-                    junit testResults: 'uaa/uaa/build/test-results/**/*.xml', allowEmptyResults: true
                     publishHTML target: [
                         allowMissing: true,
                         alwaysLinkToLastBuild: true,
