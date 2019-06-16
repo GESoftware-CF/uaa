@@ -20,27 +20,42 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.mock.env.MockEnvironment;
+import org.springframework.mock.env.MockPropertySource;
+import org.springframework.util.ReflectionUtils;
 
 import java.io.File;
-
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.getLimitedModeStatusFile;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.resetLimitedModeStatusFile;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.setLimitedModeStatusFile;
+import java.lang.reflect.Field;
+import java.util.Properties;
 
 public class LimitedModeJwtBearerGrantMockMvcTests extends JwtBearerGrantMockMvcTests {
-    private File existingStatusFile;
+    // To set Predix UAA limited/degraded mode, use environment variable instead of StatusFile
+
+    private MockEnvironment mockEnvironment;
+    private MockPropertySource propertySource;
+    private Properties originalProperties = new Properties();
+    Field f = ReflectionUtils.findField(MockEnvironment.class, "propertySource");
 
     @BeforeEach
     public void setUpLimitedModeContext(
             @Autowired @Qualifier("defaultUserAuthorities") Object defaultAuthorities
     ) throws Exception {
         super.setUpContext(defaultAuthorities);
-        existingStatusFile = getLimitedModeStatusFile(webApplicationContext);
-        setLimitedModeStatusFile(webApplicationContext);
+
+        mockEnvironment = (MockEnvironment) webApplicationContext.getEnvironment();
+        f.setAccessible(true);
+        propertySource = (MockPropertySource) ReflectionUtils.getField(f, mockEnvironment);
+        for (String s : propertySource.getPropertyNames()) {
+            originalProperties.put(s, propertySource.getProperty(s));
+        }
+        mockEnvironment.setProperty("spring_profiles", "default, degraded");
     }
 
     @AfterEach
     public void tearDown() throws Exception {
-        resetLimitedModeStatusFile(webApplicationContext, existingStatusFile);
+        mockEnvironment.getPropertySources().remove(MockPropertySource.MOCK_PROPERTIES_PROPERTY_SOURCE_NAME);
+        MockPropertySource originalPropertySource = new MockPropertySource(originalProperties);
+        ReflectionUtils.setField(f, mockEnvironment, new MockPropertySource(originalProperties));
+        mockEnvironment.getPropertySources().addLast(originalPropertySource);
     }
 }

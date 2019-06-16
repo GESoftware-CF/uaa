@@ -20,6 +20,7 @@ import org.cloudfoundry.identity.uaa.util.TimeService;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -47,6 +48,7 @@ import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
 
 public class LimitedModeUaaFilterTests {
+    // To set Predix UAA limited/degraded mode, use environment variable instead of StatusFile
 
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
@@ -69,6 +71,8 @@ public class LimitedModeUaaFilterTests {
         response = new MockHttpServletResponse();
         chain = mock(FilterChain.class);
         filter = new LimitedModeUaaFilter();
+        MockEnvironment env = new MockEnvironment();
+        filter.setEnvironment(env.withProperty("spring_profiles", "default, degraded"));
         statusFile = File.createTempFile("uaa-limited-mode.", ".status");
     }
 
@@ -86,6 +90,8 @@ public class LimitedModeUaaFilterTests {
 
     @Test
     public void disabled() throws Exception {
+        MockEnvironment env = new MockEnvironment();
+        filter.setEnvironment(env.withProperty("spring_profiles", "default"));
         filter.doFilterInternal(request, response, chain);
         verify(chain, times(1)).doFilter(same(request), same(response));
         assertFalse(filter.isEnabled());

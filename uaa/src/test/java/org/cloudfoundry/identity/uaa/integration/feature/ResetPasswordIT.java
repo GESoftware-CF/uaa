@@ -47,6 +47,7 @@ import static org.junit.Assert.assertThat;
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = DefaultIntegrationTestConfig.class)
 @UnlessProfileActive(values = "saml")
+//Some tests are Ignored to accomodate Predix Branding changes
 public class ResetPasswordIT {
 
     @Autowired @Rule
@@ -96,7 +97,7 @@ public class ResetPasswordIT {
 
         String adminAccessToken = testClient.getOAuthAccessToken("admin", "adminsecret", "client_credentials", "clients.read clients.write clients.secret clients.admin");
         testClient.createScimClient(adminAccessToken, scimClientId);
-        BaseClientDetails authCodeClient = new BaseClientDetails(authCodeClientId, "oauth", "uaa.user", "authorization_code,refresh_token", null, "http://example.redirect.com");
+        BaseClientDetails authCodeClient = new BaseClientDetails(authCodeClientId, "oauth", "uaa.user", "authorization_code,refresh_token", null, "https://www.google.com");
         authCodeClient.setClientSecret("scimsecret");
         authCodeClient.setAutoApproveScopes(Arrays.asList(new String[] {"uaa.user"}));
         IntegrationTestUtils.createClient(adminAccessToken, baseUrl, authCodeClient);
@@ -159,7 +160,7 @@ public class ResetPasswordIT {
 
     @Test
     public void testNotAutoLoginAfterResetPassword() {
-        webDriver.get(baseUrl + "/oauth/authorize?client_id=" + authCodeClientId + "&redirect_uri=http://example.redirect.com&grant_type=authorization_code&response_type=code");
+        webDriver.get(baseUrl + "/oauth/authorize?client_id=" + authCodeClientId + "&redirect_uri=https://www.google.com&grant_type=authorization_code&response_type=code");
 //        webDriver.get();
         webDriver.findElement(By.linkText("Reset password")).click();
         Assert.assertEquals("Reset Password", webDriver.findElement(By.tagName("h1")).getText());
@@ -195,11 +196,13 @@ public class ResetPasswordIT {
         webDriver.findElement(By.name("password")).sendKeys("new_password");
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
 
-        assertThat(webDriver.getCurrentUrl(), startsWith("http://example.redirect.com/?code="));
+        assertThat(webDriver.getCurrentUrl(), startsWith("https://www.google.com/?code="));
     }
 
     @Test
     public void resettingAPasswordForANonExistentUser() throws Exception {
+        webDriver.get(baseUrl + "/login");
+        Assert.assertEquals("Predix", webDriver.getTitle());
         int receivedEmailSize = simpleSmtpServer.getReceivedEmailSize();
 
         beginPasswordReset("nonexistent_user");
@@ -262,7 +265,7 @@ public class ResetPasswordIT {
 
     private void beginPasswordReset(String username) {
         webDriver.get(baseUrl + "/login");
-        Assert.assertEquals("Cloud Foundry", webDriver.getTitle());
+        Assert.assertEquals("Predix", webDriver.getTitle());
         webDriver.findElement(By.linkText("Reset password")).click();
         Assert.assertEquals("Reset Password", webDriver.findElement(By.tagName("h1")).getText());
 
@@ -285,7 +288,7 @@ public class ResetPasswordIT {
         return testClient.extractLink(message.getBody());
     }
 
-    private void finishPasswordReset(String username, String email) {
+    private void finishPasswordReset(String username, String email) throws Exception{
         String link = getPasswordResetLink(email);
         webDriver.get(link);
 
@@ -299,7 +302,7 @@ public class ResetPasswordIT {
         webDriver.findElement(By.name("password")).sendKeys("newsecr3T");
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
 
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("Where to?"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("You should not see this page. Set up your redirect URI."));
     }
 
 }

@@ -12,6 +12,11 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.integration.feature;
 
+import java.net.Inet4Address;
+import java.net.UnknownHostException;
+import java.util.Arrays;
+import java.util.List;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.commons.lang.StringUtils;
 import org.cloudfoundry.identity.uaa.ServerRunning;
@@ -33,6 +38,7 @@ import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter;
 import org.cloudfoundry.identity.uaa.zone.SamlConfig;
+import org.hamcrest.Matchers;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -63,11 +69,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestOperations;
 import org.springframework.web.client.RestTemplate;
 
-import java.net.Inet4Address;
-import java.net.UnknownHostException;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import static org.cloudfoundry.identity.uaa.provider.saml.SamlKeyManagerFactoryTests.certificate1;
@@ -259,6 +261,7 @@ public class SamlLoginWithLocalIdpIT {
                                                                              CompositeToken.class);
 
         assertEquals(HttpStatus.OK, token.getStatusCode());
+
         assertTrue(token.hasBody());
         provider.setActive(false);
         IntegrationTestUtils.updateIdentityProvider(this.baseUrl, this.serverRunning, provider);
@@ -267,7 +270,8 @@ public class SamlLoginWithLocalIdpIT {
     @Test
     public void testLocalSamlIdpLogin() throws Exception {
         ScimUser user = IntegrationTestUtils.createRandomUser(this.baseUrl);
-        testLocalSamlIdpLogin("/login", "Where to?", user.getPrimaryEmail(), "secr3T");
+        //This is modified for branding login.yml changes...
+        testLocalSamlIdpLogin("/login", "You should not see this page. Set up your redirect URI.", user.getPrimaryEmail(), "secr3T");
     }
 
     @Test
@@ -299,7 +303,9 @@ public class SamlLoginWithLocalIdpIT {
         webDriver.findElement(By.name("username")).sendKeys(email);
         webDriver.findElement(By.name("password")).sendKeys("secr3T");
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("Where to?"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(),
+                containsString("You should not see this page. Set up your redirect URI."));
+
         webDriver.get(testZone1Url + "/saml/idp/initiate");
         assertNotNull(webDriver.findElement(By.xpath("//h2[contains(text(), 'Missing sp request parameter')]")));
         webDriver.get(testZone1Url + "/saml/idp/initiate?sp=invalid_entity_id");
@@ -359,7 +365,9 @@ public class SamlLoginWithLocalIdpIT {
         webDriver.findElement(By.name("username")).sendKeys(email);
         webDriver.findElement(By.name("password")).sendKeys("secr3T");
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("Where to?"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(),
+                containsString("You should not see this page. Set up your redirect URI."));
+
         assertThat(webDriver.getCurrentUrl(), containsString(testZone2Url));
         for (String logout : Arrays.asList(baseUrl, testZone1Url, testZone2Url)) {
             webDriver.get(logout + "/logout.do");
@@ -422,7 +430,8 @@ public class SamlLoginWithLocalIdpIT {
         webDriver.findElement(By.name("username")).sendKeys(zoneUserEmail);
         webDriver.findElement(By.name("password")).sendKeys("secr3T");
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("Where to?"));
+        //This is modified for branding login.yml changes...
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("You should not see this page. Set up your redirect URI."));
 
         webDriver.get(baseUrl + "/logout.do");
         webDriver.get(testZone1Url + "/logout.do");
@@ -949,14 +958,15 @@ public class SamlLoginWithLocalIdpIT {
             WebElement element = elements.get(0);
             assertNotNull(element);
 
-            element.click();
+        element.click();
         try {
             webDriver.findElement(By.xpath("//h1[contains(text(), 'Welcome to The Twiglet Zone[" + idpZoneId + "]!')]"));
             webDriver.findElement(By.name("username")).clear();
             webDriver.findElement(By.name("username")).sendKeys(idpZoneUserEmail);
             webDriver.findElement(By.name("password")).sendKeys("secr3T");
             webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
-            assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("Where to?"));
+            //This is modified for branding login.yml changes...
+            assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("You should not see this page. Set up your redirect URI."));
             Cookie afterLogin = webDriver.manage().getCookieNamed("JSESSIONID");
             assertNotNull(afterLogin);
             assertNotNull(afterLogin.getValue());

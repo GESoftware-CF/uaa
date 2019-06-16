@@ -21,6 +21,7 @@ import org.cloudfoundry.identity.uaa.util.SetServerNameRequestPostProcessor;
 import org.cloudfoundry.identity.uaa.zone.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.Ignore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,6 +66,9 @@ import static org.springframework.util.StringUtils.isEmpty;
 @DefaultTestContext
 class AccountsControllerMockMvcTests {
 
+    private static final String ACCOUNT_CREATE_MESSAGE = "Create your Predix account";
+    private static final String ACCOUNT_OTHER_ZONE_CREATE_MESSAGE = "Create your account";
+    private static final String UAA_AUTHOR = "Predix";
     private final String LOGIN_REDIRECT = "/login?success=verify_success";
     private final String USER_PASSWORD = "secr3T";
     private String userEmail;
@@ -117,7 +121,7 @@ class AccountsControllerMockMvcTests {
     @Test
     void testCreateActivationEmailPage() throws Exception {
         mockMvc.perform(get("/create_account"))
-                .andExpect(content().string(containsString("Create your account")));
+                .andExpect(content().string(containsString(ACCOUNT_CREATE_MESSAGE)));
     }
 
     @Test
@@ -127,14 +131,14 @@ class AccountsControllerMockMvcTests {
 
         mockMvc.perform(get("/create_account")
                 .with(new SetServerNameRequestPostProcessor(subdomain + ".localhost")))
-                .andExpect(content().string(containsString("Create your account")));
+                .andExpect(content().string(containsString(ACCOUNT_OTHER_ZONE_CREATE_MESSAGE)));
     }
 
     @Test
     void testActivationEmailSentPage() throws Exception {
         mockMvc.perform(get("/accounts/email_sent"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Create your account")))
+                .andExpect(content().string(containsString(ACCOUNT_CREATE_MESSAGE)))
                 .andExpect(xpath("//input[@disabled='disabled']/@value").string("Email successfully sent"));
     }
 
@@ -144,17 +148,16 @@ class AccountsControllerMockMvcTests {
         MockMvcUtils.createOtherIdentityZone(subdomain, mockMvc, webApplicationContext);
 
         mockMvc.perform(get("/accounts/email_sent")
-                .with(new SetServerNameRequestPostProcessor(subdomain + ".localhost")))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Create your account")))
-                .andExpect(xpath("//input[@disabled='disabled']/@value").string("Email successfully sent"))
-                .andExpect(content().string(containsString("Cloud Foundry")));
+            .with(new SetServerNameRequestPostProcessor(subdomain + ".localhost")))
+            .andExpect(status().isOk())
+            .andExpect(content().string(containsString(ACCOUNT_OTHER_ZONE_CREATE_MESSAGE)))
+            .andExpect(xpath("//input[@disabled='disabled']/@value").string("Email successfully sent"));
     }
 
     @Test
     void testPageTitle() throws Exception {
         mockMvc.perform(get("/create_account"))
-                .andExpect(content().string(containsString("<title>Cloud Foundry</title>")));
+            .andExpect(content().string(containsString("<title>Predix</title>")));
     }
 
     @Test
@@ -167,6 +170,7 @@ class AccountsControllerMockMvcTests {
                 .andExpect(content().string(containsString("<title>" + zone.getName() + "</title>")));
     }
 
+    @Ignore //predix branding does not have this image.
     @Test
     void testCreateAccountWithDisableSelfService() throws Exception {
         String subdomain = generator.generate();
@@ -201,6 +205,7 @@ class AccountsControllerMockMvcTests {
                 .andExpect(status().isNotFound());
     }
 
+    @Ignore //predix branding does not have this image.
     @Test
     void defaultZoneLogoNull_useAssetBaseUrlImage() throws Exception {
         mockMvc.perform(get("/create_account"))
@@ -311,8 +316,8 @@ class AccountsControllerMockMvcTests {
                 .andExpect(redirectedUrl("accounts/email_sent"));
 
         FakeJavaMailSender.MimeMessageWrapper message = fakeJavaMailSender.getSentMessages().get(0);
-        assertTrue(message.getContentString().contains("Cloud Foundry"));
-        assertThat(message.getMessage().getHeader("From"), hasItemInArray("Cloud Foundry <admin@localhost>"));
+        assertTrue(message.getContentString().contains(UAA_AUTHOR));
+        assertThat(message.getMessage().getHeader("From"), hasItemInArray(UAA_AUTHOR));
 
         mockMvc.perform(get("/verify_user")
                 .param("code", "test" + generator.counter.get()))
@@ -363,8 +368,7 @@ class AccountsControllerMockMvcTests {
         FakeJavaMailSender.MimeMessageWrapper message = fakeJavaMailSender.getSentMessages().get(0);
         String link = mockMvcTestClient.extractLink(message.getContentString());
         assertTrue(message.getContentString().contains(subdomain + "zone"));
-        assertThat(message.getMessage().getHeader("From"), hasItemInArray(subdomain + "zone <admin@localhost>"));
-        assertFalse(message.getContentString().contains("Cloud Foundry"));
+        assertThat(message.getMessage().getHeader("From"), hasItemInArray(subdomain + "zone"));
         assertFalse(message.getContentString().contains("Pivotal"));
         assertFalse(isEmpty(link));
         assertTrue(link.contains(subdomain + ".localhost"));
@@ -446,6 +450,7 @@ class AccountsControllerMockMvcTests {
         return clientDetails;
     }
 
+    @Ignore // user verification is disabled
     @Test
     void redirectToSavedRequest_ifPresent() throws Exception {
         MockHttpSession session = MockMvcUtils.getSavedRequestSession();
@@ -588,8 +593,8 @@ class AccountsControllerMockMvcTests {
                 .andExpect(redirectedUrl("accounts/email_sent"));
 
         FakeJavaMailSender.MimeMessageWrapper message = fakeJavaMailSender.getSentMessages().get(0);
-        assertTrue(message.getContentString().contains("Cloud Foundry"));
-        assertThat(message.getMessage().getHeader("From"), hasItemInArray("Cloud Foundry <admin@localhost>"));
+        assertTrue(message.getContentString().contains(UAA_AUTHOR));
+        assertThat(message.getMessage().getHeader("From"), hasItemInArray(UAA_AUTHOR));
 
         mockMvc.perform(get("/verify_user")
                 .param("code", "test" + generator.counter.get()))

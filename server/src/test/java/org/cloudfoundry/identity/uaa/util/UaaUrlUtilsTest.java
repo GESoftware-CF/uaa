@@ -76,14 +76,18 @@ class UaaUrlUtilsTest {
             "http://username:password@some.server.com",
             "http://*:*@some.server.com",
             "http://username:password@some.server.com/path",
+            "http://username:password@example.com:8080/path",
             "http://under_score_subdomain.example.com",
             "http://under_score_subdomain.ex_ample.com",
             "http://dash-subdomain.example.com",
             "http://dash-subdomain.ex-ample.com",
             "cool-app://example.com",
+            "http://localhost:*/path",
+            "http://localhost:*/**",
+            "http://localhost:*/*",
             "org.cloudfoundry.identity://mobile-windows-app.com/view",
             "org+cloudfoundry+identity://mobile-ios-app.com/view",
-            "org-cl0udfoundry-identity://mobile-android-app.com/view"
+           "org-cl0udfoundry-identity://mobile-android-app.com/view"
     );
 
     @BeforeEach

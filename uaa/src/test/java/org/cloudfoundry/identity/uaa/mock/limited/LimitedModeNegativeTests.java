@@ -39,6 +39,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.io.File;
+import java.lang.reflect.Field;
+import java.util.Properties;
 
 import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.*;
 import static org.springframework.http.HttpStatus.*;
@@ -46,14 +48,25 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.springframework.mock.env.MockEnvironment;
+import org.springframework.mock.env.MockPropertySource;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.util.ReflectionUtils;
+import org.springframework.web.context.support.XmlWebApplicationContext;
+
 @DefaultTestContext
 class LimitedModeNegativeTests {
+    // To set Predix UAA limited/degraded mode, use environment variable instead of StatusFile
+
     private String adminToken;
-    private File existingStatusFile;
 
     @Autowired
     private WebApplicationContext webApplicationContext;
     private MockMvc mockMvc;
+
+    private MockEnvironment mockEnvironment;
+    private Properties originalProperties = new Properties();
+    Field f = ReflectionUtils.findField(MockEnvironment.class, "propertySource");
 
     @BeforeEach
     void setUp() throws Exception {
@@ -62,20 +75,28 @@ class LimitedModeNegativeTests {
                 .addFilter(springSecurityFilterChain)
                 .build();
 
-        existingStatusFile = getLimitedModeStatusFile(webApplicationContext);
-        setLimitedModeStatusFile(webApplicationContext);
-
         adminToken = MockMvcUtils.getClientCredentialsOAuthAccessToken(mockMvc,
                 "admin",
                 "adminsecret",
                 "uaa.admin",
                 null,
                 true);
+
+        mockEnvironment = (MockEnvironment) webApplicationContext.getEnvironment();
+        f.setAccessible(true);
+        MockPropertySource propertySource = (MockPropertySource) ReflectionUtils.getField(f, mockEnvironment);
+        for (String s : propertySource.getPropertyNames()) {
+            originalProperties.put(s, propertySource.getProperty(s));
+        }
+        mockEnvironment.setProperty("spring_profiles", "default, degraded");
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        resetLimitedModeStatusFile(webApplicationContext, existingStatusFile);
+        mockEnvironment.getPropertySources().remove(MockPropertySource.MOCK_PROPERTIES_PROPERTY_SOURCE_NAME);
+        MockPropertySource originalPropertySource = new MockPropertySource(originalProperties);
+        ReflectionUtils.setField(f, mockEnvironment, new MockPropertySource(originalProperties));
+        mockEnvironment.getPropertySources().addLast(originalPropertySource);
     }
 
     @Test

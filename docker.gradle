@@ -1,0 +1,105 @@
+/*
+To run docker tasks set the following environment variables:
+MAINTAINER_EMAIL
+DOCKER_REPO_URL
+DOCKER_REPO_USER
+DOCKER_REPO_USER_PW
+DOCKER_CONTAINER_NAME
+
+When pulling the uaa docker image from a registry you can inject the uaa profile and uaa.yml
+into the docker container environment.
+
+For example:
+docker container run -e CATALINA_OPTS="-Dspring.profiles.active=<desired uaa profile> -DUAA_CONFIG_YAML=<properly escaped uaa.yml>" <image_id>
+*/
+
+buildscript {
+  apply from: file('shared_versions.gradle')
+
+  repositories {
+    maven {
+      url 'https://plugins.gradle.org/m2/'
+    }
+  }
+
+  dependencies {
+    classpath 'com.bmuschko:gradle-docker-plugin:3.0.11'
+  }
+}
+
+apply plugin: com.bmuschko.gradle.docker.DockerRemoteApiPlugin
+apply plugin: 'java'
+
+import com.bmuschko.gradle.docker.tasks.image.Dockerfile
+import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage
+import com.bmuschko.gradle.docker.tasks.image.DockerPullImage
+import com.bmuschko.gradle.docker.tasks.image.DockerPushImage
+import com.bmuschko.gradle.docker.DockerRegistryCredentials
+import com.bmuschko.gradle.docker.tasks.container.DockerCreateContainer
+import com.bmuschko.gradle.docker.tasks.container.DockerStartContainer
+
+task createDockerfile(type: Dockerfile) {
+  dependsOn assemble
+  destFile = project.file('build/docker/Dockerfile')
+  from 'tomcat:8.5-jre8'
+  maintainer 'UAA team "$MAINTAINER_EMAIL"'
+  instruction 'ENV LOGIN_CONFIG_URL WEB-INF/classes/required_configuration.yml'
+  instruction 'ENV CLOUD_FOUNDRY_CONFIG_PATH /uaa'
+  instruction 'RUN bash -c "rm -r /usr/local/tomcat/webapps/ROOT"'
+  instruction 'RUN bash -c "rm -r /usr/local/tomcat/webapps/host-manager"'
+  instruction 'RUN bash -c "rm -r /usr/local/tomcat/webapps/manager"'
+  instruction 'RUN bash -c "rm -r /usr/local/tomcat/webapps/examples"'
+  instruction 'RUN bash -c "rm -r /usr/local/tomcat/webapps/docs"'
+  instruction 'RUN bash -c "addgroup --gid 1110 docker"'
+  instruction 'RUN bash -c "adduser --uid 1100 --disabled-password --gecos \'\' dockeruser"'
+  instruction 'RUN bash -c "adduser dockeruser docker"'
+  instruction 'ADD cloudfoundry-identity-uaa-' + version + '.war /usr/local/tomcat/webapps/ROOT.war'
+  instruction 'ADD uaa-docker.yml /uaa/uaa.yml'
+  instruction 'RUN bash -c "echo $LOGIN_CONFIG_URL"'
+  instruction 'RUN bash -c "chown -R dockeruser:docker /usr/local/tomcat"'
+  instruction 'RUN bash -c "ls -l /usr/local/tomcat"'
+  instruction 'RUN bash -c "chown -R dockeruser:docker /uaa"'
+  instruction 'RUN bash -c "ls -l /uaa"'
+  instruction 'EXPOSE 8080'
+  instruction 'USER dockeruser:docker'
+}
+
+task deleteDockerfile() {
+  delete file('build/docker')
+}
+
+task copyContainerFiles(type: Copy) {
+  dependsOn createDockerfile
+  from 'uaa/build/libs'
+  from 'uaa/build/resources/main/tomcat-server.xml'
+  from 'uaa/build/resources/main/uaa-docker.yml'
+  into 'build/docker'
+}
+
+task buildImage(type: DockerBuildImage) {
+  dependsOn copyContainerFiles
+  inputDir = createDockerfile.destFile.parentFile
+  tag = System.getenv('DOCKER_REPO_URL') + '/uaa:' + version
+}
+
+task createUaaContainer(type: DockerCreateContainer) {
+  dependsOn buildImage
+  targetImageId { buildImage.getImageId() }
+  containerName = System.getenv('DOCKER_CONTAINER_NAME')
+  portBindings = ['8080:8080']
+  env = ["CATALINA_OPTS='-Dspring.profiles.active=default'"]
+}
+
+task startUaaContainer(type: DockerStartContainer) {
+  dependsOn createUaaContainer
+  targetContainerId { createUaaContainer.getContainerId() }
+}
+
+task pushUaaImage(type: DockerPushImage) {
+  dependsOn buildImage
+  imageName = System.getenv('DOCKER_REPO_URL') + '/uaa:' + version
+  registryCredentials = new DockerRegistryCredentials()
+  registryCredentials.url = System.getenv('DOCKER_REPO_URL')
+  registryCredentials.username = System.getenv('DOCKER_REPO_USER')
+  registryCredentials.password = System.getenv('DOCKER_REPO_USER_PW')
+}

@@ -29,6 +29,11 @@ public class MergedZoneBrandingInformation implements BrandingInformationSource 
     }
 
     @Override
+    public String getZoneCompanyName() {
+        return tryGet(IdentityZoneHolder.get(), BrandingInformationSource::getCompanyName).orElse(null);
+    }
+
+    @Override
     public String getProductLogo() {
         return tryGet(IdentityZoneHolder.get(), BrandingInformationSource::getProductLogo).orElse(null);
     }

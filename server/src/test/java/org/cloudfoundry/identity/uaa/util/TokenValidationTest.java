@@ -69,6 +69,7 @@ import static org.hamcrest.Matchers.*;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
@@ -434,7 +435,11 @@ public class TokenValidationTest {
     public void tokenWithInvalidIssuer() {
         expectedException.expect(InvalidTokenException.class);
 
-        buildAccessTokenValidator(getToken(), new KeyInfoService("https://localhost")).checkIssuer("http://wrong.issuer/");
+        try {
+            buildAccessTokenValidator(getToken(), new KeyInfoService("https://localhost")).checkIssuer("http://wrong.issuer/");
+        } catch (InvalidTokenException e) {
+            assertTrue(!e.getMessage().contains("http://wrong.issuer/"));
+        }
     }
 
     @Test

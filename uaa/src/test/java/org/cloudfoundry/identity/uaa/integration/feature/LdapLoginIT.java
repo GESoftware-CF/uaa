@@ -35,6 +35,7 @@ import static org.cloudfoundry.identity.uaa.provider.LdapIdentityProviderDefinit
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
+@Ignore
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = DefaultIntegrationTestConfig.class)
 public class LdapLoginIT {
@@ -102,6 +103,7 @@ public class LdapLoginIT {
     }
 
     @Test
+    @Ignore
     public void ldapLogin_with_StartTLS() throws Exception {
         Long beforeTest = System.currentTimeMillis();
         performLdapLogin("testzone2", ldapContainer.nonSslUrl(), true, true, "marissa4", "ldap4");
@@ -113,6 +115,7 @@ public class LdapLoginIT {
     }
 
     @Test
+    @Ignore
     public void ldap_login_using_utf8_characters() throws Exception {
         performLdapLogin("testzone2", ldapContainer.nonSslUrl(), true, true, "\u7433\u8D3A", "koala");
         assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to?"));

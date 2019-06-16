@@ -34,6 +34,7 @@ import org.cloudfoundry.identity.uaa.user.JdbcUaaUserDatabase;
 import org.cloudfoundry.identity.uaa.util.PasswordEncoderFactory;
 import org.cloudfoundry.identity.uaa.util.TimeService;
 import org.cloudfoundry.identity.uaa.util.TimeServiceImpl;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
@@ -208,7 +209,12 @@ public class JdbcScimUserProvisioning extends AbstractQueryable<ScimUser>
             userDetails.put("verified", existingUser.isVerified());
             userDetails.put("user_id", existingUser.getId());
             throw new ScimResourceAlreadyExistsException("Username already in use: " + existingUser.getUserName(), userDetails);
+        } catch(DataIntegrityViolationException e) {
+            logger.debug("DataIntegrityViolationException thrown: ", e);
+                throw new InvalidScimResourceException("ScimUser:" + user.getUserName() + " is invalid and cannot be created. " +
+                        "Please validate the property values for size and type.");
         }
+
         return retrieve(id, zoneId);
     }
 

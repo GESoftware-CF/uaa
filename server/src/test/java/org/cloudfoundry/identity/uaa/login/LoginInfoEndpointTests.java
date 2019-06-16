@@ -348,7 +348,7 @@ public class LoginInfoEndpointTests {
 
         //null config
         zone.setConfig(null);
-        validateSelfServiceLinks("/create_account", "/forgot_password", endpoint.getSelfServiceLinks());
+        validateSelfServiceLinks(null, "/forgot_password", endpoint.getSelfServiceLinks());
 
         //null config with globals
         endpoint.setGlobalLinks(new Links().setSelfService(new Links.SelfService().setSignup("/signup").setPasswd("/passwd")));
@@ -371,6 +371,39 @@ public class LoginInfoEndpointTests {
         config.getLinks().getSelfService().setSignup("/local_signup?domain={zone.subdomain}");
         config.getLinks().getSelfService().setPasswd("/local_passwd?id={zone.id}");
         validateSelfServiceLinks("/local_signup?domain="+zone.getSubdomain(), "/local_passwd?id="+zone.getId(), endpoint.getSelfServiceLinks());
+    }
+
+    @Test
+    public void testSelfServiceLinksDoNotHaveDefaultValues() throws Exception{
+        LoginInfoEndpoint endpoint = getEndpoint();
+        IdentityZone zone = new IdentityZone();
+        zone.setName("some_other_zone");
+        zone.setId("some_id");
+        zone.setSubdomain(zone.getName());
+        IdentityZoneConfiguration config = zone.getConfig();
+        IdentityZoneHolder.set(zone);
+
+        IdentityZoneHolder.get().getConfig().getLinks().getSelfService().setSignup(null);
+        IdentityZoneHolder.get().getConfig().getLinks().getSelfService().setPasswd("http://custom_passwd_link");
+        endpoint.loginForHtml(model, null, new MockHttpServletRequest(), null);
+        validateSelfServiceLinks(null, "http://custom_passwd_link", model);
+        validateSelfServiceLinks(null, "http://custom_passwd_link", endpoint.getSelfServiceLinks());
+
+        IdentityZoneHolder.get().getConfig().getLinks().getSelfService().setSignup("");
+        IdentityZoneHolder.get().getConfig().getLinks().getSelfService().setPasswd("http://custom_passwd_link");
+        endpoint.loginForHtml(model, null, new MockHttpServletRequest(), null);
+        validateSelfServiceLinks(null, "http://custom_passwd_link", model);
+        validateSelfServiceLinks(null, "http://custom_passwd_link", endpoint.getSelfServiceLinks());
+
+        IdentityZoneHolder.get().getConfig().getLinks().getSelfService().setSignup("http://custom_signup_link");
+        IdentityZoneHolder.get().getConfig().getLinks().getSelfService().setPasswd("");
+        endpoint.loginForHtml(model, null, new MockHttpServletRequest(), null);
+        validateSelfServiceLinks("http://custom_signup_link", null, model);
+        validateSelfServiceLinks("http://custom_signup_link", null, endpoint.getSelfServiceLinks());
+
+        //null config
+        zone.setConfig(null);
+        validateSelfServiceLinks(null, "/forgot_password", endpoint.getSelfServiceLinks());
     }
 
     public void validateSelfServiceLinks(String signup, String passwd, Model model) {
@@ -509,7 +542,6 @@ public class LoginInfoEndpointTests {
         assertNull(links.get("createAccountLink"));
         assertEquals("http://someurl", links.get("login"));
         assertEquals("http://someurl", links.get("uaa"));
-        assertEquals("/create_account", links.get("register"));
         assertEquals("/forgot_password", links.get("passwd"));
     }
 
