@@ -224,8 +224,9 @@ public class OIDCLoginIT {
     private void validateSuccessfulOIDCLogin(String zoneUrl, String userName, String password) {
         login(zoneUrl, userName, password);
 
-        webDriver.findElement(By.cssSelector(".dropdown-trigger")).click();
-        webDriver.findElement(By.linkText("Sign Out")).click();
+        //Predix version does not have logout link
+        //webDriver.findElement(By.cssSelector(".dropdown-trigger")).click();
+        //webDriver.findElement(By.linkText("Sign Out")).click();
         IntegrationTestUtils.validateAccountChooserCookie(zoneUrl, webDriver);
     }
 
@@ -236,17 +237,20 @@ public class OIDCLoginIT {
         assertNotNull(beforeLogin);
         assertNotNull(beforeLogin.getValue());
         webDriver.findElement(By.linkText("My OIDC Provider")).click();
-        Assert.assertThat(webDriver.getCurrentUrl(), containsString(baseUrl));
+        assertThat(webDriver.getCurrentUrl(), containsString(baseUrl));
 
         webDriver.findElement(By.name("username")).sendKeys(userName);
         webDriver.findElement(By.name("password")).sendKeys(password);
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
-        Assert.assertThat(webDriver.getCurrentUrl(), containsString(zoneUrl));
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("Where to?"));
+        assertThat(webDriver.getCurrentUrl(), containsString(zoneUrl));
+        assertThat(webDriver.getCurrentUrl(), containsString("localhost"));
         Cookie afterLogin = webDriver.manage().getCookieNamed("JSESSIONID");
         assertNotNull(afterLogin);
         assertNotNull(afterLogin.getValue());
-        assertNotEquals(beforeLogin.getValue(), afterLogin.getValue());
+
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(),
+                //Predix specific message on landing page.
+                Matchers.containsString("You should not see this page. Set up your redirect URI."));
     }
 
     @Test
@@ -434,7 +438,7 @@ public class OIDCLoginIT {
             webDriver.findElement(By.xpath("//input[@value='Login']")).click();
 
             assertThat(webDriver.getCurrentUrl(), containsString(zoneUrl));
-            assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("Where to?"));
+            assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("You should not see this page. Set up your redirect URI."));
 
             Cookie cookie = webDriver.manage().getCookieNamed("JSESSIONID");
 

@@ -29,11 +29,20 @@ buildscript {
         classpath 'org.springframework.build.gradle:propdeps-plugin:0.0.7'
         classpath 'org.asciidoctor:asciidoctor-gradle-plugin:1.5.3'
         classpath group: 'com.moowork.gradle', name: 'gradle-node-plugin', version: '1.1.0'
-    }
+  }
 }
 
+apply from: file('docker.gradle')
 apply from: file('shared_versions.gradle')
 apply plugin: 'com.bmuschko.cargo'
+
+
+def uaaVersion = version
+def geArtifactoryReader = System.getenv('ARTIFACTORY_READER')
+def geArtifactoryReaderPassword  = System.getenv('ARTIFACTORY_READER_PW')
+def proxyHost  = System.getenv('PROXY_HOST')
+def proxyPort  = System.getenv('PROXY_PORT')
+def nonProxyHosts = 'localhost|*.localhost'
 
 allprojects {
     apply plugin: 'maven'
@@ -43,9 +52,33 @@ allprojects {
     apply plugin: 'propdeps-maven'
     apply plugin: 'propdeps-idea'
     configurations.provided.transitive = false
+    configurations.all {
+        resolutionStrategy {
+            force 'com.google.guava:guava:' + guavaVersion,
+             'com.fasterxml.jackson.core:jackson-core:' + jacksonVersion,
+              'com.fasterxml.jackson.core:jackson-annotations:' + jacksonVersion,
+               'com.fasterxml.jackson.core:jackson-databind:' + jacksonVersion
+        }
+    }
+    apply plugin: 'eclipse-wtp'
 
     repositories {
+        mavenLocal()
         mavenCentral()
+        maven {
+            credentials {
+                username geArtifactoryReader
+                password geArtifactoryReaderPassword
+            }
+            url 'https://devcloud.swcoe.ge.com/artifactory/PREDIX'
+        }
+        maven {
+            credentials {
+              username geArtifactoryReader
+              password geArtifactoryReaderPassword
+            }
+            url 'https://devcloud.swcoe.ge.com/artifactory/PREDIX-SNAPSHOT'
+        }
         maven {
             url 'https://build.shibboleth.net/nexus/content/repositories/releases/'
         }
@@ -69,6 +102,13 @@ allprojects {
         }
     }
 }
+
+apply plugin: 'jacoco'
+
+def jacocoJarPath = project.zipTree(configurations.jacocoAgent.singleFile).filter({
+    it.name == 'jacocoagent.jar'
+}).asPath
+def jacocoLocation = System.getProperty('java.io.tmpdir') + '/cargo/jacocoagent.jar'
 
 subprojects {
     EventFactory honeyCombEventFactory = buildEventFactory()
@@ -141,9 +181,41 @@ subprojects {
         maven { url 'https://jitpack.io' }
         maven { url "https://repo.spring.io/release" }
         maven { url "https://repo.maven.apache.org/maven2" }
+        maven {
+            credentials {
+                username geArtifactoryReader
+                password geArtifactoryReaderPassword
+            }
+            url 'https://devcloud.swcoe.ge.com/artifactory/PREDIX'
+        }
+
+        maven {
+            credentials {
+                username geArtifactoryReader
+                password geArtifactoryReaderPassword
+            }
+            url 'https://devcloud.swcoe.ge.com/artifactory/PREDIX-SNAPSHOT'
+        }
     }
 
+    tasks.withType(Test) {
+        systemProperties = System.properties
+        systemProperties['user.dir'] = workingDir
+    }
+
+    jacocoTestReport {
+        additionalSourceDirs = files(sourceSets.main.allSource.srcDirs)
+        sourceDirectories = files(sourceSets.main.allSource.srcDirs)
+        classDirectories = files(sourceSets.main.output)
+        reports {
+            html.enabled = true
+            xml.enabled = true
+            csv.enabled = false
+        }
+    }
 }
+
+def integrationTestCoverageExecutionData = "${buildDir}/integrationTestCoverageReport.exec"
 
 cargo {
     containerId = 'tomcat9x'
@@ -172,10 +244,11 @@ cargo {
     local {
         startStopTimeout = 540000
         List activeProfiles = System.getProperty('spring.profiles.active', '').split(',')
+        jvmArgs = "-javaagent:${jacocoLocation}=output=file,dumponexit=true,append=false,destfile=${integrationTestCoverageExecutionData}"
         if (activeProfiles.contains('debug')) {
-            jvmArgs = "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005 -DLOGIN_CONFIG_URL=file://" + new File(".").absolutePath + "/uaa/src/main/resources/required_configuration.yml"
+            jvmArgs += " -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005 -DLOGIN_CONFIG_URL=file://" + new File(".").absolutePath + "/uaa/src/main/resources/required_configuration.yml"
         } else {
-            jvmArgs = "-DLOGIN_CONFIG_URL=file://" + new File(".").absolutePath + "/uaa/src/main/resources/required_configuration.yml"
+            jvmArgs += " -DLOGIN_CONFIG_URL=file://" + new File(".").absolutePath + "/uaa/src/main/resources/required_configuration.yml"
         }
         outputFile = file('uaa/build/reports/tests/uaa-server.log')
         configFile {
@@ -186,6 +259,16 @@ cargo {
         systemProperties {
             property 'spring.profiles.active', System.getProperty('spring.profiles.active', 'default')
             property 'metrics.perRequestMetrics', System.getProperty('metrics.perRequestMetrics', 'true')
+            if (proxyHost != null && proxyHost.trim() != '') {
+                property 'http.proxyHost', proxyHost
+                property 'http.proxyPort', proxyPort
+                property 'https.proxyHost', proxyHost
+                property 'https.proxyPort', proxyPort
+                property 'http.nonProxyHosts', nonProxyHosts
+            }
+            property 'NUREGO_BATCH_INTERVAL_SECONDS', '1'
+            property 'NUREGO_BATCH_MAX_MAP_SIZE', '1'
+            property 'METER_BASE_DOMAIN', 'localhost'
             property 'smtp.host', 'localhost'
             property 'smtp.port', 2525
         }
@@ -224,20 +307,91 @@ task manifests(dependsOn: assemble, type: Copy) {
 
 task cleanCargoConfDir {
     delete file(System.getProperty('java.io.tmpdir') + '/cargo/conf')
+    delete file(jacocoLocation)
     try {
         Files.createDirectory(Paths.get(System.getProperty('java.io.tmpdir') + '/cargo'))
     } catch (all) {
     }
+    Files.copy(Paths.get(jacocoJarPath), Paths.get(jacocoLocation))
 }
+
+apply plugin: 'com.github.kt3k.coveralls'
+def publishedProjects = subprojects
 
 task integrationTest(dependsOn: subprojects.integrationTest) {
     finalizedBy cargoStopLocal
+}
+
+def jacocoRootReportConfiguration = {
+    additionalSourceDirs = files(subprojects.sourceSets.main.allSource.srcDirs)
+    sourceDirectories = files(subprojects.sourceSets.main.allSource.srcDirs)
+    classDirectories = files(subprojects.sourceSets.main.output)
+    //executionData = files(integrationTestCoverageExecutionData, subprojects.jacocoTestReport.executionData)
+    reports {
+        html.enabled = true
+        xml.enabled = true
+        xml.destination = file("${buildDir}/reports/jacoco/jacocoRootReport/jacocoRootReport.xml")
+        csv.enabled = false
+    }
+    onlyIf = {
+        true
+    }
+    doFirst {
+        executionData = files(executionData.findAll {
+            it.exists()
+        })
+    }
+}
+
+task jacocoRootReportIntegrationTest(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
+    configure jacocoRootReportConfiguration
+    dependsOn = [integrationTest]
+}
+
+task jacocoRootReportTest(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
+    configure jacocoRootReportConfiguration
+    dependsOn = [test]
+}
+
+task jacocoRootReportServerTest(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
+    configure jacocoRootReportConfiguration
+    dependsOn(':cloudfoundry-identity-server:test')
+}
+
+task jacocoRootReportUaaTest(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
+  configure jacocoRootReportConfiguration
+  dependsOn(':cloudfoundry-identity-uaa:test')
+}
+
+task jacocoRootReportDegradedCloudTest(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
+  configure jacocoRootReportConfiguration
+  dependsOn(':cloudfoundry-identity-uaa:degradedTestCloud')
+}
+
+task jacocoRootReportDegradedJwtCloudTest(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
+  configure jacocoRootReportConfiguration
+  dependsOn(':cloudfoundry-identity-uaa:degradedJwtTestCloud')
+}
+
+task jacocoRootReportAcceptanceTest(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
+  configure jacocoRootReportConfiguration
+  dependsOn(':cloudfoundry-identity-uaa:acceptanceTest')
 }
 
 task mockAssertion(type: JavaExec) {
     main = 'org.cloudfoundry.identity.uaa.saml.MockSamlAssertion'
     args = System.getProperty("file", null) == null ? [] : [System.getProperty("file")]
     classpath = files(subprojects.sourceSets.test.runtimeClasspath)
+}
+
+coveralls {
+    sourceDirs = publishedProjects.sourceSets.main.allSource.srcDirs.flatten()
+    jacocoReportPath = "${buildDir}/reports/jacoco/jacocoRootReport/jacocoRootReport.xml"
+}
+
+tasks.coveralls {
+    group = 'Coverage reports'
+    description = 'Uploads the aggregated coverage report to Coveralls'
 }
 
 task encrypt(type: JavaExec) {
@@ -250,6 +404,28 @@ task decrypt(type: JavaExec) {
     main = 'org.cloudfoundry.identity.uaa.Decryptor'
     args = System.getProperty("decryptArgs", null) == null ? [] : System.getProperty("decryptArgs").split(",").toList()
     classpath = files(subprojects.find { it.name.contains('server') }.sourceSets.test.runtimeClasspath)
+}
+
+task setupDegradedTestLocal(type: Exec, dependsOn: cargoStartLocal) {
+  workingDir 'scripts'
+  commandLine './setupDegradedTests.sh'
+  finalizedBy 'cargoStopLocal'
+
+  standardOutput = new ByteArrayOutputStream()
+
+  ext.output = {
+    return standardOutput.toString()
+  }
+
+  doLast {
+    println ext.output
+  }
+
+}
+
+task setupDegradedTestCloud(type: Exec) {
+  workingDir 'scripts'
+  commandLine './setupDegradedTests.sh'
 }
 
 // task dependencies

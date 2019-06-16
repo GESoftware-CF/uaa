@@ -18,6 +18,7 @@ package org.cloudfoundry.identity.uaa.oauth;
 import lombok.SneakyThrows;
 import org.apache.commons.lang.ArrayUtils;
 import org.cloudfoundry.identity.uaa.util.UaaUrlUtils;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.oauth2.common.exceptions.OAuth2Exception;
@@ -108,18 +109,20 @@ public class AntPathRedirectResolver extends DefaultRedirectResolver {
 
     @Override
     public String resolveRedirect(String requestedRedirect, ClientDetails client) throws OAuth2Exception {
-        Set<String> registeredRedirectUris = ofNullable(client.getRegisteredRedirectUri()).orElse(emptySet());
+        if(IdentityZoneHolder.get().isEnableRedirectUriCheck()) {
+            Set<String> registeredRedirectUris = ofNullable(client.getRegisteredRedirectUri()).orElse(emptySet());
 
-        if (registeredRedirectUris.isEmpty()) {
-            throw new RedirectMismatchException("Client registration is missing redirect_uri");
-        }
+            if (registeredRedirectUris.isEmpty()) {
+                throw new RedirectMismatchException("Client registration is missing redirect_uri");
+            }
 
-        List<String> invalidUrls = registeredRedirectUris.stream()
-                .filter(url -> !UaaUrlUtils.isValidRegisteredRedirectUrl(url))
-                .collect(Collectors.toList());
+            List<String> invalidUrls = registeredRedirectUris.stream()
+                    .filter(url -> !UaaUrlUtils.isValidRegisteredRedirectUrl(url))
+                    .collect(Collectors.toList());
 
-        if (!invalidUrls.isEmpty()) {
-            throw new RedirectMismatchException("Client registration contains invalid redirect_uri: " + invalidUrls);
+            if (!invalidUrls.isEmpty()) {
+                throw new RedirectMismatchException("Client registration contains invalid redirect_uri: " + invalidUrls);
+            }
         }
 
         return super.resolveRedirect(requestedRedirect, client);

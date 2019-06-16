@@ -13,15 +13,23 @@
 package org.cloudfoundry.identity.uaa.integration.feature;
 
 import com.dumbster.smtp.SimpleSmtpServer;
+import org.cloudfoundry.identity.uaa.ServerRunning;
+import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
+import org.cloudfoundry.identity.uaa.provider.AbstractIdentityProviderDefinition;
+import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
+import org.cloudfoundry.identity.uaa.provider.OIDCIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository;
 import org.cloudfoundry.identity.uaa.zone.BrandingInformation;
 import org.cloudfoundry.identity.uaa.zone.BrandingInformation.Banner;
+import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
-import org.hamcrest.MatcherAssert;
+import org.cloudfoundry.identity.uaa.zone.Links;
 import org.hamcrest.Matchers;
+import org.hamcrest.MatcherAssert;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,16 +50,19 @@ import org.springframework.security.oauth2.client.test.TestAccounts;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.ResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
+import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 
 import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.doesSupportZoneDNS;
+import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.USER_NAME_ATTRIBUTE_NAME;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
@@ -59,7 +70,6 @@ import static org.hamcrest.Matchers.startsWith;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
@@ -87,6 +97,9 @@ public class LoginIT {
     @Autowired
     SimpleSmtpServer simpleSmtpServer;
     private String testzone3;
+    private static ServerRunning serverRunning = ServerRunning.isRunning();
+
+    String originKey = "oidc-idp";
 
     @Before
     @After
@@ -146,6 +159,7 @@ public class LoginIT {
     }
 
     @Test
+    @Ignore("To be ignored till ge branding for the new pivotal-ui-main.html layout")
     public void testBannerFunctionalityInDiscoveryPage() {
         String zoneId = "testzone3";
 
@@ -209,13 +223,15 @@ public class LoginIT {
         String newUserEmail = createAnotherUser();
         webDriver.get(baseUrl + "/logout.do");
         webDriver.get(baseUrl + "/login");
-        assertEquals("Cloud Foundry", webDriver.getTitle());
-        attemptLogin(newUserEmail, USER_PASSWORD);
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to?"));
-        webDriver.get(baseUrl + "/logout.do");
-        attemptLogin(newUserEmail, USER_PASSWORD);
+        assertEquals("Predix", webDriver.getTitle());
 
-        assertNotNull(webDriver.findElement(By.cssSelector("#last_login_time")));
+        //assert Predix logo
+        assertThat(webDriver.findElement(By.id("logo-header")).getAttribute("src"),
+                containsString("predix-word.svg"));
+
+        attemptLogin(newUserEmail, USER_PASSWORD);
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(),
+                containsString("You should not see this page. Set up your redirect URI."));
 
         IntegrationTestUtils.validateAccountChooserCookie(baseUrl, webDriver);
     }
@@ -257,21 +273,20 @@ public class LoginIT {
     @Test
     public void testPasscodeRedirect() throws Exception {
         webDriver.get(baseUrl + "/passcode");
-        assertEquals("Cloud Foundry", webDriver.getTitle());
+        assertEquals("Predix", webDriver.getTitle());
 
         attemptLogin(testAccounts.getUserName(), testAccounts.getPassword());
 
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Temporary Authentication Code"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("Temporary Authentication Code"));
     }
 
     @Test
     public void testUnsuccessfulLogin() throws Exception {
         webDriver.get(baseUrl + "/login");
-        assertEquals("Cloud Foundry", webDriver.getTitle());
+        assertEquals("Predix", webDriver.getTitle());
 
         attemptLogin(testAccounts.getUserName(), "invalidpassword");
-
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Welcome!"));
+        assertThat(webDriver.findElement(By.cssSelector("p")).getText(), containsString("Unable to verify email or password. Please try again."));
     }
 
     @Test
@@ -356,7 +371,7 @@ public class LoginIT {
         }
 
         attemptLogin(userEmail, USER_PASSWORD);
-        assertThat(webDriver.findElement(By.cssSelector(".alert-error")).getText(), Matchers.containsString("Your account has been locked because of too many failed attempts to login."));
+        assertThat(webDriver.findElement(By.cssSelector(".alert-error")).getText(), containsString("Your account has been locked because of too many failed attempts to login."));
     }
 
     public void attemptLogin(String username, String password) {
@@ -390,7 +405,10 @@ public class LoginIT {
         webDriver.findElement(By.cssSelector("div.action a")).click();
 
         loginThroughDiscovery(userEmail, USER_PASSWORD);
-        assertEquals("Where to?", webDriver.findElement(By.cssSelector(".island h1")).getText());
+        assertThat(webDriver.findElement(By.cssSelector(".island h1")).getText(),
+                containsString("You should not see this page. Set up your redirect URI."));
+        deleteDiscoveryZoneIdentityProvider();
+
     }
 
     @Test
@@ -411,7 +429,9 @@ public class LoginIT {
         assertEquals(userEmail, webDriver.findElement(By.id("username")).getAttribute("value"));
         webDriver.findElement(By.id("password")).sendKeys(USER_PASSWORD);
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
-        assertEquals("Where to?", webDriver.findElement(By.cssSelector(".island h1")).getText());
+        assertThat(webDriver.findElement(By.cssSelector(".island h1")).getText(),
+                containsString("You should not see this page. Set up your redirect URI."));
+        deleteDiscoveryZoneIdentityProvider();
     }
 
     @Test
@@ -444,6 +464,7 @@ public class LoginIT {
         assertEquals("user@external.org", webDriver.findElement(By.id("username")).getAttribute("value"));
 
         webDriver.manage().deleteAllCookies();
+        deleteDiscoveryZoneIdentityProvider();
     }
 
     @Test
@@ -456,8 +477,8 @@ public class LoginIT {
 
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
 
-        assertThat(webDriver.getCurrentUrl(), Matchers.containsString("/login"));
-        assertThat(webDriver.findElement(By.name("form_redirect_uri")).getAttribute("value"), Matchers.containsString("redirect_uri="+redirectUri));
+        assertThat(webDriver.getCurrentUrl(), containsString("/login"));
+        assertThat(webDriver.findElement(By.name("form_redirect_uri")).getAttribute("value"), containsString("redirect_uri="+redirectUri));
 
     }
 
@@ -469,7 +490,7 @@ public class LoginIT {
         return IntegrationTestUtils.createAnotherUser(webDriver, USER_PASSWORD, simpleSmtpServer, url, testClient);
     }
 
-    private String createDiscoveryZone() {
+    private String createDiscoveryZone() throws Exception {
         testzone3 = "testzone3";
 
         RestTemplate identityClient = IntegrationTestUtils.getClientCredentialsTemplate(
@@ -479,10 +500,36 @@ public class LoginIT {
         config.setIdpDiscoveryEnabled(true);
         config.setAccountChooserEnabled(true);
         IntegrationTestUtils.createZoneOrUpdateSubdomain(identityClient, baseUrl, testzone3, testzone3, config);
+        IdentityProvider provider = new IdentityProvider();
+        provider.setIdentityZoneId(testzone3);
+        provider.setType(OriginKeys.OIDC10);
+        provider.setActive(true);
+        provider.setOriginKey(originKey);
+        provider.setName(originKey);
+        OIDCIdentityProviderDefinition oidcConfig = new OIDCIdentityProviderDefinition();
+        oidcConfig.addAttributeMapping(USER_NAME_ATTRIBUTE_NAME, "user_name");
+        oidcConfig.setAuthUrl(new URL("https://oidc10.oms.identity.team/oauth/authorize"));
+        oidcConfig.setTokenUrl(new URL("https://oidc10.oms.identity.team/oauth/token"));
+        oidcConfig.setTokenKeyUrl(new URL("https://oidc10.oms.identity.team/token_key"));
+        oidcConfig.setShowLinkText(true);
+        oidcConfig.setLinkText("My OIDC Provider");
+        oidcConfig.setSkipSslValidation(true);
+        oidcConfig.setRelyingPartyId("identity");
+        oidcConfig.setRelyingPartySecret("identitysecret");
+        oidcConfig.setEmailDomain(Collections.singletonList("test.org"));
+        provider.setConfig(oidcConfig);
+
+        String zoneAdminToken = IntegrationTestUtils.getZoneAdminToken(baseUrl, serverRunning, testzone3);
+        IntegrationTestUtils.createOrUpdateProvider(zoneAdminToken, baseUrl, provider);
         String res = baseUrl.replace("localhost", testzone3 +".localhost");
         webDriver.get(res + "/logout.do");
         webDriver.manage().deleteAllCookies();
         return res;
+    }
+
+    private void deleteDiscoveryZoneIdentityProvider() throws Exception {
+        String zoneAdminToken = IntegrationTestUtils.getZoneAdminToken(baseUrl, serverRunning, testzone3);
+        IntegrationTestUtils.deleteProvider(zoneAdminToken, baseUrl, testzone3, originKey);
     }
 
     private void loginThroughDiscovery(String userEmail, String password) {
@@ -490,5 +537,36 @@ public class LoginIT {
         webDriver.findElement(By.cssSelector(".form-group input[value='Next']")).click();
         webDriver.findElement(By.id("password")).sendKeys(password);
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
+    }
+
+    @Test
+    public void testSelfServiceLinksBehavior() {
+        RestTemplate adminClient = IntegrationTestUtils.getClientCredentialsTemplate(
+                IntegrationTestUtils.getClientCredentialsResource(baseUrl, new String[0], "admin", "adminsecret"));
+        String zoneId = "testzone3";
+        String zoneUrl = baseUrl.replace("localhost", zoneId+".localhost");
+        IdentityZone testZone3 = IntegrationTestUtils.createZoneOrUpdateSubdomain(adminClient, baseUrl, zoneId, zoneId, new IdentityZoneConfiguration());
+
+        testZone3.getConfig().getLinks().setSelfService(new Links.SelfService().setSelfServiceLinksEnabled(true).setPasswd("").setSignup(""));
+        IntegrationTestUtils.createZoneOrUpdateSubdomain(adminClient, baseUrl, zoneId, zoneId, testZone3.getConfig());
+        webDriver.get(zoneUrl);
+        assertEquals(0, webDriver.findElements(By.xpath("//*[text()='Create account']")).size());
+        assertEquals(0, webDriver.findElements(By.xpath("//*[text()='Reset password']")).size());
+
+        testZone3.getConfig().getLinks().setSelfService(new Links.SelfService().setSelfServiceLinksEnabled(true).setPasswd("/forgot_password").setSignup("http://example.com"));
+        IntegrationTestUtils.createZoneOrUpdateSubdomain(adminClient, baseUrl, zoneId, zoneId, testZone3.getConfig());
+        webDriver.get(zoneUrl);
+        assertEquals(1, webDriver.findElements(By.xpath("//*[text()='Create account']")).size());
+        assertEquals(1, webDriver.findElements(By.xpath("//*[text()='Reset password']")).size());
+
+        testZone3.getConfig().getLinks().setSelfService(new Links.SelfService().setSelfServiceLinksEnabled(true).setPasswd(null).setSignup(null));
+        IntegrationTestUtils.createZoneOrUpdateSubdomain(adminClient, baseUrl, zoneId, zoneId, testZone3.getConfig());
+        webDriver.get(zoneUrl);
+        assertEquals(0, webDriver.findElements(By.xpath("//*[text()='Create account']")).size());
+        assertEquals(1, webDriver.findElements(By.xpath("//*[text()='Reset password']")).size());
+
+        testZone3.getConfig().getLinks().setSelfService(new Links.SelfService().setSelfServiceLinksEnabled(true).setPasswd("/forgot_password").setSignup("/create_account"));
+        IntegrationTestUtils.createZoneOrUpdateSubdomain(adminClient, baseUrl, zoneId, zoneId, testZone3.getConfig());
+
     }
 }

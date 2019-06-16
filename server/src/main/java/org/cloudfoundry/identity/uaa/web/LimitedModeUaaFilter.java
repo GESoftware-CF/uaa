@@ -44,6 +44,7 @@ import static java.util.stream.Collectors.toList;
 import static javax.servlet.http.HttpServletResponse.SC_SERVICE_UNAVAILABLE;
 
 public class LimitedModeUaaFilter extends OncePerRequestFilter {
+    // To set Predix UAA limited/degraded mode, use environment variable instead of StatusFile
 
     public static final String ERROR_CODE = "uaa_unavailable";
     public static final String ERROR_MESSAGE = "UAA intentionally in limited mode, operation not permitted. Please try later.";
@@ -61,7 +62,8 @@ public class LimitedModeUaaFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        if (isEnabled()) {
+        if (hasDegradedProfile()) {
+            logger.debug("Degraded profile is enabled.");
             if ( isMethodAllowed(request) || isEndpointAllowed(request)) {
                 filterChain.doFilter(request, response);
             } else {
@@ -84,6 +86,11 @@ public class LimitedModeUaaFilter extends OncePerRequestFilter {
         } else {
             filterChain.doFilter(request, response);
         }
+    }
+
+    private boolean hasDegradedProfile() {
+        return (super.getEnvironment().getProperty("spring_profiles") != null && super.getEnvironment().getProperty("spring_profiles").contains("degraded")) ||
+                (super.getEnvironment().getProperty("spring.profiles.active") != null && super.getEnvironment().getProperty("spring.profiles.active").contains("degraded"));
     }
 
     protected Map<String, String> getErrorData() {

@@ -411,7 +411,7 @@ public class LoginInfoEndpoint {
             excludedPrompts, returnLoginPrompts);
 
         if (principal == null) {
-            return getUnauthenticatedRedirect(model, request, discoveryEnabled, discoveryPerformed);
+            return getUnauthenticatedRedirect(model, request, discoveryEnabled, discoveryPerformed, !allIdentityProviders.isEmpty());
         }
         return "home";
     }
@@ -420,7 +420,8 @@ public class LoginInfoEndpoint {
         Model model,
         HttpServletRequest request,
         boolean discoveryEnabled,
-        boolean discoveryPerformed
+        boolean discoveryPerformed,
+        boolean isIdentityProviders
     ) {
         String formRedirectUri = request.getParameter(UaaSavedRequestAwareAuthenticationSuccessHandler.FORM_REDIRECT_PARAMETER);
         if (hasText(formRedirectUri)) {
@@ -442,7 +443,7 @@ public class LoginInfoEndpoint {
             if (accountChooserNeeded) {
                 return "idp_discovery/account_chooser";
             }
-            if (!discoveryPerformed) {
+            if (!discoveryPerformed && isIdentityProviders) {
                 return "idp_discovery/email";
             }
             return goToPasswordPage(request.getParameter("email"), model);
@@ -972,7 +973,7 @@ public class LoginInfoEndpoint {
 
         boolean selfServiceLinksEnabled = (zone.getConfig()!=null) ? zone.getConfig().getLinks().getSelfService().isSelfServiceLinksEnabled() : true;
 
-        final String defaultSignup = "/create_account";
+        final String defaultSignup = "";
         final String defaultPasswd = "/forgot_password";
         Links.SelfService service = zone.getConfig()!=null ? zone.getConfig().getLinks().getSelfService() : null;
         String signup = UaaStringUtils.nonNull(

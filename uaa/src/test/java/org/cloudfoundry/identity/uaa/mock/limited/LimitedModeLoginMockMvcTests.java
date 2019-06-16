@@ -23,20 +23,35 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.context.WebApplicationContext;
 
+import org.springframework.mock.env.MockEnvironment;
+import org.springframework.mock.env.MockPropertySource;
+import org.springframework.util.ReflectionUtils;
+
 import java.io.File;
+import java.lang.reflect.Field;
+import java.util.Properties;
 
 import static org.junit.Assert.assertTrue;
 
 class LimitedModeLoginMockMvcTests extends LoginMockMvcTests {
-    private File originalLimitedModeStatusFile;
+
+    private MockEnvironment mockEnvironment;
+    private MockPropertySource propertySource;
+    private Properties originalProperties = new Properties();
+    Field f = ReflectionUtils.findField(MockEnvironment.class, "propertySource");
 
     @BeforeEach
     void setUpLimitedModeLoginMockMvcTests(
             @Autowired WebApplicationContext webApplicationContext,
             @Autowired LimitedModeUaaFilter limitedModeUaaFilter
     ) throws Exception {
-        originalLimitedModeStatusFile = MockMvcUtils.getLimitedModeStatusFile(webApplicationContext);
-        MockMvcUtils.setLimitedModeStatusFile(webApplicationContext);
+        mockEnvironment = (MockEnvironment) webApplicationContext.getEnvironment();
+        f.setAccessible(true);
+        propertySource = (MockPropertySource) ReflectionUtils.getField(f, mockEnvironment);
+        for (String s : propertySource.getPropertyNames()) {
+            originalProperties.put(s, propertySource.getProperty(s));
+        }
+        mockEnvironment.setProperty("spring_profiles", "default, degraded");
 
         assertTrue(isLimitedMode(limitedModeUaaFilter));
     }
@@ -45,7 +60,10 @@ class LimitedModeLoginMockMvcTests extends LoginMockMvcTests {
     void tearDownLimitedModeLoginMockMvcTests(
             @Autowired WebApplicationContext webApplicationContext
     ) throws Exception {
-        MockMvcUtils.resetLimitedModeStatusFile(webApplicationContext, originalLimitedModeStatusFile);
+        mockEnvironment.getPropertySources().remove(MockPropertySource.MOCK_PROPERTIES_PROPERTY_SOURCE_NAME);
+        MockPropertySource originalPropertySource = new MockPropertySource(originalProperties);
+        ReflectionUtils.setField(f, mockEnvironment, new MockPropertySource(originalProperties));
+        mockEnvironment.getPropertySources().addLast(originalPropertySource);
     }
 
 }

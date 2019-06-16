@@ -42,6 +42,7 @@ import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.util.LinkedMaskingMultiValueMap;
 import org.cloudfoundry.identity.uaa.util.TokenValidation;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
@@ -91,15 +92,10 @@ import static java.util.Optional.ofNullable;
 import static org.cloudfoundry.identity.uaa.oauth.jwk.JsonWebKey.KeyType.MAC;
 import static org.cloudfoundry.identity.uaa.oauth.jwk.JsonWebKey.KeyType.RSA;
 import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.SUB;
-import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
-import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.EMAIL_ATTRIBUTE_NAME;
-import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.EMAIL_VERIFIED_ATTRIBUTE_NAME;
-import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.FAMILY_NAME_ATTRIBUTE_NAME;
-import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.GIVEN_NAME_ATTRIBUTE_NAME;
-import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.GROUP_ATTRIBUTE_NAME;
-import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.PHONE_NUMBER_ATTRIBUTE_NAME;
-import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.USER_NAME_ATTRIBUTE_NAME;
+import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.*;
 import static org.cloudfoundry.identity.uaa.util.TokenValidation.buildIdTokenValidator;
+import static org.cloudfoundry.identity.uaa.util.UaaHttpRequestUtils.createRequestFactory;
+import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
 import static org.cloudfoundry.identity.uaa.util.UaaHttpRequestUtils.isAcceptedInvitationAuthentication;
 import static org.springframework.util.StringUtils.hasText;
 import static org.springframework.util.StringUtils.isEmpty;
@@ -623,7 +619,12 @@ public class XOAuthAuthenticationManager extends ExternalLoginAuthenticationMana
                               new ParameterizedTypeReference<Map<String, String>>() {
                               }
                     );
+
             logger.debug(String.format("Request completed with status:%s", responseEntity.getStatusCode()));
+            //TODO how to reincorporate
+//            if (config.isSkipSslValidation()) {
+//                restTemplate.setRequestFactory(createRequestFactory(true));
+//            }
             return responseEntity.getBody().get(getResponseType(config));
         } catch (HttpServerErrorException | HttpClientErrorException ex) {
             throw ex;

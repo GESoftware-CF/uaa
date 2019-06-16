@@ -22,6 +22,8 @@ eclipse {
 
 repositories {
   maven { url 'https://repo.spring.io/libs-milestone' }
+  mavenLocal()
+  mavenCentral()
 }
 
 description = 'UAA'
@@ -29,12 +31,25 @@ dependencies {
   compile(project(':cloudfoundry-identity-server')){
     exclude(module: 'jna')
   }
+
   compile group: 'cglib', name: 'cglib', version:parent.cglibVersion
+  compile(group: 'com.ge.predix', name: 'spring-metering-filter', version:'1.2.3') {
+    exclude(group: 'javax.mail')
+  }
+  // For dynamic log level configuration
+  compile group: 'com.ge.predix', name: 'security-dynamic-log-configurer', version: '1.1.1'
+
   runtime group: 'org.springframework.security', name: 'spring-security-config', version:parent.springSecurityVersion
   runtime group: 'org.springframework.retry', name: 'spring-retry', version:parent.springRetryVersion
   runtime group: 'org.aspectj', name: 'aspectjweaver', version:parent.aspectJVersion
   runtime group: 'org.postgresql', name: 'postgresql', version:parent.postgresqlVersion
+
   providedCompile group: 'javax.servlet', name: 'javax.servlet-api', version: parent.servletVersion
+
+  runtime group: 'org.apache.httpcomponents', name: 'httpasyncclient', version:'4.1'
+  runtime group: 'org.springframework.data', name: 'spring-data-commons', version:'1.9.1.RELEASE'
+  runtime group: 'com.nurego', name: 'nurego-java', version:'1.0.18'
+
 
   testCompile identityServer.configurations.testCompile.dependencies
   testCompile identityServer.sourceSets.test.output
@@ -59,7 +74,9 @@ dependencies {
   testCompile group: 'org.springframework.security', name: 'spring-security-test', version: parent.springSecurityVersion
   testCompile group: 'org.mockito', name: 'mockito-core', version: parent.mockitoVersion
   testCompile group: 'org.apache.tomcat', name: 'tomcat-jdbc', version:parent.tomcatJdbcPoolVersion
+  testCompile group: 'org.hamcrest', name: 'hamcrest-all', version: parent.hamcrestVersion
   testCompile 'org.springframework.restdocs:spring-restdocs-mockmvc:1.2.0.RC1'
+  testCompile group: 'com.nurego', name: 'nurego-java', version:'1.0.18'
 }
 
 node {
@@ -86,7 +103,10 @@ ext {
 test {
   exclude 'org/cloudfoundry/identity/uaa/integration/*.class'
   exclude '**/*IT.class'
+  exclude '**/*AT.class'
+  exclude 'org/cloudfoundry/identity/uaa/degraded/*.class'
   exclude '**/*Docs.class'
+  systemProperty 'java.io.tmpdir', '/tmp'
   systemProperty "mock.suite.test", "true"
 }
 
@@ -131,9 +151,27 @@ generateDocs {
 
 integrationTest {
   filter {
+    exclude '**/*AT.class'
+    exclude 'org/cloudfoundry/identity/uaa/degraded/*.class'
     includeTestsMatching "org.cloudfoundry.identity.uaa.integration.*"
     includeTestsMatching "*IT"
   }
+}
+
+task acceptanceTest(type: Test) {
+  include "org/cloudfoundry/identity/uaa/acceptance/*.class"
+}
+
+task degradedTestCloud(type: Test) {
+  systemProperty "RUN_AGAINST_CLOUD", true
+  include "org/cloudfoundry/identity/uaa/degraded/*.class"
+}
+
+task degradedTestLocal(type: Test) {
+  systemProperty "RUN_AGAINST_CLOUD", false
+  dependsOn rootProject.cargoStartLocal
+  finalizedBy rootProject.cargoStopLocal
+  include "org/cloudfoundry/identity/uaa/degraded/*.class"
 }
 
 war {

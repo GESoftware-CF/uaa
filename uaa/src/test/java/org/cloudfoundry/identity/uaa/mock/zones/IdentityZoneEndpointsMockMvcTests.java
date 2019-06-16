@@ -419,7 +419,14 @@ class IdentityZoneEndpointsMockMvcTests {
 
     @Test
     void testCreateZone() throws Exception {
-        createZoneReturn();
+        IdentityZone zone = createZoneReturn();
+        assertTrue(zone.isEnableRedirectUriCheck());
+    }
+
+    @Test
+    public void testCreateZoneWithDisableRedirectUriCheck() throws Exception {
+        IdentityZone zone = createZoneReturn();
+        assertFalse(zone.isEnableRedirectUriCheck());
     }
 
     @Test
@@ -2355,6 +2362,33 @@ class IdentityZoneEndpointsMockMvcTests {
                 .andExpect(status().is(expect.value()))
                 .andExpect(content().string(containsString(expectedContent)))
                 .andReturn();
+
+        if (expect.is2xxSuccessful()) {
+            return JsonUtils.readValue(result.getResponse().getContentAsString(), IdentityZone.class);
+        }
+        return null;
+    }
+    
+    private IdentityZone createZone(String id, HttpStatus expect, String token, IdentityZoneConfiguration zoneConfiguration, boolean enableRedirectUriCheck) throws Exception {
+        IdentityZone identityZone = createSimpleIdentityZone(id);
+        identityZone.setConfig(zoneConfiguration);
+        identityZone.getConfig().getSamlConfig().setPrivateKey(serviceProviderKey);
+        identityZone.getConfig().getSamlConfig().setPrivateKeyPassword(serviceProviderKeyPassword);
+        identityZone.getConfig().getSamlConfig().setCertificate(serviceProviderCertificate);
+        Map<String, String> keys = new HashMap<>();
+        keys.put("kid", "key");
+        zoneConfiguration.getTokenPolicy().setKeys(keys);
+        zoneConfiguration.getTokenPolicy().setActiveKeyId("kid");
+        zoneConfiguration.getTokenPolicy().setKeys(keys);
+        identityZone.setEnableRedirectUriCheck(enableRedirectUriCheck);
+
+        MvcResult result = mockMvc.perform(
+            post("/identity-zones")
+                .header("Authorization", "Bearer " + token)
+                .contentType(APPLICATION_JSON)
+                .content(JsonUtils.writeValueAsString(identityZone)))
+            .andExpect(status().is(expect.value()))
+            .andReturn();
 
         if (expect.is2xxSuccessful()) {
             return JsonUtils.readValue(result.getResponse().getContentAsString(), IdentityZone.class);
