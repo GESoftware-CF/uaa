@@ -5,7 +5,9 @@ dependencies {
   compile project(':cloudfoundry-identity-model')
   compile group: 'org.apache.tomcat.embed', name: 'tomcat-embed-core', version:parent.tomcatVersion
   compileOnly group: 'org.projectlombok', name: 'lombok', version: parent.lombokVersion
+  testCompileOnly group: 'org.projectlombok', name: 'lombok', version: parent.lombokVersion
   annotationProcessor group: 'org.projectlombok', name: 'lombok', version: parent.lombokVersion
+  testAnnotationProcessor group: 'org.projectlombok', name: 'lombok', version: parent.lombokVersion
   compile group: 'org.apache.tomcat', name: 'tomcat-jdbc', version:parent.tomcatJdbcPoolVersion
   provided group: 'javax.servlet', name: 'javax.servlet-api', version: parent.servletVersion
   compile group: 'javax.mail', name: 'mail', version: parent.javamailVersion

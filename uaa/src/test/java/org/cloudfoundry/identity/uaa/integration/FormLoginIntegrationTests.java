@@ -28,7 +28,6 @@ import org.cloudfoundry.identity.uaa.ServerRunning;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
 import org.cloudfoundry.identity.uaa.test.TestAccountSetup;
 import org.cloudfoundry.identity.uaa.test.UaaTestAccounts;
-import org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -38,6 +37,7 @@ import org.springframework.http.MediaType;
 import java.util.Arrays;
 import java.util.List;
 
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.CSRF_PARAMETER_NAME;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.springframework.http.HttpStatus.FOUND;
@@ -107,13 +107,13 @@ public class FormLoginIntegrationTests {
         assertTrue(body.contains("username"));
         assertTrue(body.contains("password"));
 
-        String csrf = IntegrationTestUtils.extractCookieCsrf(body);
+        String csrf = IntegrationTestUtils.extracCsrfToken(body);
 
         HttpUriRequest loginPost = RequestBuilder.post()
             .setUri(serverRunning.getBaseUrl() + "/login.do")
             .addParameter("username",testAccounts.getUserName())
             .addParameter("password",testAccounts.getPassword())
-            .addParameter(CookieBasedCsrfTokenRepository.DEFAULT_CSRF_COOKIE_NAME, csrf)
+            .addParameter(CSRF_PARAMETER_NAME, csrf)
             .build();
 
         response = httpclient.execute(loginPost);
