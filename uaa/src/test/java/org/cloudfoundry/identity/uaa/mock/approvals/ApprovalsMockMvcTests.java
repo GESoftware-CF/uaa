@@ -15,7 +15,6 @@
 package org.cloudfoundry.identity.uaa.mock.approvals;
 
 
-import lombok.SneakyThrows;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthentication;
 import org.cloudfoundry.identity.uaa.authentication.UaaPrincipal;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
@@ -38,8 +37,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.getLoginForm;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.Assert.assertNotNull;
@@ -72,9 +70,10 @@ public class ApprovalsMockMvcTests extends AbstractTokenMockMvcTests {
         MockHttpSession session = getAuthenticatedSession(user1);
         mockMvc.perform(
             post("/profile")
-                .with(csrf(session))
+                .with(cookieCsrf())
                 .param("delete", "true")
                 .param("clientId", client1.getClientId())
+                .session(session)
         )
             .andExpect(status().isFound())
             .andExpect(header().string("Location", "profile"));
@@ -87,9 +86,10 @@ public class ApprovalsMockMvcTests extends AbstractTokenMockMvcTests {
         MockHttpSession session = getAuthenticatedSession(user1);
         mockMvc.perform(
             post("/profile")
-                .with(csrf(session))
+                .with(cookieCsrf())
                 .param("delete", "true")
                 .param("clientId", "invalid_id")
+                .session(session)
         )
             .andExpect(status().isFound())
             .andExpect(header().string("Location", "profile?error_message_code=request.invalid_parameter"));
@@ -124,7 +124,8 @@ public class ApprovalsMockMvcTests extends AbstractTokenMockMvcTests {
         //invalid token
         mockMvc.perform(
             post("/oauth/authorize")
-                .with(csrf(session).useInvalidToken())
+                .with(cookieCsrf().useInvalidToken())
+                .session(session)
                 .param(USER_OAUTH_APPROVAL, "true")
                 .param("scope.0","scope.test.scope1")
         )
@@ -136,7 +137,8 @@ public class ApprovalsMockMvcTests extends AbstractTokenMockMvcTests {
         //valid token
         mockMvc.perform(
             post("/oauth/authorize")
-                .with(csrf(session))
+                .with(cookieCsrf())
+                .session(session)
                 .param(USER_OAUTH_APPROVAL, "true")
                 .param("scope.0","scope.test.scope1")
                 .param("scope.1","scope.test.scope2")
@@ -175,7 +177,8 @@ public class ApprovalsMockMvcTests extends AbstractTokenMockMvcTests {
 
         mockMvc.perform(
             post("/oauth/authorize")
-                .with(csrf(session))
+                .with(cookieCsrf())
+                .session(session)
                 .param(USER_OAUTH_APPROVAL, "true")
                 .param("scope.0","scope.different.scope")
                 .param("scope.1","scope.test.scope2")
@@ -214,17 +217,16 @@ public class ApprovalsMockMvcTests extends AbstractTokenMockMvcTests {
             .andExpect(status().isForbidden());
 
         mockMvc.perform(
-            post.with(csrf(session).useInvalidToken())
+            post.with(cookieCsrf().useInvalidToken())
         ).andExpect(status().isForbidden());
 
         mockMvc.perform(
-            post.with(csrf(session))
+            post.with(cookieCsrf())
         )
             .andExpect(status().isFound())
             .andExpect(redirectedUrlPattern("**/profile"));
     }
 
-    @SneakyThrows
     public MockHttpSession getAuthenticatedSession(ScimUser user) {
         List<SimpleGrantedAuthority> authorities = user.getGroups().stream().map(g -> new SimpleGrantedAuthority(g.getValue())).collect(Collectors.toList());
         UaaPrincipal p = new UaaPrincipal(user.getId(), user.getUserName(), user.getPrimaryEmail(), OriginKeys.UAA, "", IdentityZoneHolder.get().getId());
@@ -232,7 +234,6 @@ public class ApprovalsMockMvcTests extends AbstractTokenMockMvcTests {
         Assert.assertTrue(auth.isAuthenticated());
         SecurityContextHolder.getContext().setAuthentication(auth);
         MockHttpSession session = new MockHttpSession();
-        getLoginForm(mockMvc, session); // to set the csrf token in this session
         session.setAttribute(
             HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
             new MockMvcUtils.MockSecurityContext(auth)

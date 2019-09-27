@@ -6,6 +6,7 @@ import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.impl.NoOpLog;
 import org.cloudfoundry.identity.uaa.DefaultTestContext;
+import org.cloudfoundry.identity.uaa.SpringServletAndHoneycombTestConfig;
 import org.cloudfoundry.identity.uaa.account.LostPasswordChangeRequest;
 import org.cloudfoundry.identity.uaa.account.event.PasswordChangeEvent;
 import org.cloudfoundry.identity.uaa.account.event.PasswordChangeFailureEvent;
@@ -32,6 +33,7 @@ import org.cloudfoundry.identity.uaa.scim.event.GroupModifiedEvent;
 import org.cloudfoundry.identity.uaa.scim.event.ScimEventPublisher;
 import org.cloudfoundry.identity.uaa.scim.event.UserModifiedEvent;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimUserProvisioning;
+import org.cloudfoundry.identity.uaa.security.PollutionPreventionExtension;
 import org.cloudfoundry.identity.uaa.test.*;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.zone.ClientServicesExtension;
@@ -39,6 +41,7 @@ import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -57,6 +60,10 @@ import org.springframework.security.oauth2.common.util.RandomValueStringGenerato
 import org.springframework.security.oauth2.provider.ClientDetails;
 import org.springframework.security.oauth2.provider.client.BaseClientDetails;
 import org.springframework.security.web.FilterChainProxy;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
@@ -75,7 +82,7 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static org.cloudfoundry.identity.uaa.audit.AuditEventType.*;
 import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.RegexMatcher.matchesRegex;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.startsWith;
 import static org.hamcrest.Matchers.*;
@@ -216,10 +223,9 @@ class AuditCheckMockMvcTests {
 
     @Test
     void userLoginTest() throws Exception {
-        MockHttpSession session = getLoginForm();
-
         MockHttpServletRequestBuilder loginPost = post("/login.do")
-                .with(csrf(session))
+                .with(cookieCsrf())
+                .session(new MockHttpSession())
                 .accept(MediaType.TEXT_HTML_VALUE)
                 .param("username", testUser.getUserName())
                 .param("password", testPassword);
@@ -282,10 +288,9 @@ class AuditCheckMockMvcTests {
 
     @Test
     void invalidPasswordLoginUnsuccessfulTest() throws Exception {
-        MockHttpSession session = getLoginForm();
-
         MockHttpServletRequestBuilder loginPost = post("/login.do")
-                .with(csrf(session))
+                .with(cookieCsrf())
+                .session(new MockHttpSession())
                 .accept(MediaType.TEXT_HTML_VALUE)
                 .param("username", testUser.getUserName())
                 .param("password", "");
@@ -477,10 +482,9 @@ class AuditCheckMockMvcTests {
     void userNotFoundLoginUnsuccessfulTest() throws Exception {
         String username = "test1234";
 
-        MockHttpSession session = getLoginForm();
-
         MockHttpServletRequestBuilder loginPost = post("/login.do")
-                .with(csrf(session))
+                .with(cookieCsrf())
+                .session(new MockHttpSession())
                 .accept(MediaType.TEXT_HTML_VALUE)
                 .param("username", username)
                 .param("password", testPassword);
@@ -505,9 +509,10 @@ class AuditCheckMockMvcTests {
 
     @Test
     void userChangePasswordTest() throws Exception {
-        MockHttpSession session = getLoginForm();
+        MockHttpSession session = new MockHttpSession();
         MockHttpServletRequestBuilder loginPost = post("/login.do")
-                .with(csrf(session))
+                .with(cookieCsrf())
+                .session(session)
                 .accept(APPLICATION_JSON_VALUE)
                 .param("username", testUser.getUserName())
                 .param("password", testPassword);
@@ -563,9 +568,10 @@ class AuditCheckMockMvcTests {
 
     @Test
     void userChangeInvalidPasswordTest() throws Exception {
-        MockHttpSession session = getLoginForm();
+        MockHttpSession session = new MockHttpSession();
         MockHttpServletRequestBuilder loginPost = post("/login.do")
-                .with(csrf(session))
+                .with(cookieCsrf())
+                .session(session)
                 .accept(APPLICATION_JSON_VALUE)
                 .param("username", testUser.getUserName())
                 .param("password", testPassword);
@@ -813,6 +819,7 @@ class AuditCheckMockMvcTests {
         resetAuditTestReceivers();
 
         MockHttpServletRequestBuilder userPost = post("/oauth/authorize")
+                .with(cookieCsrf())
                 .accept(APPLICATION_JSON_VALUE)
                 .contentType(MediaType.APPLICATION_JSON)
                 .session(new MockHttpSession())
@@ -1286,11 +1293,4 @@ class AuditCheckMockMvcTests {
             return messages.get(messages.size() - 1);
         }
     }
-
-    private MockHttpSession getLoginForm() {
-        MockHttpSession session = new MockHttpSession();
-        MockMvcUtils.getLoginForm(mockMvc, session);
-        return session;
-    }
-
 }

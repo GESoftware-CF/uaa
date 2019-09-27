@@ -2,6 +2,7 @@ package org.cloudfoundry.identity.uaa.login;
 
 import org.apache.commons.lang3.RandomStringUtils;
 import org.cloudfoundry.identity.uaa.DefaultTestContext;
+import org.cloudfoundry.identity.uaa.SpringServletAndHoneycombTestConfig;
 import org.cloudfoundry.identity.uaa.account.EmailAccountCreationService;
 import org.cloudfoundry.identity.uaa.authentication.UaaPrincipal;
 import org.cloudfoundry.identity.uaa.codestore.JdbcExpiringCodeStore;
@@ -13,6 +14,7 @@ import org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils;
 import org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.PredictableGenerator;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimUserProvisioning;
+import org.cloudfoundry.identity.uaa.security.PollutionPreventionExtension;
 import org.cloudfoundry.identity.uaa.test.*;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.util.SetServerNameRequestPostProcessor;
@@ -20,6 +22,7 @@ import org.cloudfoundry.identity.uaa.zone.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mock.env.MockPropertySource;
@@ -31,6 +34,10 @@ import org.springframework.security.oauth2.provider.client.BaseClientDetails;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.savedrequest.SavedRequest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
@@ -41,7 +48,7 @@ import org.springframework.web.context.support.StandardServletEnvironment;
 
 import java.util.Collections;
 
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
 import static org.cloudfoundry.identity.uaa.web.UaaSavedRequestAwareAuthenticationSuccessHandler.SAVED_REQUEST_SESSION_ATTRIBUTE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -183,10 +190,8 @@ class AccountsControllerMockMvcTests {
 
         MockMvcUtils.createOtherIdentityZoneAndReturnResult(mockMvc, webApplicationContext, getBaseClientDetails(), zone);
 
-        MockHttpSession session = getCreateAccountForm();
-
         mockMvc.perform(post("/create_account.do")
-                .with(csrf(session))
+                .with(cookieCsrf())
                 .with(new SetServerNameRequestPostProcessor(subdomain + ".localhost"))
                 .param("email", userEmail)
                 .param("password", "secr3T")
@@ -218,10 +223,8 @@ class AccountsControllerMockMvcTests {
         JdbcExpiringCodeStore store = webApplicationContext.getBean(JdbcExpiringCodeStore.class);
         store.setGenerator(generator);
 
-        MockHttpSession session = getCreateAccountForm();
-
         mockMvc.perform(post("/create_account.do")
-                .with(csrf(session))
+                .with(cookieCsrf())
                 .param("email", userEmail)
                 .param("password", "secr3T")
                 .param("password_confirmation", "secr3T"))
@@ -256,10 +259,8 @@ class AccountsControllerMockMvcTests {
         JdbcExpiringCodeStore store = webApplicationContext.getBean(JdbcExpiringCodeStore.class);
         store.setGenerator(generator);
 
-        MockHttpSession session = getCreateAccountForm();
-
         mockMvc.perform(post("/create_account.do")
-                .with(csrf(session))
+                .with(cookieCsrf())
                 .param("email", userEmail)
                 .param("password", "secr3T")
                 .param("password_confirmation", "secr3T")
@@ -301,10 +302,8 @@ class AccountsControllerMockMvcTests {
         JdbcExpiringCodeStore store = webApplicationContext.getBean(JdbcExpiringCodeStore.class);
         store.setGenerator(generator);
 
-        MockHttpSession session = getCreateAccountForm();
-
         mockMvc.perform(post("/create_account.do")
-                .with(csrf(session))
+                .with(cookieCsrf())
                 .param("email", userEmail)
                 .param("password", "secr3T")
                 .param("password_confirmation", "secr3T"))
@@ -352,10 +351,8 @@ class AccountsControllerMockMvcTests {
                 .content(JsonUtils.writeValueAsString(identityZone)))
                 .andExpect(status().isCreated());
 
-        MockHttpSession session = getCreateAccountForm();
-
         mockMvc.perform(post("/create_account.do")
-                .with(csrf(session))
+                .with(cookieCsrf())
                 .with(new SetServerNameRequestPostProcessor(subdomain + ".localhost"))
                 .param("email", userEmail)
                 .param("password", USER_PASSWORD)
@@ -406,11 +403,9 @@ class AccountsControllerMockMvcTests {
 
         MockMvcUtils.createOtherIdentityZone(subdomain, mockMvc, webApplicationContext, getBaseClientDetails());
 
-        MockHttpSession session = getCreateAccountForm();
-
         mockMvc.perform(post("/create_account.do")
                 .with(new SetServerNameRequestPostProcessor(subdomain + ".localhost"))
-                .with(csrf(session))
+                .with(cookieCsrf())
                 .param("email", userEmail)
                 .param("password", "secr3T")
                 .param("password_confirmation", "secr3T")
@@ -459,10 +454,9 @@ class AccountsControllerMockMvcTests {
         JdbcExpiringCodeStore store = webApplicationContext.getBean(JdbcExpiringCodeStore.class);
         store.setGenerator(generator);
 
-        MockMvcUtils.getCreateAccountForm(mockMvc, session);
-
         mockMvc.perform(post("/create_account.do")
-                .with(csrf(session))
+                .with(cookieCsrf())
+                .session(session)
                 .param("email", "testuser@test.org")
                 .param("password", "test-password")
                 .param("password_confirmation", "test-password"))
@@ -551,11 +545,9 @@ class AccountsControllerMockMvcTests {
         zone.getConfig().getBranding().getConsent().setText(consentText);
         MockMvcUtils.updateZone(mockMvc, zone);
 
-        MockHttpSession session = getCreateAccountForm();
-
         mockMvc.perform(post("/create_account.do")
                 .with(new SetServerNameRequestPostProcessor(randomZoneSubdomain + ".localhost"))
-                .with(csrf(session))
+                .with(cookieCsrf())
                 .param("email", userEmail)
                 .param("password", USER_PASSWORD)
                 .param("password_confirmation", USER_PASSWORD)
@@ -584,10 +576,9 @@ class AccountsControllerMockMvcTests {
 
         BaseClientDetails clientDetails = createTestClient();
 
-        MockHttpSession session = getCreateAccountForm();
 
         mockMvc.perform(post("/create_account.do")
-                .with(csrf(session))
+                .with(cookieCsrf())
                 .param("email", userEmail)
                 .param("password", USER_PASSWORD)
                 .param("password_confirmation", USER_PASSWORD)
@@ -620,12 +611,10 @@ class AccountsControllerMockMvcTests {
 
     private ResultActions loginWithAccount(String subdomain) throws Exception {
 
-        MockHttpSession session = getCreateAccountForm();
-
         MockHttpServletRequestBuilder req = post("/login.do")
                 .param("username", userEmail)
                 .param("password", USER_PASSWORD)
-                .with(csrf(session));
+                .with(cookieCsrf());
 
         if (hasText(subdomain)) {
             req.with(new SetServerNameRequestPostProcessor(subdomain + ".localhost"));
@@ -634,11 +623,4 @@ class AccountsControllerMockMvcTests {
         return mockMvc.perform(req)
                 .andExpect(status().isFound());
     }
-
-    private MockHttpSession getCreateAccountForm() {
-        MockHttpSession session = new MockHttpSession();
-        MockMvcUtils.getCreateAccountForm(mockMvc, session);
-        return session;
-    }
-
 }

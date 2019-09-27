@@ -1,6 +1,5 @@
 package org.cloudfoundry.identity.uaa.login;
 
-import lombok.SneakyThrows;
 import org.cloudfoundry.identity.uaa.DefaultTestContext;
 import org.cloudfoundry.identity.uaa.account.UaaResetPasswordService;
 import org.cloudfoundry.identity.uaa.codestore.ExpiringCode;
@@ -16,6 +15,7 @@ import org.cloudfoundry.identity.uaa.provider.UaaIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.scim.ScimUserProvisioning;
 import org.cloudfoundry.identity.uaa.scim.endpoints.PasswordChange;
+import org.cloudfoundry.identity.uaa.test.HoneycombAuditEventListenerRule;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
@@ -48,8 +48,7 @@ import java.util.regex.Pattern;
 
 import static org.cloudfoundry.identity.uaa.account.UaaResetPasswordService.FORGOT_PASSWORD_INTENT_PREFIX;
 import static org.cloudfoundry.identity.uaa.constants.OriginKeys.UAA;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.getLoginForm;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
 import static org.cloudfoundry.identity.uaa.web.UaaSavedRequestAwareAuthenticationSuccessHandler.SAVED_REQUEST_SESSION_ATTRIBUTE;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -288,15 +287,14 @@ public class ResetPasswordControllerMockMvcTests {
                 .param("username", user.getUserName()))
                 .andExpect(redirectedUrl("email_sent?code=reset_password"));
 
-        getLoginForm(mockMvc, session); // to set the csrf token in this session
-
-        mockMvc.perform(createChangePasswordRequest(user, "test" + generator.counter.get(), false, "secret1", "secret1")
-                .with(csrf(session)))
+        mockMvc.perform(createChangePasswordRequest(user, "test" + generator.counter.get(), true, "secret1", "secret1")
+                .session(session))
                 .andExpect(status().isFound())
                 .andExpect(redirectedUrl("/login?success=password_reset"));
 
         mockMvc.perform(post("/login.do")
-            .with(csrf(session))
+            .session(session)
+            .with(cookieCsrf())
             .param("username", user.getUserName())
             .param("password", "secret1"))
             .andExpect(redirectedUrl("http://test/redirect/oauth/authorize"));
@@ -405,13 +403,10 @@ public class ResetPasswordControllerMockMvcTests {
         return createChangePasswordRequest(user,code.getCode(),useCSRF, password,passwordConfirmation);
     }
 
-    @SneakyThrows
     private MockHttpServletRequestBuilder createChangePasswordRequest(ScimUser user, String code, boolean useCSRF, String password, String passwordConfirmation) {
         MockHttpServletRequestBuilder post = post("/reset_password.do");
         if (useCSRF) {
-            MockHttpSession session = new MockHttpSession();
-            getLoginForm(mockMvc, session); // to set the csrf token in this session
-            post.with(csrf(session));
+            post.with(cookieCsrf());
         }
         post.param("code", code)
             .param("email", user.getPrimaryEmail())
