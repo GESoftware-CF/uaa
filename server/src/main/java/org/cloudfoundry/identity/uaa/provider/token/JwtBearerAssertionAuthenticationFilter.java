@@ -111,7 +111,7 @@ public class JwtBearerAssertionAuthenticationFilter extends OncePerRequestFilter
         modifiedRequestUrl.append(request.getServerName());
         modifiedRequestUrl.append(request.getRequestURI());
         JwtBearerAssertionTokenAuthenticator tokenAuthenticator = new JwtBearerAssertionTokenAuthenticator(
-                modifiedRequestUrl.getRequestURL().toString(), this.clientAssertionHeaderTTL);
+                modifiedRequestUrl.toString(), this.clientAssertionHeaderTTL);
         tokenAuthenticator.setClientDetailsService(this.clientDetailsService);
         tokenAuthenticator.setClientPublicKeyProvider(this.publicKeyProvider);
         tokenAuthenticator.setDcsEndpointTokenGranter(this.dcsEndpointTokenGranter);
