@@ -105,8 +105,20 @@ public class JwtBearerAssertionAuthenticationFilter extends OncePerRequestFilter
     }
 
     private Authentication authenticateJwtAssertion(final HttpServletRequest request, String jwtAssertion) {
+        String requestUrl = request.getRequestURL().toString();
+        String requestScheme = request.getHeader("x-scheme");
+
+        if (requestScheme != null) {
+            StringBuffer modifiedRequestUrl = new StringBuffer();
+            modifiedRequestUrl.append(requestScheme);
+            modifiedRequestUrl.append("://");
+            modifiedRequestUrl.append(request.getServerName());
+            modifiedRequestUrl.append(request.getRequestURI()); rl = modifiedRequestUrl.toString();
+                    
+        }
+        
         JwtBearerAssertionTokenAuthenticator tokenAuthenticator = new JwtBearerAssertionTokenAuthenticator(
-                request.getRequestURL().toString(), this.clientAssertionHeaderTTL);
+                requestUrl, this.clientAssertionHeaderTTL);
         tokenAuthenticator.setClientDetailsService(this.clientDetailsService);
         tokenAuthenticator.setClientPublicKeyProvider(this.publicKeyProvider);
         tokenAuthenticator.setDcsEndpointTokenGranter(this.dcsEndpointTokenGranter);
