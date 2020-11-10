@@ -87,6 +87,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.Principal;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
@@ -320,15 +321,35 @@ public class LoginInfoEndpoint {
             clientName = (String) clientInfo.get(ClientConstants.CLIENT_NAME);
         }
 
-        Map<String, SamlIdentityProviderDefinition> samlIdentityProviders =
-            getSamlIdentityProviderDefinitions(allowedIdentityProviderKeys);
-        Map<String, AbstractXOAuthIdentityProviderDefinition> oauthIdentityProviders =
-            getOauthIdentityProviderDefinitions(allowedIdentityProviderKeys);
-        Map<String, AbstractIdentityProviderDefinition> allIdentityProviders =
-            new HashMap<String, AbstractIdentityProviderDefinition>() {{
-                putAll(samlIdentityProviders);
-                putAll(oauthIdentityProviders);
+        Map<String, SamlIdentityProviderDefinition> samlIdentityProviders;
+        Map<String, AbstractXOAuthIdentityProviderDefinition> oauthIdentityProviders;
+        Map<String, AbstractIdentityProviderDefinition> allIdentityProviders = Collections.emptyMap();
+        Map<String, AbstractIdentityProviderDefinition> loginHintProviders = Collections.emptyMap();
+
+        String loginHintParam = extractLoginHintParam(session, request);
+        UaaLoginHint uaaLoginHint = UaaLoginHint.parseRequestParameter(loginHintParam);
+        if (uaaLoginHint != null && (allowedIdentityProviderKeys == null || allowedIdentityProviderKeys.contains(uaaLoginHint.getOrigin()))) {
+            if (!(OriginKeys.UAA.equals(uaaLoginHint.getOrigin()) || OriginKeys.LDAP.equals(uaaLoginHint.getOrigin()))) {
+                try {
+                    IdentityProvider loginHintProvider = xoAuthProviderConfigurator
+                            .retrieveByOrigin(uaaLoginHint.getOrigin(), IdentityZoneHolder.get().getId());
+                    loginHintProviders = Collections.singletonList(loginHintProvider).stream().collect(
+                            new MapCollector<IdentityProvider, String, AbstractIdentityProviderDefinition>(
+                                    IdentityProvider::getOriginKey, IdentityProvider::getConfig));
+                } catch (EmptyResultDataAccessException ignored) {
+                }
+            }
+            oauthIdentityProviders = Collections.emptyMap();
+            samlIdentityProviders = Collections.emptyMap();
+        } else {
+            samlIdentityProviders = getSamlIdentityProviderDefinitions(allowedIdentityProviderKeys);
+            oauthIdentityProviders = getOauthIdentityProviderDefinitions(allowedIdentityProviderKeys);
+            allIdentityProviders =
+                new HashMap<String, AbstractIdentityProviderDefinition>() {{
+                    putAll(samlIdentityProviders);
+                    putAll(oauthIdentityProviders);
             }};
+        }
 
         boolean fieldUsernameShow = true;
         boolean returnLoginPrompts = true;
@@ -358,8 +379,8 @@ public class LoginInfoEndpoint {
         }
 
         Map.Entry<String, AbstractIdentityProviderDefinition> idpForRedirect = null;
-        idpForRedirect = evaluateLoginHint(model, session, samlIdentityProviders,
-            oauthIdentityProviders, allIdentityProviders, allowedIdentityProviderKeys, request);
+        idpForRedirect = evaluateLoginHint(model, samlIdentityProviders,
+                oauthIdentityProviders, allIdentityProviders, allowedIdentityProviderKeys, loginHintParam, uaaLoginHint, loginHintProviders);
 
         boolean discoveryEnabled = IdentityZoneHolder.get().getConfig().isIdpDiscoveryEnabled();
         boolean discoveryPerformed = Boolean.parseBoolean(request.getParameter("discoveryPerformed"));
@@ -530,28 +551,30 @@ public class LoginInfoEndpoint {
         return idpForRedirect;
     }
 
+    private String extractLoginHintParam(HttpSession session, HttpServletRequest request) {
+        String loginHintParam =
+                ofNullable(session)
+                        .flatMap(s -> ofNullable((SavedRequest) s.getAttribute(SAVED_REQUEST_SESSION_ATTRIBUTE)))
+                        .flatMap(sr -> ofNullable(sr.getParameterValues("login_hint")))
+                        .flatMap(lhValues -> Arrays.stream(lhValues).findFirst())
+                        .orElse(request.getParameter("login_hint"));
+        return loginHintParam;
+    }
+
     private Map.Entry<String, AbstractIdentityProviderDefinition> evaluateLoginHint(
             Model model,
-            HttpSession session,
             Map<String, SamlIdentityProviderDefinition> samlIdentityProviders,
             Map<String, AbstractXOAuthIdentityProviderDefinition> oauthIdentityProviders,
             Map<String, AbstractIdentityProviderDefinition> allIdentityProviders,
             List<String> allowedIdentityProviderKeys,
-            HttpServletRequest request
+            String loginHintParam,
+            UaaLoginHint uaaLoginHint,
+            Map<String, AbstractIdentityProviderDefinition> loginHintProviders
     ) {
-
         Map.Entry<String, AbstractIdentityProviderDefinition> idpForRedirect = null;
-        String loginHintParam =
-            ofNullable(session)
-                .flatMap(s -> ofNullable((SavedRequest) s.getAttribute(SAVED_REQUEST_SESSION_ATTRIBUTE)))
-                .flatMap(sr -> ofNullable(sr.getParameterValues("login_hint")))
-                .flatMap(lhValues -> Arrays.asList(lhValues).stream().findFirst())
-                .orElse(request.getParameter("login_hint"));
-
         if (loginHintParam != null) {
             String loginHint = loginHintParam;
             // parse login_hint in JSON format
-            UaaLoginHint uaaLoginHint = UaaLoginHint.parseRequestParameter(loginHint);
             if (uaaLoginHint != null) {
                 logger.debug("Received login hint: " + loginHint);
                 logger.debug("Received login hint with origin: " + uaaLoginHint.getOrigin());
@@ -570,12 +593,13 @@ public class LoginInfoEndpoint {
                         allIdentityProviders.entrySet().stream().filter(
                             idp -> idp.getKey().equals(uaaLoginHint.getOrigin())
                         ).collect(Collectors.toList());
-                    if(hintIdentityProviders.size() > 1) {
+                    if(loginHintProviders.size() > 1) {
                         throw new IllegalStateException(
                             "There is a misconfiguration with the identity provider(s). Please contact your system administrator."
                         );
-                    } else if(hintIdentityProviders.size() == 1) {
-                        idpForRedirect = hintIdentityProviders.get(0);
+                    }
+                    if (loginHintProviders.size() == 1) {
+                        idpForRedirect = new ArrayList<>(loginHintProviders.entrySet()).get(0);
                         logger.debug("Setting redirect from origin login_hint to: " + idpForRedirect);
                     } else {
                         logger.debug("Client does not allow provider for login_hint with origin key: "
