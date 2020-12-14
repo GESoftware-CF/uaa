@@ -24,7 +24,7 @@ buildscript {
 
     dependencies {
         classpath group: 'io.honeycomb.libhoney', name: 'libhoney-java', version: '1.0.2'
-        classpath group: 'com.bmuschko', name: 'gradle-cargo-plugin', version: '2.6'
+        classpath group: 'com.bmuschko', name: 'gradle-cargo-plugin', version: '2.7.1'
         classpath group: 'org.kt3k.gradle.plugin', name: 'coveralls-gradle-plugin', version: '2.4.0'
         classpath 'de.undercouch:gradle-download-task:4.1.1'
         classpath 'org.springframework.build.gradle:propdeps-plugin:0.0.7'
