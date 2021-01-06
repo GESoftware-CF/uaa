@@ -29,6 +29,9 @@ public class BrandingInformation implements BrandingInformationSource {
         return companyName;
     }
 
+    @Override
+    public String getZoneCompanyName() { return getCompanyName(); }
+
     public void setCompanyName(String companyName) {
         this.companyName = companyName;
     }

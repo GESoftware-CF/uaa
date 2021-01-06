@@ -86,6 +86,8 @@ import static org.springframework.util.StringUtils.hasText;
 
 public class IntegrationTestUtils {
 
+    public static final String PREDIX_LANDING_PAGE_MESSAGE = "You should not see this page. Set up your redirect URI.";
+    public static final String PREDIX_TITLE = "Predix";
     public static final String SIMPLESAMLPHP_UAA_ACCEPTANCE = "http://simplesamlphp.uaa-acceptance.cf-app.com";
     public static final String SIMPLESAMLPHP_LOGIN_PROMPT_XPATH_EXPR =
         "//h2[contains(text(), 'Enter your username and password')]";

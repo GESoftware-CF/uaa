@@ -228,8 +228,9 @@ public class OIDCLoginIT {
     private void validateSuccessfulOIDCLogin(String zoneUrl, String userName, String password) {
         login(zoneUrl, userName, password);
 
-        webDriver.findElement(By.cssSelector(".dropdown-trigger")).click();
-        webDriver.findElement(By.linkText("Sign Out")).click();
+        //Predix version does not have logout link
+        //webDriver.findElement(By.cssSelector(".dropdown-trigger")).click();
+        //webDriver.findElement(By.linkText("Sign Out")).click();
         IntegrationTestUtils.validateAccountChooserCookie(zoneUrl, webDriver, IdentityZoneHolder.get());
     }
 
@@ -246,7 +247,8 @@ public class OIDCLoginIT {
         webDriver.findElement(By.name("password")).sendKeys(password);
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
         Assert.assertThat(webDriver.getCurrentUrl(), containsString(zoneUrl));
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("Where to?"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE));
+
         Cookie afterLogin = webDriver.manage().getCookieNamed("JSESSIONID");
         assertNotNull(afterLogin);
         assertNotNull(afterLogin.getValue());
@@ -438,7 +440,7 @@ public class OIDCLoginIT {
             webDriver.findElement(By.xpath("//input[@value='Login']")).click();
 
             assertThat(webDriver.getCurrentUrl(), containsString(zoneUrl));
-            assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("Where to?"));
+            assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE));
 
             Cookie cookie = webDriver.manage().getCookieNamed("JSESSIONID");
 

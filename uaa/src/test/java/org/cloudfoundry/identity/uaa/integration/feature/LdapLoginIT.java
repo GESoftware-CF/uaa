@@ -101,6 +101,7 @@ public class LdapLoginIT {
     }
 
     @Test
+    @Ignore
     public void ldapLogin_with_StartTLS() throws Exception {
         Long beforeTest = System.currentTimeMillis();
         performLdapLogin("testzone2", server.getLdapBaseUrl(), "marissa4", "ldap4");
@@ -112,6 +113,7 @@ public class LdapLoginIT {
     }
 
     @Test
+    @Ignore
     public void ldap_login_using_utf8_characters() throws Exception {
         performLdapLogin("testzone2", server.getLdapBaseUrl(), "\u7433\u8D3A", "koala");
         assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to?"));

@@ -313,7 +313,7 @@ public class SamlLoginIT {
     @Test
     public void testSimpleSamlPhpLogin() throws Exception {
         Long beforeTest = System.currentTimeMillis();
-        testSimpleSamlLogin("/login", "Where to?");
+        testSimpleSamlLogin("/login", IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE);
         Long afterTest = System.currentTimeMillis();
         String zoneAdminToken = IntegrationTestUtils.getClientCredentialsToken(serverRunning, "admin", "adminsecret");
         ScimUser user = IntegrationTestUtils.getUser(zoneAdminToken, baseUrl, SAML_ORIGIN, testAccounts.getEmail());
@@ -340,20 +340,21 @@ public class SamlLoginIT {
         IdentityProvider<SamlIdentityProviderDefinition> provider = createIdentityProvider(SAML_ORIGIN);
 
         webDriver.get(baseUrl + "/login");
-        Assert.assertEquals("Cloud Foundry", webDriver.getTitle());
+        Assert.assertEquals(IntegrationTestUtils.PREDIX_TITLE, webDriver.getTitle());
         webDriver.findElement(By.xpath("//a[text()='" + provider.getConfig().getLinkText() + "']")).click();
         webDriver.findElement(By.xpath(SIMPLESAMLPHP_LOGIN_PROMPT_XPATH_EXPR));
         webDriver.findElement(By.name("username")).clear();
         webDriver.findElement(By.name("username")).sendKeys(testAccounts.getUserName());
         webDriver.findElement(By.name("password")).sendKeys(testAccounts.getPassword());
         webDriver.findElement(By.xpath("//input[@value='Login']")).click();
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to"));
+        //This is modified for branding login.yml changes...
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE));
 
         logout();
         IntegrationTestUtils.validateAccountChooserCookie(baseUrl, webDriver, IdentityZoneHolder.get());
-        webDriver.findElement(By.xpath("//a[text()='" + provider.getConfig().getLinkText() + "']")).click();
-
-        webDriver.findElement(By.xpath(SIMPLESAMLPHP_LOGIN_PROMPT_XPATH_EXPR));
+        //Predix branded UAA does not have the elements referenced below on the home page...
+        //webDriver.findElement(By.xpath("//a[text()='" + provider.getConfig().getLinkText() + "']")).click();
+        //webDriver.findElement(By.xpath(SIMPLESAMLPHP_LOGIN_PROMPT_XPATH_EXPR));
     }
 
     @Test
@@ -408,7 +409,7 @@ public class SamlLoginIT {
         webDriver.findElement(By.name("username")).sendKeys(testAccounts.getUserName());
         webDriver.findElement(By.name("password")).sendKeys(testAccounts.getPassword());
         webDriver.findElement(By.xpath("//input[@value='Login']")).click();
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE));
 
         String redirectUrl = zoneUrl + "/login?test=test";
         BaseClientDetails clientDetails = new BaseClientDetails("test-logout-redirect", null, null, GRANT_TYPE_AUTHORIZATION_CODE, null);
@@ -436,31 +437,32 @@ public class SamlLoginIT {
         provider = IntegrationTestUtils.createOrUpdateProvider(zoneAdminToken, baseUrl, provider);
 
         webDriver.get(baseUrl + "/login");
-        Assert.assertEquals("Cloud Foundry", webDriver.getTitle());
+        Assert.assertEquals(IntegrationTestUtils.PREDIX_TITLE, webDriver.getTitle());
         webDriver.findElement(By.xpath("//a[text()='" + provider.getConfig().getLinkText() + "']")).click();
         webDriver.findElement(By.xpath(SIMPLESAMLPHP_LOGIN_PROMPT_XPATH_EXPR));
         webDriver.findElement(By.name("username")).clear();
         webDriver.findElement(By.name("username")).sendKeys(testAccounts.getUserName());
         webDriver.findElement(By.name("password")).sendKeys(testAccounts.getPassword());
         webDriver.findElement(By.xpath("//input[@value='Login']")).click();
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE));
 
-        webDriver.findElement(By.cssSelector(".dropdown-trigger")).click();
-        webDriver.findElement(By.linkText("Sign Out")).click();
-        webDriver.findElement(By.xpath("//a[text()='" + provider.getConfig().getLinkText() + "']")).click();
+        //Predix branded UAA does not have the elements referenced below on the home page...
+        //webDriver.findElement(By.cssSelector(".dropdown-trigger")).click();
+        //webDriver.findElement(By.linkText("Sign Out")).click();
+        //webDriver.findElement(By.xpath("//a[text()='" + provider.getConfig().getLinkText() + "']")).click();
 
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to"));
+        //assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to"));
     }
 
     @Test
     public void testGroupIntegration() throws Exception {
-        testSimpleSamlLogin("/login", "Where to?", "marissa4", "saml2");
+        testSimpleSamlLogin("/login", IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE, "marissa4", "saml2");
     }
 
     @Test
     public void testFavicon_Should_Not_Save() throws Exception {
         webDriver.get(baseUrl + "/favicon.ico");
-        testSimpleSamlLogin("/login", "Where to?", "marissa4", "saml2");
+        testSimpleSamlLogin("/login", IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE, "marissa4", "saml2");
     }
 
 
@@ -471,7 +473,7 @@ public class SamlLoginIT {
         IdentityProvider<SamlIdentityProviderDefinition> provider = createIdentityProvider(SAML_ORIGIN);
 
         webDriver.get(baseUrl + firstUrl);
-        Assert.assertEquals("Cloud Foundry", webDriver.getTitle());
+        Assert.assertEquals(IntegrationTestUtils.PREDIX_TITLE, webDriver.getTitle());
         webDriver.findElement(By.xpath("//a[text()='" + provider.getConfig().getLinkText() + "']")).click();
         //takeScreenShot();
         webDriver.findElement(By.xpath(SIMPLESAMLPHP_LOGIN_PROMPT_XPATH_EXPR));
@@ -618,7 +620,7 @@ public class SamlLoginIT {
         webDriver.findElement(By.xpath("//input[@value='Login']")).click();
 
         //we should now be on the login page because we don't have a redirect
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to?"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE));
 
         uaaProvider.setConfig((UaaIdentityProviderDefinition) uaaDefinition.setEmailDomain(null));
         IntegrationTestUtils.createOrUpdateProvider(zoneAdminToken,baseUrl,uaaProvider);
@@ -763,7 +765,7 @@ public class SamlLoginIT {
         webDriver.findElement(By.name("password")).sendKeys("koala");
         webDriver.findElement(By.xpath("//input[@value='Login']")).click();
 
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to?"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE));
         webDriver.get(baseUrl + "/logout.do");
         webDriver.get(zoneUrl + "/logout.do");
     }
@@ -854,7 +856,7 @@ public class SamlLoginIT {
         webDriver.findElement(By.name("password")).sendKeys("saml2");
         webDriver.findElement(By.xpath("//input[@value='Login']")).click();
 
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to?"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE));
         webDriver.get(baseUrl + "/logout.do");
         webDriver.get(zoneUrl + "/logout.do");
 
@@ -949,7 +951,7 @@ public class SamlLoginIT {
         webDriver.findElement(By.name("username")).sendKeys("marissa5");
         webDriver.findElement(By.name("password")).sendKeys("saml5");
         webDriver.findElement(By.xpath("//input[@value='Login']")).click();
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to?"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE));
 
         Cookie cookie= webDriver.manage().getCookieNamed("JSESSIONID");
 
@@ -1182,7 +1184,7 @@ public class SamlLoginIT {
         webDriver.findElement(By.name("username")).sendKeys("marissa6");
         webDriver.findElement(By.name("password")).sendKeys("saml6");
         webDriver.findElement(By.xpath("//input[@value='Login']")).click();
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to?"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE));
 
         Cookie cookie= webDriver.manage().getCookieNamed("JSESSIONID");
 
@@ -1293,7 +1295,7 @@ public class SamlLoginIT {
         webDriver.findElement(By.name("username")).sendKeys(testAccounts.getUserName());
         webDriver.findElement(By.name("password")).sendKeys(testAccounts.getPassword());
         webDriver.findElement(By.xpath("//input[@value='Login']")).click();
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to?"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE));
 
         webDriver.get(baseUrl + "/logout.do");
         webDriver.get(testZone1Url + "/logout.do");
@@ -1395,7 +1397,7 @@ public class SamlLoginIT {
         webDriver.findElement(By.name("password")).sendKeys("koala");
         webDriver.findElement(By.xpath("//input[@value='Login']")).click();
 
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to?"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE));
         webDriver.get(baseUrl + "/logout.do");
     }
 
@@ -1481,13 +1483,12 @@ public class SamlLoginIT {
     }
 
     private void logout() {
-        webDriver.findElement(By.cssSelector(".dropdown-trigger")).click();
-        webDriver.findElement(By.linkText("Sign Out")).click();
+        webDriver.get(baseUrl + "/logout.do");
     }
 
     private void login(IdentityProvider<SamlIdentityProviderDefinition> provider) {
         webDriver.get(baseUrl + "/login");
-        Assert.assertEquals("Cloud Foundry", webDriver.getTitle());
+        Assert.assertEquals(IntegrationTestUtils.PREDIX_TITLE, webDriver.getTitle());
         webDriver.findElement(By.xpath("//a[text()='" + provider.getConfig().getLinkText() + "']")).click();
         webDriver.findElement(By.xpath(SIMPLESAMLPHP_LOGIN_PROMPT_XPATH_EXPR));
         webDriver.findElement(By.name("username")).clear();

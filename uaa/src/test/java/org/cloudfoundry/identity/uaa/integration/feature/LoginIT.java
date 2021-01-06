@@ -41,6 +41,7 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -146,6 +147,7 @@ public class LoginIT {
     }
 
     @Test
+    @Ignore("To be ignored till ge branding for the new pivotal-ui-main.html layout")
     public void testBannerFunctionalityInDiscoveryPage() {
         String zoneId = "testzone3";
 
@@ -209,9 +211,14 @@ public class LoginIT {
         String newUserEmail = createAnotherUser();
         webDriver.get(baseUrl + "/logout.do");
         webDriver.get(baseUrl + "/login");
-        assertEquals("Cloud Foundry", webDriver.getTitle());
+        assertEquals(IntegrationTestUtils.PREDIX_TITLE, webDriver.getTitle());
+
+        //assert Predix logo
+        assertThat(webDriver.findElement(By.id("logo-header")).getAttribute("src"),
+                   containsString("predix-word.svg"));
+
         attemptLogin(newUserEmail, USER_PASSWORD);
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to?"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE));
         webDriver.get(baseUrl + "/logout.do");
         attemptLogin(newUserEmail, USER_PASSWORD);
 
@@ -226,17 +233,17 @@ public class LoginIT {
         webDriver.get(baseUrl + "/logout.do");
         String ldapLoginHint = URLEncoder.encode("{\"origin\":\"ldap\"}", StandardCharsets.UTF_8);
         webDriver.get(baseUrl + "/login?login_hint=" + ldapLoginHint);
-        assertEquals("Cloud Foundry", webDriver.getTitle());
+        assertEquals(IntegrationTestUtils.PREDIX_TITLE, webDriver.getTitle());
         assertThat(webDriver.getPageSource(), not(containsString("or sign in with:")));
         attemptLogin(newUserEmail, USER_PASSWORD);
         assertThat(webDriver.findElement(By.className("alert-error")).getText(), containsString("Provided credentials are invalid. Please try again."));
 
         String uaaLoginHint = URLEncoder.encode("{\"origin\":\"uaa\"}", StandardCharsets.UTF_8);
         webDriver.get(baseUrl + "/login?login_hint=" + uaaLoginHint);
-        assertEquals("Cloud Foundry", webDriver.getTitle());
+        assertEquals(IntegrationTestUtils.PREDIX_TITLE, webDriver.getTitle());
         assertThat(webDriver.getPageSource(), not(containsString("or sign in with:")));
         attemptLogin(newUserEmail, USER_PASSWORD);
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("Where to?"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE));
         webDriver.get(baseUrl + "/logout.do");
     }
 
@@ -257,7 +264,7 @@ public class LoginIT {
     @Test
     public void testPasscodeRedirect() {
         webDriver.get(baseUrl + "/passcode");
-        assertEquals("Cloud Foundry", webDriver.getTitle());
+        assertEquals(IntegrationTestUtils.PREDIX_TITLE, webDriver.getTitle());
 
         attemptLogin(testAccounts.getUserName(), testAccounts.getPassword());
 
@@ -267,7 +274,7 @@ public class LoginIT {
     @Test
     public void testUnsuccessfulLogin() {
         webDriver.get(baseUrl + "/login");
-        assertEquals("Cloud Foundry", webDriver.getTitle());
+        assertEquals(IntegrationTestUtils.PREDIX_TITLE, webDriver.getTitle());
 
         attemptLogin(testAccounts.getUserName(), "invalidpassword");
 
@@ -390,7 +397,7 @@ public class LoginIT {
         webDriver.findElement(By.cssSelector("div.action a")).click();
 
         loginThroughDiscovery(userEmail, USER_PASSWORD);
-        assertEquals("Where to?", webDriver.findElement(By.cssSelector(".island h1")).getText());
+        assertEquals(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE, webDriver.findElement(By.cssSelector(".island h1")).getText());
     }
 
     @Test
@@ -413,7 +420,7 @@ public class LoginIT {
         assertThat(webDriver.getCurrentUrl(), containsString("login_hint"));
         webDriver.findElement(By.id("password")).sendKeys(USER_PASSWORD);
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
-        assertEquals("Where to?", webDriver.findElement(By.cssSelector(".island h1")).getText());
+        assertEquals(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE, webDriver.findElement(By.cssSelector(".island h1")).getText());
     }
 
     @Test

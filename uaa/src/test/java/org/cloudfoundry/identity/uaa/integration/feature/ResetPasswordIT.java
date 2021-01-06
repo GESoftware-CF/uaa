@@ -262,7 +262,7 @@ public class ResetPasswordIT {
 
     private void beginPasswordReset(String username) {
         webDriver.get(baseUrl + "/login");
-        Assert.assertEquals("Cloud Foundry", webDriver.getTitle());
+        Assert.assertEquals(IntegrationTestUtils.PREDIX_TITLE, webDriver.getTitle());
         webDriver.findElement(By.linkText("Reset password")).click();
         Assert.assertEquals("Reset Password", webDriver.findElement(By.tagName("h1")).getText());
 
@@ -299,7 +299,7 @@ public class ResetPasswordIT {
         webDriver.findElement(By.name("password")).sendKeys("newsecr3T");
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
 
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("Where to?"));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE));
     }
 
 }

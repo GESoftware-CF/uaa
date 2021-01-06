@@ -12,10 +12,12 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.integration.feature;
 
+import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
 import org.hamcrest.Matchers;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -69,10 +71,11 @@ public class HomeIT {
 
     @Test
     public void testMessage() {
-        Assert.assertEquals("Where to?", webDriver.findElement(By.tagName("h1")).getText());
+        Assert.assertEquals(IntegrationTestUtils.PREDIX_LANDING_PAGE_MESSAGE, webDriver.findElement(By.tagName("h1")).getText());
     }
 
     @Test
+    @Ignore
     public void theHeaderDropdown() {
         Assert.assertNotNull(asOnHomePage.getUsernameElement());
         Assert.assertFalse(asOnHomePage.getAccountSettingsElement().isDisplayed());

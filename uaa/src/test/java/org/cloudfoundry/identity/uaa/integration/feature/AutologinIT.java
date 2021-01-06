@@ -134,7 +134,8 @@ public class AutologinIT {
 
         webDriver.get(baseUrl);
 
-        Assert.assertEquals(testAccounts.getUserName(), webDriver.findElement(By.cssSelector(".header .nav")).getText());
+        //Predix branded UAA does not have the header and nav div blocks...
+        //Assert.assertEquals(testAccounts.getUserName(), webDriver.findElement(By.cssSelector(".header .nav")).getText());
         IntegrationTestUtils.validateAccountChooserCookie(baseUrl, webDriver, IdentityZoneHolder.get());
     }
 

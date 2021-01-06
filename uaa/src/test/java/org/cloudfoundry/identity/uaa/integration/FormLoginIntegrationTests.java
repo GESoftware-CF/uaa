@@ -127,7 +127,8 @@ public class FormLoginIntegrationTests {
 
         body = EntityUtils.toString(response.getEntity());
         response.close();
-        assertTrue(body.contains("Sign Out"));
+        //There is no 'Sign Out' link on the predix uaa homepage
+        //assertTrue(body.contains("Sign Out"));
     }
 
 }
