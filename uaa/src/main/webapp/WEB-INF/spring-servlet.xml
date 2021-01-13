@@ -79,6 +79,7 @@
     <sec:http name="secFilterWellKnownOpen20" pattern="/.well-known/openid-configuration" security="none"/>
     <!--<sec:http name="secFilterOpen12" pattern="/create_account*" security="none" />-->
     <!--<sec:http name="secFilterIdpDiscovery21" pattern="/login/idp_discovery" security="none" create-session="ifRequired"/>-->
+    <sec:http name="secFilterApiDocs" pattern="${springdoc.api-docs.path:/v3/api-docs}" security="none"/>
 
     <bean id="oauth2TokenParseFilter" class="java.lang.Class" factory-method="forName">
         <constructor-arg

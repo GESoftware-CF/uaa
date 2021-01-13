@@ -83,6 +83,9 @@ dependencies {
     testImplementation(libraries.springRestdocs)
     testImplementation(libraries.javaxMail)
     testImplementation(libraries.greenmail)
+
+    runtimeOnly(libraries.springDocMvc)
+    runtimeOnly(libraries.springDocSecurity)
 }
 
 ext {
