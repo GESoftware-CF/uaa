@@ -36,6 +36,7 @@ dependencies {
   compile group: 'org.springframework', name: 'spring-jdbc', version: parent.springVersion
   compile group: 'org.springframework', name: 'spring-web', version: parent.springVersion
   compile group: 'org.springframework', name: 'spring-context-support', version:springVersion
+  compile group: 'org.springframework.session', name: 'spring-session-core', version:springSessionVersion
   compile group: 'org.springframework.security', name: 'spring-security-core', version: parent.springSecurityVersion
   compile group: 'org.springframework.security', name: 'spring-security-jwt', version: parent.springSecurityJwtVersion
   compile group: 'org.apache.httpcomponents', name: 'httpclient', version: parent.commonsHttpClientVersion
