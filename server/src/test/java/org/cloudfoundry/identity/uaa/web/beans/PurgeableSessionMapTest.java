@@ -2,7 +2,7 @@ package org.cloudfoundry.identity.uaa.web.beans;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.session.Session;
+import org.springframework.session.ExpiringSession;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -35,8 +35,8 @@ class PurgeableSessionMapTest {
         assertEquals(0, sessions.size());
     }
 
-    private Session createSession(String id, boolean expired) {
-        Session session = mock(Session.class);
+    private ExpiringSession createSession(String id, boolean expired) {
+        ExpiringSession session = mock(ExpiringSession.class);
         when(session.getId()).thenReturn(id);
         when(session.isExpired()).thenReturn(expired);
 
