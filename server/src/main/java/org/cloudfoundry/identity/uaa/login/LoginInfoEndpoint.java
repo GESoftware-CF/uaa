@@ -452,8 +452,15 @@ public class LoginInfoEndpoint {
         populatePrompts(model, excludedPrompts, origin, samlIdentityProviders, oauthIdentityProviders,
             excludedPrompts, returnLoginPrompts);
 
+        boolean externalIdpConfigured;
+
+        if (allowedIdentityProviderKeys != null) {
+            externalIdpConfigured = !allIdentityProviders.isEmpty() || !Collections.singletonList(UAA).equals(allowedIdentityProviderKeys);
+        } else {
+            externalIdpConfigured = !allIdentityProviders.isEmpty() || !IdentityZoneHolder.isUaa();
+        }
         if (principal == null) {
-            return getUnauthenticatedRedirect(model, request, discoveryEnabled, discoveryPerformed, !allIdentityProviders.isEmpty(), accountChooserNeeded);
+            return getUnauthenticatedRedirect(model, request, discoveryEnabled, discoveryPerformed, externalIdpConfigured, accountChooserNeeded);
         }
         return "home";
     }

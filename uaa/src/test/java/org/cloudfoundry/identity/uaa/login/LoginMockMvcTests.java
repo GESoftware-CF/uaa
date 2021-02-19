@@ -1581,10 +1581,6 @@ public class LoginMockMvcTests {
 
         MockMvcUtils.IdentityZoneCreationResult identityZoneCreationResult = MockMvcUtils.createOtherIdentityZoneAndReturnResult("puppy-" + new RandomValueStringGenerator().generate(), mockMvc, webApplicationContext, zoneAdminClient, false);
         IdentityZone identityZone = identityZoneCreationResult.getIdentityZone();
-        IdentityZoneConfiguration config = new IdentityZoneConfiguration();
-        config.setIdpDiscoveryEnabled(true);
-        identityZone.setConfig(config);
-        webApplicationContext.getBean(IdentityZoneProvisioning.class).update(identityZone);
 
         identityZoneCreationResult.getZoneAdminToken();
 

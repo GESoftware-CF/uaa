@@ -1,8 +1,8 @@
 package org.cloudfoundry.identity.uaa.performance;
 
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
 import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.createOtherIdentityZoneAndReturnResult;
 import static org.junit.Assert.assertFalse;
+import static org.mockito.Mockito.mock;
 import static org.springframework.http.MediaType.TEXT_HTML;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -16,7 +16,7 @@ import org.cloudfoundry.identity.uaa.codestore.JdbcExpiringCodeStore;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.impl.config.IdentityZoneConfigurationBootstrap;
 import org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils;
-import org.cloudfoundry.identity.uaa.provider.AbstractExternalOAuthIdentityProviderDefinition;
+import org.cloudfoundry.identity.uaa.provider.AbstractXOAuthIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.JdbcIdentityProviderProvisioning;
 import org.cloudfoundry.identity.uaa.provider.OIDCIdentityProviderDefinition;
@@ -30,7 +30,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.common.util.RandomValueStringGenerator;
@@ -56,7 +55,6 @@ public class LoginPagePerformanceMockMvcTest {
 
     private File originalLimitedModeStatusFile;
 
-    @MockBean
     OidcMetadataFetcher oidcMetadataFetcher;
 
     @BeforeEach
@@ -73,6 +71,7 @@ public class LoginPagePerformanceMockMvcTest {
         originalLimitedModeStatusFile = MockMvcUtils.getLimitedModeStatusFile(webApplicationContext);
         MockMvcUtils.resetLimitedModeStatusFile(webApplicationContext, null);
         assertFalse(limitedModeUaaFilter.isEnabled());
+        oidcMetadataFetcher = mock(OidcMetadataFetcher.class);
     }
 
     @AfterEach
@@ -101,7 +100,7 @@ public class LoginPagePerformanceMockMvcTest {
         BaseClientDetails client = new BaseClientDetails("admin", null, null, "client_credentials",
                 "clients.admin,scim.read,scim.write,idps.write,uaa.admin", "http://redirect.url");
         client.setClientSecret("admin-secret");
-        createOtherIdentityZoneAndReturnResult(mockMvc, webApplicationContext, client, zone, false, IdentityZoneHolder.getCurrentZoneId());
+        createOtherIdentityZoneAndReturnResult(mockMvc, webApplicationContext, client, zone, false);
 
 
         createOIDCProvider(jdbcIdentityProviderProvisioning, generator, zone, "id_token code", null);
@@ -121,7 +120,6 @@ public class LoginPagePerformanceMockMvcTest {
         stopWatch.start();
         for (int i = 0; i <1000; i++) {
             MvcResult mvcResult = mockMvc.perform(get("/login")
-                    .with(cookieCsrf())
                     .header("Accept", TEXT_HTML)
                     .with(new SetServerNameRequestPostProcessor(zone.getSubdomain() + ".localhost")))
                     .andExpect(status().isOk())
@@ -138,7 +136,7 @@ public class LoginPagePerformanceMockMvcTest {
 
     private static String createOIDCProvider(JdbcIdentityProviderProvisioning jdbcIdentityProviderProvisioning, RandomValueStringGenerator generator, IdentityZone zone, String responseType, String domain) throws Exception {
         String originKey = generator.generate();
-        AbstractExternalOAuthIdentityProviderDefinition definition = new OIDCIdentityProviderDefinition();
+        AbstractXOAuthIdentityProviderDefinition definition = new OIDCIdentityProviderDefinition();
         definition.setAuthUrl(new URL("http://myauthurl.com"));
         definition.setTokenKey("key");
         definition.setTokenUrl(new URL("http://mytokenurl.com"));

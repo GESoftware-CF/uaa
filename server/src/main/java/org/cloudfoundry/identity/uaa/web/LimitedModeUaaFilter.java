@@ -17,6 +17,8 @@ package org.cloudfoundry.identity.uaa.web;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
+import org.cloudfoundry.identity.uaa.util.TimeService;
+import org.cloudfoundry.identity.uaa.util.TimeServiceImpl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
@@ -26,8 +28,10 @@ import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -48,6 +52,9 @@ public class LimitedModeUaaFilter extends OncePerRequestFilter {
     private Set<String> permittedEndpoints = emptySet();
     private Set<String> permittedMethods = emptySet();
     private List<AntPathRequestMatcher> endpoints = emptyList();
+    private File statusFile = null;
+    private TimeService timeService = new TimeServiceImpl();
+    private AtomicLong lastFileCheck= new AtomicLong(0);
 
 
     @Override
@@ -130,4 +137,16 @@ public class LimitedModeUaaFilter extends OncePerRequestFilter {
         this.permittedMethods = ofNullable(permittedMethods).orElse(emptySet());
     }
 
+    public File getStatusFile() {
+        return statusFile;
+    }
+
+    public void setStatusFile(File statusFile) {
+        this.statusFile = statusFile;
+        lastFileCheck.set(0);
+    }
+
+    public void setTimeService(TimeService ts) {
+        this.timeService = ts;
+    }
 }
