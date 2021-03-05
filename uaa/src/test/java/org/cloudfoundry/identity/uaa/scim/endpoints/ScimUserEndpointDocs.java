@@ -24,11 +24,12 @@ import org.springframework.restdocs.payload.FieldDescriptor;
 import org.springframework.restdocs.request.ParameterDescriptor;
 import org.springframework.restdocs.request.RequestDocumentation;
 import org.springframework.restdocs.snippet.Snippet;
+import org.springframework.restdocs.snippet.Attributes;
 import org.springframework.security.oauth2.common.util.RandomValueStringGenerator;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
-import java.util.Collections;
-import java.util.Date;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.cloudfoundry.identity.uaa.test.SnippetUtils.fieldWithPath;
 import static org.cloudfoundry.identity.uaa.test.SnippetUtils.parameterWithName;
@@ -101,6 +102,7 @@ class ScimUserEndpointDocs extends EndpointDocs {
     private final String userLastLogonTimeDescription = "The unix epoch timestamp in milliseconds of when the user last authenticated. This field will be omitted from the response if the user has never authenticated.";
     private final String userPreviousLogonTimeDescription = "The unix epoch timestamp in milliseconds of 2nd to last successful user authentication. This field will only be included in the response once the user has authenticated two or more times.";
 
+    private final String scimWriteOrUaaAdminRequired = "Access token with `scim.write` or `uaa.admin` required";
     private final String requiredUserUpdateScopes = "Access token with `scim.write`, `uaa.admin`, or `openid` required. The `openid` scope only allows the user to update their **own** first and last name, when `origin` is `uaa`.";
 
     private FieldDescriptor[] searchResponseFields = {
@@ -145,13 +147,13 @@ class ScimUserEndpointDocs extends EndpointDocs {
             fieldWithPath("resources[].meta.created").type(STRING).description(metaCreatedDesc)
     };
 
-    private Snippet createFields = requestFields(
+    private FieldDescriptor[] createFields = {
             fieldWithPath("userName").required().type(STRING).description(usernameDescription),
             fieldWithPath("password").optional(null).type(STRING).description(passwordDescription),
             fieldWithPath("name").required().type(OBJECT).description(nameObjectDescription),
             fieldWithPath("name.formatted").ignored().type(STRING).description("First and last name combined"),
-            fieldWithPath("name.familyName").optional(null).type(STRING).description(lastnameDescription),
-            fieldWithPath("name.givenName").optional(null).type(STRING).description(firstnameDescription),
+            fieldWithPath("name.familyName").required().type(STRING).description(lastnameDescription),
+            fieldWithPath("name.givenName").required().type(STRING).description(firstnameDescription),
             fieldWithPath("phoneNumbers").optional(null).type(ARRAY).description(phoneNumbersListDescription),
             fieldWithPath("phoneNumbers[].value").optional(null).type(STRING).description(phoneNumbersDescription),
             fieldWithPath("emails").required().type(ARRAY).description(emailListDescription),
@@ -163,7 +165,7 @@ class ScimUserEndpointDocs extends EndpointDocs {
             fieldWithPath("externalId").optional(null).type(STRING).description(externalIdDescription),
             fieldWithPath("schemas").optional().ignored().type(ARRAY).description(schemasDescription),
             fieldWithPath("meta.*").optional().ignored().type(OBJECT).description("SCIM object meta data not read.")
-    );
+    };
 
     private FieldDescriptor[] createResponse = {
             fieldWithPath("schemas").type(ARRAY).description(schemasDescription),
@@ -277,6 +279,11 @@ class ScimUserEndpointDocs extends EndpointDocs {
             fieldWithPath("meta.*").ignored().type(OBJECT).description("SCIM object meta data not read."),
             fieldWithPath("meta.attributes").optional(null).type(ARRAY).description(metaAttributesDesc)
     );
+
+    public static FieldDescriptor[] subFields(String path, FieldDescriptor... fieldDescriptors) {
+        List<SubField> subFields = Arrays.asList(fieldDescriptors).stream().map(field -> new SubField(path, field)).collect(Collectors.toList());
+        return subFields.toArray(new FieldDescriptor[subFields.size()]);
+    }
 
     private final String scimFilterDescription = "SCIM filter for searching";
     private final String scimAttributeDescription = "Comma separated list of attribute names to be returned.";
@@ -453,7 +460,7 @@ class ScimUserEndpointDocs extends EndpointDocs {
                                         IDENTITY_ZONE_ID_HEADER,
                                         IDENTITY_ZONE_SUBDOMAIN_HEADER
                                 ),
-                                createFields,
+                                requestFields(createFields),
                                 responseFields(createResponse)
                         )
                 );
@@ -639,6 +646,35 @@ class ScimUserEndpointDocs extends EndpointDocs {
     }
 
     @Test
+    public void test_Create_Batch_User() throws Exception {
+        ScimUser[] users = new ScimUser[2];
+        users[0] = createScimUserObject();
+        users[1] = createScimUserObject();
+
+        mockMvc.perform(
+                RestDocumentationRequestBuilders.post("/Users/tx")
+                        .accept(APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + scimWriteToken)
+                        .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .content(JsonUtils.writeValueAsString(users))
+        )
+                .andExpect(status().isCreated())
+                .andDo(
+                        document("{ClassName}/{methodName}",
+                                preprocessRequest(prettyPrint()),
+                                preprocessResponse(prettyPrint()),
+                                requestHeaders(
+                                        headerWithName("Authorization").description(scimWriteOrUaaAdminRequired),
+                                        IDENTITY_ZONE_ID_HEADER,
+                                        IDENTITY_ZONE_SUBDOMAIN_HEADER
+                                ),
+                                requestFields(subFields("[]", createFields)),
+                                responseFields(subFields("[]", createResponse))
+                        )
+                );
+    }
+
+    @Test
     void test_Get_User() throws Exception {
         ApprovalStore store = webApplicationContext.getBean(ApprovalStore.class);
         Approval approval = new Approval()
@@ -807,5 +843,17 @@ class ScimUserEndpointDocs extends EndpointDocs {
                 .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()),
                         pathParameters, requestHeaders))
         ;
+    }
+
+    private static class SubField extends FieldDescriptor {
+        public SubField(String path, FieldDescriptor subFieldDescriptor) {
+            super(path + "." + subFieldDescriptor.getPath());
+            type(subFieldDescriptor.getType());
+            description(subFieldDescriptor.getDescription());
+            if(subFieldDescriptor.isIgnored()) { ignored(); }
+            List<Attributes.Attribute> attributes = subFieldDescriptor.getAttributes().entrySet().stream().map(e -> key(e.getKey()).value(e.getValue())).collect(Collectors.toList());
+            attributes(attributes.toArray(new Attributes.Attribute[attributes.size()]));
+            if(subFieldDescriptor.isOptional()) { optional(); }
+        }
     }
 }

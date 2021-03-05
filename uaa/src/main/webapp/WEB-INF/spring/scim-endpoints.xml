@@ -225,6 +225,9 @@
         <intercept-url pattern="/Users"
                        access="#oauth2.hasAnyScope('scim.write','scim.create') or #oauth2.hasScopeInAuthZone('zones.{zone.id}.admin')"
                        method="POST"/>
+        <intercept-url pattern="/Users/tx"
+                       access="#oauth2.hasAnyScope('scim.write','scim.create') or #oauth2.hasScopeInAuthZone('zones.{zone.id}.admin')"
+                       method="POST" />
         <intercept-url pattern="/**" access="denyAll"/>
         <expression-handler ref="oauthWebExpressionHandler"/>
         <custom-filter ref="resourceAgnosticAuthenticationFilter" position="PRE_AUTH_FILTER"/>
