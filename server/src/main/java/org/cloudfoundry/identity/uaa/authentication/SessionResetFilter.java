@@ -55,6 +55,7 @@ public class SessionResetFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         SecurityContext context = SecurityContextHolder.getContext();
+        logger.debug("MARCH9DEBUG: SessionResetFilter.doFilterInternal()");
         if (context!=null && context.getAuthentication()!=null && context.getAuthentication() instanceof UaaAuthentication) {
             UaaAuthentication authentication = (UaaAuthentication)context.getAuthentication();
             if (authentication.isAuthenticated() &&
@@ -94,8 +95,12 @@ public class SessionResetFilter extends OncePerRequestFilter {
     }
 
     protected void handleRedirect(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        logger.debug("MARCH9DEBUG: SessionResetFilter.handleRedirect()");
         HttpSession session = request.getSession(false);
+        logger.debug("MARCH9DEBUG: session is: " + session);
+
         if (session!=null) {
+            logger.debug("MARCH9DEBUG: session not null, session invalidated");
             session.invalidate();
         }
         strategy.sendRedirect(request, response, getRedirectUrl());

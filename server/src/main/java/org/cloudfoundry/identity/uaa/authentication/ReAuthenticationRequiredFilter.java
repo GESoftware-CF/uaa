@@ -29,6 +29,7 @@ public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
             }
         }
         if (reAuthenticationRequired) {
+            logger.info("MARCH9DEBUG: ReAuthenticationRequiredFilter -> doFilterInternal -> session invalidated");
             request.getSession().invalidate();
             sendRedirect(request.getRequestURL().toString(), requestParams, request, response);
         } else {

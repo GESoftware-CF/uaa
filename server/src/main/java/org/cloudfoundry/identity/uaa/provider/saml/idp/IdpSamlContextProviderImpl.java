@@ -16,6 +16,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.xml.namespace.QName;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.opensaml.saml2.metadata.IDPSSODescriptor;
 import org.opensaml.saml2.metadata.SPSSODescriptor;
 import org.opensaml.saml2.metadata.provider.MetadataProviderException;
@@ -31,9 +33,12 @@ import org.springframework.security.saml.context.SAMLMessageContext;
  */
 public class IdpSamlContextProviderImpl extends SAMLContextProviderImpl {
 
+    private static final Log logger = LogFactory.getLog(IdpSamlContextProviderImpl.class);
+
     @Override
     public SAMLMessageContext getLocalEntity(HttpServletRequest request, HttpServletResponse response)
             throws MetadataProviderException {
+        logger.debug("MARCH9DEBUG: IdpSamlContextProviderImpl.getLocalEntity() -> getting SAML message context");
         SAMLMessageContext context = super.getLocalEntity(new TestRequestWrapper(request), new TestResponseWrapper(response));
         context.setPeerEntityRole(SPSSODescriptor.DEFAULT_ELEMENT_NAME);
         return context;
@@ -52,6 +57,7 @@ public class IdpSamlContextProviderImpl extends SAMLContextProviderImpl {
      */
     @Override
     protected void populateLocalEntityId(SAMLMessageContext context, String requestURI) throws MetadataProviderException {
+        logger.debug("MARCH9DEBUG: IdpSamlContextProviderImpl.populatedLocalEntityId()");
 
         String entityId;
         HTTPInTransport inTransport = (HTTPInTransport) context.getInboundMessageTransport();

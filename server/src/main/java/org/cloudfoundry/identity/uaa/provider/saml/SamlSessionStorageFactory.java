@@ -37,9 +37,19 @@ public class SamlSessionStorageFactory implements SAMLMessageStorageFactory {
             //https://docs.spring.io/spring-security-saml/docs/current/reference/html/chapter-troubleshooting.html
             return null;
         }
+        String sessionId = "";
+        HttpSession testSession = request.getSession(false);
+        if (testSession != null) {
+            sessionId = testSession.getId();
+        }
+        logger.debug("MARCH9DEBUG: SAMLSessionStorageFactory.getMessageStorage() if session exists id is: -> " + sessionId);
         HttpSession session = request.getSession(true);
+        logger.debug("MARCH9DEBUG: SAMLSessionStorageFactory.getMessageStorage() end session used is: -> " + session.getId());
         if (session.getAttribute(SAML_REQUEST_DATA) == null) {
+            logger.debug("MARCH9DEBUG: SAML Request Data is null, session SAML_REQUEST_DATA attribute is new SAMLMessageStorage()");
             session.setAttribute(SAML_REQUEST_DATA, new SamlMessageStorage());
+        } else {
+            logger.debug("MARCH9DEBUG: SAML Request Data is not null" + session.getAttribute(SAML_REQUEST_DATA));
         }
         logger.debug("Returning SAML message factory for session ID:"+session.getId());
         return (SAMLMessageStorage) session.getAttribute(SAML_REQUEST_DATA);
