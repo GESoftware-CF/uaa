@@ -12,6 +12,8 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.app.web;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,6 +23,8 @@ import java.security.Principal;
 
 @Controller
 public class HomeController {
+
+    private static Log logger = LogFactory.getLog(HomeController.class);
 
     private String userAuthorizationUri = "http://localhost:8080/uaa/oauth/authorize";
 
@@ -94,6 +98,7 @@ public class HomeController {
     public String logout(Model model, HttpServletRequest request) {
         String redirect = request.getRequestURL().toString();
         model.addAttribute("cflogout", logoutUrl + "?client_id=app&redirect=" + redirect);
+        logger.debug("MARCH9DEBUG: HomeController.logout() -> session invalidated" + request.getSession().getId());
         request.getSession().invalidate();
         return "loggedout";
     }

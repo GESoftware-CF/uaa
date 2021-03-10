@@ -55,9 +55,13 @@ public class SessionResetFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         SecurityContext context = SecurityContextHolder.getContext();
-        logger.debug("MARCH9DEBUG: SessionResetFilter.doFilterInternal()");
+        logger.debug("MARCH9DEBUG: SessionResetFilter.doFilterInternal() for session ID: " + request.getSession(false).getId());
         if (context!=null && context.getAuthentication()!=null && context.getAuthentication() instanceof UaaAuthentication) {
+            logger.debug("MARCH9DEBUG: context && auth not null");
             UaaAuthentication authentication = (UaaAuthentication)context.getAuthentication();
+            logger.debug("MARCH9DEBUG: isAuthenticated: " + authentication.isAuthenticated());
+            logger.debug("MARCH9DEBUG: origin is: " + authentication.getPrincipal().getOrigin());
+            logger.debug("MARCH9DEBUG: origin is: " + request.getSession(false).getId());
             if (authentication.isAuthenticated() &&
                 OriginKeys.UAA.equals(authentication.getPrincipal().getOrigin()) &&
                 null != request.getSession(false)) {
@@ -81,6 +85,7 @@ public class SessionResetFilter extends OncePerRequestFilter {
                     logger.info("Authenticated user ["+userId+"] was not found in DB.");
                     redirect = true;
                 }
+                logger.debug("MARCH9DEBUG: SessionResetFilter -> doFilterInternal -> redirect is: "+ redirect);
                 if (redirect) {
                     handleRedirect(request, response);
                     return;
@@ -100,7 +105,7 @@ public class SessionResetFilter extends OncePerRequestFilter {
         logger.debug("MARCH9DEBUG: session is: " + session);
 
         if (session!=null) {
-            logger.debug("MARCH9DEBUG: session not null, session invalidated");
+            logger.debug("MARCH9DEBUG: session not null, session invalidated" + session.getId());
             session.invalidate();
         }
         strategy.sendRedirect(request, response, getRedirectUrl());

@@ -16,6 +16,9 @@ public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         boolean reAuthenticationRequired = false;
+        logger.info("MARCH9DEBUG: ReAuthenticationRequiredFilter -> doFilterInternal request session is: " + request.getSession(false).getId());
+        logger.info("MARCH9DEBUG: ReAuthenticationRequiredFilter -> doFilterInternal request prompt is: " + request.getParameter("prompt"));
+        logger.info("MARCH9DEBUG: ReAuthenticationRequiredFilter -> doFilterInternal request max_age is: " + request.getParameter("max_age"));
         HashMap<String, String[]> requestParams = new HashMap<>(request.getParameterMap());
         if ("login".equals(request.getParameter("prompt"))) {
             reAuthenticationRequired = true;
@@ -29,10 +32,11 @@ public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
             }
         }
         if (reAuthenticationRequired) {
-            logger.info("MARCH9DEBUG: ReAuthenticationRequiredFilter -> doFilterInternal -> session invalidated");
+            logger.info("MARCH9DEBUG: ReAuthenticationRequiredFilter -> doFilterInternal -> session invalidated" + request.getSession(false).getId());
             request.getSession().invalidate();
             sendRedirect(request.getRequestURL().toString(), requestParams, request, response);
         } else {
+            logger.info("MARCH9DEBUG: ReAuthenticationRequiredFilter -> doFilterInternal -> reauth not required for session ID: " + request.getSession(false).getId());
             filterChain.doFilter(request, response);
         }
     }
