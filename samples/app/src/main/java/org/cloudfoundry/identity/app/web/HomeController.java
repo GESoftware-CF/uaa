@@ -19,6 +19,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
 import java.security.Principal;
 
 @Controller
@@ -98,7 +99,12 @@ public class HomeController {
     public String logout(Model model, HttpServletRequest request) {
         String redirect = request.getRequestURL().toString();
         model.addAttribute("cflogout", logoutUrl + "?client_id=app&redirect=" + redirect);
-        logger.debug("MARCH9DEBUG: HomeController.logout() -> session invalidated" + request.getSession().getId());
+        String sessionId = "null";
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            sessionId = session.getId();
+        }
+        logger.debug("MARCH9DEBUG: HomeController.logout() -> session invalidated" + sessionId);
         request.getSession().invalidate();
         return "loggedout";
     }

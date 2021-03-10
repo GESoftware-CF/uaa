@@ -8,6 +8,7 @@ import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -16,7 +17,12 @@ public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         boolean reAuthenticationRequired = false;
-        logger.info("MARCH9DEBUG: ReAuthenticationRequiredFilter -> doFilterInternal request session is: " + request.getSession(false).getId());
+        HttpSession existingSession = request.getSession(false);
+        String sessionId = "null";
+        if (existingSession != null) {
+            sessionId = existingSession.getId();
+        }
+        logger.info("MARCH9DEBUG: ReAuthenticationRequiredFilter -> doFilterInternal request session is: " + sessionId);
         logger.info("MARCH9DEBUG: ReAuthenticationRequiredFilter -> doFilterInternal request prompt is: " + request.getParameter("prompt"));
         logger.info("MARCH9DEBUG: ReAuthenticationRequiredFilter -> doFilterInternal request max_age is: " + request.getParameter("max_age"));
         HashMap<String, String[]> requestParams = new HashMap<>(request.getParameterMap());
@@ -32,11 +38,11 @@ public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
             }
         }
         if (reAuthenticationRequired) {
-            logger.info("MARCH9DEBUG: ReAuthenticationRequiredFilter -> doFilterInternal -> session invalidated" + request.getSession(false).getId());
+            logger.info("MARCH9DEBUG: ReAuthenticationRequiredFilter -> doFilterInternal -> session invalidated" + sessionId);
             request.getSession().invalidate();
             sendRedirect(request.getRequestURL().toString(), requestParams, request, response);
         } else {
-            logger.info("MARCH9DEBUG: ReAuthenticationRequiredFilter -> doFilterInternal -> reauth not required for session ID: " + request.getSession(false).getId());
+            logger.info("MARCH9DEBUG: ReAuthenticationRequiredFilter -> doFilterInternal -> reauth not required for session ID: " + sessionId);
             filterChain.doFilter(request, response);
         }
     }

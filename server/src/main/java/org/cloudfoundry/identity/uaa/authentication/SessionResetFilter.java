@@ -55,13 +55,18 @@ public class SessionResetFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         SecurityContext context = SecurityContextHolder.getContext();
-        logger.debug("MARCH9DEBUG: SessionResetFilter.doFilterInternal() for session ID: " + request.getSession(false).getId());
+        HttpSession existingSession = request.getSession(false);
+        String sessionId = "null";
+        if (existingSession != null) {
+            sessionId = existingSession.getId();
+        }
+        logger.debug("MARCH9DEBUG: SessionResetFilter.doFilterInternal() for session ID: " + sessionId);
         if (context!=null && context.getAuthentication()!=null && context.getAuthentication() instanceof UaaAuthentication) {
             logger.debug("MARCH9DEBUG: context && auth not null");
             UaaAuthentication authentication = (UaaAuthentication)context.getAuthentication();
             logger.debug("MARCH9DEBUG: isAuthenticated: " + authentication.isAuthenticated());
             logger.debug("MARCH9DEBUG: origin is: " + authentication.getPrincipal().getOrigin());
-            logger.debug("MARCH9DEBUG: origin is: " + request.getSession(false).getId());
+            logger.debug("MARCH9DEBUG: origin is: " + sessionId);
             if (authentication.isAuthenticated() &&
                 OriginKeys.UAA.equals(authentication.getPrincipal().getOrigin()) &&
                 null != request.getSession(false)) {
