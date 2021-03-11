@@ -122,13 +122,7 @@ public class ScimUserEndpointsIntegrationTests {
                 (lastNames.length == emails.length));
         ArrayList<ScimUser> users = new ArrayList<ScimUser>(usernames.length);
         for(int i = 0; i < usernames.length; i++) {
-            ScimUser user = new ScimUser();
-            user.setUserName(usernames[i]);
-            user.setPassword("password");
-            user.setName(new ScimUser.Name(firstNames[i], lastNames[i]));
-            Email email = new Email();
-            email.setValue(emails[i]);
-            user.setEmails(Arrays.asList(email));
+            ScimUser user = createScimUser(usernames[i], firstNames[i], lastNames[i], emails[i]);
             users.add(user);
         }
 

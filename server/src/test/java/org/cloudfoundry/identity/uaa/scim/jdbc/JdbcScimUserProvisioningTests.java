@@ -196,6 +196,15 @@ class JdbcScimUserProvisioningTests {
     }
 
     @Test
+    public void createUserReturnsBadRequestForInvalidUserName() throws Exception {
+        String userName = "JOE_" + new RandomValueStringGenerator(400).generate().toLowerCase();
+        ScimUser user = new ScimUser(null, userName, "Jo", "User");
+        user.addEmail(userName);
+        assertThrows(InvalidScimResourceException.class, 
+            () -> jdbcScimUserProvisioning.createUser(user, "j7hyqpassX", currentIdentityZoneId));
+    }
+
+    @Test
     void canDeleteProviderUsersInDefaultZone() {
         ScimUser user = new ScimUser(null, "jo@foo.com", "Jo", "User");
         user.addEmail("jo@blah.com");

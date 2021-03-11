@@ -234,7 +234,7 @@ public class ScimUserEndpoints implements InitializingBean, ApplicationEventPubl
             passwordValidator.validate(user.getPassword());
         }
 
-        ScimUser scimUser = scimUserProvisioning.createUser(user, user.getPassword(), isBatchCall, identityZoneManager.getCurrentIdentityZoneId());
+        ScimUser scimUser = scimUserProvisioning.createUser(user, user.getPassword(), identityZoneManager.getCurrentIdentityZoneId(), isBatchCall);
         if (user.getApprovals() != null) {
             for (Approval approval : user.getApprovals()) {
                 approval.setUserId(scimUser.getId());

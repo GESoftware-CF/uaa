@@ -22,7 +22,7 @@ public interface ResourceManager<T> {
 
     T create(T resource, String zoneId);
 
-    default T create(T resource, boolean isBatchCall, String zoneId) {
+    default T create(T resource, String zoneId, boolean isBatchCall) {
       return null;
     }
 

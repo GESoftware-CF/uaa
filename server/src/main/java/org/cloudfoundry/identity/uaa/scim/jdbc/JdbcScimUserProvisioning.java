@@ -191,11 +191,11 @@ public class JdbcScimUserProvisioning extends AbstractQueryable<ScimUser>
 
     @Override
     public ScimUser create(final ScimUser user, String zoneId) {
-            return create(user, false, zoneId);
+            return create(user, zoneId, false);
     }
 
     @Override
-    public ScimUser create(final ScimUser user, boolean isBatchCall, String zoneId) {
+    public ScimUser create(final ScimUser user, String zoneId, boolean isBatchCall) {
         if (!hasText(user.getOrigin())) {
             user.setOrigin(OriginKeys.UAA);
         }
@@ -268,10 +268,10 @@ public class JdbcScimUserProvisioning extends AbstractQueryable<ScimUser>
     }
 
     @Override
-    public ScimUser createUser(ScimUser user, final String password, boolean isBatchCall, String zoneId) throws InvalidPasswordException,
+    public ScimUser createUser(ScimUser user, final String password, String zoneId, boolean isBatchCall) throws InvalidPasswordException,
                     InvalidScimResourceException {
         user.setPassword(passwordEncoder.encode(password));
-        return create(user, isBatchCall, zoneId);
+        return create(user, zoneId, isBatchCall);
     }
 
     public String extractPhoneNumber(final ScimUser user) {
