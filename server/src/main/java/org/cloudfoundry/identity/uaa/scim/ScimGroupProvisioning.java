@@ -18,5 +18,7 @@ import org.cloudfoundry.identity.uaa.resources.ResourceManager;
 public interface ScimGroupProvisioning extends ResourceManager<ScimGroup>, Queryable<ScimGroup> {
     ScimGroup createOrGet(ScimGroup group, String zoneId);
 
+    ScimGroup getOrCreate(ScimGroup group, String zoneId);
+
     ScimGroup getByName(String displayName, String zoneId);
 }

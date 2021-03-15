@@ -73,6 +73,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.View;
 import org.springframework.web.util.HtmlUtils;
 
@@ -204,6 +205,14 @@ public class ScimUserEndpoints implements InitializingBean, ApplicationEventPubl
     @ResponseStatus(HttpStatus.CREATED)
     @ResponseBody
     public ScimUser createUser(@RequestBody ScimUser user, HttpServletRequest request, HttpServletResponse response) {
+        boolean isBatchCall = false;
+        ScimUser scimUser = createScimUserHelper(user, request, isBatchCall);
+
+        addETagHeader(response, scimUser);
+        return scimUser;
+    }
+
+    private ScimUser createScimUserHelper(ScimUser user, HttpServletRequest request, boolean isBatchCall) {
         //default to UAA origin
         if (isEmpty(user.getOrigin())) {
             user.setOrigin(OriginKeys.UAA);
@@ -225,7 +234,7 @@ public class ScimUserEndpoints implements InitializingBean, ApplicationEventPubl
             passwordValidator.validate(user.getPassword());
         }
 
-        ScimUser scimUser = scimUserProvisioning.createUser(user, user.getPassword(), identityZoneManager.getCurrentIdentityZoneId());
+        ScimUser scimUser = scimUserProvisioning.createUser(user, user.getPassword(), identityZoneManager.getCurrentIdentityZoneId(), isBatchCall);
         if (user.getApprovals() != null) {
             for (Approval approval : user.getApprovals()) {
                 approval.setUserId(scimUser.getId());
@@ -233,7 +242,6 @@ public class ScimUserEndpoints implements InitializingBean, ApplicationEventPubl
             }
         }
         scimUser = syncApprovals(syncGroups(scimUser));
-        addETagHeader(response, scimUser);
         return scimUser;
     }
 
@@ -478,7 +486,20 @@ public class ScimUserEndpoints implements InitializingBean, ApplicationEventPubl
         mfaCredentialsProvisioning.delete(user.getId());
     }
 
-    private ScimUser syncGroups(ScimUser user) {
+    @RequestMapping(value = "/Users/tx", method = RequestMethod.POST)
+    @ResponseStatus(HttpStatus.CREATED)
+    @ResponseBody
+    @Transactional
+    public ScimUser[] createUsersTx(@RequestBody ScimUser[] users, HttpServletRequest request, HttpServletResponse response) {
+        boolean isBatchCall = true;
+        ScimUser[] res = new ScimUser[users.length];
+        for(int i = 0; i < users.length; i++){
+            res[i] = createScimUserHelper(users[i], request, isBatchCall);
+        }
+        return res;
+    }
+
+    protected ScimUser syncGroups(ScimUser user) {
         if (user == null) {
             return user;
         }

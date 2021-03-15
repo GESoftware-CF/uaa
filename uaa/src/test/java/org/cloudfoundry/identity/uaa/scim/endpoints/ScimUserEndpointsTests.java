@@ -37,6 +37,7 @@ import org.cloudfoundry.identity.uaa.test.ZoneSeeder;
 import org.cloudfoundry.identity.uaa.test.ZoneSeederExtension;
 import org.cloudfoundry.identity.uaa.web.ConvertingExceptionView;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.cloudfoundry.identity.uaa.zone.MfaConfig;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManagerImpl;
@@ -1156,6 +1157,31 @@ class ScimUserEndpointsTests {
         identityZone.getConfig().setMfaConfig(new MfaConfig().setEnabled(false));
 
         scimUserEndpoints.deleteMfaRegistration(dale.getId());
+    }
+
+    @Test
+    public void testCreateUserTx() {
+        ScimUser user0 = createScimUser("user0");
+        ScimUser user1 = createScimUser("user1");
+        ScimUser user2 = createScimUser("user2");
+        ScimUser user3 = createScimUser("user3");
+        ScimUser[] users = {user0, user1, user2, user3};
+
+        ScimUser[] usersCreated = scimUserEndpoints.createUsersTx(users, new MockHttpServletRequest(), new MockHttpServletResponse());
+
+        for(ScimUser user : usersCreated) {
+            ScimUser dbUser = jdbcScimUserProvisioning.retrieve(user.getId(),IdentityZoneHolder.get().getId());
+            assertEquals(user.getId(), dbUser.getId());
+            assertEquals(user.getUserName(), dbUser.getUserName());
+        }
+    }
+
+    private ScimUser createScimUser(String id) {
+        ScimUser user = new ScimUser(id, id + "username", "Jo", "User");
+        user.addEmail("jo@blah.com");
+        user.setPassword("password");
+        user.setOrigin("");
+        return user;
     }
 
     private void validatePasswordForUaaOriginOnly(VerificationMode verificationMode, String origin, String expectedPassword) {

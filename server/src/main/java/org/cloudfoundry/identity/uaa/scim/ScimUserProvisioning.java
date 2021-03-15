@@ -25,6 +25,10 @@ public interface ScimUserProvisioning extends ResourceManager<ScimUser>, Queryab
 
     ScimUser createUser(ScimUser user, String password, String zoneId) throws InvalidPasswordException, InvalidScimResourceException;
 
+    default ScimUser createUser(ScimUser user, String password, String zoneId, boolean isBatchCall) throws InvalidPasswordException, InvalidScimResourceException {
+        return null;
+    }
+
     List<ScimUser> retrieveByEmailAndZone(String email, String origin, String zoneId);
 
     List<ScimUser> retrieveByUsernameAndZone(String username, String zoneId);

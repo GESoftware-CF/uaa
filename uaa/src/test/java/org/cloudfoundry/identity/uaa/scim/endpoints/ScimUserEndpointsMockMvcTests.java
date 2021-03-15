@@ -180,7 +180,7 @@ class ScimUserEndpointsMockMvcTests {
 
     @Test
     void test_Create_User_Too_Long_Password() throws Exception {
-        String email = "joe@" + generator.generate().toLowerCase() + ".com";
+        String email = getUniqueEmail();
         ScimUser user = getScimUser();
         user.setUserName(email);
         user.setPassword(new RandomValueStringGenerator(300).generate());
@@ -194,7 +194,7 @@ class ScimUserEndpointsMockMvcTests {
     @Test
     void test_Create_User_More_Than_One_Email() throws Exception {
         ScimUser scimUser = getScimUser();
-        String secondEmail = "joe@" + generator.generate().toLowerCase() + ".com";
+        String secondEmail = getUniqueEmail();
         scimUser.addEmail(secondEmail);
         createUserAndReturnResult(scimUser, scimReadWriteToken, null, null)
                 .andExpect(status().isBadRequest());
@@ -748,6 +748,13 @@ class ScimUserEndpointsMockMvcTests {
                 .andExpect(redirectedUrl("/login?error=account_locked"));
     }
 
+    protected SearchResults<ScimUser> getUsersByFilter(String filter, String token) throws Exception {
+        MockHttpServletRequestBuilder get = MockMvcRequestBuilders.get("/Users?filter=" + filter)
+                .header("Authorization", "Bearer " + token)
+                .accept(APPLICATION_JSON);
+        return JsonUtils.readValue(mockMvc.perform(get).andReturn().getResponse().getContentAsString(), SearchResults.class);
+    }
+
     @Test
     void testGetUser() throws Exception {
         getUser(scimReadWriteToken, HttpStatus.OK.value());
@@ -1195,6 +1202,90 @@ class ScimUserEndpointsMockMvcTests {
     }
 
     @Test
+    public void testCreateUserTxSuccess() throws Exception {
+        ScimUser user0 = createScimUser(getUniqueEmail());
+        ScimUser user1 = createScimUser(getUniqueEmail());
+        ScimUser user2 = createScimUser(getUniqueEmail());
+        ScimUser user3 = createScimUser(getUniqueEmail());
+        ScimUser[] users = {user0, user1, user2, user3};
+        MockHttpServletRequestBuilder postUsersTx = post("/Users/tx")
+                .header("Authorization", "Bearer " + scimCreateToken)
+                .contentType(APPLICATION_JSON)
+                .content(JsonUtils.writeValueAsBytes(users));
+
+        ResultActions resultActions = mockMvc.perform(postUsersTx)
+                .andExpect(status().isCreated());
+
+        ScimUser[] createdUsers = JsonUtils.readValue(resultActions.andReturn().getResponse().getContentAsString(), ScimUser[].class);
+
+        for(ScimUser user : createdUsers ){
+            getAndReturnUser(HttpStatus.OK.value(), user, scimReadWriteToken);
+        }
+    }
+
+    @Test
+    public void testCreateUserTxExistingUser() throws Exception {
+        ScimUser createdUser = setUpScimUser();
+        ScimUser user0 = createScimUser(getUniqueEmail());
+        ScimUser user1 = createScimUser(getUniqueEmail());
+        ScimUser[] users = {user0, user1};
+        users[1].setUserName(createdUser.getUserName());
+        MockHttpServletRequestBuilder postUsersTx = post("/Users/tx")
+                .header("Authorization", "Bearer " + scimCreateToken)
+                .contentType(APPLICATION_JSON)
+                .content(JsonUtils.writeValueAsBytes(users));
+
+        mockMvc.perform(postUsersTx)
+                .andExpect(status().isConflict());
+
+        SearchResults results = getUsersByFilter("userName eq \"" +user0.getUserName()+"\"", scimReadWriteToken);
+        assertTrue(results.getResources().isEmpty());
+    }
+
+    @Test
+    public void testCreateUserTxDuplicateId() throws Exception {
+        ScimUser user0 = createScimUser(getUniqueEmail());
+        ScimUser user1 = createScimUser(user0.getUserName());
+        ScimUser user2 = createScimUser(getUniqueEmail());
+        ScimUser[] users = {user0, user1, user2};
+
+        MockHttpServletRequestBuilder postUsersTx = post("/Users/tx")
+                .header("Authorization", "Bearer " + scimCreateToken)
+                .contentType(APPLICATION_JSON)
+                .content(JsonUtils.writeValueAsBytes(users));
+
+        mockMvc.perform(postUsersTx)
+                .andExpect(status().isConflict());
+
+        for(ScimUser user : users ){
+            SearchResults results = getUsersByFilter("userName eq \"" +user.getUserName()+"\"", scimReadWriteToken);
+            assertTrue(results.getResources().isEmpty());
+        }
+    }
+
+    @Test
+    public void testCreateUserTxMissingUserName() throws Exception {
+        ScimUser user0 = createScimUser(getUniqueEmail());
+        ScimUser user1 = createScimUser(getUniqueEmail());
+        user1.setUserName("");
+        ScimUser user2 = createScimUser(getUniqueEmail());
+        ScimUser[] users = {user0, user1, user2};
+
+        MockHttpServletRequestBuilder postUsersTx = post("/Users/tx")
+                .header("Authorization", "Bearer " + scimCreateToken)
+                .contentType(APPLICATION_JSON)
+                .content(JsonUtils.writeValueAsBytes(users));
+
+        mockMvc.perform(postUsersTx)
+                .andExpect(status().isBadRequest());
+
+        for(ScimUser user : users ){
+            SearchResults results = getUsersByFilter("userName eq \"" +user.getUserName()+"\"", scimReadWriteToken);
+            assertTrue(results.getResources().isEmpty());
+        }
+    }
+
+    @Test
     void testDeleteMfaUserCredentials() throws Exception {
         ScimUser user = createUser(uaaAdminToken);
         MfaProvider provider = createMfaProvider(IdentityZoneHolder.get().getId());
@@ -1346,7 +1437,7 @@ class ScimUserEndpointsMockMvcTests {
         IdentityZone original = IdentityZoneHolder.get();
         try {
             IdentityZoneHolder.set(zone);
-            String email = "joe@" + generator.generate().toLowerCase() + ".com";
+            String email = getUniqueEmail();
             ScimUser joel = new ScimUser(null, email, "Joel", "D'sa");
             joel.setVerified(false);
             joel.addEmail(email);
@@ -1414,7 +1505,7 @@ class ScimUserEndpointsMockMvcTests {
     }
 
     private ScimUser getScimUser() {
-        String email = "joe@" + generator.generate().toLowerCase() + ".com";
+        String email = getUniqueEmail();
         ScimUser user = new ScimUser();
         user.setUserName(email);
         user.setName(new ScimUser.Name("Joe", "User"));
@@ -1500,7 +1591,7 @@ class ScimUserEndpointsMockMvcTests {
 
     private void verifyUser(String token) throws Exception {
         ScimUserProvisioning usersRepository = webApplicationContext.getBean(ScimUserProvisioning.class);
-        String email = "joe@" + generator.generate().toLowerCase() + ".com";
+        String email = getUniqueEmail();
         ScimUser joel = new ScimUser(null, email, "Joel", "D'sa");
         joel.addEmail(email);
         joel = usersRepository.createUser(joel, "pas5Word", IdentityZoneHolder.get().getId());
@@ -1557,4 +1648,18 @@ class ScimUserEndpointsMockMvcTests {
                 .andDo(print())
                 .andExpect(success ? authenticated() : unauthenticated());
     }
+
+    private ScimUser createScimUser(String userName) {
+        ScimUser user = new ScimUser(null, userName, "Jo", "User");
+        user.addEmail(user.getUserName());
+        user.setPassword("password");
+        user.setOrigin("");
+        return user;
+    }
+
+    private String getUniqueEmail() {
+        return "joe@" + generator.generate().toLowerCase() + ".com";
+    }
+
+
 }
