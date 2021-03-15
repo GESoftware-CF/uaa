@@ -1,0 +1,120 @@
+/*
+To run docker tasks set the following environment variables:
+MAINTAINER_EMAIL
+DOCKER_REPO_URL
+DOCKER_REPO_USER
+DOCKER_REPO_USER_PW
+DOCKER_CONTAINER_NAME
+
+To build UAA docker image using release artifacts:
+export USE_RELEASE_ARTIFACTS=true
+
+When pulling the uaa docker image from a registry you can inject the uaa profile and uaa.yml
+into the docker container environment.
+
+For example:
+docker container run -e CATALINA_OPTS="-Dspring.profiles.active=<desired uaa profile> -DUAA_CONFIG_YAML=<properly escaped uaa.yml>" <image_id>
+*/
+
+buildscript {
+  apply from: file('shared_versions.gradle')
+
+  repositories {
+    maven {
+      url 'https://plugins.gradle.org/m2/'
+    }
+  }
+
+  dependencies {
+    classpath 'com.bmuschko:gradle-docker-plugin:3.0.11'
+    classpath 'de.undercouch:gradle-download-task:4.1.1'
+  }
+}
+
+apply plugin: com.bmuschko.gradle.docker.DockerRemoteApiPlugin
+apply plugin: 'de.undercouch.download'
+apply plugin: 'java'
+
+import com.bmuschko.gradle.docker.tasks.image.Dockerfile
+import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage
+import com.bmuschko.gradle.docker.tasks.image.DockerPullImage
+import com.bmuschko.gradle.docker.tasks.image.DockerPushImage
+import com.bmuschko.gradle.docker.DockerRegistryCredentials
+import com.bmuschko.gradle.docker.tasks.container.DockerCreateContainer
+import com.bmuschko.gradle.docker.tasks.container.DockerStartContainer
+
+import de.undercouch.gradle.tasks.download.Download
+
+def use_release_artifacts = System.getenv('USE_RELEASE_ARTIFACTS')
+def build_context = "${buildDir}/docker/"
+
+task downloadReleaseArtifacts(type: Download) {
+  doFirst {
+    mkdir build_context
+  }
+  src 'https://artifactory.build.ge.com/MAAXA/org/cloudfoundry/identity/' \
+      + 'cloudfoundry-identity-uaa/' \
+      + version \
+      + '/cloudfoundry-identity-uaa-' \
+      + version \
+      + '.war'
+  dest build_context
+  username System.getenv('ARTIFACTORY_READER')
+  password System.getenv('ARTIFACTORY_READER_PW')
+}
+
+task copyDockerfile(type: Copy) {
+  if (use_release_artifacts == 'true') {
+      dependsOn downloadReleaseArtifacts
+  } else {
+      dependsOn assemble
+  }
+
+  from 'Dockerfile'
+  into build_context
+}
+
+task deleteDockerfile() {
+  delete file(build_context)
+}
+
+task copyContainerFiles(type: Copy) {
+  dependsOn copyDockerfile
+  if (use_release_artifacts == 'true') {
+    from 'uaa/src/main/resources/uaa-docker.yml'
+  } else {
+    from 'uaa/build/libs'
+    from 'uaa/build/resources/main/tomcat-server.xml'
+    from 'uaa/build/resources/main/uaa-docker.yml'
+  }
+  into build_context
+}
+
+task buildImage(type: DockerBuildImage) {
+  dependsOn copyContainerFiles
+  inputDir = file(build_context)
+  tag = System.getenv('DOCKER_REPO_URL') + '/uaa:' + version
+  buildArgs = [MAINTAINER_EMAIL: System.getenv('MAINTAINER_EMAIL'), VERSION: version]
+}
+
+task createUaaContainer(type: DockerCreateContainer) {
+  dependsOn buildImage
+  targetImageId { buildImage.getImageId() }
+  containerName = System.getenv('DOCKER_CONTAINER_NAME')
+  portBindings = ['8080:8080']
+  env = ["CATALINA_OPTS='-Dspring.profiles.active=default'"]
+}
+
+task startUaaContainer(type: DockerStartContainer) {
+  dependsOn createUaaContainer
+  targetContainerId { createUaaContainer.getContainerId() }
+}
+
+task pushUaaImage(type: DockerPushImage) {
+  dependsOn buildImage
+  imageName = System.getenv('DOCKER_REPO_URL') + '/uaa:' + version
+  registryCredentials = new DockerRegistryCredentials()
+  registryCredentials.url = System.getenv('DOCKER_REPO_URL')
+  registryCredentials.username = System.getenv('DOCKER_REPO_USER')
+  registryCredentials.password = System.getenv('DOCKER_REPO_USER_PW')
+}
