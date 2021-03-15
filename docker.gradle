@@ -17,7 +17,6 @@ docker container run -e CATALINA_OPTS="-Dspring.profiles.active=<desired uaa pro
 */
 
 buildscript {
-  apply from: file('shared_versions.gradle')
 
   repositories {
     maven {

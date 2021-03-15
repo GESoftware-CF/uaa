@@ -28,7 +28,6 @@ apply(from: "dependencies.gradle")
 def applicationPort = project.hasProperty('port') ? project.getProperty('port').toInteger() : 8080
 
 apply from: file('docker.gradle')
-apply from: file('shared_versions.gradle')
 apply(plugin: "com.bmuschko.cargo")
 
 def geArtifactoryReader = System.getenv('ARTIFACTORY_READER')
