@@ -70,7 +70,7 @@ task copyDockerfile(type: Copy) {
       dependsOn assemble
   }
 
-  from 'Dockerfile'
+  from 'ci/image/Dockerfile'
   into build_context
 }
 
