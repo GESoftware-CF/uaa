@@ -25,9 +25,10 @@ buildscript {
   }
 
   dependencies {
-    classpath 'com.bmuschko:gradle-docker-plugin:3.0.11'
+    classpath 'com.bmuschko:gradle-docker-plugin:5.0.0'
     classpath 'de.undercouch:gradle-download-task:4.1.1'
   }
+
 }
 
 apply plugin: com.bmuschko.gradle.docker.DockerRemoteApiPlugin
