@@ -93,7 +93,7 @@ task copyContainerFiles(type: Copy) {
 task buildImage(type: DockerBuildImage) {
   dependsOn copyContainerFiles
   inputDir = file(build_context)
-  tag = System.getenv('DOCKER_REPO_URL') + '/uaa:' + version
+  tags = [System.getenv('DOCKER_REPO_URL') + '/uaa:' + version]
   buildArgs = [MAINTAINER_EMAIL: System.getenv('MAINTAINER_EMAIL'), VERSION: version]
 }
 
@@ -102,7 +102,7 @@ task createUaaContainer(type: DockerCreateContainer) {
   targetImageId { buildImage.getImageId() }
   containerName = System.getenv('DOCKER_CONTAINER_NAME')
   portBindings = ['8080:8080']
-  env = ["CATALINA_OPTS='-Dspring.profiles.active=default'"]
+  envVars = ["CATALINA_OPTS" : "'-Dspring.profiles.active=default'"]
 }
 
 task startUaaContainer(type: DockerStartContainer) {
