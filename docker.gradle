@@ -70,7 +70,7 @@ task copyDockerfile(type: Copy) {
       dependsOn assemble
   }
 
-  from 'ci/image/Dockerfile'
+  from 'Dockerfile'
   into build_context
 }
 
@@ -99,22 +99,14 @@ task buildImage(type: DockerBuildImage) {
 
 task createUaaContainer(type: DockerCreateContainer) {
   dependsOn buildImage
-  targetImageId { buildImage.getImageId() }
+  targetImageId buildImage.getImageId()
   containerName = System.getenv('DOCKER_CONTAINER_NAME')
   portBindings = ['8080:8080']
-  envVars = ["CATALINA_OPTS" : "'-Dspring.profiles.active=default'"]
+  envVars = ['CATALINA_OPTS' : '-Dspring.profiles.active=default']
 }
 
 task startUaaContainer(type: DockerStartContainer) {
   dependsOn createUaaContainer
-  targetContainerId { createUaaContainer.getContainerId() }
+  targetContainerId createUaaContainer.getContainerId()
 }
 
-task pushUaaImage(type: DockerPushImage) {
-  dependsOn buildImage
-  imageName = System.getenv('DOCKER_REPO_URL') + '/uaa:' + version
-  registryCredentials = new DockerRegistryCredentials()
-  registryCredentials.url = System.getenv('DOCKER_REPO_URL')
-  registryCredentials.username = System.getenv('DOCKER_REPO_USER')
-  registryCredentials.password = System.getenv('DOCKER_REPO_USER_PW')
-}
