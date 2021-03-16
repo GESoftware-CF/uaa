@@ -1,6 +1,5 @@
 package org.cloudfoundry.identity.uaa.provider.token;
 
-import org.cloudfoundry.identity.uaa.oauth.OauthGrant;
 import org.springframework.security.oauth2.provider.ClientDetailsService;
 import org.springframework.security.oauth2.provider.OAuth2RequestFactory;
 import org.springframework.security.oauth2.provider.token.AbstractTokenGranter;

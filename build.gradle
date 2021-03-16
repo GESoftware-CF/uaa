@@ -8,7 +8,7 @@ buildscript {
 
     repositories {
         mavenCentral()
-        //jcenter()
+        jcenter()
         maven {
             url("https://repo.spring.io/plugins-release")
         }
@@ -30,11 +30,15 @@ def applicationPort = project.hasProperty('port') ? project.getProperty('port').
 
 apply(plugin: "com.bmuschko.cargo")
 
+
 def uaaVersion = version
 def geArtifactoryReader = System.getenv('ARTIFACTORY_READER')
 def geArtifactoryReaderPassword  = System.getenv('ARTIFACTORY_READER_PW')
 def proxyHost  = System.getenv('PROXY_HOST')
 def proxyPort  = System.getenv('PROXY_PORT')
+
+
+
 def nonProxyHosts = 'localhost|*.localhost'
 
 allprojects {
@@ -56,7 +60,7 @@ allprojects {
         mavenCentral()
         maven {
             credentials {
-                username geArtifactoryReader
+                username  geArtifactoryReader
                 password geArtifactoryReaderPassword
             }
             url 'https://artifactory.build.ge.com/predix-virtual'
@@ -76,23 +80,6 @@ allprojects {
         // maven { url 'https://build.shibboleth.net/nexus/content/repositories/releases/' }
         maven { url 'https://artifacts.alfresco.com/nexus/content/repositories/public/' }
         maven { url 'https://repository.mulesoft.org/releases/' }
-    }
-    task sourceJar(type: Jar) {
-        from sourceSets.main.allJava
-        classifier "sources"
-    }
-    apply plugin: 'maven-publish'
-
-    publishing {
-        repositories {
-            maven {
-                url "https://oss.sonatype.org/content/repositories/releases"
-                credentials {
-                    username "$nexusUsername"
-                    password "$nexusPassword"
-                }
-            }
-        }
     }
 }
 

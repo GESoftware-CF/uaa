@@ -1,14 +1,16 @@
 package org.cloudfoundry.identity.uaa.provider;
 
-import org.cloudfoundry.identity.uaa.test.JdbcTestBase;
+import org.cloudfoundry.identity.uaa.annotations.WithDatabaseContext;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.cloudfoundry.identity.uaa.zone.KeyProviderAlreadyExistsException;
 import org.cloudfoundry.identity.uaa.zone.KeyProviderNotFoundException;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 import org.springframework.security.oauth2.common.util.RandomValueStringGenerator;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.List;
 import java.util.UUID;
@@ -16,15 +18,17 @@ import java.util.UUID;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
-public class JdbcKeyProviderProvisioningTest extends JdbcTestBase{
+@WithDatabaseContext
+public class JdbcKeyProviderProvisioningTest {
     JdbcKeyProviderProvisioning provisioning;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     public static final String GET_KEY_PROVIDER_BY_ID_SQL = "select * from key_provider_config where id=?";
     public static final String GET_KEY_PROVIDER_BY_ZONE_ID_SQL = "select * from key_provider_config where identity_zone_id=?";
 
-    @Rule
-    public ExpectedException expection = ExpectedException.none();
-    @Before
+    @BeforeEach
     public void setup() {
         provisioning = new JdbcKeyProviderProvisioning(jdbcTemplate);
     }
@@ -52,9 +56,11 @@ public class JdbcKeyProviderProvisioningTest extends JdbcTestBase{
         IdentityZoneHolder.get().setId(identityZoneId);
         KeyProviderConfig keyProviderConfig = new KeyProviderConfig("client1", "tenant1");
         provisioning.create(keyProviderConfig);
-        expection.expect(KeyProviderAlreadyExistsException.class);
-        expection.expectMessage("Key provider already exists for this zone.");
-        provisioning.create(keyProviderConfig);
+
+        Throwable exception = Assertions.assertThrows(KeyProviderAlreadyExistsException.class, () -> {
+            provisioning.create(keyProviderConfig);
+        });
+        assertEquals("Key provider already exists for this zone.", exception.getMessage());
         IdentityZoneHolder.get().setId(currentZoneId);
     }
 
@@ -88,8 +94,9 @@ public class JdbcKeyProviderProvisioningTest extends JdbcTestBase{
 
         assertEquals(1, provisioning.delete(keyProviderId));
 
-        expection.expect(KeyProviderNotFoundException.class);
-        provisioning.retrieve(keyProviderId);
+        Assertions.assertThrows(KeyProviderNotFoundException.class, () -> {
+            provisioning.retrieve(keyProviderId);
+        });
         IdentityZoneHolder.get().setId(currentZoneId);
     }
 

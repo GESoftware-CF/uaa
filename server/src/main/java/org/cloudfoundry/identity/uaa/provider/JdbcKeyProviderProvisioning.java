@@ -1,11 +1,12 @@
 package org.cloudfoundry.identity.uaa.provider;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.cloudfoundry.identity.uaa.audit.event.SystemDeletable;
+
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.cloudfoundry.identity.uaa.zone.KeyProviderAlreadyExistsException;
 import org.cloudfoundry.identity.uaa.zone.KeyProviderNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -15,7 +16,7 @@ import java.sql.SQLException;
 import java.util.UUID;
 
 public class JdbcKeyProviderProvisioning implements KeyProviderProvisioning, SystemDeletable {
-    private final Log logger = LogFactory.getLog(getClass());
+    private static final Logger logger = LoggerFactory.getLogger(JdbcKeyProviderProvisioning.class);
 
     public static final String INSERT_KEY_PROVIDER_CONFIG = "insert into key_provider_config(id, identity_zone_id, client_id, dcs_tenant_id) values (?,?,?,?)";
     public static final String SELECT_KEY_PROVIDER_CONFIG_BY_ZONE = "select * from key_provider_config where identity_zone_id = ?";
@@ -94,7 +95,7 @@ public class JdbcKeyProviderProvisioning implements KeyProviderProvisioning, Sys
     }
 
     @Override
-    public Log getLogger() {
+    public Logger getLogger() {
         return logger;
     }
 

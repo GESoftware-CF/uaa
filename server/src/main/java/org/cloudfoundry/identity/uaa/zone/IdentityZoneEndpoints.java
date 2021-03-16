@@ -84,22 +84,19 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
                                  final @Qualifier("identityProviderProvisioning") IdentityProviderProvisioning idpDao,
                                  final IdentityZoneEndpointClientRegistrationService clientRegistrationService,
                                  final ScimGroupProvisioning groupProvisioning,
-                                 final KeyProviderProvisioning keyProviderProvisioning,
-                                 final KeyProviderValidator keyProviderValidator,
                                  final IdentityZoneValidator validator,
-                                 final MessageSource messageSource) {
+                                 final MessageSource messageSource,
+                                 final KeyProviderProvisioning keyProviderProvisioning,
+                                 final KeyProviderValidator keyProviderValidator) {
         super();
         this.zoneDao = zoneDao;
         this.idpDao = idpDao;
         this.clientRegistrationService = clientRegistrationService;
         this.groupProvisioning = groupProvisioning;
-        this.keyProviderProvisioning = keyProviderProvisioning;
-        this.keyProviderValidator = keyProviderValidator;
-    }
-
-    public void setValidator(IdentityZoneValidator validator) {
         this.validator = validator;
         this.messageSource = messageSource;
+        this.keyProviderProvisioning = keyProviderProvisioning;
+        this.keyProviderValidator = keyProviderValidator;
     }
 
     @Override
