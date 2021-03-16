@@ -609,3 +609,5 @@ uaa:
 #  port: 2525
 #  user:
 #  password:
+logging:
+  config: log4j2-docker.properties
