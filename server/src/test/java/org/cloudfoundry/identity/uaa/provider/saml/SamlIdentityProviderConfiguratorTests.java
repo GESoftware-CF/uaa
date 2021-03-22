@@ -241,7 +241,7 @@ public class SamlIdentityProviderConfiguratorTests {
 
         when(provisioning.retrieveActive(anyString())).thenReturn(Arrays.asList(idp1, idp2));
 
-        return configurator.getIdentityProviderDefinitions(clientIdpAliases, IdentityZoneHolder.get());
+        return configurator.getIdentityProviderDefinitions(clientIdpAliases, Arrays.asList(idp1, idp2));
     }
 
     @Test

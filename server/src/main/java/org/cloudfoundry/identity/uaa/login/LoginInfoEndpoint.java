@@ -333,6 +333,7 @@ public class LoginInfoEndpoint {
         String loginHintParam = extractLoginHintParam(session, request);
         UaaLoginHint uaaLoginHint = UaaLoginHint.parseRequestParameter(loginHintParam);
 
+        List<IdentityProvider> allActiveIdentityProvidersInZone;
         Map<String, SamlIdentityProviderDefinition> samlIdentityProviders;
         Map<String, AbstractXOAuthIdentityProviderDefinition> oauthIdentityProviders;
         Map<String, AbstractIdentityProviderDefinition> allIdentityProviders = Collections.emptyMap();
@@ -354,8 +355,9 @@ public class LoginInfoEndpoint {
                 oauthIdentityProviders = Collections.emptyMap();
                 samlIdentityProviders = Collections.emptyMap();
             } else {
-                samlIdentityProviders = getSamlIdentityProviderDefinitions(allowedIdentityProviderKeys);
-                oauthIdentityProviders = getOauthIdentityProviderDefinitions(allowedIdentityProviderKeys);
+                allActiveIdentityProvidersInZone = getActiveIdentityProviderDefinitions();
+                samlIdentityProviders = getSamlIdentityProviderDefinitions(allowedIdentityProviderKeys, allActiveIdentityProvidersInZone);
+                oauthIdentityProviders = getOauthIdentityProviderDefinitions(allowedIdentityProviderKeys, allActiveIdentityProvidersInZone);
                 allIdentityProviders = new HashMap<>();
                 allIdentityProviders.putAll(samlIdentityProviders);
                 allIdentityProviders.putAll(oauthIdentityProviders);
@@ -365,8 +367,9 @@ public class LoginInfoEndpoint {
             oauthIdentityProviders = Collections.emptyMap();
             samlIdentityProviders = Collections.emptyMap();
         } else {
-            samlIdentityProviders = getSamlIdentityProviderDefinitions(allowedIdentityProviderKeys);
-            oauthIdentityProviders = getOauthIdentityProviderDefinitions(allowedIdentityProviderKeys);
+            allActiveIdentityProvidersInZone = getActiveIdentityProviderDefinitions();
+            samlIdentityProviders = getSamlIdentityProviderDefinitions(allowedIdentityProviderKeys, allActiveIdentityProvidersInZone);
+            oauthIdentityProviders = getOauthIdentityProviderDefinitions(allowedIdentityProviderKeys, allActiveIdentityProvidersInZone);
             allIdentityProviders =
                 new HashMap<String, AbstractIdentityProviderDefinition>() {{
                     putAll(samlIdentityProviders);
@@ -675,15 +678,18 @@ public class LoginInfoEndpoint {
         return xoAuthProviderConfigurator.getCompleteAuthorizationURI(alias, UaaUrlUtils.getBaseURL(request), definition);
     }
 
-    protected Map<String, SamlIdentityProviderDefinition> getSamlIdentityProviderDefinitions(List<String> allowedIdps) {
-        List<SamlIdentityProviderDefinition> filteredIdps = idpDefinitions.getIdentityProviderDefinitions(allowedIdps, IdentityZoneHolder.get());
+    private List<IdentityProvider> getActiveIdentityProviderDefinitions() {
+        return providerProvisioning.retrieveActive(IdentityZoneHolder.get().getId());
+    }
+
+    protected Map<String, SamlIdentityProviderDefinition> getSamlIdentityProviderDefinitions(List<String> allowedIdps, List<IdentityProvider> activeIdpsInZone) {
+        List<SamlIdentityProviderDefinition> filteredIdps = idpDefinitions.getIdentityProviderDefinitions(allowedIdps, activeIdpsInZone);
         return filteredIdps.stream().collect(new MapCollector<>(SamlIdentityProviderDefinition::getIdpEntityAlias, idp -> idp));
     }
 
-    protected Map<String, AbstractXOAuthIdentityProviderDefinition> getOauthIdentityProviderDefinitions(List<String> allowedIdps) {
-
+    protected Map<String, AbstractXOAuthIdentityProviderDefinition> getOauthIdentityProviderDefinitions(List<String> allowedIdps, List<IdentityProvider> activeIdpsInZone) {
         List<IdentityProvider> identityProviders =
-            xoAuthProviderConfigurator.retrieveAll(true, IdentityZoneHolder.get().getId());
+            xoAuthProviderConfigurator.retrieveAll(activeIdpsInZone);
 
         Map<String, AbstractXOAuthIdentityProviderDefinition> identityProviderDefinitions = identityProviders.stream()
                 .filter(p -> allowedIdps==null || allowedIdps.contains(p.getOriginKey()))
