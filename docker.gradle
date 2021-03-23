@@ -25,8 +25,8 @@ buildscript {
   }
 
   dependencies {
-    classpath(libraries.dockerGradlePlugin)
-    classpath(libraries.undercouchGradlePlugin)
+    classpath 'com.bmuschko:gradle-docker-plugin:5.0.0'
+    classpath 'de.undercouch:gradle-download-task:4.1.1'
   }
 
 }

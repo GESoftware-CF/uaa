@@ -117,4 +117,3 @@ libraries.prodepsGradlePlugin = "io.spring.gradle:propdeps-plugin:0.0.10.RELEASE
 libraries.springBootGradlePlugin = "org.springframework.boot:spring-boot-gradle-plugin:${versions.springBootVersion}"
 libraries.springDependencyMangementGradlePlugin = "io.spring.gradle:dependency-management-plugin"
 libraries.undercouchGradlePlugin = "de.undercouch:gradle-download-task:4.1.1"
-libraries.dockerGradlePlugin = "com.bmuschko:gradle-docker-plugin:5.0.0"
