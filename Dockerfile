@@ -10,6 +10,7 @@ ENV CLOUD_FOUNDRY_CONFIG_PATH /uaa
 
 COPY cloudfoundry-identity-uaa-${VERSION}.war /usr/local/tomcat/webapps/ROOT.war
 COPY uaa-docker.yml /uaa/uaa.yml
+COPY log4j2-docker.properties /usr/local/tomcat/conf/log4j2.properties
 
 RUN set -eux; \
     \

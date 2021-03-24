@@ -17,7 +17,7 @@ docker container run -e CATALINA_OPTS="-Dspring.profiles.active=<desired uaa pro
 */
 
 buildscript {
-
+  apply(from: "dependencies.gradle")
   repositories {
     maven {
       url 'https://plugins.gradle.org/m2/'
@@ -25,8 +25,8 @@ buildscript {
   }
 
   dependencies {
-    classpath 'com.bmuschko:gradle-docker-plugin:5.0.0'
-    classpath 'de.undercouch:gradle-download-task:4.1.1'
+    classpath(libraries.dockerGradlePlugin)
+    classpath(libraries.undercouchGradlePlugin)
   }
 
 }
@@ -35,11 +35,7 @@ apply plugin: com.bmuschko.gradle.docker.DockerRemoteApiPlugin
 apply plugin: 'de.undercouch.download'
 apply plugin: 'java'
 
-import com.bmuschko.gradle.docker.tasks.image.Dockerfile
 import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage
-import com.bmuschko.gradle.docker.tasks.image.DockerPullImage
-import com.bmuschko.gradle.docker.tasks.image.DockerPushImage
-import com.bmuschko.gradle.docker.DockerRegistryCredentials
 import com.bmuschko.gradle.docker.tasks.container.DockerCreateContainer
 import com.bmuschko.gradle.docker.tasks.container.DockerStartContainer
 
@@ -82,10 +78,12 @@ task copyContainerFiles(type: Copy) {
   dependsOn copyDockerfile
   if (use_release_artifacts == 'true') {
     from 'uaa/src/main/resources/uaa-docker.yml'
+    from 'uaa/src/main/resources/log4j2-docker.properties'
   } else {
     from 'uaa/build/libs'
     from 'uaa/build/resources/main/tomcat-server.xml'
     from 'uaa/build/resources/main/uaa-docker.yml'
+    from 'uaa/build/resources/main/log4j2-docker.properties'
   }
   into build_context
 }
@@ -102,7 +100,8 @@ task createUaaContainer(type: DockerCreateContainer) {
   targetImageId buildImage.getImageId()
   containerName = System.getenv('DOCKER_CONTAINER_NAME')
   portBindings = ['8080:8080']
-  envVars = ['CATALINA_OPTS' : '-Dspring.profiles.active=default']
+  envVars = ['CATALINA_OPTS' : '-Dspring.profiles.active=default',
+            'JAVA_OPTS' : '-Dlogging.config=/usr/local/tomcat/conf/log4j2.properties' ]
 }
 
 task startUaaContainer(type: DockerStartContainer) {
