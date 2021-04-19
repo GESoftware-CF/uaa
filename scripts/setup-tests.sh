@@ -12,3 +12,10 @@ unset_env() {
   unset PROXY_HOST
   env
 }
+
+set_chromedriver_proxy() {
+  export http_proxy="http://10.229.23.245:3128"
+  export https_proxy="http://10.229.23.245:3128"
+  export HTTP_PROXY="http://10.229.23.245:3128"
+  export HTTPS_PROXY="http://10.229.23.245:3128"
+}

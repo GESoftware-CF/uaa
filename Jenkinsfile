@@ -328,6 +328,10 @@ pipeline {
 
                                     export JRE_VERSION="{ jre: { version: 11.+ }}"
 
+                                    # There is a known issue with the Coretech NAT/proxy that affects automated tests using Chrome browser.
+                                    # The temporary workaround is to add these proxy settings into the Chromedriver options
+                                    set_chromedriver_proxy
+
                                     ./uaa-cf-release/uaa-degraded-tests-cf.sh $DEGRADED_TEST_ARGS
                                 fi
                             fi
