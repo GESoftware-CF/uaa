@@ -227,8 +227,8 @@ public class PredixAuditService implements UaaAuditService {
                 type = AuditEnums.EventType.SUCCESS_API_REQUEST;
                 break;
             case TokenRevocationEvent:
-                category = AuditEnums.CategoryType.AUTHENTICATIONS;
-                type = AuditEnums.EventType.SUCCESS_API_REQUEST;
+                category = AuditEnums.CategoryType.AUTHORIZATION;
+                type = AuditEnums.EventType.ACCOUNT_PRIVILEGE_SUCCESS_MODIFICATION;
                 break;
             case IdentityProviderAuthenticationSuccess:
                 category = AuditEnums.CategoryType.AUTHENTICATIONS;
