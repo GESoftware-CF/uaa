@@ -100,10 +100,10 @@ public class PasswordComparisonAuthenticator extends AbstractLdapAuthenticator {
         try {
             Attributes attributes = user.getAttributes();
             Attribute attr = attributes.get(getPasswordAttributeName());
-            if (attr.size()==0) {
+            if (attr == null || attr.size() == 0) {
                 throw new AuthenticationCredentialsNotFoundException("Missing "+getPasswordAttributeName()+" attribute.");
             }
-            for (int i = 0; (attr != null) && (!match) && (i < attr.size()); i++) {
+            for (int i = 0; (!match) && (i < attr.size()); i++) {
                 Object valObject = attr.get(i);
                 if (valObject != null && valObject instanceof byte[]) {
                     if (passwordEncoder instanceof DynamicPasswordComparator) {
