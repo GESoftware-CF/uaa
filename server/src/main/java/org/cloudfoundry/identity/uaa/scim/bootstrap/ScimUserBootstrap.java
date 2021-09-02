@@ -200,15 +200,21 @@ public class ScimUserBootstrap implements
         }
     }
 
+    private void updateScimUser(UaaUser uaaUser) {
+        ScimUser user = getScimUser(uaaUser);
+        if (user != null) {
+            updateUser(user, uaaUser, false);
+        }
+    }
+
     public void onApplicationEvent(AuthEvent event) {
         UaaUser uaaUser = event.getUser();
         if (event instanceof InvitedUserAuthenticatedEvent) {
-            ScimUser user = getScimUser(uaaUser);
             // external users should default to not being verified
             if (!OriginKeys.UAA.equals(uaaUser.getOrigin())) {
                 uaaUser.setVerified(false);
             }
-            updateUser(user, uaaUser, false);
+            updateScimUser(uaaUser);
             return;
         }
         if (event instanceof ExternalGroupAuthorizationEvent) {
@@ -233,8 +239,7 @@ public class ScimUserBootstrap implements
             //update the user itself
             if (event.isUserModified()) {
                 //update the user itself
-                ScimUser user = getScimUser(uaaUser);
-                updateUser(user, uaaUser, false);
+                updateScimUser(uaaUser);
             }
             return;
         }
