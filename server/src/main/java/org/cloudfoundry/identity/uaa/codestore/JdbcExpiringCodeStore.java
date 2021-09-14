@@ -112,8 +112,7 @@ public class JdbcExpiringCodeStore implements ExpiringCodeStore {
         return null;
     }
 
-    @Override
-    public ExpiringCode peekCode(String code, String zoneId) {
+    private ExpiringCode getCode(String code, String zoneId, boolean peek) {
         cleanExpiredEntries();
 
         if (code == null) {
@@ -122,8 +121,13 @@ public class JdbcExpiringCodeStore implements ExpiringCodeStore {
 
         try {
             ExpiringCode expiringCode = jdbcTemplate.queryForObject(selectAllFields, rowMapper, code, zoneId);
-            if (expiringCode.getExpiresAt().getTime() < timeService.getCurrentTimeMillis()) {
-                expiringCode = null;
+            if (expiringCode != null) {
+                if (!peek) {
+                    jdbcTemplate.update(delete, code, zoneId);
+                }
+                if (expiringCode.getExpiresAt().getTime() < timeService.getCurrentTimeMillis()) {
+                    expiringCode = null;
+                }
             }
             return expiringCode;
         } catch (EmptyResultDataAccessException x) {
@@ -132,26 +136,13 @@ public class JdbcExpiringCodeStore implements ExpiringCodeStore {
     }
 
     @Override
+    public ExpiringCode peekCode(String code, String zoneId) {
+        return getCode(code, zoneId, true);
+    }
+
+    @Override
     public ExpiringCode retrieveCode(String code, String zoneId) {
-        cleanExpiredEntries();
-
-        if (code == null) {
-            throw new NullPointerException();
-        }
-
-        try {
-            ExpiringCode expiringCode = jdbcTemplate.queryForObject(selectAllFields, rowMapper, code, zoneId);
-
-            if (expiringCode != null) {
-                jdbcTemplate.update(delete, code, zoneId);
-            }
-            if (expiringCode.getExpiresAt().getTime() < timeService.getCurrentTimeMillis()) {
-                expiringCode = null;
-            }
-            return expiringCode;
-        } catch (EmptyResultDataAccessException x) {
-            return null;
-        }
+        return getCode(code, zoneId, false);
     }
 
     @Override
