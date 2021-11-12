@@ -248,7 +248,8 @@ public class IntegrationTestUtils {
                     Arrays.equals(Inet4Address.getByName("testzone3.localhost").getAddress(), new byte[]{127, 0, 0, 1}) &&
                     Arrays.equals(Inet4Address.getByName("testzone4.localhost").getAddress(), new byte[]{127, 0, 0, 1}) &&
                     Arrays.equals(Inet4Address.getByName("testzonedoesnotexist.localhost").getAddress(), new byte[]{127, 0, 0, 1}) &&
-                    Arrays.equals(Inet4Address.getByName("testzoneinactive.localhost").getAddress(), new byte[]{127, 0, 0, 1});
+                    Arrays.equals(Inet4Address.getByName("testzoneinactive.localhost").getAddress(), new byte[]{127, 0, 0, 1}) &&
+                    Arrays.equals(Inet4Address.getByName("zone-with-cors-policy.localhost").getAddress(), new byte[]{127, 0, 0, 1});
         } catch (UnknownHostException e) {
             return false;
         }
