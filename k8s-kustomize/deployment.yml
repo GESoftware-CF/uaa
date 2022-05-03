@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uaa-deployment
+spec:
+  selector:
+    matchLabels:
+      app: uaa
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: uaa
+    spec:
+      containers:
+        - name: uaa
+          image: dtr.predix.io/pcs/uaa:latest
+          ports:
+            - containerPort: 8080
+          env:
+          - name: CATALINA_OPTS
+            value: '-Dspring.profiles.active=default'
+          envFrom:
+            - secretRef:
+                name: uaa-jwt-grant-config
