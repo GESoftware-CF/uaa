@@ -70,11 +70,8 @@ public class JwtBearerGrantAT {
     @Value("${KEY_PROVIDER_SERVICE_URL:not-used}")
     String keyProviderServiceUrl;
 
-    @Value("${UAA_HOST:}")
-    String uaaHost;
-
-    @Value("${UAA_PORT:}")
-    String uaaPort;
+    @Value("${UAA_ROUTE:}")
+    String uaaRoute;
 
     @Value("${UAA_PATH:}")
     String uaaPath;
@@ -93,7 +90,7 @@ public class JwtBearerGrantAT {
 
         if (this.runAgainstLocalUaa) {
             String path = StringUtils.isEmpty(this.uaaPath) ? "" : "/" + this.uaaPath;
-            this.acceptanceZoneUrl = "http://" + this.zoneSubdomain + "." + this.uaaHost + ":" + this.uaaPort + path;
+            this.acceptanceZoneUrl = "http://" + this.zoneSubdomain + "." + this.uaaRoute + path;
         }
         else {
             this.acceptanceZoneUrl = "https://" + this.zoneSubdomain + "."  + this.publishedHost + "." + this.cfDomain;
