@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: uaa-service
 spec:
-  type: NodePort
+  type: ClusterIP
   ports:
     - port: 8080
       protocol: TCP

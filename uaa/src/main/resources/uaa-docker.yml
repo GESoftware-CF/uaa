@@ -298,7 +298,7 @@ links:
 #        - https://url1.domain1.com/logout-success
 #        - https://url2.domain2.com/logout-success
 issuer:
-  uri: http://localhost:8080
+  uri: http://uaa.local
 login:
   # Enable create account and forgot password links on the Login Server (enabled by default)
   selfServiceLinksEnabled: true
@@ -350,7 +350,7 @@ login:
 #          - name: passcode
 #            type: password
 #            text: MyTemporary Authentication Code (Get on at /passcode)
-  url: http://localhost:8080
+  url: http://uaa.local
 #  defaultIdentityProvider: uaa
 #  idpDiscoveryEnabled: true
 #  accountChooserEnabled: true
@@ -409,7 +409,7 @@ login:
 
   # SAML - The entity base url is the location of this application
   # (The host and port of the application that will accept assertions)
-  entityBaseURL: http://localhost:8080
+  entityBaseURL: http://uaa.local
   # The entityID of this SP
   entityID: cloudfoundry-saml-login
   saml:
@@ -512,7 +512,7 @@ login:
 #END SAML PROVIDERS
 
   authorize:
-    url: http://localhost:8080/oauth/authorize
+    url: http://uaa.local/oauth/authorize
 
 #  homeRedirect: http://example.com/
 
@@ -536,13 +536,13 @@ login:
 
 uaa:
   # The hostname of the UAA that this login server will connect to
-  url: http://localhost:8080
+  url: http://uaa.local
   token:
-    url: http://localhost:8080/oauth/token
+    url: http://uaa.local/oauth/token
   approvals:
-    url: http://localhost:8080/approvals
+    url: http://uaa.local/approvals
   login:
-    url: http://localhost:8080/authenticate
+    url: http://uaa.local/authenticate
   limitedFunctionality:
     enabled: false
     whitelist:
