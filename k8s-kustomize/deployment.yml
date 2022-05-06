@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: uaa
-          image: dtr.predix.io/pcs/uaa:latest
+          image: dtr.predix.io/pcs/uaa:75.18.0
           ports:
             - containerPort: 8080
           env:
