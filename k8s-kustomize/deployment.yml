@@ -23,3 +23,12 @@ spec:
           envFrom:
             - secretRef:
                 name: uaa-jwt-grant-config
+          volumeMounts:
+            - name: uaa-yaml-config-volume
+              mountPath: /uaa/uaa.yml
+              subPath: uaa.yml
+              readOnly: true
+      volumes:
+        - name: uaa-yaml-config-volume
+          configMap:
+            name: uaa-yml-config
