@@ -28,7 +28,15 @@ spec:
               mountPath: /uaa/uaa.yml
               subPath: uaa.yml
               readOnly: true
+            - name: jwt-token-keys-volume
+              mountPath: /uaa/secrets/jwt_token_keys.yml
+              subPath: jwt_token_keys.yml
+              readOnly: true
       volumes:
         - name: uaa-yaml-config-volume
           configMap:
             name: uaa-yml-config
+        - name: jwt-token-keys-volume
+          secret:
+            optional: false
+            secretName: uaa-jwt-token-keys-secret
