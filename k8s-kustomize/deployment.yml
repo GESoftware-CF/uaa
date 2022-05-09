@@ -32,6 +32,10 @@ spec:
               mountPath: /uaa/secrets/jwt_token_keys.yml
               subPath: jwt_token_keys.yml
               readOnly: true
+            - name: saml-keys-config-volume
+              mountPath: /uaa/secrets/saml_keys_config.yml
+              subPath: saml_keys_config.yml
+              readOnly: true
       volumes:
         - name: uaa-yaml-config-volume
           configMap:
@@ -40,3 +44,7 @@ spec:
           secret:
             optional: false
             secretName: uaa-jwt-token-keys-secret
+        - name: saml-keys-config-volume
+          secret:
+            optional: false
+            secretName: uaa-saml-keys-secret
