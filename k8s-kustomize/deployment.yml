@@ -36,6 +36,10 @@ spec:
               mountPath: /uaa/secrets/saml_keys_config.yml
               subPath: saml_keys_config.yml
               readOnly: true
+            - name: encryption-keys-config-volume
+              mountPath: /uaa/secrets/encryption_keys_config.yml
+              subPath: encryption_keys_config.yml
+              readOnly: true
       volumes:
         - name: uaa-yaml-config-volume
           configMap:
@@ -48,3 +52,7 @@ spec:
           secret:
             optional: false
             secretName: uaa-saml-keys-secret
+        - name: encryption-keys-config-volume
+          secret:
+            optional: false
+            secretName: uaa-encryption-keys-secret

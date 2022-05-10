@@ -119,12 +119,6 @@ data:
     servlet:
       session-store: database
 
-    encryption:
-      active_key_label: CHANGE-THIS-KEY
-      encryption_keys:
-        - label: CHANGE-THIS-KEY
-          passphrase: CHANGEME
-
     LOGIN_SECRET: loginsecret
 
     NUREGO_API_URL: https://api.nurego.com
