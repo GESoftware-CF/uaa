@@ -33,7 +33,6 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Base64;
@@ -76,12 +75,16 @@ public class JwtBearerGrantAT {
     @Value("${UAA_PATH:}")
     String uaaPath;
 
+    @Value("${TOKEN_ISSUER_URL:}")
+    String tokenIssuerUrl;
+
     private OAuth2RestTemplate adminClientRestTemplate;
     private BaseClientDetails identityClient;
     private final RestTemplate tokenRestTemplate = new RestTemplate();
 
     String acceptanceZoneUrl;
-    String audience;
+    String assertionTokenAudience;
+    String acceptanceTokenIssuer;
 
     @Before
     public void beforeEachTest() throws Exception {
@@ -89,7 +92,7 @@ public class JwtBearerGrantAT {
                 keyProviderServiceUrl.trim().startsWith("http"));
 
         if (this.runAgainstLocalUaa) {
-            String path = StringUtils.isEmpty(this.uaaPath) ? "" : "/" + this.uaaPath;
+            String path = this.uaaPath.isEmpty() ? "" : "/" + this.uaaPath;
             this.acceptanceZoneUrl = "http://" + this.zoneSubdomain + "." + this.uaaRoute + path;
         }
         else {
@@ -98,7 +101,14 @@ public class JwtBearerGrantAT {
         this.adminClientRestTemplate = (OAuth2RestTemplate) IntegrationTestUtils.getClientCredentialsTemplate(
                 IntegrationTestUtils.getClientCredentialsResource(this.acceptanceZoneUrl, new String[0], "admin", "acceptance-test"));
         this.instantiateIdentityClient();
-        this.audience = this.acceptanceZoneUrl + "/oauth/token";
+        this.assertionTokenAudience = this.acceptanceZoneUrl + "/oauth/token";
+
+        if (this.tokenIssuerUrl.isEmpty()) {
+            this.acceptanceTokenIssuer = this.acceptanceZoneUrl + "/oauth/token";
+        } else {
+            this.acceptanceTokenIssuer = this.tokenIssuerUrl;
+        }
+
         createUaaClientForDevice(DEVICE_ID);
     }
 
@@ -147,7 +157,7 @@ public class JwtBearerGrantAT {
     private void doJwtBearerGrantRequest(final HttpHeaders headers, final String uaaUrl, final BaseClientDetails client, MockAssertionToken assertionToken) throws Exception {
         // create bearer token
         String token = assertionToken.mockAssertionToken(DEVICE_CLIENT_ID, DEVICE_ID,
-                System.currentTimeMillis(), 600, TENANT_ID, audience);
+                                                         System.currentTimeMillis(), 600, TENANT_ID, assertionTokenAudience);
         // call uaa/oauth/token
         LinkedMultiValueMap<String, String> formData = new LinkedMultiValueMap<String, String>();
         formData.add(OAuth2Utils.GRANT_TYPE, GRANT_TYPE_JWT_BEARER);
@@ -186,7 +196,7 @@ public class JwtBearerGrantAT {
         Assert.assertEquals(DEVICE_CLIENT_ID, claims.get(ClaimConstants.SUB));
         Assert.assertEquals(DEVICE_CLIENT_ID, claims.get(ClaimConstants.CLIENT_ID));
         Assert.assertEquals(GRANT_TYPE_JWT_BEARER, claims.get(ClaimConstants.GRANT_TYPE));
-        Assert.assertEquals(audience, claims.get(ClaimConstants.ISS));
+        Assert.assertEquals(this.acceptanceTokenIssuer, claims.get(ClaimConstants.ISS));
         long currentTimestamp = System.currentTimeMillis() / 1000;
         String expirationTimestamp = (claims.get(ClaimConstants.EXPIRY_IN_SECONDS)).toString();
         String issueTimestamp = (claims.get(ClaimConstants.IAT)).toString();
