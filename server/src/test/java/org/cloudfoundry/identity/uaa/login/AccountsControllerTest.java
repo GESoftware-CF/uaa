@@ -70,12 +70,12 @@ class AccountsControllerTest {
 
     private MockMvc mockMvc;
 
-    private boolean selfServiceToReset = false;
+    private Boolean selfServiceToReset = false;
 
     @BeforeEach
     void setUp() {
         SecurityContextHolder.clearContext();
-        selfServiceToReset = IdentityZoneHolder.get().getConfig().getLinks().getSelfService().isSelfServiceCreateAccountEnabled();
+        selfServiceToReset = IdentityZoneHolder.get().getConfig().getLinks().getSelfService().getSelfServiceCreateAccountEnabled();
         IdentityZoneHolder.get().getConfig().getLinks().getSelfService().setSelfServiceCreateAccountEnabled(true);
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
                 .build();

@@ -8,6 +8,9 @@ import org.cloudfoundry.identity.uaa.scim.exception.InvalidPasswordException;
 import org.cloudfoundry.identity.uaa.util.DomainFilter;
 import org.cloudfoundry.identity.uaa.zone.BrandingInformation;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
+import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
+import org.cloudfoundry.identity.uaa.zone.*;
+import static org.springframework.util.StringUtils.hasText;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -46,8 +49,34 @@ public class AccountsController {
                                   @RequestParam(value = "client_id", required = false) String clientId,
                                   @RequestParam(value = "redirect_uri", required = false) String redirectUri,
                                   HttpServletResponse response) {
-        boolean isSelfServiceCreateAccountEnabled = IdentityZoneHolder.get().getConfig().getLinks().getSelfService().isSelfServiceCreateAccountEnabled();
-        if (!isSelfServiceCreateAccountEnabled) {
+
+        boolean selfServiceLinksEnabled = (IdentityZoneHolder.get().getConfig() != null) ?
+                                          IdentityZoneHolder.get().getConfig().getLinks().getSelfService().isSelfServiceLinksEnabled() :
+                                          false;
+
+        Boolean selfServiceCreateAccountEnabled = (IdentityZoneHolder.get().getConfig() != null) ?
+                                                 IdentityZoneHolder.get().getConfig().getLinks().getSelfService()
+                                                                                  .getSelfServiceCreateAccountEnabled() : null;
+
+        final String defaultSignup = "";
+        Links.SelfService service = IdentityZoneHolder.get().getConfig() != null ? IdentityZoneHolder.get().getConfig().getLinks().getSelfService() : null;
+        String signup = UaaStringUtils.nonNull(
+            service != null ? service.getSignup() : null,
+            IdentityZoneHolder.get().getConfig().getLinks().getSelfService().getSignup(),
+            defaultSignup);
+
+        if (selfServiceCreateAccountEnabled == null){
+            if(selfServiceLinksEnabled){
+                if (!hasText(signup)){
+                    return handleSelfServiceDisabled(model, response, "error_message_code",
+                                                     "self_service_disabled");
+                }
+            }else{
+                return handleSelfServiceDisabled(model, response, "error_message_code",
+                                                 "self_service_disabled");
+            }
+        }
+        if (selfServiceCreateAccountEnabled != null && selfServiceCreateAccountEnabled == false) {
             return handleSelfServiceDisabled(model, response, "error_message_code",
                                              "self_service_create_account_disabled");
         }
@@ -71,8 +100,34 @@ public class AccountsController {
         if (zoneBranding != null && zoneBranding.getConsent() != null && !doesUserConsent) {
             return handleUnprocessableEntity(model, response, "error_message_code", "missing_consent");
         }
-        boolean isSelfServiceCreateAccountEnabled = IdentityZoneHolder.get().getConfig().getLinks().getSelfService().isSelfServiceCreateAccountEnabled();
-        if (!isSelfServiceCreateAccountEnabled) {
+
+        boolean selfServiceLinksEnabled = (IdentityZoneHolder.get().getConfig() != null) ?
+                                          IdentityZoneHolder.get().getConfig().getLinks().getSelfService().isSelfServiceLinksEnabled() :
+                                          false;
+
+        Boolean selfServiceCreateAccountEnabled = (IdentityZoneHolder.get().getConfig() != null) ?
+                                                 IdentityZoneHolder.get().getConfig().getLinks().getSelfService()
+                                                                   .getSelfServiceCreateAccountEnabled() : null;
+
+        final String defaultSignup = "";
+        Links.SelfService service = IdentityZoneHolder.get().getConfig() != null ? IdentityZoneHolder.get().getConfig().getLinks().getSelfService() : null;
+        String signup = UaaStringUtils.nonNull(
+            service != null ? service.getSignup() : null,
+            IdentityZoneHolder.get().getConfig().getLinks().getSelfService().getSignup(),
+            defaultSignup);
+
+        if (selfServiceCreateAccountEnabled == null){
+            if(selfServiceLinksEnabled){
+                if (!hasText(signup)){
+                    return handleSelfServiceDisabled(model, response, "error_message_code",
+                                                     "self_service_disabled");
+                }
+            }else{
+                return handleSelfServiceDisabled(model, response, "error_message_code",
+                                                 "self_service_disabled");
+            }
+        }
+        if (selfServiceCreateAccountEnabled != null && selfServiceCreateAccountEnabled == false) {
             return handleSelfServiceDisabled(model, response, "error_message_code",
                                              "self_service_create_account_disabled");
         }

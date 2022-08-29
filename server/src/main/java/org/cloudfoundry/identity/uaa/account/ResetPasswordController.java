@@ -64,8 +64,21 @@ public class ResetPasswordController {
                                      @RequestParam(required = false, value = "client_id") String clientId,
                                      @RequestParam(required = false, value = "redirect_uri") String redirectUri,
                                      HttpServletResponse response) {
-        boolean isSelfServiceResetPasswordEnabled = IdentityZoneHolder.get().getConfig().getLinks().getSelfService().isSelfServiceResetPasswordEnabled();
-        if (!isSelfServiceResetPasswordEnabled) {
+        boolean selfServiceLinksEnabled = (IdentityZoneHolder.get().getConfig() != null) ?
+                                          IdentityZoneHolder.get().getConfig().getLinks().getSelfService().isSelfServiceLinksEnabled() :
+                                          false;
+
+        Boolean selfServiceResetPasswordEnabled = (IdentityZoneHolder.get().getConfig() != null) ?
+                                                 IdentityZoneHolder.get().getConfig().getLinks().getSelfService()
+                                                     .getSelfServiceResetPasswordEnabled() : null;
+
+        if (selfServiceResetPasswordEnabled == null){
+            if(!selfServiceLinksEnabled){
+                return handleSelfServiceDisabled(model, response, "error_message_code",
+                                                     "self_service_disabled");
+            }
+        }
+        if (selfServiceResetPasswordEnabled != null && selfServiceResetPasswordEnabled == false) {
             return handleSelfServiceDisabled(model, response, "error_message_code",
                                              "self_service_reset_password_disabled");
         }
@@ -77,8 +90,21 @@ public class ResetPasswordController {
     @RequestMapping(value = "/forgot_password.do", method = RequestMethod.POST)
     public String forgotPassword(Model model, @RequestParam("username") String username, @RequestParam(value = "client_id", defaultValue = "") String clientId,
                                  @RequestParam(value = "redirect_uri", defaultValue = "") String redirectUri, HttpServletResponse response) {
-        boolean isSelfServiceResetPasswordEnabled = IdentityZoneHolder.get().getConfig().getLinks().getSelfService().isSelfServiceResetPasswordEnabled();
-        if (!isSelfServiceResetPasswordEnabled) {
+        boolean selfServiceLinksEnabled = (IdentityZoneHolder.get().getConfig() != null) ?
+                                          IdentityZoneHolder.get().getConfig().getLinks().getSelfService().isSelfServiceLinksEnabled() :
+                                          false;
+
+        Boolean selfServiceResetPasswordEnabled = (IdentityZoneHolder.get().getConfig() != null) ?
+                                                 IdentityZoneHolder.get().getConfig().getLinks().getSelfService()
+                                                                   .getSelfServiceResetPasswordEnabled() : null;
+
+        if (selfServiceResetPasswordEnabled == null){
+            if(!selfServiceLinksEnabled){
+                return handleSelfServiceDisabled(model, response, "error_message_code",
+                                                 "self_service_disabled");
+            }
+        }
+        if (selfServiceResetPasswordEnabled != null && selfServiceResetPasswordEnabled == false) {
             return handleSelfServiceDisabled(model, response, "error_message_code",
                                              "self_service_reset_password_disabled");
         }

@@ -203,7 +203,7 @@ public class IdentityZoneConfigurationBootstrapTests {
         bootstrap.afterPropertiesSet();
 
         IdentityZone zone = provisioning.retrieve(IdentityZone.getUaaZoneId());
-        assertFalse(zone.getConfig().getLinks().getSelfService().isSelfServiceCreateAccountEnabled());
+        assertFalse(zone.getConfig().getLinks().getSelfService().getSelfServiceCreateAccountEnabled());
     }
 
     @Test
@@ -212,7 +212,7 @@ public class IdentityZoneConfigurationBootstrapTests {
         bootstrap.afterPropertiesSet();
 
         IdentityZone zone = provisioning.retrieve(IdentityZone.getUaaZoneId());
-        assertFalse(zone.getConfig().getLinks().getSelfService().isSelfServiceResetPasswordEnabled());
+        assertFalse(zone.getConfig().getLinks().getSelfService().getSelfServiceResetPasswordEnabled());
     }
 
     @Test

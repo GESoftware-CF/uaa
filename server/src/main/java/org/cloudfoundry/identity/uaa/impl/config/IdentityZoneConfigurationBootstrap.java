@@ -41,8 +41,9 @@ public class IdentityZoneConfigurationBootstrap implements InitializingBean {
     private ClientSecretPolicy clientSecretPolicy;
     private TokenPolicy tokenPolicy;
     private IdentityZoneProvisioning provisioning;
-    private boolean selfServiceCreateAccountEnabled = true;
-    private boolean selfServiceResetPasswordEnabled = true;
+    private boolean selfServiceLinksEnabled = true;
+    private Boolean selfServiceCreateAccountEnabled = null;
+    private Boolean selfServiceResetPasswordEnabled = null;
     private String homeRedirect = null;
     private Map<String,Object> selfServiceLinks;
     private boolean mfaEnabled;
@@ -85,6 +86,7 @@ public class IdentityZoneConfigurationBootstrap implements InitializingBean {
         IdentityZone identityZone = provisioning.retrieve(IdentityZone.getUaaZoneId());
         IdentityZoneConfiguration definition = new IdentityZoneConfiguration(tokenPolicy);
         definition.setClientSecretPolicy(clientSecretPolicy);
+        definition.getLinks().getSelfService().setSelfServiceLinksEnabled(selfServiceLinksEnabled);
         definition.getLinks().getSelfService().setSelfServiceCreateAccountEnabled(selfServiceCreateAccountEnabled);
         definition.getLinks().getSelfService().setSelfServiceResetPasswordEnabled(selfServiceResetPasswordEnabled);
         definition.getLinks().setHomeRedirect(homeRedirect);
@@ -178,11 +180,15 @@ public class IdentityZoneConfigurationBootstrap implements InitializingBean {
         this.tokenPolicy = tokenPolicy;
     }
 
-    public void setSelfServiceCreateAccountEnabled(boolean selfServiceCreateAccountEnabled) {
+    public void setSelfServiceLinksEnabled(boolean selfServiceLinksEnabled) {
+        this.selfServiceLinksEnabled = selfServiceLinksEnabled;
+    }
+
+    public void setSelfServiceCreateAccountEnabled(Boolean selfServiceCreateAccountEnabled) {
         this.selfServiceCreateAccountEnabled = selfServiceCreateAccountEnabled;
     }
 
-    public void setSelfServiceResetPasswordEnabled(boolean selfServiceResetPasswordEnabled) {
+    public void setSelfServiceResetPasswordEnabled(Boolean selfServiceResetPasswordEnabled) {
         this.selfServiceResetPasswordEnabled = selfServiceResetPasswordEnabled;
     }
 
