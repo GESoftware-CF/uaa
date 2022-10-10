@@ -158,6 +158,12 @@ integrationTest {
     }
 }
 
+task acceptanceTest(type: Test) {
+  // Don't let tests be 'UP-TO-DATE' and not run
+  outputs.upToDateWhen { false }
+  include "org/cloudfoundry/identity/uaa/acceptance/*.class"
+}
+
 
 task degradedJwtTestCloud(type: Test) {
     systemProperty "RUN_AGAINST_CLOUD", true

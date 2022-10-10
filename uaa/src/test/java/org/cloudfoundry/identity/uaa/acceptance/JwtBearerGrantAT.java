@@ -54,26 +54,11 @@ public class JwtBearerGrantAT {
 
     protected final static Logger logger = LoggerFactory.getLogger(JwtBearerGrantAT.class);
 
-    @Value("${PUBLISHED_HOST:predix-uaa-integration}")
-    String publishedHost;
-
-    @Value("${CF_DOMAIN:run.aws-usw02-dev.ice.predix.io}")
-    String cfDomain;
-
-    @Value("${ACCEPTANCE_SUBDOMAIN:uaa-acceptance-zone}")
-    String zoneSubdomain;
-
-    @Value("${RUN_AGAINST_LOCAL_UAA:false}")
-    boolean runAgainstLocalUaa;
+    @Value("${ACCEPTANCE_ZONE_URL:}")
+    String acceptanceZoneUrl;
 
     @Value("${KEY_PROVIDER_SERVICE_URL:not-used}")
     String keyProviderServiceUrl;
-
-    @Value("${UAA_ROUTE:}")
-    String uaaRoute;
-
-    @Value("${UAA_PATH:}")
-    String uaaPath;
 
     @Value("${TOKEN_ISSUER_URL:}")
     String tokenIssuerUrl;
@@ -81,8 +66,6 @@ public class JwtBearerGrantAT {
     private OAuth2RestTemplate adminClientRestTemplate;
     private BaseClientDetails identityClient;
     private final RestTemplate tokenRestTemplate = new RestTemplate();
-
-    String acceptanceZoneUrl;
     String assertionTokenAudience;
     String acceptanceTokenIssuer;
 
@@ -90,14 +73,9 @@ public class JwtBearerGrantAT {
     public void beforeEachTest() throws Exception {
         Assume.assumeTrue(keyProviderServiceUrl != null &&
                 keyProviderServiceUrl.trim().startsWith("http"));
+        Assume.assumeTrue(acceptanceZoneUrl != null &&
+                acceptanceZoneUrl.trim().startsWith("http"));
 
-        if (this.runAgainstLocalUaa) {
-            String path = this.uaaPath.isEmpty() ? "" : "/" + this.uaaPath;
-            this.acceptanceZoneUrl = "http://" + this.zoneSubdomain + "." + this.uaaRoute + path;
-        }
-        else {
-            this.acceptanceZoneUrl = "https://" + this.zoneSubdomain + "."  + this.publishedHost + "." + this.cfDomain;
-        }
         this.adminClientRestTemplate = (OAuth2RestTemplate) IntegrationTestUtils.getClientCredentialsTemplate(
                 IntegrationTestUtils.getClientCredentialsResource(this.acceptanceZoneUrl, new String[0], "admin", "acceptance-test"));
         this.instantiateIdentityClient();
