@@ -136,9 +136,11 @@ class UaaTokenServicesTests {
 
             @BeforeEach
             void addLoggerAppender() {
-                appender = new AbstractAppender("", null, null) {
+                appender = new AbstractAppender("Appender for UaaTokenServicesTests", null, null) {
                     @Override
                     public void append(LogEvent event) {
+                        System.out.println(
+                                "Appending '" + event.getMessage().getFormattedMessage() + "' to " + this.getName());
                         logEvents.add(event.getMessage().getFormattedMessage());
                     }
                 };
@@ -146,6 +148,11 @@ class UaaTokenServicesTests {
 
                 LoggerContext context = (LoggerContext) LogManager.getContext(false);
                 context.getRootLogger().addAppender(appender);
+
+                System.out.println("****************************");
+                System.out.println("Appenders: " + context.getRootLogger().getAppenders().size());
+                context.getRootLogger().getAppenders().forEach((k, v) -> System.out.println((k + ":" + v)));
+                System.out.println("****************************");
             }
 
             @AfterEach
