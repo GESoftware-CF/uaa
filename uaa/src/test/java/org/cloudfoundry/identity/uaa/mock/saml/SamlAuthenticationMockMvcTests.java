@@ -416,6 +416,12 @@ class SamlAuthenticationMockMvcTests {
             Configurator.setRootLevel(DEBUG);
             context.getRootLogger().addAppender(appender);
 
+            System.out.println("****************************");
+            System.out.println("Log Config: " + context.getConfigLocation());
+            System.out.println("Appenders: " + context.getRootLogger().getAppenders().size());
+            context.getRootLogger().getAppenders().forEach((k, v) -> System.out.println((k + ":" + v)));
+            System.out.println("****************************");
+
             createIdp();
         }
 
