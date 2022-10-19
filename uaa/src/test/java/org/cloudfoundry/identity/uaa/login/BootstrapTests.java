@@ -14,6 +14,7 @@ import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneProvisioning;
 import org.cloudfoundry.identity.uaa.zone.SamlConfig;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
@@ -81,6 +82,7 @@ class SystemPropertiesCleanupExtension implements BeforeAllCallback, AfterAllCal
     }
 }
 
+@Disabled
 @ExtendWith(PollutionPreventionExtension.class)
 @ExtendWith(SpringProfileCleanupExtension.class)
 class BootstrapTests {
