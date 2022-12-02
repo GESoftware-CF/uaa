@@ -16,9 +16,18 @@ dependencies {
     }
     implementation(project(":cloudfoundry-identity-server"))
     implementation(project(":cloudfoundry-identity-model"))
+    implementation(project(":cloudfoundry-identity-metrics-data"))
     implementation(libraries.hibernateValidator)
     implementation(libraries.slf4jImpl)
     implementation(libraries.log4jCore)
+    implementation(libraries.bouncyCastleProv)
+    implementation(libraries.bouncyCastlePkix)
+    implementation(libraries.springSecurityOauth) {
+        exclude(module: "commons-codec")
+        exclude(module: "jackson-mapper-asl")
+        exclude(module: "spring-security-web")
+    }
+    implementation 'org.apache.commons:commons-lang3:3.0'
     testImplementation(libraries.springBootStarterTest)
 }
 

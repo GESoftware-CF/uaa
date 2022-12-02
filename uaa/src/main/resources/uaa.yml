@@ -502,6 +502,12 @@ login:
 uaa:
   # The hostname of the UAA that this login server will connect to
   url: http://localhost:8080/uaa
+  clientId: admin
+  zoneAuthorities: clients.admin,clients.read,clients.write,clients.secret,idps.read,idps.write,sps.read,sps.write,scim.read,scim.write,uaa.resource
+  grantTypes: client_credentials
+  resourceIds: none
+  scopes: uaa.none
+  uaaClientId: admin
   token:
     url: http://localhost:8080/uaa/oauth/token
   approvals:

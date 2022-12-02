@@ -3,11 +3,14 @@ package org.cloudfoundry.identity.uaa.zone;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
+import static org.springframework.http.HttpStatus.FORBIDDEN;
 
 import javax.validation.ConstraintViolationException;
 import javax.validation.constraints.NotBlank;
+import javax.validation.Valid;
 
-import org.cloudfoundry.identity.uaa.zone.model.ZoneResponse;
+import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneResponse;
+import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -18,27 +21,37 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.AccessDeniedException;
 
 @Validated
 @RestController("zoneEndpoints")
-@RequestMapping("/zones")
-public class ZoneController {
+@RequestMapping("/orchestrator/zones")
+public class OrchestratorZoneController {
 
-    private static final Logger logger = LoggerFactory.getLogger(ZoneController.class);
-    private final ZoneService zoneService;
+    private static final Logger logger = LoggerFactory.getLogger(OrchestratorZoneController.class);
+    private final OrchestratorZoneService orchestratorZoneService;
 
     public static final String MANDATORY_VALIDATION_MESSAGE = "must not be empty";
 
-    public ZoneController(ZoneService zoneService) {
-        this.zoneService = zoneService;
+    public OrchestratorZoneController(OrchestratorZoneService orchestratorZoneService) {
+        this.orchestratorZoneService = orchestratorZoneService;
     }
 
     @GetMapping
-    public ResponseEntity<ZoneResponse> getZone(@NotBlank(message = MANDATORY_VALIDATION_MESSAGE) @RequestParam String name) {
-        return new ResponseEntity<>(zoneService.getZoneDetails(name), HttpStatus.ACCEPTED);
+    public ResponseEntity<OrchestratorZoneResponse> getOrchestratorZone(@NotBlank(message = MANDATORY_VALIDATION_MESSAGE) @RequestParam String name) {
+        return new ResponseEntity<>(orchestratorZoneService.getOrchestratorZoneDetails(name), HttpStatus.ACCEPTED);
+    }
+
+    @PostMapping
+    public ResponseEntity<?> createOrchestratorZone(@RequestBody @Valid OrchestratorZoneRequest orchestratorZoneRequest )
+        throws OrchestratorZoneServiceException {
+        orchestratorZoneService.createOrchestratorZone(orchestratorZoneRequest);
+        return new ResponseEntity<>("", HttpStatus.ACCEPTED);
     }
 
     @ExceptionHandler(ZoneDoesNotExistsException.class)
@@ -66,10 +79,19 @@ public class ZoneController {
         return new ResponseEntity<>("{\"message\", \""+ e.getMessage() +"\" }", BAD_REQUEST);
     }
 
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<String> handleAccessDeniedException(AccessDeniedException e) {
+        return new ResponseEntity<>("{\"message\", \""+ e.getMessage() +"\" }", FORBIDDEN);
+    }
+
+    @ExceptionHandler(ZoneAlreadyExistsException.class)
+    public ResponseEntity<String> handleZoneAlreadyExistsException(ZoneAlreadyExistsException e) {
+        return new ResponseEntity<>("{\"message\", \""+ e.getMessage() +"\" }", BAD_REQUEST);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<String> handleException(Exception e) {
         logger.error(e.getClass() + ": " + e.getMessage(), e);
-        return new ResponseEntity<>("{\"message\",\"Server Error.\" }", INTERNAL_SERVER_ERROR);
+        return new ResponseEntity<>("{\"message\", \""+ e.getMessage() +"\" }", INTERNAL_SERVER_ERROR);
     }
-
 }

@@ -1,6 +1,6 @@
 package org.cloudfoundry.identity.uaa.mock.zones;
 
-import static org.cloudfoundry.identity.uaa.zone.ZoneService.X_IDENTITY_ZONE_ID;
+import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.X_IDENTITY_ZONE_ID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -21,7 +21,7 @@ import org.cloudfoundry.identity.uaa.test.TestClient;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
-import org.cloudfoundry.identity.uaa.zone.model.ZoneResponse;
+import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -139,15 +139,15 @@ public class ZoneControllerMockMvcTests {
     }
 
     @Test
-    void testGetZone() throws Exception {
+    void testGetOrchestratorZone() throws Exception {
         //TODO: remove this createIdentityZone method once the create orchestrator zone API is implemented and use it to create zone.
         IdentityZone identityZone = createIdentityZone();
         MvcResult result = mockMvc.perform(
-                                      get("/zones").param("name", "test-name")
+                                      get("/orchestrator/zones").param("name", "test-name")
                                                    .header("Authorization", "Bearer " + identityClientZonesReadToken))
                                   .andExpect(status().isAccepted()).andReturn();
-        ZoneResponse zoneResponse =
-            JsonUtils.readValue(result.getResponse().getContentAsString(), ZoneResponse.class);
+        OrchestratorZoneResponse zoneResponse =
+            JsonUtils.readValue(result.getResponse().getContentAsString(), OrchestratorZoneResponse.class);
         assertNotNull(zoneResponse);
         assertNotNull(identityZone);
         assertNotNull(zoneResponse.getParameters());
@@ -162,9 +162,9 @@ public class ZoneControllerMockMvcTests {
     }
 
     @Test
-    void testGetZone_Notfound() throws Exception {
+    void testGetOrchestratorZone_Notfound() throws Exception {
         MvcResult result = mockMvc.perform(
-                   get("/zones").param("name", "random-name")
+                   get("/orchestrator/zones").param("name", "random-name")
                                 .header("Authorization", "Bearer " + identityClientZonesReadToken))
                .andExpect(status().isNotFound()).andReturn();
         assertEquals(
@@ -213,9 +213,9 @@ public class ZoneControllerMockMvcTests {
         @Override
         public Stream<? extends Arguments> provideArguments(ExtensionContext context) {
             return Stream.of(
-                Arguments.of("/zones"),
-                Arguments.of("/zones/"),
-                Arguments.of("/zones/test")
+                Arguments.of("/orchestrator/zones"),
+                Arguments.of("/orchestrator/zones/"),
+                Arguments.of("/orchestrator/zones/test")
                             );
         }
     }
@@ -225,8 +225,8 @@ public class ZoneControllerMockMvcTests {
         @Override
         public Stream<? extends Arguments> provideArguments(ExtensionContext context) {
             return Stream.of(
-                Arguments.of("/zones?name="),
-                Arguments.of("/zones?name= ")
+                Arguments.of("/orchestrator/zones?name="),
+                Arguments.of("/orchestrator/zones?name= ")
                             );
         }
     }
@@ -236,8 +236,8 @@ public class ZoneControllerMockMvcTests {
         @Override
         public Stream<? extends Arguments> provideArguments(ExtensionContext context) {
             return Stream.of(
-                Arguments.of("/zones?name"),
-                Arguments.of("/zones")
+                Arguments.of("/orchestrator/zones?name"),
+                Arguments.of("/orchestrator/zones")
                             );
         }
     }
