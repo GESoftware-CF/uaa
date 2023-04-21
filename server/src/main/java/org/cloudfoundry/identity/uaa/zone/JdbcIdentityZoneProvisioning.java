@@ -76,7 +76,7 @@ public class JdbcIdentityZoneProvisioning implements IdentityZoneProvisioning, S
         try {
             return jdbcTemplate.queryForObject(ORCHESTRATOR_ZONE_BY_NAME_QUERY, orchestratorZoneMapper, name, true);
         } catch (EmptyResultDataAccessException x) {
-            throw new ZoneDoesNotExistsException("Zone[" + name + "] not found.", x);
+            throw new ZoneDoesNotExistsException(name, "Zone[" + name + "] not found.", x);
         }
     }
 
@@ -151,7 +151,7 @@ public class JdbcIdentityZoneProvisioning implements IdentityZoneProvisioning, S
                 ps.setString(2, orchestratorZoneName);
             });
         } catch (DuplicateKeyException e) {
-            throw new ZoneAlreadyExistsException(
+            throw new ZoneAlreadyExistsException(orchestratorZoneName,
                 "The zone name " + orchestratorZoneName + " is already taken. Please use a different zone name", e);
         }
 

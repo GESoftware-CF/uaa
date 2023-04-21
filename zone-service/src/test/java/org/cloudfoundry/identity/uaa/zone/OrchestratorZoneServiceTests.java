@@ -1,8 +1,11 @@
 package org.cloudfoundry.identity.uaa.zone;
 
 import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.X_IDENTITY_ZONE_ID;
+import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.ZONE_CREATED_MESSAGE;
+import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.ZONE_DELETED_MESSAGE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -122,26 +125,30 @@ public class OrchestratorZoneServiceTests {
     public void testGetZoneDetails() {
         OrchestratorZoneEntity orchestratorZone = buildOrchestratorZone();
         when(zoneProvisioning.retrieveByName(any())).thenReturn(orchestratorZone);
-        OrchestratorZoneResponse zone = zoneService.getZoneDetails(ZONE_NAME);
-        assertNotNull(zone);
-        assertEquals(zone.getName(), ZONE_NAME);
+        OrchestratorZoneResponse response = zoneService.getZoneDetails(ZONE_NAME);
+        assertNotNull(response);
+        assertEquals(response.getName(), ZONE_NAME);
         String uri = "http://" + orchestratorZone.getSubdomain() + ".localhost";
-        assertEquals(zone.getParameters().getSubdomain(), orchestratorZone.getSubdomain());
-        assertEquals(zone.getConnectionDetails().getSubdomain(), orchestratorZone.getSubdomain());
-        assertEquals((zone.getConnectionDetails().getUri()), uri);
-        assertEquals(zone.getConnectionDetails().getDashboardUri(), "http://localhost/dashboard");
-        assertEquals(zone.getConnectionDetails().getIssuerId(), uri + "/oauth/token");
-        assertEquals(zone.getConnectionDetails().getZone().getHttpHeaderName(), X_IDENTITY_ZONE_ID);
-        assertEquals(zone.getConnectionDetails().getZone().getHttpHeaderValue(), orchestratorZone.getIdentityZoneId());
+        assertEquals(response.getConnectionDetails().getSubdomain(), orchestratorZone.getSubdomain());
+        assertEquals((response.getConnectionDetails().getUri()), uri);
+        assertEquals(response.getConnectionDetails().getDashboardUri(), "http://localhost/dashboard");
+        assertEquals(response.getConnectionDetails().getIssuerId(), uri + "/oauth/token");
+        assertEquals(response.getConnectionDetails().getZone().getHttpHeaderName(), X_IDENTITY_ZONE_ID);
+        assertEquals(response.getConnectionDetails().getZone().getHttpHeaderValue(), orchestratorZone.getIdentityZoneId());
+        assertTrue(response.getMessage().isEmpty());
+        assertEquals(OrchestratorState.FOUND.toString(), response.getState());
+        assertNull(response.getParameters());
     }
 
     @Test
     public void testGetZoneDetails_NotFound() {
-        when(zoneProvisioning.retrieveByName(any())).thenThrow(new ZoneDoesNotExistsException("Zone not available."));
+        when(zoneProvisioning.retrieveByName(any())).thenThrow(
+                new ZoneDoesNotExistsException("random-string", "Zone not available.", new Throwable()));
         ZoneDoesNotExistsException exception =
             Assertions.assertThrows(ZoneDoesNotExistsException.class, () -> zoneService.getZoneDetails("random-string"),
                                     "Not found exception not thrown");
         assertTrue(exception.getMessage().contains("Zone not available."));
+        assertEquals("random-string", exception.getZoneName());
     }
 
     @Test
@@ -150,9 +157,17 @@ public class OrchestratorZoneServiceTests {
         OrchestratorZoneEntity orchestratorZone = buildOrchestratorZone();
         when(zoneProvisioning.retrieveByName(any())).thenReturn(orchestratorZone);
         when(zoneProvisioning.retrieve(any())).thenReturn(createIdentityZone(orchestratorZone.getIdentityZoneId()));
-        zoneService.deleteZone(orchestratorZone.getOrchestratorZoneName());
+
+        OrchestratorZoneResponse response = zoneService.deleteZone(orchestratorZone.getOrchestratorZoneName());
+
         verify(zoneProvisioning, times(1)).retrieveByName(any());
         verify(applicationEventPublisher, times(1)).publishEvent(any());
+
+        assertNotNull(response);
+        assertEquals(orchestratorZone.getOrchestratorZoneName(), response.getName());
+        assertEquals(OrchestratorState.DELETE_IN_PROGRESS.toString(), response.getState());
+        assertEquals(ZONE_DELETED_MESSAGE, response.getMessage());
+        assertNull(response.getParameters());
     }
 
     @Test
@@ -191,9 +206,14 @@ public class OrchestratorZoneServiceTests {
         IdentityProvider identityProvider = createDefaultIdp(identityZone);
         when(zoneProvisioning.create(any())).thenReturn(identityZone);
         when(idpProvisioning.create(any(),any())).thenReturn(identityProvider);
-        when(clientDetailsService.create(any(),any())).thenThrow(new OrchestratorZoneServiceException("Client Already exists"));
-        Assertions.assertThrows(OrchestratorZoneServiceException.class, () -> zoneService.createZone(zoneRequest),
-                                "Client Already exists exception not thrown");
+        when(clientDetailsService.create(any(),any())).thenThrow(
+                new OrchestratorZoneServiceException(ZONE_NAME, "Client Already exists"));
+
+        OrchestratorZoneServiceException exception =
+                Assertions.assertThrows(OrchestratorZoneServiceException.class, () -> zoneService.createZone(zoneRequest),
+                "Client Already exists exception not thrown");
+
+        assertEquals(ZONE_NAME, exception.getZoneName());
         verify(idpProvisioning, times(1)).create(any(),any());
         verify(clientDetailsService, times(1)).create(any(),any());
         verify(clientDetailsValidator, times(1)).validate(any(),anyBoolean(),anyBoolean());
@@ -210,8 +230,11 @@ public class OrchestratorZoneServiceTests {
         when(idpProvisioning.create(any(),any())).thenThrow(new IdpAlreadyExistsException("IDP Already exists"));
         when(clientDetailsService.create(any(),any())).thenReturn(any());
 
-        Assertions.assertThrows(OrchestratorZoneServiceException.class, () -> zoneService.createZone(zoneRequest),
-                                "IDP Already exists exception not thrown");
+        OrchestratorZoneServiceException exception =
+                Assertions.assertThrows(OrchestratorZoneServiceException.class, () -> zoneService.createZone(zoneRequest),
+                "IDP Already exists exception not thrown");
+
+        assertEquals(ZONE_NAME, exception.getZoneName());
     }
 
     @Test
@@ -225,8 +248,11 @@ public class OrchestratorZoneServiceTests {
         when(idpProvisioning.create(any(),any())).thenReturn(identityProvider);
         when(clientDetailsService.create(any(),any())).thenReturn(any());
 
-        Assertions.assertThrows(ZoneAlreadyExistsException.class, () -> zoneService.createZone(zoneRequest),
-                                "Identity Zone Already exists exception not thrown");
+        ZoneAlreadyExistsException exception =
+                Assertions.assertThrows(ZoneAlreadyExistsException.class, () -> zoneService.createZone(zoneRequest),
+                "Identity Zone Already exists exception not thrown");
+
+        assertEquals(ZONE_NAME, exception.getZoneName());
     }
 
     @Test
@@ -239,11 +265,19 @@ public class OrchestratorZoneServiceTests {
         when(zoneProvisioning.create(any())).thenReturn(identityZone);
         when(idpProvisioning.create(any(),any())).thenReturn(identityProvider);
         when(clientDetailsService.retrieve(any(),any())).thenReturn(any());
-        zoneService.createZone(zoneRequest);
+
+        OrchestratorZoneResponse response = zoneService.createZone(zoneRequest);
+
         verify(zoneProvisioning, times(1)).create(any());
         verify(idpProvisioning, times(1)).create(any(),any());
         verify(clientDetailsService, times(1)).create(any(),any());
         verify(clientDetailsValidator, times(1)).validate(any(),anyBoolean(),anyBoolean());
+
+        assertNotNull(response);
+        assertEquals(ZONE_NAME, response.getName());
+        assertEquals(OrchestratorState.CREATE_IN_PROGRESS.toString(), response.getState());
+        assertEquals(ZONE_CREATED_MESSAGE, response.getMessage());
+        assertNull(response.getParameters());
     }
 
     @Test
@@ -282,10 +316,13 @@ public class OrchestratorZoneServiceTests {
         String errorMessage = String.format("The subdomain name %s is already taken. Please use a different subdomain",
                                             zoneRequest.getParameters().getSubdomain());
         when(zoneProvisioning.create(any())).thenThrow(new ZoneAlreadyExistsException(errorMessage));
+
         ZoneAlreadyExistsException exception =
             assertThrows(ZoneAlreadyExistsException.class, () ->
                              zoneService.createZone(zoneRequest),
                          errorMessage);
+
+        assertEquals(ZONE_NAME, exception.getZoneName());
         assertTrue(exception.getMessage().contains(errorMessage));
         verify(zoneProvisioning, times(1)).create(any());
     }
