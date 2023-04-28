@@ -1,4 +1,5 @@
 import org.apache.tools.ant.filters.ReplaceTokens
+import org.apache.tools.ant.filters.ReplaceTokens
 
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -38,8 +39,8 @@ def applicationPort = project.hasProperty('port') ? project.getProperty('port').
 
 apply(plugin: "com.bmuschko.cargo")
 
-def geArtifactoryReader = System.getenv('ARTIFACTORY_READER')
-def geArtifactoryReaderPassword  = System.getenv('ARTIFACTORY_READER_PW')
+def geArtifactoryReader = '502767861'
+def geArtifactoryReaderPassword = 'x3nd4LpWuKTMgZY'
 def proxyHost  = System.getenv('PROXY_HOST')
 def proxyPort  = System.getenv('PROXY_PORT')
 def nonProxyHosts = 'localhost|*.localhost'
