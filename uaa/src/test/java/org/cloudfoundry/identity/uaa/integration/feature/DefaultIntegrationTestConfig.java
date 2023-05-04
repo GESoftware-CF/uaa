@@ -60,7 +60,7 @@ public class DefaultIntegrationTestConfig {
     public ChromeDriver webDriver() {
         System.setProperty("webdriver.chrome.logfile", "/tmp/chromedriver.log");
         System.setProperty("webdriver.chrome.verboseLogging", "true");
-
+        System.setProperty("webdriver.chrome.driver", "/Users/a223033813/Downloads/seleniumfedaratedlogin/driver/chromedriver");
         ChromeOptions options = new ChromeOptions();
         options.addArguments(
           "--verbose",

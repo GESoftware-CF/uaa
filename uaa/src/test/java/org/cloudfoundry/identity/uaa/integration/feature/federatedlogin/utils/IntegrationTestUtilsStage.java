@@ -3,6 +3,7 @@ package org.cloudfoundry.identity.uaa.integration.feature.federatedlogin.utils;
 import com.dumbster.smtp.SimpleSmtpServer;
 import com.dumbster.smtp.SmtpMessage;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.io.FileUtils;
 import org.apache.http.client.CookieStore;
 import org.apache.http.client.HttpClient;
@@ -21,6 +22,7 @@ import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.OIDCIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.provider.SamlIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.resources.SearchResults;
+import org.cloudfoundry.identity.uaa.saml.SamlKey;
 import org.cloudfoundry.identity.uaa.scim.ScimGroup;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupExternalMember;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupMember;
@@ -31,12 +33,19 @@ import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter;
+import org.cloudfoundry.identity.uaa.zone.SamlConfig;
+import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZone;
+import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneRequest;
+import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneResponse;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Description;
 import org.hamcrest.Matchers;
 import org.hamcrest.TypeSafeMatcher;
 import org.junit.Assert;
+import org.junit.Rule;
 import org.openqa.selenium.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.http.client.ClientHttpResponse;
@@ -59,11 +68,14 @@ import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestOperations;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -75,8 +87,10 @@ import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYP
 import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.USER_NAME_ATTRIBUTE_NAME;
 import static org.cloudfoundry.identity.uaa.util.UaaHttpRequestUtils.createRequestFactory;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.core.StringStartsWith.startsWith;
 import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.springframework.http.HttpHeaders.ACCEPT;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
@@ -84,7 +98,17 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.security.oauth2.common.util.OAuth2Utils.USER_OAUTH_APPROVAL;
 import static org.springframework.util.StringUtils.hasText;
 
-public class IntegrationTestUtilsStage {
+public class IntegrationTestUtilsStage  {
+    @Rule
+    public ServerRunning serverRunning = ServerRunning.isRunning();
+
+    public static final String ADMIN_CLIENT_SECRET = "admin-secret-01";
+
+    private static final String NATIVE_ZONES_APIS_ENDPOINT = "/identity-zones";
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(IntegrationTestUtilsStage.class);
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private static final Pattern CSRF_FORM_ELEMENT = Pattern.compile(
             "\\<input type=\\\"hidden\\\" name=\\\"" + CSRF_PARAMETER_NAME + "\\\" value=\\\"(.*?)\\\""
@@ -212,6 +236,8 @@ public class IntegrationTestUtilsStage {
         throw new RuntimeException("Invalid return code:" + providerResponse.getStatusCode());
 
     }
+
+
 
     public static class RegexMatcher extends TypeSafeMatcher<String> {
 
@@ -695,6 +721,8 @@ public class IntegrationTestUtilsStage {
             return JsonUtils.readValue(getUpdatedZone.getBody(), IdentityZone.class);
         }
 
+
+
         IdentityZone identityZone = new IdentityZone();
         identityZone.setId(id);
         identityZone.setSubdomain(subdomain);
@@ -704,6 +732,208 @@ public class IntegrationTestUtilsStage {
         identityZone.setActive(active);
         ResponseEntity<IdentityZone> zone = client.postForEntity(url + "/orchestrator/zones", identityZone, IdentityZone.class);
         return zone.getBody();
+    }
+
+    private static IdentityZone createZoneOrUpdateSubdomain2(RestTemplate client,
+                                                             String url,
+                                                             String id,
+                                                             String subdomain,
+                                                             IdentityZoneConfiguration config,
+                                                             boolean active) throws Throwable {
+
+        // ResponseEntity<String> zoneGet = client.getForEntity(url + "/orchestrator/zones?name=The Twiglet Zone[\"" + id + "\"]", String.class, id);
+
+        //if (zoneGet.getStatusCode() == HttpStatus.OK) {
+//IdentityZone existing = JsonUtils.readValue(zoneGet.getBody(), IdentityZone.class);
+//assertNotNull(existing);
+//existing.setSubdomain(subdomain);
+//existing.setConfig(config);
+//existing.setActive(active);
+//HttpEntity<IdentityZone> updateZoneRequest = new HttpEntity<>(existing);
+//ResponseEntity<String> getUpdatedZone = client.exchange(url + "/orchestrator/zones/{id}", HttpMethod.PUT, updateZoneRequest, String.class, id);
+        //  return JsonUtils.readValue(zoneGet.getBody(), OrchestratorZoneResponse.class);
+        //  }
+
+
+
+        OrchestratorZoneRequest orchestratorZoneRequest = new OrchestratorZoneRequest();
+        // orchestratorZoneRequest.setName("The Twiglet Zone[" + id + "]");
+        orchestratorZoneRequest.setName(id);
+        orchestratorZoneRequest.setParameters(new OrchestratorZone("adminsecret", subdomain));
+
+
+//        IdentityZone identityZone = new IdentityZone();
+//        identityZone.setId(id);
+//        identityZone.setSubdomain(subdomain);
+//        identityZone.setName("The Twiglet Zone[" + id + "]");
+//        identityZone.setDescription("Like the Twilight Zone but tastier[" + id + "].");
+//        identityZone.setConfig(config);
+//        identityZone.setActive(active);
+        ResponseEntity<OrchestratorZoneResponse> zone = client.postForEntity(url + "/orchestrator/zones", orchestratorZoneRequest, OrchestratorZoneResponse.class);
+        //ResponseEntity<String> zoneGet1 = client.getForEntity(url + "/orchestrator/zones?name=The Twiglet Zone[\"" + id + "\"]", String.class, id);
+
+        //ResponseEntity<String> zoneGet1 = client.getForEntity(url + "/orchestrator/zones?name=testzone1", String.class, id);
+        ResponseEntity<OrchestratorZoneResponse> zone1= client.getForEntity(url + "/orchestrator/zones?name=testzone1", OrchestratorZoneResponse.class, id);
+        OrchestratorZoneResponse getZoneResponse = zone1.getBody();
+
+        final String zoneId = getZoneResponse.getConnectionDetails().getZone().getHttpHeaderValue();
+
+
+        ResponseEntity<IdentityZone> zoneGet = client.getForEntity(url + "/identity-zones/"+zoneId, IdentityZone.class, id);
+
+        //String get1 = zoneGet1.getBody();
+//        final String zoneId = getZoneResponse.getConnectionDetails().getZone().getHttpHeaderValue();
+//
+//        OAuth2RestTemplate adminClient = (OAuth2RestTemplate) IntegrationTestUtils.getClientCredentialsTemplate(
+//                IntegrationTestUtils.getClientCredentialsResource(serverRunning.getBaseUrl(), new String[0], "admin", "adminsecret"));
+//
+//        validateZoneConfig(subdomain, zoneId, adminClient);
+
+        //IntegrationTestUtilsStage v1 = new IntegrationTestUtilsStage();
+       // v1.zonesd(zone1,subdomain);
+        return zoneGet.getBody();
+    }
+
+    private static  OrchestratorZoneResponse createZoneOrUpdateSubdomain1(RestTemplate client,
+                                                                         String url,
+                                                                         String id,
+                                                                         String subdomain,
+                                                                         IdentityZoneConfiguration config,
+                                                                         boolean active) throws Throwable {
+
+       // ResponseEntity<String> zoneGet = client.getForEntity(url + "/orchestrator/zones?name=The Twiglet Zone[\"" + id + "\"]", String.class, id);
+
+        //if (zoneGet.getStatusCode() == HttpStatus.OK) {
+//IdentityZone existing = JsonUtils.readValue(zoneGet.getBody(), IdentityZone.class);
+//assertNotNull(existing);
+//existing.setSubdomain(subdomain);
+//existing.setConfig(config);
+//existing.setActive(active);
+//HttpEntity<IdentityZone> updateZoneRequest = new HttpEntity<>(existing);
+//ResponseEntity<String> getUpdatedZone = client.exchange(url + "/orchestrator/zones/{id}", HttpMethod.PUT, updateZoneRequest, String.class, id);
+          //  return JsonUtils.readValue(zoneGet.getBody(), OrchestratorZoneResponse.class);
+      //  }
+
+
+
+        OrchestratorZoneRequest orchestratorZoneRequest = new OrchestratorZoneRequest();
+       // orchestratorZoneRequest.setName("The Twiglet Zone[" + id + "]");
+        orchestratorZoneRequest.setName("testzone1");
+        orchestratorZoneRequest.setParameters(new OrchestratorZone("adminsecret", subdomain));
+
+
+//        IdentityZone identityZone = new IdentityZone();
+//        identityZone.setId(id);
+//        identityZone.setSubdomain(subdomain);
+//        identityZone.setName("The Twiglet Zone[" + id + "]");
+//        identityZone.setDescription("Like the Twilight Zone but tastier[" + id + "].");
+//        identityZone.setConfig(config);
+//        identityZone.setActive(active);
+        ResponseEntity<OrchestratorZoneResponse> zone = client.postForEntity(url + "/orchestrator/zones", orchestratorZoneRequest, OrchestratorZoneResponse.class);
+        //ResponseEntity<String> zoneGet1 = client.getForEntity(url + "/orchestrator/zones?name=The Twiglet Zone[\"" + id + "\"]", String.class, id);
+
+        //ResponseEntity<String> zoneGet1 = client.getForEntity(url + "/orchestrator/zones?name=testzone1", String.class, id);
+        ResponseEntity<OrchestratorZoneResponse> zone1= client.getForEntity(url + "/orchestrator/zones?name=testzone1", OrchestratorZoneResponse.class, id);
+        //String get1 = zoneGet1.getBody();
+//        final String zoneId = getZoneResponse.getConnectionDetails().getZone().getHttpHeaderValue();
+//
+//        OAuth2RestTemplate adminClient = (OAuth2RestTemplate) IntegrationTestUtils.getClientCredentialsTemplate(
+//                IntegrationTestUtils.getClientCredentialsResource(serverRunning.getBaseUrl(), new String[0], "admin", "adminsecret"));
+//
+//        validateZoneConfig(subdomain, zoneId, adminClient);
+
+        IntegrationTestUtilsStage v1 = new IntegrationTestUtilsStage();
+        v1.zonesd(zone1,subdomain);
+      return zone.getBody();
+    }
+
+    public  OrchestratorZoneResponse zonesd(ResponseEntity<OrchestratorZoneResponse> zone, String subdomain) throws Throwable {
+        OrchestratorZoneResponse getZoneResponse = zone.getBody();
+        final String zoneId = getZoneResponse.getConnectionDetails().getZone().getHttpHeaderValue();
+
+        OAuth2RestTemplate adminClient = (OAuth2RestTemplate) IntegrationTestUtilsStage.getClientCredentialsTemplate(
+                IntegrationTestUtilsStage.getClientCredentialsResource(serverRunning.getBaseUrl(), new String[0], "admin", "adminsecret"));
+
+        validateZoneConfig(subdomain, zoneId, adminClient);
+        return zone.getBody();
+
+    }
+
+
+    private void validateZoneConfig(final String subdomain, final String zoneId, final OAuth2RestTemplate adminClient)
+            throws Throwable {
+        URI uaaZoneEndpoint = URI.create(getZoneUaaUri(subdomain, zoneId).toString());
+        String accessToken =
+                IntegrationTestUtilsStage.getClientCredentialsToken(uaaZoneEndpoint.toString(), "admin", ADMIN_CLIENT_SECRET);
+
+        checkIdentityZoneConfiguration(zoneId, adminClient);
+        validateCheckTokenEndpoint(subdomain, zoneId, accessToken);
+    }
+
+    private void validateCheckTokenEndpoint(final String subdomain, final String zoneId, final String accessToken) {
+        URI uaaCheckTokenEndpoint = URI.create(getZoneUaaUri(subdomain, zoneId) + "/check_token");
+        MultiValueMap<String, String> request = new LinkedMultiValueMap<>();
+        request.add("token", accessToken);
+        request.add("grant_type", "client_credentials");
+
+        RestTemplate template = new RestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        headers.set("Authorization", "Basic " + new String(
+                Base64.encode(String.format("%s:%s", "admin", ADMIN_CLIENT_SECRET).getBytes())));
+
+        @SuppressWarnings("rawtypes")
+        ResponseEntity<Map> responseEntity = template.exchange(
+                uaaCheckTokenEndpoint,
+                HttpMethod.POST,
+                new HttpEntity<>(request, headers),
+                Map.class);
+        assertEquals(responseEntity.getStatusCode(), HttpStatus.OK);
+        String clientId = String.valueOf(responseEntity.getBody().get("client_id"));
+        assertEquals(clientId, "admin");
+    }
+
+    private void checkIdentityZoneConfiguration(final String zoneId, final OAuth2RestTemplate adminClient)
+            throws Exception {
+        // Get zone config and check
+        URI identityZoneURI = URI.create(serverRunning.getUrl(NATIVE_ZONES_APIS_ENDPOINT) + String.format("/%s", zoneId));
+        ResponseEntity<IdentityZone> identityZoneResponse =
+                adminClient.getForEntity(identityZoneURI, IdentityZone.class);
+        LOGGER.info("Got identity zone: " + OBJECT_MAPPER.writeValueAsString(identityZoneResponse.getBody()));
+        IdentityZoneConfiguration config = identityZoneResponse.getBody().getConfig();
+        assertEquals(config.getLinks().getLogout().getWhitelist(),Collections.singletonList("http*://**"));
+        assertEquals(config.getLinks().getSelfService().isSelfServiceCreateAccountEnabled(), false);
+        assertEquals(config.getLinks().getSelfService().isSelfServiceResetPasswordEnabled(), true);
+        assertEquals(config.getLinks().getSelfService().getSignup(), "");
+        assertEquals(config.getLinks().getSelfService().getPasswd(), "/forgot_password");
+        assertEquals(config.isIdpDiscoveryEnabled(), false);
+        assertNotNull(config.getTokenPolicy().getActiveKeyId());
+
+        checkSamlConfig(config.getSamlConfig());
+        checkSamlCert(identityZoneResponse.getBody().getSubdomain(),
+                config.getSamlConfig().getKeys().get(config.getSamlConfig().getActiveKeyId()));
+    }
+    private void checkSamlCert(String subdomain, SamlKey samlKey) throws Exception {
+        CertificateFactory factory = CertificateFactory.getInstance("X.509");
+        X509Certificate cert = (X509Certificate) factory.generateCertificate(
+                new ByteArrayInputStream(samlKey.getCertificate().getBytes()));
+        assertThat(cert.getSubjectDN().getName(), containsString("PredixUAA" + subdomain));
+    }
+
+    private void checkSamlConfig(final SamlConfig samlConfig) {
+        assertNotNull(samlConfig.getSignatureAlgorithm());
+        assertEquals(samlConfig.getSignatureAlgorithm(), SamlConfig.SignatureAlgorithm.SHA256);
+        assertNotNull(samlConfig.getActiveKeyId());
+    }
+
+    private URI getZoneUaaUri(final String subdomain, final String zoneId) {
+        URI uaaURIObject = URI.create(serverRunning.getBaseUrl());
+        String host = uaaURIObject.getHost();
+        if (StringUtils.isEmpty(subdomain) || subdomain == null) {
+            return URI.create(uaaURIObject.toString().replace(host, (zoneId + "." + host)));
+        }
+        return URI.create(uaaURIObject.toString().replace(host, (subdomain + "." + host)));
     }
 
     public static IdentityZone createInactiveIdentityZone(RestTemplate client, String url) {
@@ -721,6 +951,22 @@ public class IntegrationTestUtilsStage {
                                                            String subdomain,
                                                            IdentityZoneConfiguration config) {
         return createZoneOrUpdateSubdomain(client, url, id, subdomain, config, true);
+    }
+
+    public static OrchestratorZoneResponse createZoneOrUpdateSubdomain1(RestTemplate client,
+                                                           String url,
+                                                           String id,
+                                                           String subdomain,
+                                                           IdentityZoneConfiguration config)throws Throwable {
+        return createZoneOrUpdateSubdomain1(client, url, id, subdomain, config, true);
+    }
+
+    public static IdentityZone createZoneOrUpdateSubdomain2(RestTemplate client,
+                                                                            String url,
+                                                                            String id,
+                                                                            String subdomain,
+                                                                            IdentityZoneConfiguration config)throws Throwable {
+        return createZoneOrUpdateSubdomain2(client, url, id, subdomain, config, true);
     }
 
     public static void addMemberToGroup(RestTemplate client,
@@ -1164,6 +1410,17 @@ public class IntegrationTestUtilsStage {
     }
 
     public static String getAccessTokenByAuthCode(ServerRunning serverRunning,
+                                                  UaaTestAccounts testAccounts,
+                                                  String clientId,
+                                                  String clientSecret,
+                                                  String username,
+                                                  String password) {
+
+        return getAuthorizationCodeTokenMap(serverRunning, testAccounts, clientId, clientSecret, username, password)
+                .get("access_token");
+    }
+
+    public static String getAccessTokenByAuthCodeOrch(ServerRunning serverRunning,
                                                   UaaTestAccounts testAccounts,
                                                   String clientId,
                                                   String clientSecret,
