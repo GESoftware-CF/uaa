@@ -6,20 +6,17 @@ import org.openqa.selenium.WebDriver;
 
 public class GeSsoSPlogin {
     WebDriver driver;
+
     public GeSsoSPlogin(WebDriver driver) {
         this.driver = driver;
     }
-By Gesso=By.xpath("//a[@class='saml-login-link']");
+
+    By Gesso = By.xpath("//a[@class='saml-login-link']");
 
 
-public void clickOnSignInByGesso() {
+    public void clickOnSignInByGesso() {
         driver.findElement(Gesso).click();
     }
 
 
-public void GetHomepageUrl(String url){
-    String CurrentURL=driver.getCurrentUrl();
-    Assert.assertEquals(url,CurrentURL);
-
-}
 }

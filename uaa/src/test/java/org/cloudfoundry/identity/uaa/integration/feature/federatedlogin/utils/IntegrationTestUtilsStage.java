@@ -98,7 +98,7 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.security.oauth2.common.util.OAuth2Utils.USER_OAUTH_APPROVAL;
 import static org.springframework.util.StringUtils.hasText;
 
-public class IntegrationTestUtilsStage  {
+public class IntegrationTestUtilsStage {
     @Rule
     public ServerRunning serverRunning = ServerRunning.isRunning();
 
@@ -152,116 +152,6 @@ public class IntegrationTestUtilsStage  {
 
     public static final String OIDC_ACCEPTANCE_URL = "https://oidc10.uaa-acceptance.cf-app.com/";
 
-    public static void updateUserToForcePasswordChange(RestTemplate restTemplate, String baseUrl, String adminToken, String userId) {
-        updateUserToForcePasswordChange(restTemplate, baseUrl, adminToken, userId, null);
-    }
-
-    public static void updateUserToForcePasswordChange(RestTemplate restTemplate, String baseUrl, String adminToken, String userId, String zoneId) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("Authorization", "Bearer " + adminToken);
-        if (StringUtils.hasText(zoneId)) {
-            headers.add(IdentityZoneSwitchingFilter.HEADER, zoneId);
-        }
-        UserAccountStatus userAccountStatus = new UserAccountStatus();
-        userAccountStatus.setPasswordChangeRequired(true);
-        restTemplate.exchange(baseUrl + "/Users/{user-id}/status", HttpMethod.PATCH, new HttpEntity<>(userAccountStatus, headers), UserAccountStatus.class, userId);
-    }
-
-    public static ScimUser createUnapprovedUser(ServerRunning serverRunning) {
-        String userName = "bob-" + new RandomValueStringGenerator().generate();
-        String userEmail = userName + "@example.com";
-
-        RestOperations restTemplate = serverRunning.getRestTemplate();
-
-        ScimUser user = new ScimUser();
-        user.setUserName(userName);
-        user.setPassword("s3Cretsecret");
-        user.addEmail(userEmail);
-        user.setActive(true);
-        user.setVerified(true);
-
-        ResponseEntity<ScimUser> result = restTemplate.postForEntity(serverRunning.getUrl("/Users"), user, ScimUser.class);
-        assertEquals(HttpStatus.CREATED, result.getStatusCode());
-
-        return user;
-    }
-
-    public static boolean isMember(String userId, ScimGroup group) {
-        for (ScimGroupMember member : group.getMembers()) {
-            if (userId.equals(member.getMemberId())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-
-    public static UserInfoResponse getUserInfo(String url, String token) throws URISyntaxException {
-        RestTemplate rest = new RestTemplate(createRequestFactory(true, 60_000));
-        MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
-        headers.add(AUTHORIZATION, "Bearer " + token);
-        headers.add(ACCEPT, APPLICATION_JSON_VALUE);
-        RequestEntity<Void> request = new RequestEntity<>(headers, HttpMethod.GET, new URI(url + "/userinfo"));
-        return rest.exchange(request, UserInfoResponse.class).getBody();
-    }
-
-    public static void deleteZone(String baseUrl, String id, String adminToken) throws URISyntaxException {
-        RestTemplate rest = new RestTemplate(createRequestFactory(true, 60_000));
-        MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
-        headers.add(AUTHORIZATION, "Bearer " + adminToken);
-        headers.add(ACCEPT, APPLICATION_JSON_VALUE);
-        RequestEntity<Void> request = new RequestEntity<>(headers, HttpMethod.DELETE, new URI(baseUrl + "/orchestrator/zones/" + id));
-        rest.exchange(request, Void.class);
-    }
-
-    public static MfaProvider createGoogleMfaProvider(String url, String token, MfaProvider<GoogleMfaProviderConfig> provider, String zoneSwitchId) {
-        RestTemplate template = new RestTemplate();
-        MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
-        headers.add("Accept", APPLICATION_JSON_VALUE);
-        headers.add("Authorization", "bearer " + token);
-        headers.add("Content-Type", APPLICATION_JSON_VALUE);
-        if (hasText(zoneSwitchId)) {
-            headers.add(IdentityZoneSwitchingFilter.HEADER, zoneSwitchId);
-        }
-        HttpEntity getHeaders = new HttpEntity<>(provider, headers);
-        ResponseEntity<MfaProvider> providerResponse = template.exchange(
-                url + "/mfa-providers",
-                HttpMethod.POST,
-                getHeaders,
-                MfaProvider.class
-        );
-        if (providerResponse.getStatusCode() == HttpStatus.CREATED) {
-            return providerResponse.getBody();
-        }
-        throw new RuntimeException("Invalid return code:" + providerResponse.getStatusCode());
-
-    }
-
-
-
-    public static class RegexMatcher extends TypeSafeMatcher<String> {
-
-        private final String regex;
-
-        RegexMatcher(final String regex) {
-            this.regex = regex;
-        }
-
-        @Override
-        public void describeTo(final Description description) {
-            description.appendText("matches regex=`" + regex + "`");
-        }
-
-        @Override
-        public boolean matchesSafely(final String string) {
-            return string.matches(regex);
-        }
-
-
-        public static RegexMatcher matchesRegex(final String regex) {
-            return new RegexMatcher(regex);
-        }
-    }
 
     private static final DefaultResponseErrorHandler fiveHundredErrorHandler = new DefaultResponseErrorHandler() {
         @Override
@@ -404,34 +294,6 @@ public class IntegrationTestUtilsStage  {
         return getUser(token, url, userId);
     }
 
-    public static ScimUser getUserByZone(String token, String url, String subdomain, String username) {
-        RestTemplate template = new RestTemplate();
-        MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
-        headers.add("Accept", APPLICATION_JSON_VALUE);
-        headers.add("Authorization", "bearer " + token);
-        headers.add("Content-Type", APPLICATION_JSON_VALUE);
-        headers.add("X-Identity-Zone-Subdomain", subdomain);
-        HttpEntity getHeaders = new HttpEntity<>(headers);
-        ResponseEntity<String> userInfoGet = template.exchange(
-                url + "/Users"
-                        + "?filter=userName eq \"" + username + "\"",
-                HttpMethod.GET,
-                getHeaders,
-                String.class
-        );
-        ScimUser user = null;
-        if (userInfoGet.getStatusCode() == HttpStatus.OK) {
-
-            SearchResults<ScimUser> results = JsonUtils.readValue(userInfoGet.getBody(), SearchResults.class);
-            assertNotNull(results);
-            List<ScimUser> resources = results.getResources();
-            if (resources.size() < 1) {
-                return null;
-            }
-            user = JsonUtils.readValue(JsonUtils.writeValueAsString(resources.get(0)), ScimUser.class);
-        }
-        return user;
-    }
 
     public static ScimUser getUser(String token, String url, String userId) {
         RestTemplate template = new RestTemplate();
@@ -485,28 +347,6 @@ public class IntegrationTestUtilsStage  {
         throw new RuntimeException("Invalid return code:" + userInfoGet.getStatusCode());
     }
 
-    public static String getUsernameById(String token, String url, String userId) {
-        return getUser(token, url, userId).getUserName();
-    }
-
-    public static void deleteUser(String zoneAdminToken, String url, String userId) {
-
-        RestTemplate template = new RestTemplate();
-        MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
-        headers.add("Accept", APPLICATION_JSON_VALUE);
-        headers.add("Authorization", "bearer " + zoneAdminToken);
-        headers.add("Content-Type", APPLICATION_JSON_VALUE);
-        HttpEntity deleteHeaders = new HttpEntity<>(headers);
-        ResponseEntity<String> userDelete = template.exchange(
-                url + "/Users/" + userId,
-                HttpMethod.DELETE,
-                deleteHeaders,
-                String.class
-        );
-        if (userDelete.getStatusCode() != HttpStatus.OK) {
-            throw new RuntimeException("Invalid return code:" + userDelete.getStatusCode());
-        }
-    }
 
     @SuppressWarnings("rawtypes")
     private static Map findAllGroups(RestTemplate client,
@@ -594,112 +434,6 @@ public class IntegrationTestUtilsStage  {
         return createGroup.getBody();
     }
 
-    private static ScimGroup updateGroup(String token,
-                                         String zoneId,
-                                         String url,
-                                         ScimGroup group) {
-        RestTemplate template = new RestTemplate();
-        MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
-        headers.add("Accept", APPLICATION_JSON_VALUE);
-        headers.add("Authorization", "bearer " + token);
-        headers.add("If-Match", "*");
-        headers.add("Content-Type", APPLICATION_JSON_VALUE);
-        if (hasText(zoneId)) {
-            headers.add(IdentityZoneSwitchingFilter.HEADER, zoneId);
-        }
-        ResponseEntity<ScimGroup> updateGroup = template.exchange(
-                url + "/Groups/{groupId}",
-                HttpMethod.PUT,
-                new HttpEntity<>(JsonUtils.writeValueAsBytes(group), headers),
-                ScimGroup.class,
-                group.getId()
-        );
-        assertEquals(HttpStatus.OK, updateGroup.getStatusCode());
-        return updateGroup.getBody();
-    }
-
-    public static ScimGroup createOrUpdateGroup(RestTemplate client,
-                                                String url,
-                                                ScimGroup scimGroup) {
-        //dont modify the actual argument
-        LinkedList<ScimGroupMember> members = new LinkedList<>(scimGroup.getMembers());
-        ScimGroup existing = getGroup(client, url, scimGroup.getDisplayName());
-        if (existing != null) {
-            members.addAll(existing.getMembers());
-        }
-        scimGroup.setMembers(members);
-        if (existing != null) {
-            scimGroup.setId(existing.getId());
-            client.put(url + "/Groups/{id}", scimGroup, scimGroup.getId());
-            return scimGroup;
-        } else {
-            ResponseEntity<String> group = client.postForEntity(url + "/Groups", scimGroup, String.class);
-            if (group.getStatusCode() == HttpStatus.CREATED) {
-                return JsonUtils.readValue(group.getBody(), ScimGroup.class);
-            } else {
-                throw new IllegalStateException("Invalid return code:" + group.getStatusCode());
-            }
-        }
-    }
-
-    public static ScimGroup createOrUpdateGroup(String token,
-                                                String zoneId,
-                                                String url,
-                                                ScimGroup scimGroup) {
-
-        ScimGroup existing = getGroup(token, zoneId, url, scimGroup.getDisplayName());
-        if (existing == null) {
-            return createGroup(token, zoneId, url, scimGroup);
-        } else {
-            scimGroup.setId(existing.getId());
-            return updateGroup(token, zoneId, url, scimGroup);
-        }
-
-    }
-
-    public static ScimGroupExternalMember mapExternalGroup(String token,
-                                                           String zoneId,
-                                                           String url,
-                                                           ScimGroupExternalMember scimGroup) {
-
-        RestTemplate template = new RestTemplate();
-        MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
-        headers.add("Accept", APPLICATION_JSON_VALUE);
-        headers.add("Authorization", "bearer " + token);
-        headers.add("Content-Type", APPLICATION_JSON_VALUE);
-        if (hasText(zoneId)) {
-            headers.add(IdentityZoneSwitchingFilter.HEADER, zoneId);
-        }
-        ResponseEntity<ScimGroupExternalMember> mapGroup = template.exchange(
-                url + "/Groups/External",
-                HttpMethod.POST,
-                new HttpEntity<>(JsonUtils.writeValueAsBytes(scimGroup), headers),
-                ScimGroupExternalMember.class
-        );
-        if (HttpStatus.CREATED.equals(mapGroup.getStatusCode())) {
-            return mapGroup.getBody();
-        } else if (HttpStatus.CONFLICT.equals(mapGroup.getStatusCode())) {
-            return scimGroup;
-        }
-        throw new IllegalArgumentException("Invalid status code:" + mapGroup.getStatusCode());
-    }
-
-    public static void deleteGroup(String token,
-                                   String zoneId,
-                                   String url,
-                                   String groupId
-    ) {
-        RestTemplate template = new RestTemplate();
-        template.setErrorHandler(fiveHundredErrorHandler);
-        MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
-        headers.add("Authorization", "bearer " + token);
-        if (hasText(zoneId)) {
-            headers.add(IdentityZoneSwitchingFilter.HEADER, zoneId);
-        }
-
-
-        template.exchange(url + "/Groups/{groupId}", HttpMethod.DELETE, new HttpEntity<>(headers), ScimGroup.class, groupId);
-    }
 
     private static IdentityZone createZoneOrUpdateSubdomain(RestTemplate client,
                                                             String url,
@@ -720,9 +454,6 @@ public class IntegrationTestUtilsStage  {
             ResponseEntity<String> getUpdatedZone = client.exchange(url + "/orchestrator/zones/{id}", HttpMethod.PUT, updateZoneRequest, String.class, id);
             return JsonUtils.readValue(getUpdatedZone.getBody(), IdentityZone.class);
         }
-
-
-
         IdentityZone identityZone = new IdentityZone();
         identityZone.setId(id);
         identityZone.setSubdomain(subdomain);
@@ -734,216 +465,27 @@ public class IntegrationTestUtilsStage  {
         return zone.getBody();
     }
 
-    private static IdentityZone createZoneOrUpdateSubdomain2(RestTemplate client,
-                                                             String url,
-                                                             String id,
-                                                             String subdomain,
-                                                             IdentityZoneConfiguration config,
-                                                             boolean active) throws Throwable {
-
-        // ResponseEntity<String> zoneGet = client.getForEntity(url + "/orchestrator/zones?name=The Twiglet Zone[\"" + id + "\"]", String.class, id);
-
-        //if (zoneGet.getStatusCode() == HttpStatus.OK) {
-//IdentityZone existing = JsonUtils.readValue(zoneGet.getBody(), IdentityZone.class);
-//assertNotNull(existing);
-//existing.setSubdomain(subdomain);
-//existing.setConfig(config);
-//existing.setActive(active);
-//HttpEntity<IdentityZone> updateZoneRequest = new HttpEntity<>(existing);
-//ResponseEntity<String> getUpdatedZone = client.exchange(url + "/orchestrator/zones/{id}", HttpMethod.PUT, updateZoneRequest, String.class, id);
-        //  return JsonUtils.readValue(zoneGet.getBody(), OrchestratorZoneResponse.class);
-        //  }
-
-
-
+    private static IdentityZone createOrchZone(RestTemplate client,
+                                               String url,
+                                               String id,
+                                               String subdomain,
+                                               IdentityZoneConfiguration config,
+                                               boolean active) throws Throwable {
         OrchestratorZoneRequest orchestratorZoneRequest = new OrchestratorZoneRequest();
-        // orchestratorZoneRequest.setName("The Twiglet Zone[" + id + "]");
         orchestratorZoneRequest.setName(id);
         orchestratorZoneRequest.setParameters(new OrchestratorZone("adminsecret", subdomain));
-
-
-//        IdentityZone identityZone = new IdentityZone();
-//        identityZone.setId(id);
-//        identityZone.setSubdomain(subdomain);
-//        identityZone.setName("The Twiglet Zone[" + id + "]");
-//        identityZone.setDescription("Like the Twilight Zone but tastier[" + id + "].");
-//        identityZone.setConfig(config);
-//        identityZone.setActive(active);
+        //Create orch zone
         ResponseEntity<OrchestratorZoneResponse> zone = client.postForEntity(url + "/orchestrator/zones", orchestratorZoneRequest, OrchestratorZoneResponse.class);
-        //ResponseEntity<String> zoneGet1 = client.getForEntity(url + "/orchestrator/zones?name=The Twiglet Zone[\"" + id + "\"]", String.class, id);
-
-        //ResponseEntity<String> zoneGet1 = client.getForEntity(url + "/orchestrator/zones?name=testzone1", String.class, id);
-        ResponseEntity<OrchestratorZoneResponse> zone1= client.getForEntity(url + "/orchestrator/zones?name="+id, OrchestratorZoneResponse.class, id);
+        //Get orch zone
+        ResponseEntity<OrchestratorZoneResponse> zone1 = client.getForEntity(url + "/orchestrator/zones?name=" + id, OrchestratorZoneResponse.class, id);
+        //Retrieve Zone ID for Identity Zone from orch Header
         OrchestratorZoneResponse getZoneResponse = zone1.getBody();
-
         final String zoneId = getZoneResponse.getConnectionDetails().getZone().getHttpHeaderValue();
-
-
-        ResponseEntity<IdentityZone> zoneGet = client.getForEntity(url + "/identity-zones/"+zoneId, IdentityZone.class, id);
-
-        //String get1 = zoneGet1.getBody();
-//        final String zoneId = getZoneResponse.getConnectionDetails().getZone().getHttpHeaderValue();
-//
-//        OAuth2RestTemplate adminClient = (OAuth2RestTemplate) IntegrationTestUtils.getClientCredentialsTemplate(
-//                IntegrationTestUtils.getClientCredentialsResource(serverRunning.getBaseUrl(), new String[0], "admin", "adminsecret"));
-//
-//        validateZoneConfig(subdomain, zoneId, adminClient);
-
-        //IntegrationTestUtilsStage v1 = new IntegrationTestUtilsStage();
-       // v1.zonesd(zone1,subdomain);
+        //Retrieve
+        ResponseEntity<IdentityZone> zoneGet = client.getForEntity(url + "/identity-zones/" + zoneId, IdentityZone.class, id);
         return zoneGet.getBody();
     }
 
-    private static  OrchestratorZoneResponse createZoneOrUpdateSubdomain1(RestTemplate client,
-                                                                         String url,
-                                                                         String id,
-                                                                         String subdomain,
-                                                                         IdentityZoneConfiguration config,
-                                                                         boolean active) throws Throwable {
-
-       // ResponseEntity<String> zoneGet = client.getForEntity(url + "/orchestrator/zones?name=The Twiglet Zone[\"" + id + "\"]", String.class, id);
-
-        //if (zoneGet.getStatusCode() == HttpStatus.OK) {
-//IdentityZone existing = JsonUtils.readValue(zoneGet.getBody(), IdentityZone.class);
-//assertNotNull(existing);
-//existing.setSubdomain(subdomain);
-//existing.setConfig(config);
-//existing.setActive(active);
-//HttpEntity<IdentityZone> updateZoneRequest = new HttpEntity<>(existing);
-//ResponseEntity<String> getUpdatedZone = client.exchange(url + "/orchestrator/zones/{id}", HttpMethod.PUT, updateZoneRequest, String.class, id);
-          //  return JsonUtils.readValue(zoneGet.getBody(), OrchestratorZoneResponse.class);
-      //  }
-
-
-
-        OrchestratorZoneRequest orchestratorZoneRequest = new OrchestratorZoneRequest();
-       // orchestratorZoneRequest.setName("The Twiglet Zone[" + id + "]");
-        orchestratorZoneRequest.setName("testzone1");
-        orchestratorZoneRequest.setParameters(new OrchestratorZone("adminsecret", subdomain));
-
-
-//        IdentityZone identityZone = new IdentityZone();
-//        identityZone.setId(id);
-//        identityZone.setSubdomain(subdomain);
-//        identityZone.setName("The Twiglet Zone[" + id + "]");
-//        identityZone.setDescription("Like the Twilight Zone but tastier[" + id + "].");
-//        identityZone.setConfig(config);
-//        identityZone.setActive(active);
-        ResponseEntity<OrchestratorZoneResponse> zone = client.postForEntity(url + "/orchestrator/zones", orchestratorZoneRequest, OrchestratorZoneResponse.class);
-        //ResponseEntity<String> zoneGet1 = client.getForEntity(url + "/orchestrator/zones?name=The Twiglet Zone[\"" + id + "\"]", String.class, id);
-
-        //ResponseEntity<String> zoneGet1 = client.getForEntity(url + "/orchestrator/zones?name=testzone1", String.class, id);
-        ResponseEntity<OrchestratorZoneResponse> zone1= client.getForEntity(url + "/orchestrator/zones?name=testzone1", OrchestratorZoneResponse.class, id);
-        //String get1 = zoneGet1.getBody();
-//        final String zoneId = getZoneResponse.getConnectionDetails().getZone().getHttpHeaderValue();
-//
-//        OAuth2RestTemplate adminClient = (OAuth2RestTemplate) IntegrationTestUtils.getClientCredentialsTemplate(
-//                IntegrationTestUtils.getClientCredentialsResource(serverRunning.getBaseUrl(), new String[0], "admin", "adminsecret"));
-//
-//        validateZoneConfig(subdomain, zoneId, adminClient);
-
-        IntegrationTestUtilsStage v1 = new IntegrationTestUtilsStage();
-        v1.zonesd(zone1,subdomain);
-      return zone.getBody();
-    }
-
-    public  OrchestratorZoneResponse zonesd(ResponseEntity<OrchestratorZoneResponse> zone, String subdomain) throws Throwable {
-        OrchestratorZoneResponse getZoneResponse = zone.getBody();
-        final String zoneId = getZoneResponse.getConnectionDetails().getZone().getHttpHeaderValue();
-
-        OAuth2RestTemplate adminClient = (OAuth2RestTemplate) IntegrationTestUtilsStage.getClientCredentialsTemplate(
-                IntegrationTestUtilsStage.getClientCredentialsResource(serverRunning.getBaseUrl(), new String[0], "admin", "adminsecret"));
-
-        validateZoneConfig(subdomain, zoneId, adminClient);
-        return zone.getBody();
-
-    }
-
-
-    private void validateZoneConfig(final String subdomain, final String zoneId, final OAuth2RestTemplate adminClient)
-            throws Throwable {
-        URI uaaZoneEndpoint = URI.create(getZoneUaaUri(subdomain, zoneId).toString());
-        String accessToken =
-                IntegrationTestUtilsStage.getClientCredentialsToken(uaaZoneEndpoint.toString(), "admin", ADMIN_CLIENT_SECRET);
-
-        checkIdentityZoneConfiguration(zoneId, adminClient);
-        validateCheckTokenEndpoint(subdomain, zoneId, accessToken);
-    }
-
-    private void validateCheckTokenEndpoint(final String subdomain, final String zoneId, final String accessToken) {
-        URI uaaCheckTokenEndpoint = URI.create(getZoneUaaUri(subdomain, zoneId) + "/check_token");
-        MultiValueMap<String, String> request = new LinkedMultiValueMap<>();
-        request.add("token", accessToken);
-        request.add("grant_type", "client_credentials");
-
-        RestTemplate template = new RestTemplate();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-        headers.set("Authorization", "Basic " + new String(
-                Base64.encode(String.format("%s:%s", "admin", ADMIN_CLIENT_SECRET).getBytes())));
-
-        @SuppressWarnings("rawtypes")
-        ResponseEntity<Map> responseEntity = template.exchange(
-                uaaCheckTokenEndpoint,
-                HttpMethod.POST,
-                new HttpEntity<>(request, headers),
-                Map.class);
-        assertEquals(responseEntity.getStatusCode(), HttpStatus.OK);
-        String clientId = String.valueOf(responseEntity.getBody().get("client_id"));
-        assertEquals(clientId, "admin");
-    }
-
-    private void checkIdentityZoneConfiguration(final String zoneId, final OAuth2RestTemplate adminClient)
-            throws Exception {
-        // Get zone config and check
-        URI identityZoneURI = URI.create(serverRunning.getUrl(NATIVE_ZONES_APIS_ENDPOINT) + String.format("/%s", zoneId));
-        ResponseEntity<IdentityZone> identityZoneResponse =
-                adminClient.getForEntity(identityZoneURI, IdentityZone.class);
-        LOGGER.info("Got identity zone: " + OBJECT_MAPPER.writeValueAsString(identityZoneResponse.getBody()));
-        IdentityZoneConfiguration config = identityZoneResponse.getBody().getConfig();
-        assertEquals(config.getLinks().getLogout().getWhitelist(),Collections.singletonList("http*://**"));
-        assertEquals(config.getLinks().getSelfService().isSelfServiceCreateAccountEnabled(), false);
-        assertEquals(config.getLinks().getSelfService().isSelfServiceResetPasswordEnabled(), true);
-        assertEquals(config.getLinks().getSelfService().getSignup(), "");
-        assertEquals(config.getLinks().getSelfService().getPasswd(), "/forgot_password");
-        assertEquals(config.isIdpDiscoveryEnabled(), false);
-        assertNotNull(config.getTokenPolicy().getActiveKeyId());
-
-        checkSamlConfig(config.getSamlConfig());
-        checkSamlCert(identityZoneResponse.getBody().getSubdomain(),
-                config.getSamlConfig().getKeys().get(config.getSamlConfig().getActiveKeyId()));
-    }
-    private void checkSamlCert(String subdomain, SamlKey samlKey) throws Exception {
-        CertificateFactory factory = CertificateFactory.getInstance("X.509");
-        X509Certificate cert = (X509Certificate) factory.generateCertificate(
-                new ByteArrayInputStream(samlKey.getCertificate().getBytes()));
-        assertThat(cert.getSubjectDN().getName(), containsString("PredixUAA" + subdomain));
-    }
-
-    private void checkSamlConfig(final SamlConfig samlConfig) {
-        assertNotNull(samlConfig.getSignatureAlgorithm());
-        assertEquals(samlConfig.getSignatureAlgorithm(), SamlConfig.SignatureAlgorithm.SHA256);
-        assertNotNull(samlConfig.getActiveKeyId());
-    }
-
-    private URI getZoneUaaUri(final String subdomain, final String zoneId) {
-        URI uaaURIObject = URI.create(serverRunning.getBaseUrl());
-        String host = uaaURIObject.getHost();
-        if (StringUtils.isEmpty(subdomain) || subdomain == null) {
-            return URI.create(uaaURIObject.toString().replace(host, (zoneId + "." + host)));
-        }
-        return URI.create(uaaURIObject.toString().replace(host, (subdomain + "." + host)));
-    }
-
-    public static IdentityZone createInactiveIdentityZone(RestTemplate client, String url) {
-        createZoneOrUpdateSubdomain(client, url, "testzoneinactive", "testzoneinactive", new IdentityZoneConfiguration(), false);
-        ResponseEntity<IdentityZone> zoneGet = client.getForEntity(url + "/orchestrator/zones/{id}", IdentityZone.class, "testzoneinactive");
-        if (!(zoneGet.getStatusCode() == HttpStatus.OK)) {
-            throw new RuntimeException("Could not create inactive zone.");
-        }
-        return zoneGet.getBody();
-    }
 
     public static IdentityZone createZoneOrUpdateSubdomain(RestTemplate client,
                                                            String url,
@@ -953,20 +495,13 @@ public class IntegrationTestUtilsStage  {
         return createZoneOrUpdateSubdomain(client, url, id, subdomain, config, true);
     }
 
-    public static OrchestratorZoneResponse createZoneOrUpdateSubdomain1(RestTemplate client,
-                                                           String url,
-                                                           String id,
-                                                           String subdomain,
-                                                           IdentityZoneConfiguration config)throws Throwable {
-        return createZoneOrUpdateSubdomain1(client, url, id, subdomain, config, true);
-    }
 
-    public static IdentityZone createZoneOrUpdateSubdomain2(RestTemplate client,
-                                                                            String url,
-                                                                            String id,
-                                                                            String subdomain,
-                                                                            IdentityZoneConfiguration config)throws Throwable {
-        return createZoneOrUpdateSubdomain2(client, url, id, subdomain, config, true);
+    public static IdentityZone createOrchZone(RestTemplate client,
+                                              String url,
+                                              String id,
+                                              String subdomain,
+                                              IdentityZoneConfiguration config) throws Throwable {
+        return createOrchZone(client, url, id, subdomain, config, true);
     }
 
     public static void addMemberToGroup(RestTemplate client,
@@ -1135,23 +670,6 @@ public class IntegrationTestUtilsStage  {
         return null;
     }
 
-    public static void deleteProvider(String zoneAdminToken,
-                                      String url,
-                                      String zoneId,
-                                      String originKey) {
-        IdentityProvider provider = getProvider(zoneAdminToken, url, zoneId, originKey);
-        RestTemplate client = new RestTemplate();
-        MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
-        headers.add("Authorization", "bearer " + zoneAdminToken);
-        headers.add(IdentityZoneSwitchingFilter.HEADER, zoneId);
-        HttpEntity getHeaders = new HttpEntity<>(headers);
-        client.exchange(
-                url + "/identity-providers/" + provider.getId(),
-                HttpMethod.DELETE,
-                getHeaders,
-                String.class
-        );
-    }
 
     /**
      * @param originKey            The unique identifier used to reference the identity provider in UAA.
@@ -1188,26 +706,6 @@ public class IntegrationTestUtilsStage  {
         return provider;
     }
 
-    public static void createOidcIdentityProvider(String name, String originKey, String baseUrl) throws Exception {
-        IdentityProvider<AbstractExternalOAuthIdentityProviderDefinition> identityProvider = new IdentityProvider<>();
-        identityProvider.setName(name);
-        identityProvider.setIdentityZoneId(OriginKeys.UAA);
-        OIDCIdentityProviderDefinition config = new OIDCIdentityProviderDefinition();
-        config.addAttributeMapping(USER_NAME_ATTRIBUTE_NAME, "user_name");
-        config.setAuthUrl(new URL(OIDC_ACCEPTANCE_URL + "oauth/authorize"));
-        config.setTokenUrl(new URL(OIDC_ACCEPTANCE_URL + "oauth/token"));
-        config.setTokenKeyUrl(new URL(OIDC_ACCEPTANCE_URL + "token_key"));
-        config.setShowLinkText(true);
-        config.setLinkText("My OIDC Provider");
-        config.setSkipSslValidation(true);
-        config.setRelyingPartyId("identity");
-        config.setRelyingPartySecret("identitysecret");
-        config.setEmailDomain(Collections.singletonList("test.org"));
-        identityProvider.setConfig(config);
-        identityProvider.setOriginKey(originKey);
-        String clientCredentialsToken = IntegrationTestUtilsStage.getClientCredentialsToken(baseUrl, "admin", "adminsecret");
-        IntegrationTestUtilsStage.createOrUpdateProvider(clientCredentialsToken, baseUrl, identityProvider);
-    }
 
     public static String getZoneAdminToken(String baseUrl, ServerRunning serverRunning) throws Exception {
         return getZoneAdminToken(baseUrl, serverRunning, OriginKeys.UAA);
@@ -1244,28 +742,6 @@ public class IntegrationTestUtilsStage  {
         return IntegrationTestUtilsStage.createUser(adminClient, baseUrl, email, "firstname", "lastname", email, true);
     }
 
-    public static void updateIdentityProvider(
-            String baseUrl, ServerRunning serverRunning, IdentityProvider provider) {
-        RestTemplate adminClient = IntegrationTestUtilsStage.getClientCredentialsTemplate(
-                IntegrationTestUtilsStage.getClientCredentialsResource(baseUrl, new String[0], "admin", "adminsecret")
-        );
-        String email = new RandomValueStringGenerator().generate() + "@samltesting.org";
-        ScimUser user = IntegrationTestUtilsStage.createUser(adminClient, baseUrl, email, "firstname", "lastname", email, true);
-
-        String groupId = IntegrationTestUtilsStage.findGroupId(adminClient, baseUrl, "zones.uaa.admin");
-        IntegrationTestUtilsStage.addMemberToGroup(adminClient, baseUrl, user.getId(), groupId);
-
-        String zoneAdminToken =
-                IntegrationTestUtilsStage.getAccessTokenByAuthCode(serverRunning,
-                        UaaTestAccounts.standard(serverRunning),
-                        "identity",
-                        "identitysecret",
-                        email,
-                        "secr3T");
-
-        provider = IntegrationTestUtilsStage.createOrUpdateProvider(zoneAdminToken, baseUrl, provider);
-        assertNotNull(provider.getId());
-    }
 
     public static SamlIdentityProviderDefinition createSimplePHPSamlIDP(String alias, String zoneId) {
         if (!("simplesamlphp".equals(alias) || "simplesamlphp2".equals(alias))) {
@@ -1317,10 +793,10 @@ public class IntegrationTestUtilsStage  {
 
         HttpEntity postHeaders = new HttpEntity<>(provider, headers);
         ResponseEntity<String> providerPost = client.exchange(
-            url + "/identity-providers",
-            HttpMethod.POST,
-            postHeaders,
-            String.class
+                url + "/identity-providers",
+                HttpMethod.POST,
+                postHeaders,
+                String.class
         );
         if (providerPost.getStatusCode() == HttpStatus.CREATED) {
             return JsonUtils.readValue(providerPost.getBody(), IdentityProvider.class);
@@ -1355,39 +831,6 @@ public class IntegrationTestUtilsStage  {
         return accessToken.getValue();
     }
 
-    public static Map getPasswordToken(String baseUrl,
-                                       String clientId,
-                                       String clientSecret,
-                                       String username,
-                                       String password,
-                                       String scopes) {
-        RestTemplate template = new RestTemplate();
-        template.getMessageConverters().add(0, new StringHttpMessageConverter(StandardCharsets.UTF_8));
-        template.setRequestFactory(new StatelessRequestFactory());
-        MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
-        formData.add("grant_type", "password");
-        formData.add("client_id", clientId);
-        formData.add("username", username);
-        formData.add("password", password);
-        formData.add("response_type", "token id_token");
-        if (hasText(scopes)) {
-            formData.add("scope", scopes);
-        }
-        HttpHeaders headers = new HttpHeaders();
-        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-        headers.set("Authorization", "Basic " + new String(Base64.encode(String.format("%s:%s", clientId, clientSecret).getBytes())));
-
-        @SuppressWarnings("rawtypes")
-        ResponseEntity<Map> response = template.exchange(
-                baseUrl + "/oauth/token",
-                HttpMethod.POST,
-                new HttpEntity<>(formData, headers),
-                Map.class);
-
-        Assert.assertEquals(HttpStatus.OK, response.getStatusCode());
-        return response.getBody();
-    }
 
     public static String getClientCredentialsToken(ServerRunning serverRunning,
                                                    String clientId,
@@ -1420,16 +863,6 @@ public class IntegrationTestUtilsStage  {
                 .get("access_token");
     }
 
-    public static String getAccessTokenByAuthCodeOrch(ServerRunning serverRunning,
-                                                  UaaTestAccounts testAccounts,
-                                                  String clientId,
-                                                  String clientSecret,
-                                                  String username,
-                                                  String password) {
-
-        return getAuthorizationCodeTokenMap(serverRunning, testAccounts, clientId, clientSecret, username, password)
-                .get("access_token");
-    }
 
     public static Map<String, String> getAuthorizationCodeTokenMap(ServerRunning serverRunning,
                                                                    UaaTestAccounts testAccounts,
@@ -1463,135 +896,31 @@ public class IntegrationTestUtilsStage  {
             headers.add("Cookie", cookie.getName() + "=" + cookie.getValue());
         }
         return headers;
-    } 	
-  
-    public static String getAuthorizationResponse(ServerRunning serverRunning,
-			  String clientId,
-			  String username,
-			  String password,
-			  String redirectUri,
-			  String codeChallenge,
-			  String codeChallengeMethod) throws Exception {
-    	BasicCookieStore cookies = new BasicCookieStore();
-    	String mystateid = "mystateid";
-    	ServerRunning.UriBuilder builder = serverRunning.buildUri("/oauth/authorize")
-    			.queryParam("response_type", "code")
-    			.queryParam("state", mystateid)
-    			.queryParam("client_id", clientId);
-    	if (hasText(redirectUri)) {
-    		builder = builder.queryParam("redirect_uri", redirectUri);
-    	}
-    	if (hasText(codeChallenge)) {
-    		builder = builder.queryParam("code_challenge", codeChallenge);
-    	}
-    	if (hasText(codeChallengeMethod)) {
-    		builder = builder.queryParam("code_challenge_method", codeChallengeMethod);
-    	}
-    	URI uri = builder.build();
-    	ResponseEntity<Void> result =
-    			serverRunning.createRestTemplate().exchange(
-    					uri.toString(),
-    					HttpMethod.GET,
-    					new HttpEntity<>(null, getHeaders(cookies)),
-    					Void.class
-    					);
-    	assertEquals(HttpStatus.FOUND, result.getStatusCode());
-    	String location = result.getHeaders().getLocation().toString();
-    	if (result.getHeaders().containsKey("Set-Cookie")) {
-    		for (String header : result.getHeaders().get("Set-Cookie")) {
-    			int nameLength = header.indexOf('=');
-    			cookies.addCookie(new BasicClientCookie(header.substring(0, nameLength), header.substring(nameLength + 1)));
-    		}
-    	}
-    	ResponseEntity<String> response = serverRunning.getForString(location, getHeaders(cookies));
-    	if (response.getHeaders().containsKey("Set-Cookie")) {
-    		for (String cookie : response.getHeaders().get("Set-Cookie")) {
-    			int nameLength = cookie.indexOf('=');
-    			cookies.addCookie(new BasicClientCookie(cookie.substring(0, nameLength), cookie.substring(nameLength + 1)));
-    		}
-    	}
-    	MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
-    	assertTrue(response.getBody().contains("/login.do"));
-    	assertTrue(response.getBody().contains("username"));
-    	assertTrue(response.getBody().contains("password"));
-    	String csrf = IntegrationTestUtilsStage.extracCsrfToken(response.getBody());
-    	formData.add("username", username);
-    	formData.add("password", password);
-    	formData.add(CSRF_PARAMETER_NAME, csrf);
-    	// Should be redirected to the original URL, but now authenticated
-    	result = serverRunning.postForResponse("/login.do", getHeaders(cookies), formData);
-    	assertEquals(HttpStatus.FOUND, result.getStatusCode());
-    	cookies.clear();
-    	if (result.getHeaders().containsKey("Set-Cookie")) {
-    		for (String cookie : result.getHeaders().get("Set-Cookie")) {
-    			int nameLength = cookie.indexOf('=');
-    			cookies.addCookie(new BasicClientCookie(cookie.substring(0, nameLength), cookie.substring(nameLength + 1)));
-    		}
-    	}
-    	response = serverRunning.createRestTemplate().exchange(
-    			result.getHeaders().getLocation().toString(), HttpMethod.GET, new HttpEntity<>(null, getHeaders(cookies)),
-    			String.class);
-    	if (response.getHeaders().containsKey("Set-Cookie")) {
-    		for (String cookie : response.getHeaders().get("Set-Cookie")) {
-    			int nameLength = cookie.indexOf('=');
-    			cookies.addCookie(new BasicClientCookie(cookie.substring(0, nameLength), cookie.substring(nameLength + 1)));
-    		}
-    	}
-    	if (response.getStatusCode() == HttpStatus.OK) {
-    		// The grant access page should be returned
-    		assertTrue(response.getBody().contains("<h1>Application Authorization</h1>"));
-    		formData.clear();
-    		formData.add(USER_OAUTH_APPROVAL, "true");
-    		formData.add(CSRF_PARAMETER_NAME, IntegrationTestUtilsStage.extracCsrfToken(response.getBody()));
-    		result = serverRunning.postForResponse("/oauth/authorize", getHeaders(cookies), formData);
-    		assertEquals(HttpStatus.FOUND, result.getStatusCode());
-    		location = result.getHeaders().getLocation().toString();
-    	} else if(response.getStatusCode() == HttpStatus.BAD_REQUEST){
-    		return response.getBody();
-    	} else {
-    		// Token cached so no need for second approval
-    		assertEquals(HttpStatus.FOUND, response.getStatusCode());
-    		location = response.getHeaders().getLocation().toString();
-    	}
-    	return location;
     }
-    
-    public static ResponseEntity<Map> getTokens(ServerRunning serverRunning,
-            									UaaTestAccounts testAccounts,
-            									String clientId,
-            									String clientSecret,
-            									String redirectUri,
-            									String codeVerifier,
-            									String authorizationCode) throws Exception {
-    	MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
-    	formData.clear();
-    	formData.add("client_id", clientId);
-    	formData.add("grant_type", GRANT_TYPE_AUTHORIZATION_CODE);
-    	formData.add("code", authorizationCode);
-    	if (hasText(redirectUri)) {
-    		formData.add("redirect_uri", redirectUri);
-    	}
-    	if (hasText(codeVerifier)) {
-    		formData.add("code_verifier", codeVerifier);
-    	}
-    	HttpHeaders tokenHeaders = new HttpHeaders();
-    	tokenHeaders.set("Authorization", testAccounts.getAuthorizationHeader(clientId, clientSecret));
-    	return serverRunning.postForMap("/oauth/token", formData, tokenHeaders);
-	}
 
-    public static void callCheckToken(ServerRunning serverRunning,
-    		UaaTestAccounts testAccounts,
-    		String accessToken,
-    		String clientId,
-    		String clientSecret) {
-    	MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", testAccounts.getAuthorizationHeader(clientId, clientSecret));
-        formData.add("token", accessToken);
-        ResponseEntity<Map> tokenResponse = serverRunning.postForMap("/check_token", formData, headers);
-        assertEquals(HttpStatus.OK, tokenResponse.getStatusCode());
-        assertNotNull(tokenResponse.getBody().get("iss"));
+    public static ResponseEntity<Map> getTokens(ServerRunning serverRunning,
+                                                UaaTestAccounts testAccounts,
+                                                String clientId,
+                                                String clientSecret,
+                                                String redirectUri,
+                                                String codeVerifier,
+                                                String authorizationCode) throws Exception {
+        MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
+        formData.clear();
+        formData.add("client_id", clientId);
+        formData.add("grant_type", GRANT_TYPE_AUTHORIZATION_CODE);
+        formData.add("code", authorizationCode);
+        if (hasText(redirectUri)) {
+            formData.add("redirect_uri", redirectUri);
+        }
+        if (hasText(codeVerifier)) {
+            formData.add("code_verifier", codeVerifier);
+        }
+        HttpHeaders tokenHeaders = new HttpHeaders();
+        tokenHeaders.set("Authorization", testAccounts.getAuthorizationHeader(clientId, clientSecret));
+        return serverRunning.postForMap("/oauth/token", formData, tokenHeaders);
     }
+
 
     public static Map<String, String> getAuthorizationCodeTokenMap(ServerRunning serverRunning,
                                                                    UaaTestAccounts testAccounts,
@@ -1760,24 +1089,6 @@ public class IntegrationTestUtilsStage  {
         }
     }
 
-    public static void validateAccountChooserCookie(String baseUrl, WebDriver webDriver, IdentityZone identityZone) {
-        if (identityZone.getConfig().isAccountChooserEnabled()) {
-            List<String> cookies = getAccountChooserCookies(baseUrl, webDriver);
-            assertThat(cookies, Matchers.hasItem(startsWith("Saved-Account-")));
-        }
-    }
-
-    public static void validateUserLastLogon(ScimUser user, Long beforeTestTime, Long afterTestTime) {
-        Long userLastLogon = user.getLastLogonTime();
-        assertNotNull(userLastLogon);
-        assertTrue((userLastLogon > beforeTestTime) && (userLastLogon < afterTestTime));
-    }
-
-    public static List<String> getAccountChooserCookies(String baseUrl, WebDriver webDriver) {
-        webDriver.get(baseUrl + "/logout.do");
-        webDriver.get(baseUrl + "/login");
-        return webDriver.manage().getCookies().stream().map(Cookie::getName).collect(Collectors.toList());
-    }
 
     public static class HttpRequestFactory extends HttpComponentsClientHttpRequestFactory {
         private final boolean disableRedirect;
@@ -1800,23 +1111,6 @@ public class IntegrationTestUtilsStage  {
             }
             return builder.build();
         }
-    }
-
-    public static String createAnotherUser(WebDriver webDriver, String password, SimpleSmtpServer simpleSmtpServer, String url, TestClient testClient) {
-        String userEmail = "user" + new SecureRandom().nextInt() + "@example.com";
-
-        webDriver.get(url + "/create_account");
-        webDriver.findElement(By.name("email")).sendKeys(userEmail);
-        webDriver.findElement(By.name("password")).sendKeys(password);
-        webDriver.findElement(By.name("password_confirmation")).sendKeys(password);
-        webDriver.findElement(By.xpath("//input[@value='Send activation link']")).click();
-
-        Iterator receivedEmail = simpleSmtpServer.getReceivedEmail();
-        SmtpMessage message = (SmtpMessage) receivedEmail.next();
-        receivedEmail.remove();
-        webDriver.get(testClient.extractLink(message.getBody()));
-
-        return userEmail;
     }
 
 

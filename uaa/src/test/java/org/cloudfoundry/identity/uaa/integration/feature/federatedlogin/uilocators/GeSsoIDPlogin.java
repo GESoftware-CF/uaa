@@ -5,15 +5,17 @@ import org.openqa.selenium.WebDriver;
 
 public class GeSsoIDPlogin {
     WebDriver driver;
+
     public GeSsoIDPlogin(WebDriver driver) {
         this.driver = driver;
     }
-By IDPuserName =By.xpath("//input[@name='username']");
-By IDPPassword = By.xpath("//input[@name='password']");
-By clickOnSignIn = By.xpath("//input[@value='Sign in']");
 
+    By IDPuserName = By.xpath("//input[@name='username']");
+    By IDPPassword = By.xpath("//input[@name='password']");
+    By clickOnSignIn = By.xpath("//input[@value='Sign in']");
+    By welcomecheck = By.xpath("//h1[contains(text(), 'Welcome to testzone1!')]");
 
-public void enterIDPuserName(String EnterIDPuserName) {
+    public void enterIDPuserName(String EnterIDPuserName) {
         driver.findElement(IDPuserName).sendKeys(EnterIDPuserName);
     }
 
@@ -24,4 +26,11 @@ public void enterIDPuserName(String EnterIDPuserName) {
     public void clickOnSignIn() {
         driver.findElement(clickOnSignIn).click();
     }
+
+
+    public void headLineCheck() {
+        driver.findElement(welcomecheck).click();
+    }
 }
+
+

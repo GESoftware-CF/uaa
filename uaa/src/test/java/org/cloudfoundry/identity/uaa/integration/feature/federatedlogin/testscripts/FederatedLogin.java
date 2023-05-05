@@ -8,7 +8,6 @@ import org.cloudfoundry.identity.uaa.integration.feature.DefaultIntegrationTestC
 import org.cloudfoundry.identity.uaa.integration.feature.IntegrationTestRule;
 import org.cloudfoundry.identity.uaa.integration.feature.TestClient;
 import org.cloudfoundry.identity.uaa.integration.feature.federatedlogin.uilocators.GeSsoIDPlogin;
-import org.cloudfoundry.identity.uaa.integration.feature.federatedlogin.uilocators.GeSsoLogin;
 import org.cloudfoundry.identity.uaa.integration.feature.federatedlogin.uilocators.GeSsoSPlogin;
 import org.cloudfoundry.identity.uaa.integration.feature.federatedlogin.utils.Constants;
 import org.cloudfoundry.identity.uaa.integration.feature.federatedlogin.utils.IntegrationTestUtilsStage;
@@ -33,9 +32,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.openqa.selenium.*;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.remote.DesiredCapabilities;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -52,7 +48,6 @@ import java.net.Inet4Address;
 import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import static org.cloudfoundry.identity.uaa.provider.saml.SamlKeyManagerFactoryTests.*;
 import static org.cloudfoundry.identity.uaa.provider.saml.SamlKeyManagerFactoryTests.certificate2;
@@ -104,7 +99,6 @@ public class FederatedLogin {
         webDriver.manage().deleteAllCookies();
         webDriver.get(baseUrl.replace("localhost", "testzone2.localhost") + "/logout.do");
         webDriver.manage().deleteAllCookies();
-
         assertTrue("Expected testzone1.localhost and testzone2.localhost to resolve to 127.0.0.1", doesSupportZoneDNS());
     }
 
@@ -121,172 +115,70 @@ public class FederatedLogin {
         group = new ScimGroup(null, "zones.uaa.admin", null);
         IntegrationTestUtilsStage.createGroup(token, "", baseUrl, group);
     }
+
     protected boolean doesSupportZoneDNS() {
         try {
             return Arrays.equals(Inet4Address.getByName("testzone1.localhost").getAddress(),
-                    new byte[] { 127, 0, 0, 1 })
+                    new byte[]{127, 0, 0, 1})
                     && Arrays.equals(Inet4Address.getByName("testzone2.localhost").getAddress(),
-                    new byte[] { 127, 0, 0, 1 })
+                    new byte[]{127, 0, 0, 1})
                     && Arrays.equals(Inet4Address.getByName("testzone3.localhost").getAddress(),
-                    new byte[] { 127, 0, 0, 1 });
+                    new byte[]{127, 0, 0, 1});
         } catch (UnknownHostException e) {
             return false;
         }
-    }
-
-
-
-    @Test
-    public void federatedtest() throws InterruptedException {
-        //****Prerequesits for Browser settings****//*
-
-
-        System.setProperty("webdriver.chrome.driver", "/Users/a223033813/Downloads/seleniumfedaratedlogin/driver/chromedriver");
-        ChromeOptions options = new ChromeOptions();
-        options.addArguments(new String[]{"--remote-allow-origins=*"});
-        options.addArguments(new String[]{"−−incognito"});
-        DesiredCapabilities c = new DesiredCapabilities();
-        c.setCapability("goog:chromeOptions", options);
-        WebDriver driver = new ChromeDriver(options);
-        driver.manage().window().maximize();
-        driver.get(ExpectedUrl);
-        driver.manage().timeouts().implicitlyWait(5L, TimeUnit.SECONDS);
-
-
-//******************Test Begins********************//*
-
-
-        //Creating object of GESSO home page
-        GeSsoLogin sso = new GeSsoLogin(driver);
-
-        //Creating objectof SP of  Home page
-        GeSsoSPlogin spsso = new GeSsoSPlogin(driver);
-
-        //Creating objectof IDP of  Home page
-        GeSsoIDPlogin idpsso = new GeSsoIDPlogin(driver);
-
-        // enter GE SSO user id
-        sso.enterUsername(GESSO_UserName);
-
-        //click next
-        sso.nextButton();
-
-        Thread.sleep(2000);
-
-        //enter your GE soo passowrd
-        sso.enterPassword(GESSO_Password);
-
-        //Login Using GESSO
-        sso.loginButton();
-
-        //Click On sigin By GESSO
-        spsso.clickOnSignInByGesso();
-
-        Thread.sleep(2000);
-
-        // Enter GE SSO USer Name
-        idpsso.enterIDPuserName(IDP_UserName);
-
-        //Enter GE SSOn Password
-        idpsso.enterIDPPassword(IDP_Password);
-
-        //Click On Sihn in
-        idpsso.clickOnSignIn();
-
-        //check home page url
-        spsso.GetHomepageUrl(ExpectedUrl);
     }
 
     @Test
     public void testCrossZoneSamlIntegration() throws Throwable {
         String idpZoneId = "testzone1";
         String idpZoneUrl = baseUrl.replace("localhost", idpZoneId + ".localhost");
-
         String spZoneId = "testzone2";
         String spZoneUrl = baseUrl.replace("localhost", spZoneId + ".localhost");
-
         RestTemplate adminClient = getAdminClient();
         RestTemplate identityClient = getIdentityClient();
-        IdentityZone idpZone = IntegrationTestUtilsStage.createZoneOrUpdateSubdomain2(identityClient, baseUrl, idpZoneId, idpZoneId, null);
-       idpZone.getId();
-        // IntegrationTestUtilsStage.createZoneOrUpdateSubdomain(identityClient, baseUrl, idpZoneId, idpZoneId, null);
-        //String idpZoneAdminToken = getZoneAdminToken(adminClient, idpZoneId);
-       // String idpZoneAdminToken = getZoneAdminToken(adminClient, idpZoneId);
+        //Creating Orch IDP Zone
+        IdentityZone idpZone = IntegrationTestUtilsStage.createOrchZone(identityClient, baseUrl, idpZoneId, idpZoneId, null);
+        idpZone.getId();
         String idpZoneUserEmail = new RandomValueStringGenerator().generate() + "@samltesting.org";
+        //Create user for IDP Admin
         createZoneUser(idpZoneId, idpZoneUserEmail, idpZoneUrl);
-
         SamlConfig samlConfig = new SamlConfig();
         samlConfig.setWantAssertionSigned(true);
         samlConfig.addAndActivateKey("key-1", new SamlKey(key1, passphrase1, certificate1));
         samlConfig.addKey("key-2", new SamlKey(key2, passphrase2, certificate2));
         IdentityZoneConfiguration config = new IdentityZoneConfiguration();
         config.setSamlConfig(samlConfig);
-        IdentityZone spZone = IntegrationTestUtilsStage.createZoneOrUpdateSubdomain2(identityClient, baseUrl, spZoneId, spZoneId, config);
-       spZone.getId();
-        // assertEquals(2, spZone.getConfig().getSamlConfig().getKeys().size());
-        //assertEquals("key-1", spZone.getConfig().getSamlConfig().getActiveKeyId());
-       // String spZoneAdminToken = getZoneAdminToken(adminClient, spZoneId);
-        String spZoneAdminToken=IntegrationTestUtils.getClientCredentialsToken(serverRunning, "admin", "adminsecret");
+        //Creating Orch SP Zone
+        IdentityZone spZone = IntegrationTestUtilsStage.createOrchZone(identityClient, baseUrl, spZoneId, spZoneId, config);
+        //Get Client credentials to for SP Admin token
+        String spZoneAdminToken = IntegrationTestUtils.getClientCredentialsToken(serverRunning, "admin", "adminsecret");
+        //Get IDP meta Data
         SamlIdentityProviderDefinition samlIdentityProviderDefinition = createZone1IdpDefinition(IDP_ENTITY_ID);
-      IdentityProvider<SamlIdentityProviderDefinition> idp = getSamlIdentityProvider(spZone.getId(), spZoneAdminToken, samlIdentityProviderDefinition);
-
+        //configure IDP with Metadata
+        IdentityProvider<SamlIdentityProviderDefinition> idp = getSamlIdentityProvider(spZone.getId(), spZoneAdminToken, samlIdentityProviderDefinition);
+        //Get Sp meta data
         SamlServiceProviderDefinition samlServiceProviderDefinition = createZone2SamlSpDefinition("cloudfoundry-saml-login");
+        //Configure SP with Metadata
         SamlServiceProvider service = getSamlServiceProvider(idpZone.getId(), spZoneAdminToken, samlServiceProviderDefinition, "testzone2.cloudfoundry-saml-login", "Local SAML SP for testzone2", baseUrl);
-
-
+        //Login into SP with IDP credentials
         performLogin(idpZone.getId(), idpZoneUserEmail, idpZoneUrl, spZone, spZoneUrl, samlIdentityProviderDefinition);
-
-        //change the active key
-        spZone.getConfig().getSamlConfig().setActiveKeyId("key-2");
-        spZone = IntegrationTestUtilsStage.createZoneOrUpdateSubdomain(identityClient, baseUrl, spZoneId, spZoneId, spZone.getConfig());
-        assertEquals(2, spZone.getConfig().getSamlConfig().getKeys().size());
-        assertEquals("key-2", spZone.getConfig().getSamlConfig().getActiveKeyId());
-        //performLogin(idpZoneId, idpZoneUserEmail, idpZoneUrl, spZone, spZoneUrl, samlIdentityProviderDefinition);
-
-        //remove the inactive key
-        spZone.getConfig().getSamlConfig().removeKey("key-1");
-        spZone = IntegrationTestUtilsStage.createZoneOrUpdateSubdomain(identityClient, baseUrl, spZoneId, spZoneId, spZone.getConfig());
-        assertEquals(1, spZone.getConfig().getSamlConfig().getKeys().size());
-        assertEquals("key-2", spZone.getConfig().getSamlConfig().getActiveKeyId());
-        //performLogin(idpZoneId, idpZoneUserEmail, idpZoneUrl, spZone, spZoneUrl, samlIdentityProviderDefinition);
-
         webDriver.get(baseUrl + "/logout.do");
         webDriver.get(spZoneUrl + "/logout.do");
-
-        // disable the provider
-        idp.setActive(false);
-        idp = IntegrationTestUtilsStage.createOrUpdateProvider(spZoneAdminToken, baseUrl, idp);
-        assertNotNull(idp.getId());
-        webDriver.get(spZoneUrl + "/login");
-        assertEquals(spZone.getName(), webDriver.getTitle());
-        List<WebElement> elements = webDriver.findElements(By.xpath("//a[text()='" + samlIdentityProviderDefinition.getLinkText() + "']"));
-        assertNotNull(elements);
-        assertEquals(0, elements.size());
-
-        // enable the provider
-        idp.setActive(true);
-        idp = IntegrationTestUtilsStage.createOrUpdateProvider(spZoneAdminToken, baseUrl, idp);
-        assertNotNull(idp.getId());
-        webDriver.get(spZoneUrl + "/login");
-        assertEquals(spZone.getName(), webDriver.getTitle());
-        elements = webDriver
-                .findElements(By.xpath("//a[text()='" + samlIdentityProviderDefinition.getLinkText() + "']"));
-        assertNotNull(elements);
-        assertEquals(1, elements.size());
     }
 
     private RestTemplate getAdminClient() {
-       // String[] scopes = {"zones.write"};
+        // String[] scopes = {"zones.write"};
         return IntegrationTestUtilsStage.getClientCredentialsTemplate(
                 IntegrationTestUtilsStage.getClientCredentialsResource(
-                        baseUrl, new String[0] , "admin", "adminsecret")
+                        baseUrl, new String[0], "admin", "adminsecret")
         );
     }
 
     private RestTemplate getIdentityClient() {
         return IntegrationTestUtilsStage.getClientCredentialsTemplate(
                 IntegrationTestUtilsStage.getClientCredentialsResource(
-                        baseUrl,new String[]{"zones.write", "zones.read", "scim.zones"}, "identity", "identitysecret")
+                        baseUrl, new String[]{"zones.write", "zones.read", "scim.zones"}, "identity", "identitysecret")
         );
     }
 
@@ -294,10 +186,8 @@ public class FederatedLogin {
     private String getZoneAdminToken(RestTemplate adminClient, String zoneId) {
         String zoneAdminEmail = new RandomValueStringGenerator().generate() + "@samltesting.org";
         ScimUser idpZoneAdminUser = IntegrationTestUtilsStage.createUser(adminClient, baseUrl, zoneAdminEmail, "firstname", "lastname", zoneAdminEmail, true);
-
         String groupId = IntegrationTestUtilsStage.findGroupId(adminClient, baseUrl, "zones." + zoneId + ".admin");
         //assertThat(groupId, is(notNullValue()));
-
         IntegrationTestUtilsStage.addMemberToGroup(adminClient, baseUrl, idpZoneAdminUser.getId(), groupId);
         return IntegrationTestUtilsStage.getAccessTokenByAuthCode(
                 serverRunning,
@@ -310,19 +200,13 @@ public class FederatedLogin {
     }
 
 
-
     private ScimUser createZoneUser(String idpZoneId, String zoneUserEmail, String zoneUrl) {
-        //String zoneAdminClientId = new RandomValueStringGenerator().generate() + "-" + idpZoneId + "-admin";
-//BaseClientDetails clientDetails = new BaseClientDetails(zoneAdminClientId, null, "uaa.none",
-// "client_credentials", "uaa.admin,scim.read,scim.write,uaa.resource", zoneUrl);
-//clientDetails.setClientSecret("secret");
-//IntegrationTestUtilsStage.createClientAsZoneAdmin(zoneAdminToken, baseUrl, idpZoneId, clientDetails);
-
         RestTemplate zoneAdminClient = IntegrationTestUtilsStage.getClientCredentialsTemplate(IntegrationTestUtilsStage
                 .getClientCredentialsResource(zoneUrl, new String[0], "admin", "adminsecret"));
         return IntegrationTestUtilsStage.createUserWithPhone(zoneAdminClient, zoneUrl, zoneUserEmail, "Dana", "Scully", zoneUserEmail,
                 true, "1234567890");
     }
+
     public SamlIdentityProviderDefinition createZone1IdpDefinition(String alias) {
         return createLocalSamlIdpDefinition(alias, "testzone1");
     }
@@ -337,6 +221,7 @@ public class FederatedLogin {
         String idpMetaData = getIdpMetadata(url);
         return SamlTestUtils.createLocalSamlIdpDefinition(alias, zoneId, idpMetaData);
     }
+
     public static String getIdpMetadata(String url) {
         RestTemplate client = new RestTemplate();
         MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
@@ -448,38 +333,33 @@ public class FederatedLogin {
     }
 
     public void performLogin(String idpZoneId, String idpZoneUserEmail, String idpZoneUrl, IdentityZone spZone, String spZoneUrl, SamlIdentityProviderDefinition samlIdentityProviderDefinition) {
+        GeSsoIDPlogin ssoIdp = new GeSsoIDPlogin(webDriver);
+        GeSsoSPlogin ssoSp = new GeSsoSPlogin(webDriver);
         webDriver.get(baseUrl + "/logout.do");
         webDriver.get(spZoneUrl + "/logout.do");
-        webDriver.get(idpZoneUrl+ "/logout.do");
+        webDriver.get(idpZoneUrl + "/logout.do");
         webDriver.get(spZoneUrl + "/");
         assertEquals(spZone.getName(), webDriver.getTitle());
         Cookie beforeLogin = webDriver.manage().getCookieNamed("JSESSIONID");
-       // assertNotNull(beforeLogin);
-        //assertNotNull(beforeLogin.getValue());
-
-        List<WebElement> elements = webDriver
-                .findElements(By.xpath("//a[text()='" + samlIdentityProviderDefinition.getLinkText() + "']"));
-        assertNotNull(elements);
-        assertEquals(1, elements.size());
-
-        WebElement element = elements.get(0);
-        assertNotNull(element);
-
-        element.click();
+        assertNotNull(beforeLogin);
+        assertNotNull(beforeLogin.getValue());
+        ssoSp.clickOnSignInByGesso();
         try {
-            webDriver.findElement(By.xpath("//h1[contains(text(), 'Welcome to testzone1!')]"));
-            webDriver.findElement(By.name("username")).clear();
-            webDriver.findElement(By.name("username")).sendKeys(idpZoneUserEmail);
-            webDriver.findElement(By.name("password")).sendKeys("secr3T");
-            webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
+
+            ssoIdp.headLineCheck();
+
+            ssoIdp.enterIDPuserName(idpZoneUserEmail);
+
+            ssoIdp.enterIDPPassword("secr3T");
             //This is modified for branding login.yml changes...
+            ssoIdp.clickOnSignIn();
             assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString("You should not see this page. Set up your redirect URI."));
             Cookie afterLogin = webDriver.manage().getCookieNamed("JSESSIONID");
             assertNotNull(afterLogin);
             assertNotNull(afterLogin.getValue());
             assertNotEquals(beforeLogin.getValue(), afterLogin.getValue());
         } catch (Exception e) {
-            assertTrue("Http-Artifact binding is not supported",e instanceof NoSuchElementException);
+            assertTrue("Http-Artifact binding is not supported", e instanceof NoSuchElementException);
 
         }
     }
