@@ -773,7 +773,7 @@ public class IntegrationTestUtilsStage  {
         //ResponseEntity<String> zoneGet1 = client.getForEntity(url + "/orchestrator/zones?name=The Twiglet Zone[\"" + id + "\"]", String.class, id);
 
         //ResponseEntity<String> zoneGet1 = client.getForEntity(url + "/orchestrator/zones?name=testzone1", String.class, id);
-        ResponseEntity<OrchestratorZoneResponse> zone1= client.getForEntity(url + "/orchestrator/zones?name=testzone1", OrchestratorZoneResponse.class, id);
+        ResponseEntity<OrchestratorZoneResponse> zone1= client.getForEntity(url + "/orchestrator/zones?name="+id, OrchestratorZoneResponse.class, id);
         OrchestratorZoneResponse getZoneResponse = zone1.getBody();
 
         final String zoneId = getZoneResponse.getConnectionDetails().getZone().getHttpHeaderValue();
