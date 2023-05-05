@@ -10,7 +10,7 @@ import org.cloudfoundry.identity.uaa.integration.feature.TestClient;
 import org.cloudfoundry.identity.uaa.integration.feature.federatedlogin.uilocators.GeSsoIDPlogin;
 import org.cloudfoundry.identity.uaa.integration.feature.federatedlogin.uilocators.GeSsoSPlogin;
 import org.cloudfoundry.identity.uaa.integration.feature.federatedlogin.utils.Constants;
-import org.cloudfoundry.identity.uaa.integration.feature.federatedlogin.utils.IntegrationTestUtilsStage;
+import org.cloudfoundry.identity.uaa.integration.feature.federatedlogin.utils.IntegrationUtilsOrchestrator;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.SamlIdentityProviderDefinition;
@@ -20,7 +20,6 @@ import org.cloudfoundry.identity.uaa.provider.saml.idp.SamlTestUtils;
 import org.cloudfoundry.identity.uaa.saml.SamlKey;
 import org.cloudfoundry.identity.uaa.scim.ScimGroup;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
-import org.cloudfoundry.identity.uaa.test.UaaTestAccounts;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
@@ -104,16 +103,16 @@ public class FederatedLogin {
 
     @Before
     public void setup() {
-        String token = IntegrationTestUtilsStage.getClientCredentialsToken(baseUrl, "admin", "adminsecret");
+        String token = IntegrationUtilsOrchestrator.getClientCredentialsToken(baseUrl, "admin", "adminsecret");
 
         ScimGroup group = new ScimGroup(null, "zones.testzone1.admin", null);
-        IntegrationTestUtilsStage.createGroup(token, "", baseUrl, group);
+        IntegrationUtilsOrchestrator.createGroup(token, "", baseUrl, group);
 
         group = new ScimGroup(null, "zones.testzone2.admin", null);
-        IntegrationTestUtilsStage.createGroup(token, "", baseUrl, group);
+        IntegrationUtilsOrchestrator.createGroup(token, "", baseUrl, group);
 
         group = new ScimGroup(null, "zones.uaa.admin", null);
-        IntegrationTestUtilsStage.createGroup(token, "", baseUrl, group);
+        IntegrationUtilsOrchestrator.createGroup(token, "", baseUrl, group);
     }
 
     protected boolean doesSupportZoneDNS() {
@@ -138,7 +137,7 @@ public class FederatedLogin {
         RestTemplate adminClient = getAdminClient();
         RestTemplate identityClient = getIdentityClient();
         //Creating Orch IDP Zone
-        IdentityZone idpZone = IntegrationTestUtilsStage.createOrchZone(identityClient, baseUrl, idpZoneId, idpZoneId, null);
+        IdentityZone idpZone = IntegrationUtilsOrchestrator.createOrchZone(identityClient, baseUrl, idpZoneId, idpZoneId, null);
         idpZone.getId();
         String idpZoneUserEmail = new RandomValueStringGenerator().generate() + "@samltesting.org";
         //Create user for IDP Admin
@@ -150,7 +149,7 @@ public class FederatedLogin {
         IdentityZoneConfiguration config = new IdentityZoneConfiguration();
         config.setSamlConfig(samlConfig);
         //Creating Orch SP Zone
-        IdentityZone spZone = IntegrationTestUtilsStage.createOrchZone(identityClient, baseUrl, spZoneId, spZoneId, config);
+        IdentityZone spZone = IntegrationUtilsOrchestrator.createOrchZone(identityClient, baseUrl, spZoneId, spZoneId, config);
         //Get Client credentials to for SP Admin token
         String spZoneAdminToken = IntegrationTestUtils.getClientCredentialsToken(serverRunning, "admin", "adminsecret");
         //Get IDP meta Data
@@ -168,42 +167,27 @@ public class FederatedLogin {
     }
 
     private RestTemplate getAdminClient() {
-        // String[] scopes = {"zones.write"};
-        return IntegrationTestUtilsStage.getClientCredentialsTemplate(
-                IntegrationTestUtilsStage.getClientCredentialsResource(
+        return IntegrationUtilsOrchestrator.getClientCredentialsTemplate(
+                IntegrationUtilsOrchestrator.getClientCredentialsResource(
                         baseUrl, new String[0], "admin", "adminsecret")
         );
     }
 
     private RestTemplate getIdentityClient() {
-        return IntegrationTestUtilsStage.getClientCredentialsTemplate(
-                IntegrationTestUtilsStage.getClientCredentialsResource(
+        return IntegrationUtilsOrchestrator.getClientCredentialsTemplate(
+                IntegrationUtilsOrchestrator.getClientCredentialsResource(
                         baseUrl, new String[]{"zones.write", "zones.read", "scim.zones"}, "identity", "identitysecret")
         );
     }
 
 
-    private String getZoneAdminToken(RestTemplate adminClient, String zoneId) {
-        String zoneAdminEmail = new RandomValueStringGenerator().generate() + "@samltesting.org";
-        ScimUser idpZoneAdminUser = IntegrationTestUtilsStage.createUser(adminClient, baseUrl, zoneAdminEmail, "firstname", "lastname", zoneAdminEmail, true);
-        String groupId = IntegrationTestUtilsStage.findGroupId(adminClient, baseUrl, "zones." + zoneId + ".admin");
-        //assertThat(groupId, is(notNullValue()));
-        IntegrationTestUtilsStage.addMemberToGroup(adminClient, baseUrl, idpZoneAdminUser.getId(), groupId);
-        return IntegrationTestUtilsStage.getAccessTokenByAuthCode(
-                serverRunning,
-                UaaTestAccounts.standard(serverRunning),
-                "identity",
-                "identitysecret",
-                zoneAdminEmail,
-                "secr3T"
-        );
-    }
+
 
 
     private ScimUser createZoneUser(String idpZoneId, String zoneUserEmail, String zoneUrl) {
-        RestTemplate zoneAdminClient = IntegrationTestUtilsStage.getClientCredentialsTemplate(IntegrationTestUtilsStage
+        RestTemplate zoneAdminClient = IntegrationUtilsOrchestrator.getClientCredentialsTemplate(IntegrationUtilsOrchestrator
                 .getClientCredentialsResource(zoneUrl, new String[0], "admin", "adminsecret"));
-        return IntegrationTestUtilsStage.createUserWithPhone(zoneAdminClient, zoneUrl, zoneUserEmail, "Dana", "Scully", zoneUserEmail,
+        return IntegrationUtilsOrchestrator.createUserWithPhone(zoneAdminClient, zoneUrl, zoneUserEmail, "Dana", "Scully", zoneUserEmail,
                 true, "1234567890");
     }
 
@@ -240,7 +224,7 @@ public class FederatedLogin {
         idp.setConfig(samlIdentityProviderDefinition);
         idp.setOriginKey(samlIdentityProviderDefinition.getIdpEntityAlias());
         idp.setName("Local SAML IdP for testzone1");
-        idp = IntegrationTestUtilsStage.createOrUpdateProvider(spZoneAdminToken, baseUrl, idp);
+        idp = IntegrationUtilsOrchestrator.createOrUpdateProvider(spZoneAdminToken, baseUrl, idp);
         assertNotNull(idp.getId());
         return idp;
     }
