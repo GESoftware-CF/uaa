@@ -1,8 +1,10 @@
 package org.cloudfoundry.identity.uaa.mock.zones;
 
+import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.DASHBOARD_LOGIN_PATH;
 import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.X_IDENTITY_ZONE_ID;
 import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.ZONE_CREATED_MESSAGE;
 import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.ZONE_DELETED_MESSAGE;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
@@ -59,53 +61,13 @@ public class OrchestratorZoneControllerMockMvcTests {
     public static final String ZONE_NAME = "The Twiglet Zone";
     public static final String SUB_DOMAIN_NAME = "sub-domain-01";
     public static final String ADMIN_CLIENT_SECRET = "admin-secret-01";
+    public static final String DASHBOARD_URI = "http://localhost:8080/dashboard";
 
     private MockMvc mockMvc;
     private String orchestratorZonesReadToken = null;
     private String orchestratorZonesWriteToken = null;
     private TestApplicationEventListener<AbstractUaaEvent> uaaEventListener;
     private TestApplicationEventListener<IdentityZoneModifiedEvent> zoneModifiedEventListener;
-
-    private final String serviceProviderKey =
-        "-----BEGIN RSA PRIVATE KEY-----\n" +
-        "MIICXQIBAAKBgQDHtC5gUXxBKpEqZTLkNvFwNGnNIkggNOwOQVNbpO0WVHIivig5\n" +
-        "L39WqS9u0hnA+O7MCA/KlrAR4bXaeVVhwfUPYBKIpaaTWFQR5cTR1UFZJL/OF9vA\n" +
-        "fpOwznoD66DDCnQVpbCjtDYWX+x6imxn8HCYxhMol6ZnTbSsFW6VZjFMjQIDAQAB\n" +
-        "AoGAVOj2Yvuigi6wJD99AO2fgF64sYCm/BKkX3dFEw0vxTPIh58kiRP554Xt5ges\n" +
-        "7ZCqL9QpqrChUikO4kJ+nB8Uq2AvaZHbpCEUmbip06IlgdA440o0r0CPo1mgNxGu\n" +
-        "lhiWRN43Lruzfh9qKPhleg2dvyFGQxy5Gk6KW/t8IS4x4r0CQQD/dceBA+Ndj3Xp\n" +
-        "ubHfxqNz4GTOxndc/AXAowPGpge2zpgIc7f50t8OHhG6XhsfJ0wyQEEvodDhZPYX\n" +
-        "kKBnXNHzAkEAyCA76vAwuxqAd3MObhiebniAU3SnPf2u4fdL1EOm92dyFs1JxyyL\n" +
-        "gu/DsjPjx6tRtn4YAalxCzmAMXFSb1qHfwJBAM3qx3z0gGKbUEWtPHcP7BNsrnWK\n" +
-        "vw6By7VC8bk/ffpaP2yYspS66Le9fzbFwoDzMVVUO/dELVZyBnhqSRHoXQcCQQCe\n" +
-        "A2WL8S5o7Vn19rC0GVgu3ZJlUrwiZEVLQdlrticFPXaFrn3Md82ICww3jmURaKHS\n" +
-        "N+l4lnMda79eSp3OMmq9AkA0p79BvYsLshUJJnvbk76pCjR28PK4dV1gSDUEqQMB\n" +
-        "qy45ptdwJLqLJCeNoR0JUcDNIRhOCuOPND7pcMtX6hI/\n" +
-        "-----END RSA PRIVATE KEY-----";
-
-    private final String serviceProviderKeyPassword = "password";
-
-    private final String serviceProviderCertificate =
-        "-----BEGIN CERTIFICATE-----\n" +
-        "MIIDSTCCArKgAwIBAgIBADANBgkqhkiG9w0BAQQFADB8MQswCQYDVQQGEwJhdzEO\n" +
-        "MAwGA1UECBMFYXJ1YmExDjAMBgNVBAoTBWFydWJhMQ4wDAYDVQQHEwVhcnViYTEO\n" +
-        "MAwGA1UECxMFYXJ1YmExDjAMBgNVBAMTBWFydWJhMR0wGwYJKoZIhvcNAQkBFg5h\n" +
-        "cnViYUBhcnViYS5hcjAeFw0xNTExMjAyMjI2MjdaFw0xNjExMTkyMjI2MjdaMHwx\n" +
-        "CzAJBgNVBAYTAmF3MQ4wDAYDVQQIEwVhcnViYTEOMAwGA1UEChMFYXJ1YmExDjAM\n" +
-        "BgNVBAcTBWFydWJhMQ4wDAYDVQQLEwVhcnViYTEOMAwGA1UEAxMFYXJ1YmExHTAb\n" +
-        "BgkqhkiG9w0BCQEWDmFydWJhQGFydWJhLmFyMIGfMA0GCSqGSIb3DQEBAQUAA4GN\n" +
-        "ADCBiQKBgQDHtC5gUXxBKpEqZTLkNvFwNGnNIkggNOwOQVNbpO0WVHIivig5L39W\n" +
-        "qS9u0hnA+O7MCA/KlrAR4bXaeVVhwfUPYBKIpaaTWFQR5cTR1UFZJL/OF9vAfpOw\n" +
-        "znoD66DDCnQVpbCjtDYWX+x6imxn8HCYxhMol6ZnTbSsFW6VZjFMjQIDAQABo4Ha\n" +
-        "MIHXMB0GA1UdDgQWBBTx0lDzjH/iOBnOSQaSEWQLx1syGDCBpwYDVR0jBIGfMIGc\n" +
-        "gBTx0lDzjH/iOBnOSQaSEWQLx1syGKGBgKR+MHwxCzAJBgNVBAYTAmF3MQ4wDAYD\n" +
-        "VQQIEwVhcnViYTEOMAwGA1UEChMFYXJ1YmExDjAMBgNVBAcTBWFydWJhMQ4wDAYD\n" +
-        "VQQLEwVhcnViYTEOMAwGA1UEAxMFYXJ1YmExHTAbBgkqhkiG9w0BCQEWDmFydWJh\n" +
-        "QGFydWJhLmFyggEAMAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEEBQADgYEAYvBJ\n" +
-        "0HOZbbHClXmGUjGs+GS+xC1FO/am2suCSYqNB9dyMXfOWiJ1+TLJk+o/YZt8vuxC\n" +
-        "KdcZYgl4l/L6PxJ982SRhc83ZW2dkAZI4M0/Ud3oePe84k8jm3A7EvH5wi5hvCkK\n" +
-        "RpuRBwn3Ei+jCRouxTbzKPsuCVB+1sNyxMTXzf0=\n" +
-        "-----END CERTIFICATE-----\n";
 
     @BeforeEach
     void setUp(@Autowired MockMvc mockMvc,
@@ -187,14 +149,13 @@ public class OrchestratorZoneControllerMockMvcTests {
 
         ConnectionDetails expectedConnectionDetails = new ConnectionDetails();
         expectedConnectionDetails.setSubdomain(SUB_DOMAIN_NAME);
-        expectedConnectionDetails.setUri("http://" + SUB_DOMAIN_NAME + ".localhost");
-        expectedConnectionDetails.setDashboardUri("http://localhost:8080/dashboard");
-        expectedConnectionDetails.setIssuerId(expectedConnectionDetails.getUri() + "/oauth/token");
         expectedConnectionDetails.setZone(expectedZoneHeader);
 
         OrchestratorZoneResponse expectedResponse = new OrchestratorZoneResponse();
         expectedResponse.setName(ZONE_NAME);
         expectedResponse.setConnectionDetails(expectedConnectionDetails);
+        expectedConnectionDetails.setUri("http://" + SUB_DOMAIN_NAME + ".localhost:8080/uaa");
+        expectedConnectionDetails.setIssuerId("http://" + SUB_DOMAIN_NAME + ".localhost:8080/uaa/oauth/token");
         expectedResponse.setMessage("");
         expectedResponse.setState(OrchestratorState.FOUND.toString());
 
@@ -253,7 +214,7 @@ public class OrchestratorZoneControllerMockMvcTests {
             assertNotNull(actualConnectionDetails);
             assertEquals(expectedConnectionDetails.getSubdomain(), actualConnectionDetails.getSubdomain());
             assertEquals(expectedConnectionDetails.getUri(), actualConnectionDetails.getUri());
-            assertEquals(expectedConnectionDetails.getDashboardUri(), actualConnectionDetails.getDashboardUri());
+            assertThat(actualConnectionDetails.getDashboardUri(), containsString(DASHBOARD_URI + DASHBOARD_LOGIN_PATH));
             assertEquals(expectedConnectionDetails.getIssuerId(), actualConnectionDetails.getIssuerId());
             assertEquals(expectedConnectionDetails.getZone().getHttpHeaderName(),
                     actualConnectionDetails.getZone().getHttpHeaderName());
@@ -362,7 +323,7 @@ public class OrchestratorZoneControllerMockMvcTests {
 
     @Test
     void testCreateZone_Unauthorized_WithoutAccessToken() throws Exception {
-        OrchestratorZoneRequest orchestratorZoneRequest = getOrchestratorZoneRequest(ZONE_NAME,ADMIN_CLIENT_SECRET,
+        OrchestratorZoneRequest orchestratorZoneRequest = getOrchestratorZoneRequest(ZONE_NAME, ADMIN_CLIENT_SECRET,
                                                                                      SUB_DOMAIN_NAME);
         MvcResult result = mockMvc
             .perform(
@@ -374,7 +335,7 @@ public class OrchestratorZoneControllerMockMvcTests {
 
     @Test
     void testCreateZone_Forbidden_InsufficientScope() throws Exception {
-        OrchestratorZoneRequest orchestratorZoneRequest = getOrchestratorZoneRequest(ZONE_NAME,ADMIN_CLIENT_SECRET,
+        OrchestratorZoneRequest orchestratorZoneRequest = getOrchestratorZoneRequest(ZONE_NAME, ADMIN_CLIENT_SECRET,
                                                                                      SUB_DOMAIN_NAME);
         MvcResult result = mockMvc
             .perform(
