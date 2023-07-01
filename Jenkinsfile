@@ -119,14 +119,22 @@ pipeline {
                             echo "Unit tests failed"
                         }
                         always {
-                            junit testResults: 'uaa/server/build/test-results/**/*.xml', allowEmptyResults: true
+                            junit testResults: '**/build/test-results/**/*.xml', allowEmptyResults: true
                             publishHTML target: [
                                 allowMissing: true,
                                 alwaysLinkToLastBuild: true,
                                 keepAll: true,
                                 reportDir: 'uaa/server/build/reports/tests/test',
                                 reportFiles: 'index.html',
-                                reportName: 'Unit Test Results'
+                                reportName: 'Server Unit Test Results'
+                            ]
+                            publishHTML target: [
+                                allowMissing: true,
+                                alwaysLinkToLastBuild: true,
+                                keepAll: true,
+                                reportDir: 'uaa/zone-service/build/reports/tests/test',
+                                reportFiles: 'index.html',
+                                reportName: 'Zone Service Unit Test Results'
                             ]
                             publishHTML target: [
                                 allowMissing: true,
@@ -410,51 +418,6 @@ pipeline {
                             ]
                         }
                     }
-                }
-            }
-        }
-        stage('Build PR image and publish to ECR') {
-            when {
-                // Image build and push for rc and release branches is done using GE SOS Build pipeline
-                // See gesos-image-build.pipeline triggered using Post-Build Script stage
-                changeRequest()
-            }
-            agent {
-                docker {
-                    image "${NODE['IMAGE']}"
-                    label "${NODE['LABEL']}"
-                    args "${NODE['ARGS']} -v /var/run/docker.sock:/var/run/docker.sock"
-                }
-            }
-            environment {
-                AWS_ECR_SSO_CREDENTIALS = credentials('AWS_ECR_SSO_CREDENTIALS')
-            }
-            steps {
-                dir('iam-container-config') {
-                    // Check out repo with Dockerfiles and build/publish script
-                    git changelog: false,
-                            credentialsId: 'github.build.ge.com',
-                            poll: false,
-                            url: 'https://github.build.ge.com/predix/iam-container-config.git',
-                            branch: 'master'
-
-                    unstash 'uaa-war'
-                    script {
-                        sh """
-                            # Copy war file for copying into container image when building
-                            cp cloudfoundry-identity-uaa*.war uaa/cloudfoundry-identity-uaa.war
-
-                            ./container-build-publish uaa
-                        """
-                    }
-                }
-            }
-            post {
-                success {
-                    echo "Build PR image and publish to ECR completed"
-                }
-                failure {
-                    echo "Build PR image and publish to ECR failed"
                 }
             }
         }

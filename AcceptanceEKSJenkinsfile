@@ -18,12 +18,17 @@ pipeline {
         choice(
             name: 'DEPLOYMENT_ENVIRONMENT',
             description: 'This specifies which EKS environment to test',
-            choices: 'dev\nint\nstage'
+            choices: 'dev\nint\nqa\nstage'
         )
         string(
             name: 'UAA_K8S_DEPLOY_BRANCH',
             defaultValue: 'master',
             description: 'uaa-k8s-deploy repo branch to use for testing'
+        )
+        booleanParam(
+            name: 'RUN_ORCHESTRATOR_INTEGRATION_TESTS',
+            defaultValue: false,
+            description: 'Whether or not to run orchestrator integration tests'
         )
     }
     stages {
@@ -94,6 +99,11 @@ pipeline {
                     image "${NODE['IMAGE']}"
                     label "${NODE['LABEL']}"
                     args "${NODE['ARGS']}"
+                }
+            }
+            when {
+                expression {
+                    return params.RUN_ORCHESTRATOR_INTEGRATION_TESTS
                 }
             }
             environment {
