@@ -8,18 +8,13 @@ buildscript {
 
     repositories {
         mavenCentral()
-        jcenter()
         maven {
             url("https://plugins.gradle.org/m2/")
-        }
-        maven {
-            url("https://repo.spring.io/plugins-release")
         }
     }
 
     dependencies {
         classpath(libraries.cargoGradlePlugin)
-        classpath(libraries.prodepsGradlePlugin)
         classpath(libraries.asciidoctorGradlePlugin)
         classpath(libraries.springDependencyMangementGradlePlugin)
         classpath(libraries.springBootGradlePlugin)
@@ -33,6 +28,7 @@ apply(from: "dependencies.gradle")
 def applicationPort = project.hasProperty('port') ? project.getProperty('port').toInteger() : 8080
 
 apply(plugin: "com.bmuschko.cargo")
+apply(plugin: "war")
 
 def geArtifactoryReader = System.getenv('ARTIFACTORY_READER')
 def geArtifactoryReaderPassword  = System.getenv('ARTIFACTORY_READER_PW')
@@ -41,8 +37,6 @@ def proxyPort  = System.getenv('PROXY_PORT')
 def nonProxyHosts = 'localhost|*.localhost'
 
 allprojects {
-    apply(plugin: "propdeps")
-    apply(plugin: "propdeps-maven")
     apply(plugin: "io.spring.dependency-management")
     apply(plugin: "org.gradle.test-retry")
 
@@ -52,8 +46,6 @@ allprojects {
             mavenBom(libraries.springBootBom)
         }
     }
-
-    configurations.provided.transitive = false
 
     repositories {
         mavenLocal()
