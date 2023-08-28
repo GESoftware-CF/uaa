@@ -165,8 +165,6 @@ public class JdbcIdentityZoneProvisioning implements IdentityZoneProvisioning, S
         } catch (DuplicateKeyException e) {
             throw new ZoneAlreadyExistsException(orchestratorZoneName,
                 "The zone name " + orchestratorZoneName + " is already taken. Please use a different zone name", e);
-        } catch (Exception ex){
-            ex.printStackTrace();
         }
 
         return retrieveByNameIgnoreActiveFlag(orchestratorZoneName);

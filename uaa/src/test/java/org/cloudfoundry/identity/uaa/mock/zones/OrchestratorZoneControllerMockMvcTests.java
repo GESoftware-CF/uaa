@@ -487,6 +487,7 @@ public class OrchestratorZoneControllerMockMvcTests {
                 orchestratorZonesWriteToken,
                 status().isAccepted(), expectedResponse);
     }
+
     @Test
     void testCreateZoneWithImport() throws Exception {
         String id =UUID.randomUUID().toString();
@@ -513,7 +514,6 @@ public class OrchestratorZoneControllerMockMvcTests {
                 orchestratorZonesWriteToken,
                 status().isAccepted(), expectedResponse);
     }
-
 
     @Test
     void testCreateZoneWithImport_InvalidImportedServiceInstanceUuidFormat() throws Exception {
@@ -705,7 +705,6 @@ public class OrchestratorZoneControllerMockMvcTests {
                 "uaa.admin");
     }
 
-    //TODO: delete once the orchestrator create API implemented
     private IdentityZone createSimpleIdentityZone(String id) {
         IdentityZone identityZone = new IdentityZone();
         identityZone.setId(id);
