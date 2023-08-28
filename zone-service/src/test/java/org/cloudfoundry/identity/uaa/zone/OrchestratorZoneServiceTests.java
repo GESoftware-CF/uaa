@@ -9,8 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -54,6 +53,7 @@ public class OrchestratorZoneServiceTests {
     public static final String ISSUER_URI = "http://issuer-uri";
     public static final String ADMIN_CLIENT_SECRET = "admin-secret-01";
     public static final String ADMIN_CLIENT_SECRET_EMPTY = "";
+    public static final String IMPORT_SERVICE_INSTANCE_GUID = "1e1a1a11-b1a1-1fbb-a111-11ae11011111";
     private OrchestratorZoneService zoneService;
     private IdentityZoneProvisioning zoneProvisioning;
     private IdentityProviderProvisioning idpProvisioning;
@@ -259,6 +259,24 @@ public class OrchestratorZoneServiceTests {
         assertEquals(ZONE_NAME, exception.getZoneName());
     }
 
+
+    @Test
+    public void testCreateZone_importServiceInstanceGuidNotPresent_ExceptionCheck() throws OrchestratorZoneServiceException {
+        Security.addProvider(new BouncyCastleProvider());
+        OrchestratorZoneRequest zoneRequest =  getOrchestratorZoneImportRequest(ZONE_NAME, ADMIN_CLIENT_SECRET,
+                SUB_DOMAIN_NAME,IMPORT_SERVICE_INSTANCE_GUID);
+        IdentityZone identityZone = createIdentityZone(null);
+        IdentityProvider identityProvider = createDefaultIdp(identityZone);
+        when(zoneProvisioning.retrieveOrchestratorZoneByIdentityZoneId(any())).thenThrow(new ZoneDoesNotExistsException("Zone[" + IMPORT_SERVICE_INSTANCE_GUID + "] not found."));
+        when(zoneProvisioning.retrieve(any())).thenThrow(new ZoneDoesNotExistsException("Zone[" + IMPORT_SERVICE_INSTANCE_GUID + "] not found."));
+
+        ZoneDoesNotExistsException exception =
+                Assertions.assertThrows(ZoneDoesNotExistsException.class, () -> zoneService.createZone(zoneRequest),
+                        "Existing identity zone not Present not thrown");
+
+        assertTrue(exception.getMessage().contains("Zone to import not Present"));
+    }
+
     @Test
     public void testCreateZone() throws OrchestratorZoneServiceException, IOException {
         Security.addProvider(new BouncyCastleProvider());
@@ -276,6 +294,28 @@ public class OrchestratorZoneServiceTests {
         verify(idpProvisioning, times(1)).create(any(),any());
         verify(clientDetailsService, times(1)).create(any(),any());
         verify(clientDetailsValidator, times(1)).validate(any(),anyBoolean(),anyBoolean());
+
+        assertNotNull(response);
+        assertEquals(ZONE_NAME, response.getName());
+        assertEquals(OrchestratorState.CREATE_IN_PROGRESS.toString(), response.getState());
+        assertEquals(ZONE_CREATED_MESSAGE, response.getMessage());
+        assertNull(response.getParameters());
+    }
+
+
+    @Test
+    public void testCreateZoneWithImport() throws OrchestratorZoneServiceException, IOException {
+        Security.addProvider(new BouncyCastleProvider());
+        OrchestratorZoneRequest zoneRequest =  getOrchestratorZoneImportRequest(ZONE_NAME, ADMIN_CLIENT_SECRET,
+                SUB_DOMAIN_NAME,IMPORT_SERVICE_INSTANCE_GUID);
+
+        IdentityZone identityZone = createIdentityZone(null);
+        when(zoneProvisioning.retrieve(any())).thenReturn(identityZone);
+        when(zoneProvisioning.retrieveOrchestratorZoneByIdentityZoneId(any())).thenThrow(ZoneDoesNotExistsException.class);
+        OrchestratorZoneResponse response = zoneService.createZone(zoneRequest);
+
+        verify(zoneProvisioning, times(1)).retrieve(any());
+        verify(zoneProvisioning, times(1)).createOrchestratorZone(any(),anyString());
 
         assertNotNull(response);
         assertEquals(ZONE_NAME, response.getName());
@@ -331,11 +371,93 @@ public class OrchestratorZoneServiceTests {
         verify(zoneProvisioning, times(1)).create(any());
     }
 
+    @Test
+    public void testCreateZoneWithImport_ZoneAlredyImported() throws OrchestratorZoneServiceException, IOException {
+        Security.addProvider(new BouncyCastleProvider());
+        OrchestratorZoneEntity orchestratorZone = buildOrchestratorZone();
+        OrchestratorZoneRequest zoneRequest =  getOrchestratorZoneImportRequest(ZONE_NAME, ADMIN_CLIENT_SECRET,
+                SUB_DOMAIN_NAME,IMPORT_SERVICE_INSTANCE_GUID);
+
+        IdentityZone identityZone = createIdentityZone(null);
+        when(zoneProvisioning.retrieveOrchestratorZoneByIdentityZoneId(any())).thenReturn(orchestratorZone);
+
+        String errorMessage = String.format("Invalid Operation , Zone  " +
+                "%s , already present , Import not needed ", IMPORT_SERVICE_INSTANCE_GUID);
+
+        ZoneAlreadyExistsException exception =
+                assertThrows(ZoneAlreadyExistsException.class, () ->
+                                zoneService.createZone(zoneRequest),
+                        errorMessage);
+
+        assertTrue(exception.getMessage().contains(errorMessage));
+        verify(zoneProvisioning, times(1)).retrieveOrchestratorZoneByIdentityZoneId(any());
+    }
+
+
+    @Test
+    public void testCreateZoneWithImport_ZoneDoesNotExist() throws OrchestratorZoneServiceException, IOException {
+        Security.addProvider(new BouncyCastleProvider());
+        OrchestratorZoneRequest zoneRequest =  getOrchestratorZoneImportRequest(ZONE_NAME, ADMIN_CLIENT_SECRET,
+                SUB_DOMAIN_NAME,IMPORT_SERVICE_INSTANCE_GUID);
+
+        IdentityZone identityZone = createIdentityZone(null);
+        when(zoneProvisioning.retrieveOrchestratorZoneByIdentityZoneId(any())).thenThrow(ZoneDoesNotExistsException.class);
+        when(zoneProvisioning.retrieve(any())).thenThrow(ZoneDoesNotExistsException.class);
+
+        String errorMessage = String.format("Unexpected exception while importing identity zone  " +
+                "%s , Zone to import not Present ", IMPORT_SERVICE_INSTANCE_GUID);
+
+        ZoneDoesNotExistsException exception =
+                assertThrows(ZoneDoesNotExistsException.class, () ->
+                                zoneService.createZone(zoneRequest),
+                        errorMessage);
+
+        assertTrue(exception.getMessage().contains(errorMessage));
+        verify(zoneProvisioning, times(1)).retrieveOrchestratorZoneByIdentityZoneId(any());
+        verify(zoneProvisioning, times(1)).retrieve(any());
+    }
+
+
+    @Test
+    public void testCreateZoneWithImport_ZoneNameAlreadyExist() throws OrchestratorZoneServiceException, IOException {
+        Security.addProvider(new BouncyCastleProvider());
+        OrchestratorZoneRequest zoneRequest =  getOrchestratorZoneImportRequest(ZONE_NAME, ADMIN_CLIENT_SECRET,
+                SUB_DOMAIN_NAME,IMPORT_SERVICE_INSTANCE_GUID);
+
+        IdentityZone identityZone = createIdentityZone(null);
+        when(zoneProvisioning.retrieveOrchestratorZoneByIdentityZoneId(any())).thenThrow(ZoneDoesNotExistsException.class);
+        when(zoneProvisioning.retrieve(any())).thenReturn(identityZone);
+        when(zoneProvisioning.createOrchestratorZone(any(),any())).thenThrow(new ZoneAlreadyExistsException(
+                "The zone name " + ZONE_NAME + " is already taken. Please use a different zone name"));
+
+        String errorMessage = String.format("Unexpected exception while importing zone  " +
+                "%s , error is %s ", IMPORT_SERVICE_INSTANCE_GUID,
+                "The zone name " + ZONE_NAME + " is already taken. Please use a different zone name");
+
+        ZoneAlreadyExistsException exception =
+                assertThrows(ZoneAlreadyExistsException.class, () ->
+                                zoneService.createZone(zoneRequest),
+                        errorMessage);
+
+        assertTrue(exception.getMessage().contains(errorMessage));
+        verify(zoneProvisioning, times(1)).retrieveOrchestratorZoneByIdentityZoneId(any());
+        verify(zoneProvisioning, times(1)).retrieve(any());
+        verify(zoneProvisioning, times(1)).createOrchestratorZone(any(),any());
+    }
 
     private OrchestratorZoneRequest getOrchestratorZoneRequest(String name, String adminClientSecret,
                                                                String subDomain) {
         OrchestratorZoneRequest zoneRequest = new OrchestratorZoneRequest();
-        OrchestratorZone zone = new OrchestratorZone(adminClientSecret, subDomain);
+        OrchestratorZone zone = new OrchestratorZone(adminClientSecret, subDomain,null);
+        zoneRequest.setName(name);
+        zoneRequest.setParameters(zone);
+        return zoneRequest;
+    }
+
+    private OrchestratorZoneRequest getOrchestratorZoneImportRequest(String name, String adminClientSecret,
+                                                               String subDomain,String importServiceInstanceGuid) {
+        OrchestratorZoneRequest zoneRequest = new OrchestratorZoneRequest();
+        OrchestratorZone zone = new OrchestratorZone(adminClientSecret, subDomain,importServiceInstanceGuid);
         zoneRequest.setName(name);
         zoneRequest.setParameters(zone);
         return zoneRequest;

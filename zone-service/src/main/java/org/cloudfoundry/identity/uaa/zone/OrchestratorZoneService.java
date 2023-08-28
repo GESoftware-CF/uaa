@@ -11,13 +11,7 @@ import java.net.URI;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
@@ -182,27 +176,51 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
         if (!IdentityZoneHolder.isUaa()) {
             throw new AccessDeniedException("Zones can only be created by being authenticated in the default zone.");
         }
+
         String name = zoneRequest.getName();
-        String adminClientSecret = zoneRequest.getParameters().getAdminClientSecret();
+        String importedServiceInstanceGuid =  zoneRequest.getParameters().getImportedServiceInstanceGuid();
+        if(Objects.nonNull(importedServiceInstanceGuid)){
+            logger.info("Importing existing Identity Zone {}",importedServiceInstanceGuid);
+            try{
+                    if(!isZoneAlreadyImported(importedServiceInstanceGuid)){
+                        IdentityZone existingIdentityZone = zoneProvisioning.retrieve(importedServiceInstanceGuid);
+                        zoneProvisioning.createOrchestratorZone(existingIdentityZone.getId(), zoneRequest.getName());
+                    } else{
+                        String errorMessage = String.format("Invalid Operation , Zone  " +
+                                "%s , already present , Import not needed ", importedServiceInstanceGuid);
+                        logger.error(errorMessage);
+                        throw new ZoneAlreadyExistsException(errorMessage);
+                    }
+            } catch (ZoneDoesNotExistsException ex){
+                String errorMessage = String.format("Unexpected exception while importing identity zone  " +
+                        "%s , Zone to import not Present ", importedServiceInstanceGuid);
+                logger.error(errorMessage);
+                throw new ZoneDoesNotExistsException(errorMessage);
+            } catch (ZoneAlreadyExistsException ex) {
+                String errorMessage = String.format("Unexpected exception while importing zone  " +
+                        "%s , error is %s ", importedServiceInstanceGuid,ex.getMessage());
+                logger.error(errorMessage);throw new ZoneAlreadyExistsException(errorMessage);
+            }
 
-        String subdomain = zoneRequest.getParameters().getSubdomain();
-        String id = UUID.randomUUID().toString();
-        subdomain = getSubDomain(subdomain, id);
-
-        IdentityZone identityZone = generateIdentityZone(subdomain, name, id);
-
-        IdentityZone previous = IdentityZoneHolder.get();
-        try {
-            IdentityZone created = createIdentityZone(identityZone);
-            // This DAO method will throw ConstraintViolationException
-            // if there is a duplicate entry in orchestrator_zone table
-            zoneProvisioning.createOrchestratorZone(identityZone.getId(), name);
-            IdentityZoneHolder.set(created);
-            createDefaultIdp(created);
-            createUserGroups(created);
-            createZoneAdminClient(adminClientSecret, created);
-        } finally {
-            IdentityZoneHolder.set(previous);
+        } else{
+            String adminClientSecret = zoneRequest.getParameters().getAdminClientSecret();
+            String subdomain = zoneRequest.getParameters().getSubdomain();
+            String id = UUID.randomUUID().toString();
+            subdomain = getSubDomain(subdomain, id);
+            IdentityZone identityZone = generateIdentityZone(subdomain, name, id);
+            IdentityZone previous = IdentityZoneHolder.get();
+            try {
+                IdentityZone created = createIdentityZone(identityZone);
+                // This DAO method will throw ConstraintViolationException
+                // if there is a duplicate entry in orchestrator_zone table
+                zoneProvisioning.createOrchestratorZone(identityZone.getId(), name);
+                IdentityZoneHolder.set(created);
+                createDefaultIdp(created);
+                createUserGroups(created);
+                createZoneAdminClient(adminClientSecret, created);
+            } finally {
+                IdentityZoneHolder.set(previous);
+            }
         }
 
         OrchestratorZoneResponse response = new OrchestratorZoneResponse();
@@ -210,6 +228,16 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
         response.setMessage(ZONE_CREATED_MESSAGE);
         response.setState(OrchestratorState.CREATE_IN_PROGRESS.toString());
         return response;
+    }
+
+    private boolean isZoneAlreadyImported(String importedServiceInstanceGuid){
+        try{
+            zoneProvisioning.retrieveOrchestratorZoneByIdentityZoneId(importedServiceInstanceGuid);
+            return true;
+        } catch (ZoneDoesNotExistsException ex) {
+            logger.info("Zone to import not present in Orchestrator Zone");
+            return false;
+        }
     }
 
     private String getSubDomain(String subdomain, String id) {

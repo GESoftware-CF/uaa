@@ -43,6 +43,10 @@ public class JdbcIdentityZoneProvisioning implements IdentityZoneProvisioning, S
     public static final String ORCHESTRATOR_ZONE_BY_NAME_QUERY = "SELECT " + ORCHESTRATOR_ID_ZONE_FIELDS +
                                                                  " from identity_zone idzone inner join orchestrator_zone orchzone ON idzone.id=orchzone.identity_zone_id where orchzone.orchestrator_zone_name=? and idzone.active = ?";
 
+    public static final String ORCHESTRATOR_ZONE_BY_ID_QUERY = "SELECT " +  ORCHESTRATOR_ID_ZONE_FIELDS +
+            " from identity_zone idzone inner join orchestrator_zone orchzone ON idzone.id=orchzone.identity_zone_id where orchzone.identity_zone_id=? ";
+//            "and idzone.active = ?";
+
     public static final String ORCHESTRATOR_ZONE_BY_NAME_IGNORE_ACTIVE_QUERY = "SELECT " + ORCHESTRATOR_ID_ZONE_FIELDS +
                                                                                " from identity_zone idzone inner join orchestrator_zone orchzone ON idzone.id=orchzone.identity_zone_id where orchzone.orchestrator_zone_name=?";
 
@@ -68,6 +72,15 @@ public class JdbcIdentityZoneProvisioning implements IdentityZoneProvisioning, S
             return jdbcTemplate.queryForObject(IDENTITY_ZONE_BY_ID_QUERY_ACTIVE, mapper, id, true);
         } catch (EmptyResultDataAccessException x) {
             throw new ZoneDoesNotExistsException("Zone[" + id + "] not found.", x);
+        }
+    }
+
+    @Override
+    public OrchestratorZoneEntity retrieveOrchestratorZoneByIdentityZoneId(String id) {
+        try {
+            return jdbcTemplate.queryForObject(ORCHESTRATOR_ZONE_BY_ID_QUERY, orchestratorZoneMapper, id);
+        } catch (EmptyResultDataAccessException x) {
+            throw new ZoneDoesNotExistsException("Orchestrator Zone[" + id + "] not found.", x);
         }
     }
 
@@ -153,6 +166,8 @@ public class JdbcIdentityZoneProvisioning implements IdentityZoneProvisioning, S
         } catch (DuplicateKeyException e) {
             throw new ZoneAlreadyExistsException(orchestratorZoneName,
                 "The zone name " + orchestratorZoneName + " is already taken. Please use a different zone name", e);
+        } catch (Exception ex){
+            ex.printStackTrace();
         }
 
         return retrieveByNameIgnoreActiveFlag(orchestratorZoneName);

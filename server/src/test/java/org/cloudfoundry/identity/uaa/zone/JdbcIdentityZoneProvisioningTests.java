@@ -488,6 +488,37 @@ class JdbcIdentityZoneProvisioningTests {
     }
 
     @Test
+    void testGetOrchestratorZoneById() {
+        IdentityZone identityZone = MultitenancyFixture.identityZone(randomValueStringGenerator.generate(),
+                randomValueStringGenerator.generate());
+        identityZone.setName("Test-Identity-Zone");
+        jdbcIdentityZoneProvisioning.create(identityZone);
+        jdbcIdentityZoneProvisioning.createOrchestratorZone(identityZone.getId(), identityZone.getName());
+        OrchestratorZoneEntity orchestratorZoneEntity = jdbcIdentityZoneProvisioning.retrieveOrchestratorZoneByIdentityZoneId(identityZone.getId());
+        assertEquals(identityZone.getId(), orchestratorZoneEntity.getIdentityZoneId());
+        assertEquals(identityZone.getSubdomain(), orchestratorZoneEntity.getSubdomain());
+        assertEquals(identityZone.getName(), orchestratorZoneEntity.getOrchestratorZoneName());
+        assertNotNull(orchestratorZoneEntity.getId());
+        assertNotNull(orchestratorZoneEntity.getCreated());
+        assertNotNull(orchestratorZoneEntity.getLastModified());
+    }
+
+    @Test
+    void testGetOrchestratorZoneById_NotFound() {
+        String identityZoneId=randomValueStringGenerator.generate();
+        IdentityZone identityZone = MultitenancyFixture.identityZone(identityZoneId,
+                randomValueStringGenerator.generate());
+        identityZone.setName("Test-Identity-Zone");
+        jdbcIdentityZoneProvisioning.create(identityZone);
+        try {
+            OrchestratorZoneEntity orchestratorZoneEntity = jdbcIdentityZoneProvisioning.retrieveOrchestratorZoneByIdentityZoneId(identityZone.getId());
+            fail("Able to retrieve orchestrator zone.");
+        } catch (ZoneDoesNotExistsException e) {
+            assertEquals("Orchestrator Zone["+identityZoneId+"] not found.", e.getMessage());
+        }
+    }
+
+    @Test
     void testCreateDuplicateZoneName() {
         IdentityZone identityZone = MultitenancyFixture.identityZone(randomValueStringGenerator.generate(),
                                                                      randomValueStringGenerator.generate());

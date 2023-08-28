@@ -102,7 +102,7 @@ public class OrchestratorZoneControllerTransactionRollbackTests {
 
     private OrchestratorZoneRequest getOrchestratorZoneRequest(String name, String adminClientSecret,
                                                                String subdomain) {
-        OrchestratorZone orchestratorZone = new OrchestratorZone(adminClientSecret, subdomain);
+        OrchestratorZone orchestratorZone = new OrchestratorZone(adminClientSecret, subdomain,null);
         OrchestratorZoneRequest orchestratorZoneRequest = new OrchestratorZoneRequest();
         orchestratorZoneRequest.setName(name);
         orchestratorZoneRequest.setParameters(orchestratorZone);
