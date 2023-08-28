@@ -45,7 +45,6 @@ public class JdbcIdentityZoneProvisioning implements IdentityZoneProvisioning, S
 
     public static final String ORCHESTRATOR_ZONE_BY_ID_QUERY = "SELECT " +  ORCHESTRATOR_ID_ZONE_FIELDS +
             " from identity_zone idzone inner join orchestrator_zone orchzone ON idzone.id=orchzone.identity_zone_id where orchzone.identity_zone_id=? ";
-//            "and idzone.active = ?";
 
     public static final String ORCHESTRATOR_ZONE_BY_NAME_IGNORE_ACTIVE_QUERY = "SELECT " + ORCHESTRATOR_ID_ZONE_FIELDS +
                                                                                " from identity_zone idzone inner join orchestrator_zone orchzone ON idzone.id=orchzone.identity_zone_id where orchzone.orchestrator_zone_name=?";
