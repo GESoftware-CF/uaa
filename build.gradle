@@ -31,10 +31,9 @@ def applicationPort = project.hasProperty('port') ? project.getProperty('port').
 apply(plugin: "com.bmuschko.cargo")
 apply(plugin: "war")
 
-//def geArtifactoryReader = System.getenv('ARTIFACTORY_READER')
-//def geArtifactoryReaderPassword  = System.getenv('ARTIFACTORY_READER_PW')
-def geArtifactoryReader='502767861'
-def geArtifactoryReaderPassword='qWma3W0OVeUEdmq'
+def geArtifactoryReader = System.getenv('ARTIFACTORY_READER')
+def geArtifactoryReaderPassword  = System.getenv('ARTIFACTORY_READER_PW')
+
 def proxyHost  = System.getenv('PROXY_HOST')
 def proxyPort  = System.getenv('PROXY_PORT')
 def nonProxyHosts = 'localhost|*.localhost'

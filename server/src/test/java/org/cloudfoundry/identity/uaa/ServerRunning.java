@@ -217,8 +217,7 @@ public class ServerRunning implements MethodRule, RestTemplateHolder, UrlHelper 
         if (!path.startsWith("/")) {
             path = "/" + path;
         }
-        String url =getBaseUrl() + path;
-        return url;
+        return getBaseUrl() + path;
     }
 
     public ResponseEntity<String> postForString(String path, MultiValueMap<String, String> formData, HttpHeaders headers) {
