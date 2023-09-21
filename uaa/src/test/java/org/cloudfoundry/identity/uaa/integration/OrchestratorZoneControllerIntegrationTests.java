@@ -15,9 +15,12 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.springframework.http.HttpHeaders.AUTHORIZATION;
+import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED_VALUE;
 import static org.springframework.http.MediaType.APPLICATION_JSON_UTF8;
 
 import java.io.ByteArrayInputStream;
+import java.net.URI;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -27,14 +30,18 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.http.client.HttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.cloudfoundry.identity.uaa.ServerRunning;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.UaaIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.saml.SamlKey;
+import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.test.TestAccountSetup;
 import org.cloudfoundry.identity.uaa.test.UaaTestAccounts;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
@@ -65,6 +72,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.crypto.codec.Base64;
 import org.springframework.security.oauth2.client.DefaultOAuth2ClientContext;
@@ -73,10 +81,17 @@ import org.springframework.security.oauth2.client.http.OAuth2ErrorHandler;
 import org.springframework.security.oauth2.client.test.OAuth2ContextConfiguration;
 import org.springframework.security.oauth2.client.test.OAuth2ContextSetup;
 import org.springframework.security.oauth2.client.token.grant.client.ClientCredentialsResourceDetails;
+import org.springframework.security.oauth2.common.DefaultOAuth2AccessToken;
+import org.springframework.security.oauth2.common.OAuth2AccessToken;
 import org.springframework.security.oauth2.provider.client.BaseClientDetails;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.ResponseErrorHandler;
+import org.springframework.web.client.RestOperations;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import javax.ws.rs.POST;
 
 @OAuth2ContextConfiguration(OrchestratorZoneControllerIntegrationTests.OrchestratorClient.class)
 public class OrchestratorZoneControllerIntegrationTests {
@@ -94,6 +109,8 @@ public class OrchestratorZoneControllerIntegrationTests {
     private static final String ADMIN_CLIENT_SECRET = "admin-secret-01";
     private static final String SUPER_ADMIN_CLIENT_SECRET = "adminsecret";
     private static final String ADMIN_CLIENT_NAME = "admin";
+
+    private static final String OAUTH_CLIENT_URI = "/oauth/clients";
 
     @Rule
     public ServerRunning serverRunning = ServerRunning.isRunning();
@@ -498,6 +515,55 @@ public class OrchestratorZoneControllerIntegrationTests {
 
         assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
         assertResponse(expectedResponse, response.getBody());
+
+
+        ResponseEntity<OrchestratorZoneResponse> getZoneRsponse = client.getForEntity(
+                serverRunning.getUrl(ORCHESTRATOR_ZONES_APIS_ENDPOINT) + "?name=" + zoneId,
+                OrchestratorZoneResponse.class);
+
+        Assert.assertTrue(getZoneRsponse.getStatusCode().is2xxSuccessful());
+
+
+
+
+
+
+        MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
+        formData.add("grant_type", "client_credentials");
+        formData.add("client_id", "admin");
+        formData.add("client_id", "adminsecret");
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+//        headers.set("Authorization",
+//                "Basic " + new String(Base64.encode(String.format("%s:%s", clientId, clientSecret).getBytes())));
+
+        @SuppressWarnings("rawtypes")
+        ResponseEntity<Void> tokenResponse = new RestTemplate()
+                .exchange(getZoneRsponse.getBody().getConnectionDetails().getIssuerId(),
+                        HttpMethod.POST,
+                        new HttpEntity<>(formData,headers),
+                        Void.class);
+
+        Assert.assertTrue(tokenResponse.getStatusCode().is2xxSuccessful());
+
+//        MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
+//        formData.add("grant_type", "client_credentials");
+//        formData.add("client_id", "admin");
+//        formData.add("client_secret", "admin");
+//        HttpHeaders headers = new HttpHeaders();
+//        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+//        headers.set("Authorization",
+//                "Basic " + new String(Base64.encode(String.format("%s:%s", clientId, clientSecret).getBytes())));
+//
+//        @SuppressWarnings("rawtypes")
+//        ResponseEntity<Map> response = serverRunning.postForMap("/oauth/token", formData, headers);
+//        Assert.assertEquals(HttpStatus.OK, response.getStatusCode());
+//
+//        @SuppressWarnings("unchecked")
+//        OAuth2AccessToken accessToken = DefaultOAuth2AccessToken.valueOf(response.getBody());
+//        return accessToken.getValue();
+//        ResponseEntity<BaseClientDetails> res =
+//                new RestTemplate().postForEntity(getZoneRsponse.getBody().getConnectionDetails().getIssuerId(), requestEntity, BaseClientDetails.class);
     }
 
     @Test
@@ -705,6 +771,7 @@ public class OrchestratorZoneControllerIntegrationTests {
     }
 
     private ResponseEntity<Void> createIdentityZone(String zoneId) {
+        String clientCredentialsToken = IntegrationTestUtils.getClientCredentialsToken(serverRunning, "admin", "adminsecret");
         ClientCredentialsResourceDetails identityZoneClientCredentials = new ClientCredentialsResourceDetails();
         identityZoneClientCredentials.setClientId("identity");
         identityZoneClientCredentials.setClientSecret("identitysecret");
@@ -716,8 +783,7 @@ public class OrchestratorZoneControllerIntegrationTests {
         OAuth2RestTemplate restTemplate = new OAuth2RestTemplate(identityZoneClientCredentials, new DefaultOAuth2ClientContext());
 
         //Calling the API to call Identity Zone
-
-        String requestBody = "{\"id\":\"" + zoneId + "\", \"subdomain\":\"" + zoneId + "\", \"name\":\"testImportExistingZone() " + zoneId + "\"}";
+        String requestBody = "{\"id\":\"" + zoneId + "\", \"subdomain\":\"" + zoneId + "\", \"name\":\"testImportExistingZone " + zoneId + "\"}";
 
         HttpHeaders headers = new HttpHeaders();
         headers.add("Accept", MediaType.APPLICATION_JSON_VALUE);
@@ -730,8 +796,337 @@ public class OrchestratorZoneControllerIntegrationTests {
                 new ParameterizedTypeReference<Void>() {
                 });
 
+
+        ResponseEntity<Void> getResponse = restTemplate.exchange(
+                serverRunning.getUrl("/identity-zones/"+zoneId),
+                HttpMethod.GET,
+                new HttpEntity<>(requestBody, headers),
+                new ParameterizedTypeReference<Void>() {
+                });
+
+
+        try {
+            createZoneAdminClient(zoneId,"adminclientSecret",restTemplate);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         return response;
     }
+
+    private void createZoneAdminClient(String zoneId , String adminClientSecret,RestTemplate restTemplate) throws Exception {
+
+        String clientId = "admin";
+        String authorities = getZoneClientPrivileges(zoneId);
+        String grantTypes = "client_credentials";
+        String resourceIds = "none";
+        String scopes = "uaa.none";
+
+        createClient(zoneId,authorities, clientId, adminClientSecret, grantTypes, resourceIds, scopes,restTemplate);
+    }
+
+    private void createClient(String zoneId, final String authorities, final String clientId,
+                              final String clientSecret, final String grantTypes, final String resourceIds, final String scopes, RestTemplate restTemplate) throws Exception {
+
+
+        String accessToken = getClientCredentialsToken(serverRunning,
+                testAccounts.getAdminClientId(),
+                testAccounts.getAdminClientSecret());
+
+
+        BaseClientDetails client = new BaseClientDetails(ADMIN_CLIENT_NAME, resourceIds, scopes, grantTypes, authorities);
+        client.setClientSecret(ADMIN_CLIENT_SECRET);
+
+
+        URI currentURI = URI.create(serverRunning.getUrl(OAUTH_CLIENT_URI));
+
+
+        LOGGER.debug("BaseClient Details for the zone admin client are " + client.getClientId());
+        LOGGER.debug("URI to create the zone client is " + currentURI.toString());
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+        headers.add("X-Identity-Zone-Id", zoneId);
+        headers.add(AUTHORIZATION, "Bearer " + accessToken);
+
+        HttpEntity<BaseClientDetails> requestEntity = new HttpEntity<>(client, headers);
+
+
+        ResponseEntity<BaseClientDetails> res =
+                new RestTemplate().postForEntity(currentURI, requestEntity, BaseClientDetails.class);
+
+        Assert.assertEquals(HttpStatus.CREATED, res.getStatusCode());
+
+//        String clientCredentialsToken = IntegrationTestUtils.getClientCredentialsToken(serverRunning, "admin", "adminsecret");
+//        String clientCredentialsToken1 = IntegrationTestUtils.getClientCredentialsToken(serverRunning, client.getClientId(), client.getClientSecret());
+
+
+//        getClientCredentialsToken(serverRunning,client.getClientId(), client.getClientSecret());
+//        getClientCredentialsAccessToken(client.getClientId(), client.getClientSecret(),null);
+        String zoneUrl = "http://" + zoneId + ".localhost:8080/uaa/oauth/token";
+
+        try {
+            validateZoneTokenKeyEndpoint(zoneUrl);
+        } catch (Exception ex){
+            ex.printStackTrace();
+        }
+        try {
+            validateZoneCheckTokenEndpoint(zoneUrl);
+        } catch (Exception ex){
+        ex.printStackTrace();
+    }
+        // Prepare headers
+        String scope = Arrays.asList("clients.read,clients.secret,idps.write,uaa.resource,sps.read,sps.write,zones.cc3fe769-c12f-424d-9fde-8d47d4ee4c8b.admin,clients.write,clients.admin,idps.read,scim.write,scim.read").stream().collect(Collectors.joining(","));
+        HttpHeaders headers1 = new HttpHeaders();
+        headers1.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+        // Prepare request body
+        MultiValueMap<String, String> requestBody = new LinkedMultiValueMap<>();
+        requestBody.add("grant_type", "client_credentials");
+        requestBody.add("client_id", clientId);
+        requestBody.add("client_secret", clientSecret);
+        requestBody.add("scope", scope);
+        RestTemplate restTemplate1 = new RestTemplate();
+
+
+
+        try{
+            // Make the POST request to get the token
+            ResponseEntity<TokenResponse> responseEntity = restTemplate1.exchange(
+                    zoneUrl,
+                    HttpMethod.POST,
+                    new HttpEntity<>(requestBody, headers),
+                    TokenResponse.class
+            );
+            // Extract token response
+            TokenResponse tokenResponse = responseEntity.getBody();
+            accessToken = tokenResponse.getAccess_token();
+
+        } catch (Exception ex){
+            ex.printStackTrace();
+        }
+
+
+        ResponseEntity<Map> response =null;
+
+        try {
+            MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
+            formData.add("grant_type", "client_credentials");
+            formData.add("client_id", clientId);
+            HttpHeaders headers2 = new HttpHeaders();
+            headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+            headers.set("Authorization",
+                    "Basic " + new String(Base64.encode(String.format("%s:%s", clientId, clientSecret).getBytes())));
+
+            response = serverRunning.postForMap("/oauth/token", formData, headers2);
+            System.out.println("Lest see");
+        } catch (Exception ex){
+            ex.printStackTrace();
+        }
+
+
+
+
+
+
+        OAuth2RestTemplate adminClient = (OAuth2RestTemplate) IntegrationTestUtils.getClientCredentialsTemplate(
+                IntegrationTestUtils.getClientCredentialsResource(serverRunning.getBaseUrl(), new String[0],
+                        "admin", clientSecret));
+
+//        assertTrue(adminClient.postForEntity());
+
+        OAuth2RestTemplate zoneAdminClient = (OAuth2RestTemplate) IntegrationTestUtils.getClientCredentialsTemplate(
+                IntegrationTestUtils.getClientCredentialsResource(zoneUrl, new String[0],
+                        "admin", clientSecret));
+
+
+          RestOperations clientOp = getRestTemplate();
+
+            MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
+            formData.add("grant_type", "client_credentials");
+            formData.add("client_id", clientId);
+            formData.add("client_secret", clientSecret);
+            ResponseEntity<Map> response11;
+            HttpHeaders headers11 = new HttpHeaders();
+            try{
+                response11 = serverRunning.postForMap(zoneUrl, formData, headers);
+                System.out.println("Test");
+            } catch (Exception ex){
+                ex.printStackTrace();
+            }
+
+            ResponseEntity<Map> response12;
+
+
+            try{
+                response12 = postForMap(clientOp,zoneUrl, formData, headers);
+                System.out.println("Test");
+            } catch (Exception ex){
+                ex.printStackTrace();
+            }
+
+
+
+
+
+//        MultiValueMap<String, String> requestBody = new LinkedMultiValueMap<>();
+//        requestBody.add("grant_type", "client_credentials");
+//        requestBody.add("client_id", clientId);
+//        requestBody.add("client_secret", clientSecret);
+//        RestTemplate restTemplateTest = new RestTemplate();
+//
+//
+//        HttpHeaders headers1 = new HttpHeaders();
+//        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+//        headers1.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+////        HttpEntity<> httpEntity = new HttpEntity<>(requestBody, headers1);
+//
+////             Make the POST request to get the token
+//        ResponseEntity<Map> responseEntity = restTemplateTest.exchange(
+//                    zoneUrl+"/oauth/token",
+//                    HttpMethod.POST,
+//                    new HttpEntity<>(requestBody, headers1),
+//                    Map.class
+//            );
+
+
+
+
+
+
+
+        String clientCredentialsToken = IntegrationTestUtils.getClientCredentialsToken(serverRunning, "admin", "adminsecret");
+
+
+
+        MultiValueMap<String, String> request = new LinkedMultiValueMap<>();
+        request.add("token", accessToken);
+        request.add("grant_type", "client_credentials");
+
+        RestTemplate template = new RestTemplate();
+        HttpHeaders headers2 = new HttpHeaders();
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        headers.set("Authorization", "Basic " + new String(
+                Base64.encode(String.format("%s:%s", "admin", "adminclientSecret").getBytes())));
+
+        ResponseEntity<Map> responseEntity1 = template.exchange(
+                zoneUrl + CHECK_TOKEN_ENDPOINT,
+                HttpMethod.POST,
+                new HttpEntity<>(request, headers2),
+                Map.class);
+        assertEquals(HttpStatus.OK, responseEntity1.getStatusCode());
+
+//        validateZoneConfiguration(zoneId, adminClient);
+        validateZoneAdminClient(zoneUrl, zoneId, zoneAdminClient);
+
+        System.out.println("lets see");
+
+    }
+
+
+//    @Override
+    public RestOperations getRestTemplate() {
+        if (client == null) {
+            client = createRestTemplate1();
+        }
+        return client;
+    }
+
+    public ResponseEntity<String> postForString(String path, MultiValueMap<String, String> formData, HttpHeaders headers) {
+        if (headers.getContentType() == null) {
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        }
+        return client.exchange(path, HttpMethod.POST, new HttpEntity<>(formData, headers), String.class);
+    }
+
+    @SuppressWarnings("rawtypes")
+    public ResponseEntity<Map> postForMap(RestOperations clientOp,String path, MultiValueMap<String, String> formData, HttpHeaders headers) {
+        if (headers.getContentType() == null) {
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        }
+        return clientOp.exchange(path, HttpMethod.POST, new HttpEntity<>(formData, headers), Map.class);
+    }
+
+    @SuppressWarnings("rawtypes")
+    public ResponseEntity<Map> postForMap(String path, String requestBody, HttpHeaders headers) {
+        if (headers.getContentType() == null) {
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        }
+        return client.exchange(path, HttpMethod.POST, new HttpEntity<>(requestBody, headers), Map.class);
+    }
+
+
+    private OAuth2AccessToken getClientCredentialsAccessToken(String clientId, String clientSecret, String scope) {
+        MultiValueMap<String, String> formData = new LinkedMultiValueMap<String, String>();
+        formData.add("grant_type", "client_credentials");
+        formData.add("client_id", clientId);
+        formData.add("client_secret", clientSecret);
+//        formData.add("scope", scope);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+
+        ResponseEntity<Map> response = serverRunning.postForMap("/oauth/token", formData, headers);
+        junit.framework.Assert.assertEquals(HttpStatus.OK, response.getStatusCode());
+
+        @SuppressWarnings("unchecked")
+        OAuth2AccessToken accessToken = DefaultOAuth2AccessToken.valueOf(response.getBody());
+        return accessToken;
+    }
+
+    public RestTemplate createRestTemplate1() {
+        RestTemplate client = new RestTemplate();
+        client.setRequestFactory(new StatelessRequestFactory());
+        client.setErrorHandler(new ResponseErrorHandler() {
+            // Pass errors through in response entity for status code analysis
+            @Override
+            public boolean hasError(ClientHttpResponse response) {
+                return false;
+            }
+
+            @Override
+            public void handleError(ClientHttpResponse response) {
+            }
+        });
+        return client;
+    }
+
+    private class StatelessRequestFactory extends HttpComponentsClientHttpRequestFactory {
+        @Override
+        public HttpClient getHttpClient() {
+            return HttpClientBuilder.create()
+                    .useSystemProperties()
+                    .disableRedirectHandling()
+                    .disableCookieManagement()
+                    .build();
+        }
+    }
+
+    public static String getClientCredentialsToken(ServerRunning serverRunning,
+                                                   String clientId,
+                                                   String clientSecret) {
+        MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
+        formData.add("grant_type", "client_credentials");
+        formData.add("client_id", clientId);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+        headers.set("Authorization",
+                "Basic " + new String(Base64.encode(String.format("%s:%s", clientId, clientSecret).getBytes())));
+
+        @SuppressWarnings("rawtypes")
+        ResponseEntity<Map> response = serverRunning.postForMap("/oauth/token", formData, headers);
+        Assert.assertEquals(HttpStatus.OK, response.getStatusCode());
+
+        @SuppressWarnings("unchecked")
+        OAuth2AccessToken accessToken = DefaultOAuth2AccessToken.valueOf(response.getBody());
+        return accessToken.getValue();
+    }
+
+    private String getZoneClientPrivileges(String zoneId) {
+        String zoneClientAuthorities = "clients.admin,clients.read,clients.write,clients.secret,idps.read,idps.write,"
+                + "sps.read,sps.write,scim.read,scim.write,uaa.resource";
+        return zoneClientAuthorities + ",zones." + zoneId + ".admin";
+    }
+
 
     private ResponseEntity<OrchestratorZoneResponse> importZone(String zoneName, String importedServiceInstanceGuid) {
         String subDomain = zoneName;
@@ -855,5 +1250,22 @@ public class OrchestratorZoneControllerIntegrationTests {
                 new RestTemplate().getForEntity(zoneUri + TOKEN_KEY_ENDPOINT, String.class);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
+    }
+
+
+    static class TokenResponse {
+        private String access_token;
+        private String token_type;
+        private long expires_in;
+
+        private String scope;
+
+        private String jti;
+
+        // Getter methods...
+
+        public String getAccess_token() {
+            return access_token;
+        }
     }
 }

@@ -109,7 +109,7 @@ dependencies {
 
     testAnnotationProcessor(libraries.lombok)
 
-    testImplementation(project(":iam-k8s-utils"))
+//    testImplementation(project(":iam-k8s-utils"))
 }
 
 ext {

@@ -32,14 +32,19 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.security.crypto.codec.Base64;
 import org.springframework.security.oauth2.client.DefaultOAuth2ClientContext;
 import org.springframework.security.oauth2.client.OAuth2RestTemplate;
 import org.springframework.security.oauth2.client.http.OAuth2ErrorHandler;
 import org.springframework.security.oauth2.client.test.OAuth2ContextConfiguration;
 import org.springframework.security.oauth2.client.test.OAuth2ContextSetup;
 import org.springframework.security.oauth2.client.token.grant.client.ClientCredentialsResourceDetails;
+import org.springframework.security.oauth2.common.DefaultOAuth2AccessToken;
+import org.springframework.security.oauth2.common.OAuth2AccessToken;
 import org.springframework.security.oauth2.common.util.RandomValueStringGenerator;
 import org.springframework.security.oauth2.provider.client.BaseClientDetails;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
@@ -154,7 +159,7 @@ public class IdentityZoneEndpointsIntegrationTests {
     }
 
     @Test
-    public void testCreateZoneWithClient() {
+    public void testCreateZoneWithClient() throws Exception {
         IdentityZone idZone = new IdentityZone();
         String id = UUID.randomUUID().toString();
         idZone.setId(id);
@@ -172,6 +177,8 @@ public class IdentityZoneEndpointsIntegrationTests {
         clientDetails.setClientSecret("testSecret");
         clientDetails.addAdditionalInformation(ClientConstants.ALLOWED_PROVIDERS, Collections.singleton(OriginKeys.UAA));
 
+        testListClients();
+
         ResponseEntity<Void> clientCreateResponse = client.exchange(
                 serverRunning.getUrl("/identity-zones/"+id+"/clients"),
                 HttpMethod.POST,
@@ -180,6 +187,7 @@ public class IdentityZoneEndpointsIntegrationTests {
                 id);
 
         assertEquals(HttpStatus.CREATED, clientCreateResponse.getStatusCode());
+        testListClients();
 
         ResponseEntity<Void> clientDeleteResponse = client.exchange(
                 serverRunning.getUrl("/identity-zones/"+id+"/clients/"+clientDetails.getClientId()),
@@ -314,5 +322,59 @@ public class IdentityZoneEndpointsIntegrationTests {
             setAccessTokenUri(test.serverRunning.getAccessTokenUri());
         }
     }
+
+
+
+    public void testListClients() throws Exception {
+        HttpHeaders headers = getAuthenticatedHeaders(getClientCredentialsAccessToken("clients.read"));
+        ResponseEntity<String> result = serverRunning.getForString("/oauth/clients", headers);
+        junit.framework.Assert.assertEquals(HttpStatus.OK, result.getStatusCode());
+        // System.err.println(result.getBody());
+        junit.framework.Assert.assertTrue(result.getBody().contains("\"client_id\":\"cf\""));
+        junit.framework.Assert.assertFalse(result.getBody().contains("secret\":"));
+    }
+
+    public HttpHeaders getAuthenticatedHeaders(OAuth2AccessToken token) {
+        return getAuthenticatedHeaders(token.getValue());
+    }
+
+    public HttpHeaders getAuthenticatedHeaders(String token) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Authorization", "Bearer " + token);
+        return headers;
+    }
+
+    private OAuth2AccessToken getClientCredentialsAccessToken(String scope) {
+        String clientId = testAccounts.getAdminClientId();
+        String clientSecret = testAccounts.getAdminClientSecret();
+
+        return getClientCredentialsAccessToken(clientId, clientSecret, scope);
+    }
+
+
+
+
+    private OAuth2AccessToken getClientCredentialsAccessToken(String clientId, String clientSecret, String scope) {
+        MultiValueMap<String, String> formData = new LinkedMultiValueMap<String, String>();
+        formData.add("grant_type", "client_credentials");
+        formData.add("client_id", clientId);
+        formData.add("scope", scope);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+        headers.set("Authorization",
+                "Basic " + new String(Base64.encode(String.format("%s:%s", clientId, clientSecret).getBytes())));
+
+        @SuppressWarnings("rawtypes")
+        ResponseEntity<Map> response = serverRunning.postForMap("/oauth/token", formData, headers);
+        junit.framework.Assert.assertEquals(HttpStatus.OK, response.getStatusCode());
+
+        @SuppressWarnings("unchecked")
+        OAuth2AccessToken accessToken = DefaultOAuth2AccessToken.valueOf(response.getBody());
+        return accessToken;
+    }
+
+
 
 }
