@@ -9,13 +9,14 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.io.IOException;
 import java.security.Security;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,7 +38,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.provider.ClientDetails;
@@ -48,12 +48,10 @@ public class OrchestratorZoneServiceTests {
 
     public static final String ZONE_NAME = "The Twiglet Zone";
     public static final String SUB_DOMAIN_NAME = "sub-domain-01";
-    public static final String SUB_DOMAIN_BLANK_SPACE = " ";
     public static final String UAA_DASHBOARD_URI = "http://localhost/dashboard";
     public static final String UAA_URL = "http://localhost";
     public static final String ISSUER_URI = "http://issuer-uri";
     public static final String ADMIN_CLIENT_SECRET = "admin-secret-01";
-    public static final String ADMIN_CLIENT_SECRET_EMPTY = "";
     public static final String IMPORT_SERVICE_INSTANCE_GUID = "1e1a1a11-b1a1-1fbb-a111-11ae11011111";
     private OrchestratorZoneService zoneService;
     private IdentityZoneProvisioning zoneProvisioning;
@@ -156,7 +154,7 @@ public class OrchestratorZoneServiceTests {
     }
 
     @Test
-    public void testDeleteZone() throws Exception {
+    public void testDeleteZone() {
         zoneService.setApplicationEventPublisher(applicationEventPublisher);
         OrchestratorZoneEntity orchestratorZone = buildOrchestratorZone();
         when(zoneProvisioning.retrieveByName(any())).thenReturn(orchestratorZone);
@@ -268,7 +266,7 @@ public class OrchestratorZoneServiceTests {
     }
 
     @Test
-    public void testCreateZone() throws OrchestratorZoneServiceException, IOException {
+    public void testCreateZone() throws OrchestratorZoneServiceException {
         Security.addProvider(new BouncyCastleProvider());
         OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequest(ZONE_NAME, ADMIN_CLIENT_SECRET,
                                                                          SUB_DOMAIN_NAME);
@@ -293,7 +291,7 @@ public class OrchestratorZoneServiceTests {
     }
 
     @Test
-    public void testGenerateIdentityZone() throws OrchestratorZoneServiceException, IOException, InvalidIdentityZoneDetailsException {
+    public void testGenerateIdentityZone() throws OrchestratorZoneServiceException, InvalidIdentityZoneDetailsException {
         Security.addProvider(new BouncyCastleProvider());
 
         MfaConfigValidator mfaConfigValidator = mock(MfaConfigValidator.class);
@@ -340,7 +338,7 @@ public class OrchestratorZoneServiceTests {
     }
 
     @Test
-    public void testImportZone() throws OrchestratorZoneServiceException, IOException {
+    public void testImportZone() throws OrchestratorZoneServiceException {
         Security.addProvider(new BouncyCastleProvider());
         OrchestratorZoneRequest zoneRequest = getOrchestratorZoneImportRequest(ZONE_NAME, ADMIN_CLIENT_SECRET,
                 SUB_DOMAIN_NAME, IMPORT_SERVICE_INSTANCE_GUID);
@@ -360,7 +358,7 @@ public class OrchestratorZoneServiceTests {
     }
 
     @Test
-    public void testCreateZoneWithImport_ZoneDoesNotExist() throws OrchestratorZoneServiceException, IOException {
+    public void testCreateZoneWithImport_ZoneDoesNotExist() throws OrchestratorZoneServiceException {
         Security.addProvider(new BouncyCastleProvider());
         OrchestratorZoneRequest zoneRequest = getOrchestratorZoneImportRequest(ZONE_NAME, ADMIN_CLIENT_SECRET,
                 SUB_DOMAIN_NAME, IMPORT_SERVICE_INSTANCE_GUID);
@@ -379,7 +377,7 @@ public class OrchestratorZoneServiceTests {
     }
 
     @Test
-    public void testImportZone_ZoneAlreadyImported() throws OrchestratorZoneServiceException, IOException {
+    public void testImportZone_ZoneAlreadyImported() throws OrchestratorZoneServiceException {
         Security.addProvider(new BouncyCastleProvider());
         OrchestratorZoneRequest zoneRequest = getOrchestratorZoneImportRequest(ZONE_NAME, ADMIN_CLIENT_SECRET,
                 SUB_DOMAIN_NAME, IMPORT_SERVICE_INSTANCE_GUID);
@@ -388,7 +386,8 @@ public class OrchestratorZoneServiceTests {
         OrchestratorZoneEntity orchestratorZone = buildOrchestratorZone(identityZone.getId(),ZONE_NAME);
         when(zoneProvisioning.retrieveOrchestratorZoneByIdentityZoneId(any())).thenReturn(orchestratorZone);
 
-        String errorMessage = String.format("already present in orchestrator zone, Import not needed");
+        String errorMessage = String.format("Unable to create orchestrator import claim. " +
+                                            "UAA Zone already imported with name %s", ZONE_NAME);
 
         ZoneAlreadyExistsException exception =
                 assertThrows(ZoneAlreadyExistsException.class, () ->
@@ -401,7 +400,7 @@ public class OrchestratorZoneServiceTests {
 
 
     @Test
-    public void testImportZone_ZoneNameAlreadyExist() throws OrchestratorZoneServiceException, IOException {
+    public void testImportZone_ZoneNameAlreadyExist() throws OrchestratorZoneServiceException {
         Security.addProvider(new BouncyCastleProvider());
         OrchestratorZoneRequest zoneRequest = getOrchestratorZoneImportRequest(ZONE_NAME, ADMIN_CLIENT_SECRET,
                 SUB_DOMAIN_NAME, IMPORT_SERVICE_INSTANCE_GUID);

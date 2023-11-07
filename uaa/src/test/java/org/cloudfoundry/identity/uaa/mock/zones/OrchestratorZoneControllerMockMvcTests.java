@@ -77,7 +77,6 @@ public class OrchestratorZoneControllerMockMvcTests {
     private TestApplicationEventListener<AbstractUaaEvent> uaaEventListener;
     private TestApplicationEventListener<IdentityZoneModifiedEvent> zoneModifiedEventListener;
 
-    private MockMvc IdentityZoneMockMvc;
     private String identityClientZonesReadToken = null;
     private String uaaAdminClientToken;
 
@@ -521,7 +520,7 @@ public class OrchestratorZoneControllerMockMvcTests {
                 getOrchestratorZoneRequest(ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, RandomString.make(10));
         OrchestratorZoneResponse expectedResponse = new OrchestratorZoneResponse();
         expectedResponse.setName(ZONE_NAME);
-        expectedResponse.setMessage("Failed to validate importServiceInstanceGuid. incorrect Pattern , should be UUID format");
+        expectedResponse.setMessage("Failed to validate importServiceInstanceGuid. Incorrect Pattern, should be UUID format");
         expectedResponse.setState(OrchestratorState.PERMANENT_FAILURE.toString());
 
         performMockMvcCallAndAssertResponse(
