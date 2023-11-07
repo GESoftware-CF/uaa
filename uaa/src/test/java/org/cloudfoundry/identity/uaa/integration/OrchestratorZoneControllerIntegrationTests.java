@@ -41,10 +41,10 @@ import org.cloudfoundry.identity.uaa.test.UaaTestAccounts;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter;
 import org.cloudfoundry.identity.uaa.zone.OrchestratorState;
 import org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService;
 import org.cloudfoundry.identity.uaa.zone.SamlConfig;
-import org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter;
 import org.cloudfoundry.identity.uaa.zone.SamlConfig.SignatureAlgorithm;
 import org.cloudfoundry.identity.uaa.zone.model.ConnectionDetails;
 import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZone;
@@ -69,7 +69,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.crypto.codec.Base64;
-import org.springframework.security.oauth2.client.DefaultOAuth2ClientContext;
 import org.springframework.security.oauth2.client.OAuth2RestTemplate;
 import org.springframework.security.oauth2.client.http.OAuth2ErrorHandler;
 import org.springframework.security.oauth2.client.test.OAuth2ContextConfiguration;
@@ -360,7 +359,6 @@ public class OrchestratorZoneControllerIntegrationTests {
             serverRunning.getUrl(ORCHESTRATOR_ZONES_APIS_ENDPOINT) + "?name=" + zoneName,
             OrchestratorZoneResponse.class);
         OrchestratorZoneResponse getZoneResponse = getResponse.getBody();
-        final String subdomain= zoneName;
         final String zoneId = getZoneResponse.getConnectionDetails().getZone().getHttpHeaderValue();
         final String zoneUri = getZoneResponse.getConnectionDetails().getUri();
 
@@ -555,13 +553,14 @@ public class OrchestratorZoneControllerIntegrationTests {
         assertResponse(expectedFirstImportResponse, firstImportResponse.getBody());
 
         String newZoneName = UUID.randomUUID().toString();
-        ResponseEntity<OrchestratorZoneResponse> secondImportresponse = importZone(newZoneName, zoneId);
+        ResponseEntity<OrchestratorZoneResponse> secondImportResponse = importZone(newZoneName, zoneId);
 
         OrchestratorZoneResponse expectedSecondImportResponse = new OrchestratorZoneResponse();
         expectedSecondImportResponse.setName(zoneId);
 
-        assertEquals(HttpStatus.CONFLICT, secondImportresponse.getStatusCode());
-        assertTrue(secondImportresponse.getBody().getMessage().contains("already present in orchestrator zone, Import not needed"));
+        assertEquals(HttpStatus.CONFLICT, secondImportResponse.getStatusCode());
+        assertTrue(secondImportResponse.getBody().getMessage().contains("Unable to create orchestrator import claim. " +
+                                                                        "UAA Zone already imported"));
     }
 
     @Test
