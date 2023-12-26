@@ -1,5 +1,5 @@
 #!/usr/bin/env groovy
-def buildGeArtServer = Artifactory.server('build.ge')
+def artifactoryServer = Artifactory.server('build.ge')
 
 @Library(['PPCmanifest','security-ci-commons-shared-lib']) _
 def NODE = nodeDetails("uaa-upgrade")
@@ -7,6 +7,8 @@ def NODE = nodeDetails("uaa-upgrade")
 def imagePath
 def repoName
 def artifactVersion
+def gradleBuild
+def buildInfo
 
 pipeline 
 {
@@ -14,6 +16,7 @@ pipeline
     environment {
         COMPLIANCEENABLED = true
         GRID_ARTIFACTORY_URL = "dig-grid-artifactory.apps.ge.com"
+        ARTIFACTORY_CREDENTIALS = credentials('BUILD_GE_ARTIFACTORY_CREDENTIALS')
     }
     options {
         timestamps()
@@ -31,6 +34,21 @@ pipeline
     }
     stages 
     {
+        stage('Artifactory Configuration') {
+            agent {
+                label 'dind'
+            }
+            steps {
+                script {
+                    gradleBuild = Artifactory.newGradleBuild()
+                    gradleBuild.deployer server: artifactoryServer,
+                                         releaseRepo: 'MAAXA',
+                                         snapshotRepo: 'MAAXA-SNAPSHOT'
+                    gradleBuild.deployer.deployArtifacts = false
+                    gradleBuild.useWrapper = true
+                }
+            }
+        }
         stage('Build and run Tests') {
             parallel {
                 stage ('Checkout & Build') {
@@ -55,17 +73,13 @@ pipeline
                             git changelog: false, credentialsId: 'github.build.ge.com', poll: false,
                                 url: 'https://github.build.ge.com/predix/iam-k8s-utils.git'
                         }
-                        sh '''#!/bin/bash -ex
-                            source uaa-cf-release/config-local/set-env.sh
-                            unset HTTPS_PROXY
-                            unset HTTP_PROXY
-                            unset http_proxy
-                            unset https_proxy
-                            unset GRADLE_OPTS
-                            pushd uaa
-                                ./gradlew clean assemble
-                            popd
-                        '''
+
+                        script {
+                            dir('uaa') {
+                                buildInfo = gradleBuild.run buildFile: 'build.gradle', tasks: 'clean assemble'
+                            }
+                        }
+
                         dir('uaa/uaa/build/libs') {
                             stash includes: '*.war', name: 'uaa-war'
                         }
@@ -81,6 +95,7 @@ pipeline
                 }
                 stage('Unit Tests') {
                     when {
+                        beforeAgent true
                         expression { params.UNIT_TESTS == true }
                     }
                     agent {
@@ -154,6 +169,7 @@ pipeline
                 }
                 stage('Mockmvc Tests') {
                     when {
+                        beforeAgent true
                         expression { params.MOCK_MVC_TESTS == true }
                     }
                     agent {
@@ -223,6 +239,7 @@ pipeline
             parallel {
                 stage('Integration Tests') {
                     when {
+                        beforeAgent true
                         expression { params.INTEGRATION_TESTS == true }
                     }
                     agent {
@@ -303,6 +320,7 @@ pipeline
                 }
                 stage('Degraded Mode Tests') {
                     when {
+                        beforeAgent true
                         expression { params.DEGRADED_TESTS == true }
                     }
                     environment {
@@ -431,6 +449,7 @@ pipeline
                 label 'dind'
             }
             when {
+                beforeAgent true
                 expression { params.PUSH_TO_BUILD_GE == true }
             }
             steps{
@@ -447,24 +466,15 @@ pipeline
 
                 script {
                     def util = load('uaa/JenkinsfileCommon.groovy')
-                    ARTIFACTORY_PATH = util.getArtifactoryPath()
                     WAR_FILE_NAME = util.getWarFileName()
                     sh """
                         ls -l "build/${WAR_FILE_NAME}" || \
                         (echo "build/${WAR_FILE_NAME} not found!" && ls -l build && exit 1)
                     """
-                    def uploadSpec = """{
-                       "files": [
-                           {
-                               "pattern": "build/${WAR_FILE_NAME}",
-                               "target": "${ARTIFACTORY_PATH}/"
-                           }
-                       ]
-                    }"""
 
-                    echo "Uploading ${WAR_FILE_NAME} to ${ARTIFACTORY_PATH}/"
-                    def buildInfo = buildGeArtServer.upload(uploadSpec)
-                    buildGeArtServer.publishBuildInfo(buildInfo)
+                    gradleBuild.deployer.deployArtifacts buildInfo
+                    // artifactoryServer.publishBuildInfo buildInfo
+
                 }
             }
             post {
