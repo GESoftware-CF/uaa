@@ -1,5 +1,5 @@
 #!/usr/bin/env groovy
-def buildGeArtServer = Artifactory.server('build.ge')
+def artifactoryServer = Artifactory.server('Digital-Artifactory')
 
 library "security-ci-commons-shared-lib"
 def NODE = nodeDetails("uaa-upgrade")
@@ -75,17 +75,13 @@ pipeline
                             }"""
 
                             echo "Downloading ${WAR_FILE_NAME} from ${ARTIFACTORY_PATH}"
-                            buildGeArtServer.download(downloadSpec)
+                            artifactoryServer.download(downloadSpec)
                             // NOTE: ci-deploy.sh depends on deploy-workspace/${WAR_FILE_NAME} location and file name format
                             // So make sure it is what got downloaded.
                             sh """
                                 ls -l "deploy-workspace/${WAR_FILE_NAME}" || \
                                 (echo "${WAR_FILE_NAME} not found!" && ls -l deploy-workspace && exit 1)
                             """
-                        }
-
-                        dir('deploy-workspace') {
-                            stash includes: '*.war', name: 'uaa-war'
                         }
 
                         dir('uaa-cf-release') {
@@ -148,46 +144,6 @@ pipeline
                                 reportFiles: 'index.html',
                                 reportName: 'Acceptance Test Code Coverage'
                             ]
-                        }
-                    }
-                }
-                stage('Upload UAA Artifact upon successful deploy of staging artifact') 
-                {
-                    when {
-                        beforeAgent true
-                        expression { params.DEPLOYMENT_TYPE == 'cf3-staging' }
-                    }
-                    agent {
-                        label 'dind'
-                    }
-                    steps{
-                        dir('deploy-workspace') {
-                            unstash 'uaa-war'
-                        }
-
-                        dir('uaa') {
-                            checkout scm
-                        }
-
-                        dir('uaa/iam-k8s-utils') {
-                            git changelog: false, credentialsId: 'github.build.ge.com', poll: false,
-                                url: 'https://github.build.ge.com/predix/iam-k8s-utils.git'
-                        }
-
-                        script {
-                            def util = load('uaa/JenkinsfileCommon.groovy')
-                            APP_VERSION = util.getAppVersion()
-                            echo "Publishing UAA ${APP_VERSION} Artifact to Artifactory"
-                            def uploadSpec = """{
-                                "files": [
-                                    {
-                                        "pattern": "deploy-workspace/cloudfoundry-identity-uaa-${APP_VERSION}.war",
-                                        "target": "MAAXA/org/cloudfoundry/identity/cloudfoundry-identity-uaa/${APP_VERSION}/"
-                                    }
-                                ]
-                            }"""
-                            def buildInfo = buildGeArtServer.upload(uploadSpec)
-                            buildGeArtServer.publishBuildInfo(buildInfo)
                         }
                     }
                 }
