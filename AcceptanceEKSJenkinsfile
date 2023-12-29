@@ -1,6 +1,4 @@
 #!/usr/bin/env groovy
-def buildGeArtServer = Artifactory.server('build.ge')
-
 library "security-ci-commons-shared-lib"
 def NODE = nodeDetails("uaa-upgrade")
 

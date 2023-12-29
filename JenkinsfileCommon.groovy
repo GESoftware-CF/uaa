@@ -9,11 +9,12 @@ String getAppVersion() {
 
 String getArtifactoryPath() {
     // Choose transient artifactory location for all artifacts except those from release branches
-    ARTIFACTORY_ROOT_FOLDER = 'MAAXA-SNAPSHOT'
+    ARTIFACTORY_ROOT_FOLDER = 'pgog-fss-iam-uaa-mvn-snapshot'
     ARTIFACTORY_SUB_FOLDER = "builds/uaa/${env.BRANCH_NAME}"
+
     if("${env.BRANCH_NAME}" ==~ 'release_.+') {
-        ARTIFACTORY_ROOT_FOLDER = 'MAAXA'
-        ARTIFACTORY_SUB_FOLDER = "builds/uaa/${getAppVersion()}"
+        ARTIFACTORY_ROOT_FOLDER = 'pgog-fss-iam-uaa-mvn'
+        ARTIFACTORY_SUB_FOLDER = "org/cloudfoundry/identity/cloudfoundry-identity-uaa/${getAppVersion()}"
     }
     return "${ARTIFACTORY_ROOT_FOLDER}/${ARTIFACTORY_SUB_FOLDER}"
 }
