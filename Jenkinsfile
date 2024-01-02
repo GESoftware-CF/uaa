@@ -1,5 +1,5 @@
 #!/usr/bin/env groovy
-def buildGeArtServer = Artifactory.server('build.ge')
+def artifactoryServer = Artifactory.server('Digital-Artifactory')
 
 @Library(['PPCmanifest','security-ci-commons-shared-lib']) _
 def NODE = nodeDetails("uaa-upgrade")
@@ -25,7 +25,6 @@ pipeline
         booleanParam(name: 'MOCK_MVC_TESTS', defaultValue: true, description: 'Run Mock MVC tests')
         booleanParam(name: 'INTEGRATION_TESTS', defaultValue: true, description: 'Run Integration tests')
         booleanParam(name: 'DEGRADED_TESTS', defaultValue: true, description: 'Run degraded mode tests')
-        booleanParam(name: 'PUSH_TO_BUILD_GE', defaultValue: false, description: 'Publish to build artifactory')
         string(name: 'UAA_CI_CONFIG_BRANCH', defaultValue: 'master',
                         description: 'uaa-cf-release repo branch to use for testing/deployment')
     }
@@ -81,6 +80,7 @@ pipeline
                 }
                 stage('Unit Tests') {
                     when {
+                        beforeAgent true
                         expression { params.UNIT_TESTS == true }
                     }
                     agent {
@@ -154,6 +154,7 @@ pipeline
                 }
                 stage('Mockmvc Tests') {
                     when {
+                        beforeAgent true
                         expression { params.MOCK_MVC_TESTS == true }
                     }
                     agent {
@@ -223,6 +224,7 @@ pipeline
             parallel {
                 stage('Integration Tests') {
                     when {
+                        beforeAgent true
                         expression { params.INTEGRATION_TESTS == true }
                     }
                     agent {
@@ -303,6 +305,7 @@ pipeline
                 }
                 stage('Degraded Mode Tests') {
                     when {
+                        beforeAgent true
                         expression { params.DEGRADED_TESTS == true }
                     }
                     environment {
@@ -430,16 +433,9 @@ pipeline
             agent {
                 label 'dind'
             }
-            when {
-                expression { params.PUSH_TO_BUILD_GE == true }
-            }
             steps{
                 dir('uaa') {
                     checkout scm
-                }
-                dir('uaa/iam-k8s-utils') {
-                    git changelog: false, credentialsId: 'github.build.ge.com', poll: false,
-                        url: 'https://github.build.ge.com/predix/iam-k8s-utils.git'
                 }
                 dir('build') {
                     unstash 'uaa-war'
@@ -447,24 +443,28 @@ pipeline
 
                 script {
                     def util = load('uaa/JenkinsfileCommon.groovy')
+
                     ARTIFACTORY_PATH = util.getArtifactoryPath()
                     WAR_FILE_NAME = util.getWarFileName()
+
                     sh """
                         ls -l "build/${WAR_FILE_NAME}" || \
                         (echo "build/${WAR_FILE_NAME} not found!" && ls -l build && exit 1)
                     """
-                    def uploadSpec = """{
-                       "files": [
-                           {
-                               "pattern": "build/${WAR_FILE_NAME}",
-                               "target": "${ARTIFACTORY_PATH}/"
-                           }
-                       ]
-                    }"""
 
                     echo "Uploading ${WAR_FILE_NAME} to ${ARTIFACTORY_PATH}/"
-                    def buildInfo = buildGeArtServer.upload(uploadSpec)
-                    buildGeArtServer.publishBuildInfo(buildInfo)
+
+                    def uploadSpec = """{
+                        "files": [
+                            {
+                                "pattern": "build/${WAR_FILE_NAME}",
+                                "target": "${ARTIFACTORY_PATH}/"
+                            }
+                        ]
+                    }"""
+
+                    def buildInfo = artifactoryServer.upload(uploadSpec)
+                    //artifactoryServer.publishBuildInfo(buildInfo)
                 }
             }
             post {
