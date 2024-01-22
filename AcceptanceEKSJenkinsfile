@@ -1,9 +1,15 @@
 #!/usr/bin/env groovy
-library "security-ci-commons-shared-lib"
-def NODE = nodeDetails("uaa-upgrade")
 
 pipeline {
-    agent none
+    agent {
+        docker {
+            image "dig-grid-artifactory.apps.ge.com/pgog-fss-iam-uaa-docker-stage/uaa-ci-testing:latest"
+            label "dind"
+            args "-v /var/lib/docker/.gradle:/root/.gradle"
+            registryUrl "https://dig-grid-artifactory.apps.ge.com"
+            registryCredentialsId "DIGITAL_GRID_ARTIFACTORY_CREDENTIALS"
+        }
+    }
     environment {
         COMPLIANCEENABLED = true
     }
@@ -31,13 +37,6 @@ pipeline {
     }
     stages {
         stage('Run acceptance tests in eks') {
-            agent{
-                docker {
-                    image "${NODE['IMAGE']}"
-                    label "${NODE['LABEL']}"
-                    args "${NODE['ARGS']}"
-                }
-            }
             environment {
                 ADMIN_CLIENT_SECRET = credentials("ADMIN_CLIENT_SECRET_EKS_${DEPLOYMENT_ENVIRONMENT.toUpperCase()}")
                 FUNCTIONAL_USER = credentials("FUNCTIONAL_USER")
@@ -92,13 +91,6 @@ pipeline {
             }
         }
         stage('Run Orchestrator Integration tests in eks') {
-            agent{
-                docker {
-                    image "${NODE['IMAGE']}"
-                    label "${NODE['LABEL']}"
-                    args "${NODE['ARGS']}"
-                }
-            }
             when {
                 expression {
                     return params.RUN_ORCHESTRATOR_INTEGRATION_TESTS
