@@ -30,8 +30,8 @@ def applicationPort = project.hasProperty('port') ? project.getProperty('port').
 apply(plugin: "com.bmuschko.cargo")
 apply(plugin: "war")
 
-def geArtifactoryReader = System.getenv('ARTIFACTORY_READER')
-def geArtifactoryReaderPassword  = System.getenv('ARTIFACTORY_READER_PW')
+def geArtifactoryReader = System.getenv('ARTIFACTORY_CREDENTIALS_USR')
+def geArtifactoryReaderPassword  = System.getenv('ARTIFACTORY_CREDENTIALS_PSW')
 def proxyHost  = System.getenv('PROXY_HOST')
 def proxyPort  = System.getenv('PROXY_PORT')
 def nonProxyHosts = 'localhost|*.localhost'
@@ -49,27 +49,19 @@ allprojects {
 
     repositories {
         mavenLocal()
-        mavenCentral()
         maven {
             credentials {
                 username geArtifactoryReader
                 password geArtifactoryReaderPassword
             }
-            url 'https://artifactory.build.ge.com/predix-virtual'
-            content {
-                // There is a discrepancy in javax/validation/validation-api/maven-metadata.xml
-                // for latest version of validation-api
-                // between maven repo (2.0.1.Final) and predix-virtual (2.0.2-SNAPSHOT).
-                // Prefer version from maven repo.
-                excludeGroup "javax.validation"
-            }
+            url 'https://dig-grid-artifactory.apps.ge.com/artifactory/pgog-fss-iam-uaa-mvn-virtual'
         }
         // shibboleth.net is not reachable from the Jenkins nodes due to GE selling "3.0.0.0/8 address space" to Amazon.
         // Now, within GE, when Propel sends the wget command to the 3.213.250.186 address that shibboleth has,
         // it never makes it out of the GE network because it thinks 3.x.x.x is within GE network.
         // See https://docs.gecloudpod.com/misc/3pocalypse
         // As of August 2020, relevant dependencies were uploaded to GE artifactory and should be available in predix-virtual
-        // maven { url 'https://build.shibboleth.net/nexus/content/repositories/releases/' }
+        maven { url 'https://build.shibboleth.net/maven/releases/' }
         maven { url 'https://artifacts.alfresco.com/nexus/content/repositories/public/' }
         maven { url 'https://repository.mulesoft.org/releases/' }
     }
@@ -176,7 +168,7 @@ subprojects {
                 username geArtifactoryReader
                 password geArtifactoryReaderPassword
             }
-            url 'https://artifactory.build.ge.com/predix-virtual'
+            url 'https://dig-grid-artifactory.apps.ge.com/artifactory/pgog-fss-iam-uaa-mvn-virtual'
         }
     }
 
