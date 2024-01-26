@@ -12,6 +12,7 @@ pipeline {
     }
     environment {
         COMPLIANCEENABLED = true
+        ARTIFACTORY_CREDENTIALS = credentials("DIGITAL_GRID_ARTIFACTORY_CREDENTIALS")
     }
     options {
         timestamps()

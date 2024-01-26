@@ -15,6 +15,7 @@ pipeline
     environment {
         COMPLIANCEENABLED = true
         GRID_ARTIFACTORY_URL = "dig-grid-artifactory.apps.ge.com"
+        ARTIFACTORY_CREDENTIALS = credentials("DIGITAL_GRID_ARTIFACTORY_CREDENTIALS")
     }
     options {
         timestamps()
