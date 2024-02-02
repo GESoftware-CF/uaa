@@ -1,10 +1,7 @@
 #!/usr/bin/env groovy
 def artifactoryServer = Artifactory.server('Digital-Artifactory')
 
-library "security-ci-commons-shared-lib"
-def NODE = nodeDetails("uaa-upgrade")
-
-pipeline 
+pipeline
 {
     agent none
     environment {
@@ -42,15 +39,18 @@ pipeline
                 {
                     agent{
                         docker {
-                            image "${NODE['IMAGE']}"
-                            label "${NODE['LABEL']}"
-                            args "${NODE['ARGS']}"
+                            image "dig-grid-artifactory.apps.ge.com/pgog-fss-iam-uaa-docker-stage/uaa-ci-testing:latest"
+                            label "dind"
+                            args "-v /var/lib/docker/.gradle:/root/.gradle"
+                            registryUrl "https://dig-grid-artifactory.apps.ge.com"
+                            registryCredentialsId "DIGITAL_GRID_ARTIFACTORY_CREDENTIALS"
                         }
                     }
                     environment {
                         CF_CREDENTIALS = credentials("CF_CREDENTIALS_${DEPLOYMENT_TYPE.toUpperCase().replaceAll('-','_')}")
                         ADMIN_CLIENT_SECRET = credentials("ADMIN_CLIENT_SECRET_${DEPLOYMENT_TYPE.toUpperCase().replaceAll('-','_')}")
                         SPLUNK_OTEL_ACCESS_TOKEN = credentials("SPLUNK_OTEL_ACCESS_TOKEN")
+                        ARTIFACTORY_CREDENTIALS = credentials("DIGITAL_GRID_ARTIFACTORY_CREDENTIALS")
                     }
                     steps {
                         dir('uaa') {

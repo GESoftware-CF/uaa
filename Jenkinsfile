@@ -1,8 +1,9 @@
 #!/usr/bin/env groovy
 def artifactoryServer = Artifactory.server('Digital-Artifactory')
 
-@Library(['PPCmanifest','security-ci-commons-shared-lib']) _
-def NODE = nodeDetails("uaa-upgrade")
+def NODE = [LABEL: "dind", IMAGE: "dig-grid-artifactory.apps.ge.com/pgog-fss-iam-uaa-docker-stage/uaa-ci-testing:latest",
+    ARGS: "-v /var/lib/docker/.gradle:/root/.gradle", REGISTRY_URL: "https://dig-grid-artifactory.apps.ge.com",
+    REGISTRY_CREDENTIALS_ID: "DIGITAL_GRID_ARTIFACTORY_CREDENTIALS"]
 
 def imagePath
 def repoName
@@ -14,6 +15,7 @@ pipeline
     environment {
         COMPLIANCEENABLED = true
         GRID_ARTIFACTORY_URL = "dig-grid-artifactory.apps.ge.com"
+        ARTIFACTORY_CREDENTIALS = credentials("DIGITAL_GRID_ARTIFACTORY_CREDENTIALS")
     }
     options {
         timestamps()
@@ -38,6 +40,8 @@ pipeline
                             image "${NODE['IMAGE']}"
                             label "${NODE['LABEL']}"
                             args "${NODE['ARGS']}"
+                            registryUrl "${NODE['REGISTRY_URL']}"
+                            registryCredentialsId "${NODE['REGISTRY_CREDENTIALS_ID']}"
                         }
                     }
                     steps {
@@ -88,6 +92,8 @@ pipeline
                             image "${NODE['IMAGE']}"
                             label "${NODE['LABEL']}"
                             args "${NODE['ARGS']}"
+                            registryUrl "${NODE['REGISTRY_URL']}"
+                            registryCredentialsId "${NODE['REGISTRY_CREDENTIALS_ID']}"
                         }
                     }
                     steps {
@@ -162,6 +168,8 @@ pipeline
                             image "${NODE['IMAGE']}"
                             label "${NODE['LABEL']}"
                             args "${NODE['ARGS']}"
+                            registryUrl "${NODE['REGISTRY_URL']}"
+                            registryCredentialsId "${NODE['REGISTRY_CREDENTIALS_ID']}"
                         }
                     }
                     steps {
@@ -232,6 +240,8 @@ pipeline
                             image "${NODE['IMAGE']}"
                             label "${NODE['LABEL']}"
                             args '-v /var/lib/docker/.gradle:/root/.gradle --add-host "zone-with-cors-policy.localhost testzone1.localhost testzone2.localhost int-test-zone-uaa.localhost testzone3.localhost testzone4.localhost testzonedoesnotexist.localhost testzoneinactive.localhost oidcloginit.localhost test-zone1.localhost test-zone2.localhost test-victim-zone.localhost test-platform-zone.localhost test-saml-zone.localhost test-app-zone.localhost app-zone.localhost platform-zone.localhost testsomeother2.ip.com testsomeother.ip.com uaa-acceptance-zone.localhost orchestrator-int-test-zone.localhost orchestrator-int-test-zone-port.localhost localhost samlidpzone.localhost samlspzone.localhost":127.0.0.1'
+                            registryUrl "${NODE['REGISTRY_URL']}"
+                            registryCredentialsId "${NODE['REGISTRY_CREDENTIALS_ID']}"
                         }
                     }
                     steps {
@@ -318,6 +328,8 @@ pipeline
                             image "${NODE['IMAGE']}"
                             label "${NODE['LABEL']}"
                             args "${NODE['ARGS']}"
+                            registryUrl "${NODE['REGISTRY_URL']}"
+                            registryCredentialsId "${NODE['REGISTRY_CREDENTIALS_ID']}"
                         }
                     }
                     steps {
@@ -492,6 +504,8 @@ pipeline
                     // Mount gradle home directory from host to cache downloaded dependencies
                     // Mount docker socket from host to use for creating UAA container
                     args '-v /var/lib/docker/.gradle:/root/.gradle -v /var/run/docker.sock:/var/run/docker.sock --add-host "localhost":127.0.0.1'
+                    registryUrl "${NODE['REGISTRY_URL']}"
+                    registryCredentialsId "${NODE['REGISTRY_CREDENTIALS_ID']}"
                 }
             }   
             stages
