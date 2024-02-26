@@ -13,7 +13,7 @@ pipeline
         buildDiscarder(logRotator(artifactNumToKeepStr: '30', numToKeepStr: '30'))
     }
     parameters  {
-        choice(name: 'DEPLOYMENT_TYPE', choices:'cf3-release-candidate\ncf3-staging\ncf3-integration\nvpc\neu-central\ngovw\nperf-cf3\nint\nstage\nqa', description: 'This specifies which point of presence to deploy to')
+        choice(name: 'DEPLOYMENT_TYPE', choices:'cf3-release-candidate\ncf3-staging\ncf3-integration\nvpc\neu-central\nperf-cf3\nint\nqa\nperf\nstage', description: 'This specifies which point of presence to deploy to')
         booleanParam(name: 'DEPLOY_CF', defaultValue: false, description: 'Determines whether to deploy changes to CF environment.')
 
         booleanParam(name: 'MAP_ROUTES_TO_DEPLOYED_APP', defaultValue: true, description: 'Determines if the published routes are mapped to the newly deployed app. Defaults to true.')
