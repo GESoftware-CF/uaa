@@ -51,6 +51,7 @@ pipeline
                         ADMIN_CLIENT_SECRET = credentials("ADMIN_CLIENT_SECRET_${DEPLOYMENT_TYPE.toUpperCase().replaceAll('-','_')}")
                         SPLUNK_OTEL_ACCESS_TOKEN = credentials("SPLUNK_OTEL_ACCESS_TOKEN")
                         ARTIFACTORY_CREDENTIALS = credentials("DIGITAL_GRID_ARTIFACTORY_CREDENTIALS")
+                        FUNCTIONAL_USER = credentials("FUNCTIONAL_USER")
                     }
                     steps {
                         dir('uaa') {
@@ -102,6 +103,9 @@ pipeline
                         unset_env
 
                         export JRE_VERSION="{ jre: { version: 11.+ }}"
+
+                        export SAML_IDP_USER=$FUNCTIONAL_USER_USR
+                        export SAML_IDP_USER_PW=$FUNCTIONAL_USER_PSW
 
                         pushd uaa-cf-release
                             source combine-inline-config.sh
