@@ -68,8 +68,6 @@ pipeline {
                     chmod a+x /usr/local/bin/yq
                     yq --version
 
-                    export ARTIFACTORY_READER=$FUNCTIONAL_USER_USR
-                    export ARTIFACTORY_READER_PW=$FUNCTIONAL_USER_PSW
                     export SAML_IDP_USER=$FUNCTIONAL_USER_USR
                     export SAML_IDP_USER_PW=$FUNCTIONAL_USER_PSW
 
