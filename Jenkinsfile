@@ -564,13 +564,27 @@ pipeline
                         {
                             unstash 'uaa-war'
                         }
-                        
-                        sh """
-                            cp build/cloudfoundry-identity-uaa-*.war iam-container-config/uaa/cloudfoundry-identity-uaa.war
-                            cd iam-container-config/uaa/
-                            docker build --no-cache -t uaa:${artifactVersion} -f Dockerfile .
-                            docker images
-                        """
+                        script {
+                            String OTEL_JAR_NAME = "splunk-otel-javaagent.jar"
+                            String OTEL_EXTENSION_REPO = "artifactory.build.ge.com"
+                            String OTEL_EXTENSION_VERSION = "1.1.0.RELEASE"
+                            String OTEL_EXTENSION_PATH = "/artifactory/APM-AWS/com/ge/apm/ged-opentelemetry-java-extension/${OTEL_EXTENSION_VERSION}/"
+                            String OTEL_EXTENSION_JAR_NAME="ged-opentelemetry-java-extension-${OTEL_EXTENSION_VERSION}.jar"
+                            withCredentials([usernamePassword(credentialsId: 'BUILD_GE_ARTIFACTORY_CREDENTIALS',
+                                    usernameVariable: 'BUILDGE_USER', passwordVariable: 'BUILDGE_PSWRD')]) {
+                                sh """
+                                    cp build/cloudfoundry-identity-uaa-*.war iam-container-config/uaa/cloudfoundry-identity-uaa.war
+
+                                    cd iam-container-config/uaa/
+
+                                    curl -L https://github.com/signalfx/splunk-otel-java/releases/latest/download/splunk-otel-javaagent.jar -o $OTEL_JAR_NAME
+                                    curl --user ${BUILDGE_USER}:${BUILDGE_PSWRD} https://${OTEL_EXTENSION_REPO}${OTEL_EXTENSION_PATH}${OTEL_EXTENSION_JAR_NAME} -o $OTEL_EXTENSION_JAR_NAME
+
+                                    docker build --build-arg="OTEL_JAR_NAME=${OTEL_JAR_NAME}" --build-arg="OTEL_EXTENSION_JAR_NAME=${OTEL_EXTENSION_JAR_NAME}" --no-cache -t uaa:${artifactVersion} -f Dockerfile .
+                                    docker images
+                                """
+                            }
+                        }
                     }
                 }
                 stage('Push image')
