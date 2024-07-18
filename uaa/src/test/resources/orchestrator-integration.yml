@@ -16,3 +16,17 @@ uaa:
   orchestrator:
     clientId: ${UAA_CLIENT_ID}
     clientSecret: ${UAA_CLIENT_SECRET}
+
+spec:
+  mandatoryTags:
+    account_type: ${ACCOUNT_TYPE}
+    environment: ${ENVIRONMENT_TAG}
+    cost_center: ${COST_CENTER}
+    app: ${APP}
+    app_owner: ${APP_OWNER}
+    contact_dl: ${CONTACT_DL}
+    claim_type: ${CLAIM_TYPE}
+    app_component: ${APP_COMPONENT}
+    customer_name: ${CUSTOMER_NAME}
+    customer_guid: ${CUSTOMER_GUID}
+    role: ${ROLE}
