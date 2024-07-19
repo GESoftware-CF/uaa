@@ -12,7 +12,8 @@ def config = [
         repository: [
                 deployRepository: 'uaa-k8s-deploy',
                 appName: 'uaa',
-                deployURL: 'https://github.devtools.predix.io/predix-security/uaa-k8s-deploy.git'
+                deployURL: 'https://github.devtools.predix.io/predix-security/uaa-k8s-deploy.git',
+                branch: 'shared-pipeline-uaa'
         ]
 ]
 
