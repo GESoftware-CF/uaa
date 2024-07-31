@@ -1,0 +1,20 @@
+#!/usr/bin/env groovy
+
+@Library('shared-ci-config') _
+
+def config = [
+        artifacts: [
+                server: Artifactory.server('Digital-Artifactory'),
+                releaseRepo: 'pgog-fss-iam-uaa-mvn',
+                snapshotRepo: 'pgog-fss-iam-uaa-mvn-snapshot'
+        ],
+        envNames: '\nint\nqa\nperf\nstage\ntms-int\nprod-usw\nprod-euc',
+        repository: [
+                deployRepository: 'uaa-k8s-deploy',
+                appName: 'uaa',
+                deployURL: 'https://github.devtools.predix.io/predix-security/uaa-k8s-deploy.git',
+                branch: 'shared-pipeline-uaa'
+        ]
+]
+
+zeroDowntimeDeploy(config)
