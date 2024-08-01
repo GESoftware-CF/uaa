@@ -124,6 +124,7 @@ pipeline {
                         cd uaa-k8s-deploy/uaa/
                         sed -ri "s/tag:.*/tag: ${params.IMAGE_TAG}/g" values-temp.yaml
                         git status
+                        cat values-temp.yaml
                     """
                 }
             }
