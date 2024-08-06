@@ -1,0 +1,15 @@
+#!/usr/bin/env groovy
+
+@Library('shared-ci-config') _
+
+def config = [
+        envNames: '\nint\nqa\nperf\nstage\ntms-int\nprod-usw\nprod-euc',
+        deployRepository: [
+                name: 'uaa-k8s-deploy',
+                appName: 'uaa',
+                url: 'https://github.devtools.predix.io/predix-security/uaa-k8s-deploy.git',
+                branch: 'shared-pipeline-uaa'
+        ]
+]
+
+gitOpsDeploy(config)
