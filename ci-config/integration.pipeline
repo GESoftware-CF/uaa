@@ -137,7 +137,7 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        sleep 240
+                        sleep 300
                         kubectl get pods
                         sleep 60
                         kubectl get pods
