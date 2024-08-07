@@ -1,0 +1,162 @@
+pipeline {
+    agent {
+        docker {
+            label "dind"
+            image "maven:3.8-openjdk-8"
+        }
+    }
+    parameters {
+        string(
+            name: 'IMAGE_TAG',
+            defaultValue: '',
+            description: 'Specify custom image tag to helm-deploy to EKS for testing'
+        )
+    }
+    options {
+        timestamps()
+        buildDiscarder(logRotator(artifactNumToKeepStr: '30', numToKeepStr: '30'))
+    }
+    environment {
+        AWS_CLI_VERSION = '2.0.30'
+        GOSSAMER_VERSION = '3.1.7'
+        KUBECTL_VERSION = 'v1.21.0'
+        AWS_PROFILE="iam-profile"
+        iamRoleArn="arn:aws:iam::419948752401:role/pss-iam-int-nsadmin"
+        functionalUser = credentials('FUNCTIONAL_USER')
+    }
+    stages {
+        stage('Tools Installation') {
+            steps {
+                script {
+                    /*AWS CLI Installation*/
+                    sh '''
+                        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-${AWS_CLI_VERSION}.zip" -o "awscliv2.zip"
+                        unzip awscliv2.zip
+                        ./aws/install
+                        export PATH=$PATH:/usr/local/bin
+                        aws --version
+                    '''
+
+                    /*Helm Installation - installed a compatible version with kubectl*/
+                    sh '''
+                  wget https://get.helm.sh/helm-v3.8.2-linux-amd64.tar.gz
+                  tar -zxvf helm-v3.8.2-linux-amd64.tar.gz
+                  mv linux-amd64/helm /usr/local/bin
+                  helm version
+                '''
+
+                    /*Gossamer Installation*/
+                    sh '''
+                    wget -q https://github.com/GESkunkworks/gossamer3/releases/download/v${GOSSAMER_VERSION}/gossamer3_${GOSSAMER_VERSION}_linux_amd64.tar.gz
+                    tar -xzvf gossamer3_${GOSSAMER_VERSION}_linux_amd64.tar.gz -C /usr/local/bin
+                    chmod u+x /usr/local/bin/gossamer3
+                    export PATH=$PATH:/usr/local/bin
+                    gossamer3 --version
+                '''
+
+                    /*Kubectl Installation*/
+                    sh '''
+                    curl -LO https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl
+                    chmod a+x kubectl
+                    
+                    mv kubectl /usr/local/bin
+                    export KUBECONFIG=/etc/kubernetes/admin.conf
+                    echo 'export KUBECONFIG=/etc/kubernetes/admin.conf' >> $HOME/.bashrc 
+                '''
+                }
+            }
+            post {
+                success {
+                    echo 'Installations: Success'
+                }
+                failure {
+                    echo 'Installations: Failure'
+                }
+            }
+        }
+        stage("Configuration") {
+            steps {
+                script {
+                    /* Setting up gossamer and kubectl*/
+                    sh '''
+                        echo 10.229.23.137 signin.aws.amazon.com >> /etc/hosts
+                        echo 10.229.23.151 signin.aws.amazon.com >> /etc/hosts
+                        gossamer3 configure --skip-prompt --aws-urn=urn:amazon:webservices:mfa-extended --url=https://fssfed.ge.com/fss --idp-provider=Ping --mfa=None
+                        gossamer3 login --skip-prompt --force -p ${AWS_PROFILE} --role=${iamRoleArn} --username=${functionalUser_USR} --password=${functionalUser_PSW}
+                        
+                        aws eks update-kubeconfig --region us-west-2 --name pss-usw02-dev-ueks
+                        kubectl config get-contexts
+                        kubectl config set-context --current --namespace=pss-iam-int
+                        kubectl config get-contexts
+                        kubectl get pods
+                    '''
+                }
+            }
+        }
+
+        stage('Get GitOps Repository') {
+            steps {
+                dir('uaa-k8s-deploy') {
+                    git changelog: false,
+                    credentialsId: 'github.devtools.predix.io',
+                    poll: false,
+                    url: 'https://github.devtools.predix.io/predix-security/uaa-k8s-deploy.git',
+                    branch: 'uaa-temp-helm-deploy'
+                }
+            }
+        }
+        stage('Update Helm Chart Values') {
+            steps {
+                script {
+                    sh """
+                        cd uaa-k8s-deploy/uaa/
+                        sed -ri "s/tag:.*/tag: ${params.IMAGE_TAG}/g" values-temp.yaml
+                        git status
+                        cat values-temp.yaml
+                    """
+                }
+            }
+        }
+        stage("Helm Deploy") {
+            steps {
+                script {
+                    sh '''
+                        gossamer3 login --skip-prompt --force -p ${AWS_PROFILE} --role=${iamRoleArn} --username=${functionalUser_USR} --password=${functionalUser_PSW}
+                        kubectl get pods
+                        pwd
+                        ls -la
+                        cd uaa-k8s-deploy/uaa/
+                        helm list
+                        helm install uaa-temp . -f values-temp.yaml --namespace pss-iam-int
+                        helm list
+                    '''
+                }
+            }
+        }
+        stage("Integration Tests") {
+            steps {
+                script {
+                    sh '''
+                        sleep 300
+                        kubectl get pods
+                        sleep 60
+                        kubectl get pods
+                        curl https://uaa-temp-helm-deploy.pss-shared.dev.usw02.15.energy/healthz | grep "ok"
+                        echo "Ready to perform integration tests"
+                    '''
+                }
+            }
+        }
+    }
+    post {
+        always {
+            script {
+                sh '''
+                    helm list
+                    helm uninstall uaa-temp
+                    helm list
+                '''
+            }
+        }
+    }
+}
