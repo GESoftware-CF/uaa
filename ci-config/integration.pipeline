@@ -9,7 +9,7 @@ pipeline {
         string(
             name: 'IMAGE_TAG',
             defaultValue: '',
-            description: 'Tag for the image which has been pushed to Digital Artifactory for EKS deploy.'
+            description: 'Specify custom image tag to helm-deploy to EKS for testing'
         )
     }
     options {
