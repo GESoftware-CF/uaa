@@ -577,7 +577,7 @@ pipeline
 
                                     cd iam-container-config/uaa/
 
-                                    curl -L https://github.com/signalfx/splunk-otel-java/releases/latest/download/splunk-otel-javaagent.jar -o $OTEL_JAR_NAME
+                                    curl -L https://github.com/signalfx/splunk-otel-java/releases/download/v1.32.2/splunk-otel-javaagent.jar -o $OTEL_JAR_NAME
                                     curl --user ${BUILDGE_USER}:${BUILDGE_PSWRD} https://${OTEL_EXTENSION_REPO}${OTEL_EXTENSION_PATH}${OTEL_EXTENSION_JAR_NAME} -o $OTEL_EXTENSION_JAR_NAME
 
                                     docker build --build-arg="OTEL_JAR_NAME=${OTEL_JAR_NAME}" --build-arg="OTEL_EXTENSION_JAR_NAME=${OTEL_EXTENSION_JAR_NAME}" --no-cache -t uaa:${artifactVersion} -f Dockerfile .
