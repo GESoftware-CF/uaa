@@ -566,9 +566,9 @@ pipeline
                         }
                         script {
                             String OTEL_JAR_NAME = "splunk-otel-javaagent.jar"
-                            String OTEL_EXTENSION_REPO = "artifactory.build.ge.com"
-                            String OTEL_EXTENSION_VERSION = "1.1.0.RELEASE"
-                            String OTEL_EXTENSION_PATH = "/artifactory/APM-AWS/com/ge/apm/ged-opentelemetry-java-extension/${OTEL_EXTENSION_VERSION}/"
+                            String OTEL_EXTENSION_REPO = "dig-grid-artifactory.apps.ge.com"
+                            String OTEL_EXTENSION_VERSION = "2.0.0.RELEASE"
+                            String OTEL_EXTENSION_PATH = "/artifactory/apm-devops-virtual/com/ge/apm/ged-opentelemetry-java-extension/${OTEL_EXTENSION_VERSION}/"
                             String OTEL_EXTENSION_JAR_NAME="ged-opentelemetry-java-extension-${OTEL_EXTENSION_VERSION}.jar"
                             withCredentials([usernamePassword(credentialsId: 'BUILD_GE_ARTIFACTORY_CREDENTIALS',
                                     usernameVariable: 'BUILDGE_USER', passwordVariable: 'BUILDGE_PSWRD')]) {
