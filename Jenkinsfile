@@ -570,15 +570,15 @@ pipeline
                             String OTEL_EXTENSION_VERSION = "2.0.0.RELEASE"
                             String OTEL_EXTENSION_PATH = "/artifactory/apm-devops-virtual/com/ge/apm/ged-opentelemetry-java-extension/${OTEL_EXTENSION_VERSION}/"
                             String OTEL_EXTENSION_JAR_NAME="ged-opentelemetry-java-extension-${OTEL_EXTENSION_VERSION}.jar"
-                            withCredentials([usernamePassword(credentialsId: 'BUILD_GE_ARTIFACTORY_CREDENTIALS',
-                                    usernameVariable: 'BUILDGE_USER', passwordVariable: 'BUILDGE_PSWRD')]) {
+                            withCredentials([usernamePassword(credentialsId: 'DIGITAL_GRID_ARTIFACTORY_CREDENTIALS',
+                                    usernameVariable: 'ART_USERNAME', passwordVariable: 'ART_PASSWORD')]) {
                                 sh """
                                     cp build/cloudfoundry-identity-uaa-*.war iam-container-config/uaa/cloudfoundry-identity-uaa.war
 
                                     cd iam-container-config/uaa/
 
                                     curl -L https://github.com/signalfx/splunk-otel-java/releases/download/v1.32.2/splunk-otel-javaagent.jar -o $OTEL_JAR_NAME
-                                    curl --user ${BUILDGE_USER}:${BUILDGE_PSWRD} https://${OTEL_EXTENSION_REPO}${OTEL_EXTENSION_PATH}${OTEL_EXTENSION_JAR_NAME} -o $OTEL_EXTENSION_JAR_NAME
+                                    curl --user ${ART_USERNAME}:${ART_PASSWORD} https://${OTEL_EXTENSION_REPO}${OTEL_EXTENSION_PATH}${OTEL_EXTENSION_JAR_NAME} -o $OTEL_EXTENSION_JAR_NAME
 
                                     docker build --build-arg="OTEL_JAR_NAME=${OTEL_JAR_NAME}" --build-arg="OTEL_EXTENSION_JAR_NAME=${OTEL_EXTENSION_JAR_NAME}" --no-cache -t uaa:${artifactVersion} -f Dockerfile .
                                     docker images
