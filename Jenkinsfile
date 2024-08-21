@@ -29,6 +29,8 @@ pipeline
         booleanParam(name: 'DEGRADED_TESTS', defaultValue: true, description: 'Run degraded mode tests')
         string(name: 'UAA_CI_CONFIG_BRANCH', defaultValue: 'master',
                         description: 'uaa-cf-release repo branch to use for testing/deployment')
+        string(name: 'UAA_K8S_DEPLOY_BRANCH', defaultValue: 'master',
+                        description: 'uaa-k8s-deploy repo branch to use for testing/deployment')
     }
     stages 
     {
@@ -319,15 +321,15 @@ pipeline
                         expression { params.DEGRADED_TESTS == true }
                     }
                     environment {
-                        CF_CREDENTIALS = credentials("CF_CREDENTIALS_CF3_RELEASE_CANDIDATE")
                         ADMIN_CLIENT_SECRET = credentials("ADMIN_CLIENT_SECRET_CF3_INTEGRATION")
-                        SPLUNK_OTEL_ACCESS_TOKEN = credentials("SPLUNK_OTEL_ACCESS_TOKEN")
                     }
                     agent {
                         docker {
                             image "${NODE['IMAGE']}"
                             label "${NODE['LABEL']}"
-                            args "${NODE['ARGS']}"
+                            // Mount gradle home directory from host to cache downloaded dependencies
+                            // Mount docker socket from host to use for creating UAA container
+                            args '-v /var/lib/docker/.gradle:/root/.gradle -v /var/run/docker.sock:/var/run/docker.sock --add-host "localhost":127.0.0.1 --network host'
                             registryUrl "${NODE['REGISTRY_URL']}"
                             registryCredentialsId "${NODE['REGISTRY_CREDENTIALS_ID']}"
                         }
@@ -346,6 +348,16 @@ pipeline
                             git changelog: false, credentialsId: 'github.build.ge.com', poll: false,
                                 url: 'https://github.build.ge.com/predix/iam-k8s-utils.git'
                         }
+                        dir('uaa-k8s-deploy') {
+                            git changelog: false, credentialsId: 'github.devtools.predix.io', poll: false,
+                                url: 'https://github.devtools.predix.io/predix-security/uaa-k8s-deploy.git',
+                                branch: params.UAA_K8S_DEPLOY_BRANCH
+                        }
+
+                        sh """
+                            apt-get update
+                            apt-get install -y docker-ce-cli
+                        """
 
                         sh '''#!/bin/bash -ex
                             #### Only run degraded tests for branches that are post 3.20.1 and do have the version in the name
@@ -358,17 +370,8 @@ pipeline
 
                                     source uaa/scripts/setup-tests.sh
 
-                                    #Configure the credentials for cf3-integration to be used
-                                    echo "Updating CF username and password for cf3-integration!"
-                                    export CF_USERNAME=$CF_CREDENTIALS_USR
-                                    export CF_PASSWORD=$CF_CREDENTIALS_PSW
-                                    #Hard code the DEPLOYMENT_TYPE to cf3-integration as only this environment is set up to run the degraded tests
-                                    export DEPLOYMENT_TYPE=cf3-integration
-
                                     #Set up env
-                                    source uaa-cf-release/config-cf3-integration/set-env.sh
-                                    #Overriding what is set in the set-env.sh
-                                    export APP_VERSION=`grep 'version' uaa/gradle.properties | sed 's/version=//'`
+                                    source uaa-k8s-deploy/scripts/degraded-mode-test/set-env.sh
                                     unset_env
 
                                     ruby -v
@@ -388,9 +391,8 @@ pipeline
                                     fi
                                     echo 'DEGRADED_TEST_ARGS=$DEGRADED_TEST_ARGS'
 
-                                    export JRE_VERSION="{ jre: { version: 11.+ }}"
-
-                                    ./uaa-cf-release/uaa-degraded-tests-cf.sh $DEGRADED_TEST_ARGS
+                                    chmod +x ./uaa-k8s-deploy/scripts/degraded-mode-test/uaa-degraded-tests.sh
+                                    ./uaa-k8s-deploy/scripts/degraded-mode-test/uaa-degraded-tests.sh $DEGRADED_TEST_ARGS
                                 fi
                             fi
                             '''
