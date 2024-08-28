@@ -34,6 +34,7 @@ import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestOperations;
 import org.springframework.web.client.RestTemplate;
@@ -71,6 +72,12 @@ public class DegradedSamlLoginTests {
     @Value("${CF_DOMAIN:run.aws-usw02-dev.ice.predix.io}")
     String cfDomain;
 
+    @Value("${PUBLISHED_DOMAIN:#{null}}")
+    String publishedDomain;
+
+    @Value("${PROTOCOL:#{null}}")
+    String protocol;
+
     @Value("${BASIC_AUTH_CLIENT_ID:app}")
     String basicAuthClientId;
 
@@ -88,7 +95,6 @@ public class DegradedSamlLoginTests {
 
     protected final static Logger logger = LoggerFactory.getLogger(DegradedSamlLoginTests.class);
     private final static String zoneSubdomain = "test-app-zone";
-    private String protocol;
     private String baseUrl;
     private String testRedirectUri;
     private String zoneAdminToken;
@@ -96,8 +102,16 @@ public class DegradedSamlLoginTests {
 
     @Before
     public void setup() throws Exception {
-        baseUaaZoneHost = Boolean.valueOf(environment.getProperty("RUN_AGAINST_CLOUD")) ? (publishedHost + "." + cfDomain) : "localhost:8080/uaa";
-        protocol = Boolean.valueOf(environment.getProperty("RUN_AGAINST_CLOUD")) ? "https://" : "http://";
+        if (StringUtils.hasText(publishedDomain)) {
+            baseUaaZoneHost = publishedDomain;
+        } else {
+            baseUaaZoneHost = Boolean.valueOf(environment.getProperty("RUN_AGAINST_CLOUD")) ? (publishedHost + "." + cfDomain) : "localhost:8080/uaa";
+        }
+        if (StringUtils.hasText(protocol)) {
+            protocol = protocol.contains("://") ? protocol : protocol + "://";
+        } else {
+            protocol = Boolean.valueOf(environment.getProperty("RUN_AGAINST_CLOUD")) ? "https://" : "http://";
+        }
         baseUrl = protocol + zoneSubdomain + "." + baseUaaZoneHost;
         testRedirectUri = protocol +  "www.example.com";
         zoneAdminToken = IntegrationTestUtils.getClientCredentialsToken(baseUrl, ZONE_ADMIN, zoneAdminSecret);
