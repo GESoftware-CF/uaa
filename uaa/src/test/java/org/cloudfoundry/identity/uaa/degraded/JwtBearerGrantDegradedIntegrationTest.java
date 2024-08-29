@@ -24,6 +24,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
@@ -51,6 +52,12 @@ public class JwtBearerGrantDegradedIntegrationTest {
     @Value("${CF_DOMAIN:run.aws-usw02-dev.ice.predix.io}")
     String cfDomain;
 
+    @Value("${PUBLISHED_DOMAIN:#{null}}")
+    String publishedDomain;
+
+    @Value("${PROTOCOL:#{null}}")
+    String protocol;
+
     @Value("${BASIC_AUTH_CLIENT_ID:app}")
     String basicAuthClientId;
 
@@ -76,8 +83,16 @@ public class JwtBearerGrantDegradedIntegrationTest {
 
     @Before
     public void setup() {
-        String protocol = Boolean.valueOf(runAgainstCloud) ? "https://" : "http://";
-        baseUaaZoneUrl = Boolean.valueOf(runAgainstCloud) ? (protocol + "test-jwt-zone." + publishedHost + "." + cfDomain) : (protocol + "test-jwt-zone." + publishedHost);
+        if (StringUtils.hasText(protocol)) {
+            protocol = protocol.contains("://") ? protocol : protocol + "://";
+        } else {
+            protocol = Boolean.valueOf(runAgainstCloud) ? "https://" : "http://";
+        }
+        if (StringUtils.hasText(publishedDomain)) {
+            baseUaaZoneUrl = protocol + "test-jwt-zone." + publishedDomain;
+        } else {
+            baseUaaZoneUrl = Boolean.valueOf(runAgainstCloud) ? (protocol + "test-jwt-zone." + publishedHost + "." + cfDomain) : (protocol + "test-jwt-zone." + publishedHost);
+        }
         audience = baseUaaZoneUrl + "/oauth/token";
     }
 
