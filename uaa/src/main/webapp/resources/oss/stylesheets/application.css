@@ -6155,7 +6155,7 @@ The classes are constructed by specifying `<type><location><size>`.
   box-sizing: border-box; }
 
 html {
-  background-color: white; }
+  background-color: white !important;}
 
 html, body {
   padding: 0;
