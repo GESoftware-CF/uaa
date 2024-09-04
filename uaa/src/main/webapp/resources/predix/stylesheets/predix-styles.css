@@ -47,10 +47,11 @@
   src: url("../fonts/GEInspiraSans-BoldItalic-v01.eot");
   src: url("../fonts/GEInspiraSans-BoldItalic-v01.eot?#iefix") format("embedded-opentype"), url("../fonts/GEInspiraSans-BoldItalic-v01.woff") format("woff"), url("../fonts/GEInspiraSans-BoldItalic-v01.ttf") format("truetype"), url("../fonts/GEInspiraSans-BoldItalic-v01.svg#GE Inspira Sans") format("svg"); }
 html {
-  font-family: 'GE Inspira Sans', sans-serif; }
+  font-family: Roboto, 'Noto Sans' !important;
+}
 
 html {
-  background: #333;
+  background: #005E60;
   font-size: 16px;
   overflow: hidden;
   max-width: none !important;
@@ -96,6 +97,12 @@ body {
   max-width: 80em;
   margin: 1rem auto; }
 
+.instructions-sent {
+  background: none;
+  border: none;
+  color: #fff;
+}
+
 .link-lowlight {
   -webkit-box-flex: 1;
       -ms-flex: 1;
@@ -105,15 +112,15 @@ body {
 a:active,
 a:hover {
   outline: 0;
-  color: #3ab4d4; }
+  color: #fff !important; }
 
 .link-lowlight,
 a,
 a:link,
 a:visited {
   outline: 0;
-  color: #2886af;
-  text-decoration: none; }
+  color: #fff !important;
+  text-decoration: underline; }
 
 h1,
 h2,
@@ -193,6 +200,10 @@ h1 {
       .predix-uaa__wrap {
         min-width: 300px;
         width: 300px; } }
+        .predix-uaa__logo {
+          margin-bottom: 20px; }
+        .predix-uaa__logo img{
+          width: 60px; }
   .predix-uaa__content {
     display: -webkit-box;
     display: -ms-flexbox;
@@ -216,8 +227,8 @@ h1 {
   background-size: contain; }
 
 img.img-responsive {
-  height: auto;
-  min-height: 60px; }
+  width: 400px;
+  height: 150px; }
 
 .nav {
   display: -webkit-box;
@@ -284,6 +295,15 @@ img.img-responsive {
 .island-title {
   margin-bottom: 1rem; }
 
+#Back, #Next {
+  background: #fff;
+  color: #005e60;
+}
+
+#account {
+  color: #000;
+}
+
 .island {
   border-radius: 0;
   color: #fff;
@@ -309,7 +329,8 @@ img.img-responsive {
     .island {
       max-width: 400px; } }
   .island h1 {
-    margin: 1rem 0; }
+    margin: 1rem 0;
+    color: #fff; }
   .island-button,
   .island .forgot-password-button,
   .island form button,
@@ -317,9 +338,9 @@ img.img-responsive {
     padding: 0.5rem 1rem;
     font-size: 1.2rem;
     border-radius: 4px !important;
-    border: 1px solid #2886af;
-    background-color: #2886af;
-    color: #fff;
+    border: 1px solid #fff !important;
+    background-color: #fff!important;
+    color: #005e60 !important;
     text-align: center;
     cursor: pointer;
     -webkit-appearance: none;
@@ -338,9 +359,9 @@ img.img-responsive {
     .island .forgot-password-button:hover,
     .island form button:hover,
     .island input[type=submit]:hover {
-      border: 1px solid #3ab4d4;
-      background-color: #3ab4d4;
-      color: #fff;
+      border: 1px solid #fff !important;
+      background-color: #fff!important;
+      color: #005e60 !important;
       box-shadow: none; }
     .island-button:active, .island-button:focus,
     .island .forgot-password-button:active,
@@ -444,7 +465,7 @@ form {
   border: none;
   font-size: 16px;
   line-height: 1.66667;
-  color: #dd2432;
+  color: #ff4242;
   font-weight: 700; }
 
 .saml-login {
@@ -452,13 +473,22 @@ form {
   padding: 0.5rem 0; }
   .saml-login:empty {
     display: none; }
+    .saml-login p {
+      color: #fff;
+    }
+
+@media only screen and (max-height: 800px) {
+  .footer {
+    position: relative !important;
+  }
+}
 
 .footer {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  color: #888;
+  color: #fff;
   display: -webkit-box;
   display: -ms-flexbox;
   display: flex;
@@ -470,7 +500,7 @@ form {
             flex: 1;
     display: -webkit-box;
     display: -ms-flexbox;
-    display: flex;
+    display: block;
     -ms-flex-item-align: center;
         align-self: center;
     -webkit-box-pack: center;

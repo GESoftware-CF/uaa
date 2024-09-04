@@ -10,11 +10,11 @@ $predix-input-border-color: rgba(40,134,175,.8);
 $predix-border: #00659e;
 $predix-bg: #2886af;
 $black: #222;
-$link-color--hover: #3ab4d4;
-$link-color: #2886af;
+$link-color--hover: #fff;
+$link-color: #fff;
 
-$predix-border-color: #2886af;
-$predix-border-color--hover: #3ab4d4;
+$predix-border-color: #fff;
+$predix-border-color--hover: #fff;
 $error-color: #e32533;
 
 $white: #fff;
@@ -31,6 +31,7 @@ $input-submit-border: 1px solid $predix-border-color;
 $input-submit-background-color: $predix-bg;
 $background-image: '../images/predix-word.svg';
 $error-message: 'We couldn\'t verify your email or password. Please try again.';
+$ever-green-color:#005E60;
 
 ///-----------------------------------------------
 ///Island Variables
@@ -48,7 +49,7 @@ $island-button-background-image: linear-gradient(-180deg, $predix-bg 0%, $predix
 ///-----------------------------------------------
 ///Globals
 html {
-	background: #333;
+	background: $ever-green-color;
 	font-size : 16px;
 	overflow  : hidden;
 	max-width : none !important;
@@ -204,6 +205,14 @@ h1 {
 		}
 	}
 
+	&__logo {
+		margin-bottom: 20px;
+		 
+		img {
+			width: 60px;
+		}
+	}
+
 	&__content {
 		display       : flex;
 		flex-direction: column;
@@ -295,6 +304,7 @@ h1 {
 
 	h1 {
 		margin: 1rem 0;
+		color: #fff;
 	}
 
 	///-----------------------------------------------
@@ -456,6 +466,10 @@ form {
 	&:empty {
 		display: none;
 	}
+
+	p {
+		color: $white;
+	}
 }
 
 ///-----------------------------------------------
@@ -472,7 +486,7 @@ form {
 
 	.copyright {
 		flex           : 1;
-		display        : flex;
+		display        : block;
 		align-self     : center;
 		justify-content: center;
 		padding        : 1rem;
