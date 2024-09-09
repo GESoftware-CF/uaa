@@ -10,11 +10,11 @@ $predix-input-border-color: rgba(40,134,175,.8);
 $predix-border: #00659e;
 $predix-bg: #2886af;
 $black: #222;
-$link-color--hover: #3ab4d4;
-$link-color: #2886af;
+$link-color--hover: #005E60;
+$link-color: #005E60;
 
-$predix-border-color: #2886af;
-$predix-border-color--hover: #3ab4d4;
+$predix-border-color: #005E60;
+$predix-border-color--hover: #005E60;
 $error-color: #e32533;
 
 $white: #fff;
@@ -202,6 +202,12 @@ h1 {
 			min-width: 300px;
 			width    : 300px;
 		}
+	}
+
+	&__logo {
+		position: absolute;
+		right: 50px;
+		top: 50px;
 	}
 
 	&__content {
