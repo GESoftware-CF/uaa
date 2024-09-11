@@ -105,14 +105,14 @@ body {
 a:active,
 a:hover {
   outline: 0;
-  color: #005E60; }
+  color: #005E60 !important; }
 
 .link-lowlight,
 a,
 a:link,
 a:visited {
   outline: 0;
-  color: #005E60;
+  color: #005E60 !important;
   text-decoration: none; }
 
 h1,
