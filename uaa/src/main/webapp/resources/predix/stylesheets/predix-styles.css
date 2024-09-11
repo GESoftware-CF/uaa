@@ -50,7 +50,7 @@ html {
   font-family: 'GE Inspira Sans', sans-serif; }
 
 html {
-  background: #333;
+  background: #fff;
   font-size: 16px;
   overflow: hidden;
   max-width: none !important;
@@ -105,14 +105,14 @@ body {
 a:active,
 a:hover {
   outline: 0;
-  color: #3ab4d4; }
+  color: #005E60; }
 
 .link-lowlight,
 a,
 a:link,
 a:visited {
   outline: 0;
-  color: #2886af;
+  color: #005E60;
   text-decoration: none; }
 
 h1,
@@ -193,6 +193,10 @@ h1 {
       .predix-uaa__wrap {
         min-width: 300px;
         width: 300px; } }
+        .predix-uaa__logo {
+          position: absolute;
+		      right: 50px;
+		      top: 50px; }
   .predix-uaa__content {
     display: -webkit-box;
     display: -ms-flexbox;
@@ -317,8 +321,8 @@ img.img-responsive {
     padding: 0.5rem 1rem;
     font-size: 1.2rem;
     border-radius: 4px !important;
-    border: 1px solid #2886af;
-    background-color: #2886af;
+    border: 1px solid #005E60;
+    background-color: #005E60;
     color: #fff;
     text-align: center;
     cursor: pointer;
@@ -338,8 +342,8 @@ img.img-responsive {
     .island .forgot-password-button:hover,
     .island form button:hover,
     .island input[type=submit]:hover {
-      border: 1px solid #3ab4d4;
-      background-color: #3ab4d4;
+      border: 1px solid #005E60;
+      background-color: #005E60;
       color: #fff;
       box-shadow: none; }
     .island-button:active, .island-button:focus,
@@ -470,7 +474,7 @@ form {
             flex: 1;
     display: -webkit-box;
     display: -ms-flexbox;
-    display: flex;
+    display: block;
     -ms-flex-item-align: center;
         align-self: center;
     -webkit-box-pack: center;
