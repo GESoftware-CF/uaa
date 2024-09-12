@@ -313,7 +313,8 @@ img.img-responsive {
     .island {
       max-width: 400px; } }
   .island h1 {
-    margin: 1rem 0; }
+    margin: 1rem 0;
+    color: #000; }
   .island-button,
   .island .forgot-password-button,
   .island form button,
@@ -321,8 +322,8 @@ img.img-responsive {
     padding: 0.5rem 1rem;
     font-size: 1.2rem;
     border-radius: 4px !important;
-    border: 1px solid #005E60;
-    background-color: #005E60;
+    border: 1px solid #005E60 !important;
+    background-color: #005E60 !important;
     color: #fff;
     text-align: center;
     cursor: pointer;
@@ -342,8 +343,8 @@ img.img-responsive {
     .island .forgot-password-button:hover,
     .island form button:hover,
     .island input[type=submit]:hover {
-      border: 1px solid #005E60;
-      background-color: #005E60;
+      border: 1px solid #005E60 !important;
+      background-color: #005E60 !important;
       color: #fff;
       box-shadow: none; }
     .island-button:active, .island-button:focus,
