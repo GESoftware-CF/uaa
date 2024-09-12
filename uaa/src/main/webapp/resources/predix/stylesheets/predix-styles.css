@@ -457,6 +457,9 @@ form {
   padding: 0.5rem 0; }
   .saml-login:empty {
     display: none; }
+    .saml-login p {
+      color: #000;
+    }
 
 .footer {
   position: absolute;
