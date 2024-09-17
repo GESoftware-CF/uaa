@@ -50,7 +50,7 @@ html {
   font-family: 'GE Inspira Sans', sans-serif; }
 
 html {
-  background: #fff;
+  background: #005E60;
   font-size: 16px;
   overflow: hidden;
   max-width: none !important;
@@ -112,7 +112,7 @@ a,
 a:link,
 a:visited {
   outline: 0;
-  color: #005E60 !important;
+  color: #fff !important;
   text-decoration: none; }
 
 h1,
@@ -314,7 +314,7 @@ img.img-responsive {
       max-width: 400px; } }
   .island h1 {
     margin: 1rem 0;
-    color: #000; }
+    color: #005E60; }
   .island-button,
   .island .forgot-password-button,
   .island form button,
@@ -458,7 +458,7 @@ form {
   .saml-login:empty {
     display: none; }
     .saml-login p {
-      color: #000;
+      color: #005E60;
     }
 
 .footer {
