@@ -205,9 +205,11 @@ h1 {
 	}
 
 	&__logo {
-		position: absolute;
-		right: 50px;
-		top: 50px;
+		margin-bottom: 20px;
+		 
+		img {
+			width: 60px;
+		}
 	}
 
 	&__content {

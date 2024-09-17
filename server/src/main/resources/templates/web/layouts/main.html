@@ -28,10 +28,7 @@
     <link rel="stylesheet" media="screen" href="/resources/oss/stylesheets/chooser.css" th:href="@{/resources/oss/stylesheets/chooser.css}"/>
 </head>
 <body class="predix-uaa">
-  <div class="predix-uaa__logo">
-<img style="max-width: 200px;" src="/resources/predix/images/predix-word.svg"/>
 
-</div>
   <div class="predix-uaa__wrap">
     <div class="predix-uaa__header">
       <div>
@@ -46,6 +43,9 @@
     <div class="copyright" th:with="links=${branding.getFooterLinks()}"
       th:inline="text"
       th:title="|Version: ${@buildInfo.version}, Commit: ${@buildInfo.commitId}, Timestamp: ${@buildInfo.timestamp}, UAA: ${@buildInfo.uaaUrl}|">
+      <div class="predix-uaa__logo">
+        <img src="/resources/predix/images/predix-word.svg"/>
+      </div>      
       <div>[[${copyright}]]</div>
       <div>[[${copyright2}]]</div>
       <th:block th:each="link,iter : ${links}">

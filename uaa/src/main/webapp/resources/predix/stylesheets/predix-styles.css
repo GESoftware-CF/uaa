@@ -194,9 +194,9 @@ h1 {
         min-width: 300px;
         width: 300px; } }
         .predix-uaa__logo {
-          position: absolute;
-		      right: 50px;
-		      top: 50px; }
+          margin-bottom: 20px; }
+        .predix-uaa__logo img{
+          width: 60px; }
   .predix-uaa__content {
     display: -webkit-box;
     display: -ms-flexbox;
@@ -220,8 +220,8 @@ h1 {
   background-size: contain; }
 
 img.img-responsive {
-  height: auto;
-  min-height: 60px; }
+  width: 400px;
+  height: 150px; }
 
 .nav {
   display: -webkit-box;
