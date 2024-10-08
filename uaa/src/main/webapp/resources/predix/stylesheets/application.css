@@ -469,7 +469,7 @@ footer .list-inline {
 
 *,
 html {
-    font-family: GE Inspira Sans, sans-serif
+    font-family: Roboto, "Noto Sans" !important;
 }
 
 abbr[title] {
@@ -575,7 +575,7 @@ sub {
 .text--custom {
     font-size:20px;
     background: none;
-    color: #333;
+    color: #888 !important;
     padding-bottom: 0;
 }
 
@@ -3279,7 +3279,8 @@ ol.linenums {
 
 samp {
     padding: .3125rem;
-    background-color: #eaeaea
+    background-color: #eaeaea;
+    color: #888;
 }
 
 .documentation-area {
@@ -3780,7 +3781,7 @@ samp {
 }
 
 html {
-    background-color: #333
+    background-color: #005E60
 }
 
 body {
@@ -3794,6 +3795,11 @@ body {
 
 .island .island-content .right {
     display: none
+}
+
+.island .island-content label{
+    text-align: left;
+    font-weight: 400 !important;
 }
 
 .application-link {

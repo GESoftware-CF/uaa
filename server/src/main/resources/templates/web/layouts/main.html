@@ -5,9 +5,10 @@
                 zoneName=${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).get().getName()},
                 branding=${T(org.cloudfoundry.identity.uaa.zone.MergedZoneBrandingInformation).resolveBranding()},
                 companyName=${branding.getZoneCompanyName() ?: ''},
-                copyrightCompanyName=${branding.getCompanyName() ?: 'General Electric Company'},
-                copyrightFallback=${'Copyright &#169; ' + #dates.year(#dates.createNow()) + ' ' + copyrightCompanyName + '. All Rights Reserved.'},
+                copyrightCompanyName=${branding.getCompanyName() ?: 'GE Vernova'},
+                copyrightFallback=${'Copyright &#169; ' + #dates.year(#dates.createNow()) + ' ' + copyrightCompanyName + ' and/or its affiliates. All rights reserved.'},
                 copyright=${branding.getFooterLegalText() ?: copyrightFallback},
+                copyright2=${'GE and the GE Monogram are trademarks of General Electric Company used under trademark license.'},
                 brandingLogo=${branding.getProductLogo()},
                 fallbackLogo=${assetBaseUrl+'/images/predix-word.svg'},
                 logo=${brandingLogo != null and !brandingLogo.isEmpty() ? 'data:image/png;base64,'+#strings.replace(brandingLogo,T(java.lang.System).getProperty('line.separator'),'') : fallbackLogo}" >
@@ -24,19 +25,15 @@
     <link href="/vendor/font-awesome/css/font-awesome.min.css" th:href="@{/vendor/font-awesome/css/font-awesome.min.css}" rel="stylesheet"/>
     <link href="/resources/oss/stylesheets/application.css" th:href="@{${assetBaseUrl}+'/stylesheets/application.css'}" rel="stylesheet"/>
     <link th:href="@{${assetBaseUrl}+'/stylesheets/predix-styles.css'}" rel="stylesheet"/>
+    <link th:href="@{${assetBaseUrl}+'/stylesheets/roboto.css'}" rel="stylesheet"/>
     <link rel="stylesheet" media="screen" href="/resources/oss/stylesheets/chooser.css" th:href="@{/resources/oss/stylesheets/chooser.css}"/>
-    <style th:with="brandingLogo=${branding.getProductLogo()}"
-           th:text="'.header {' + (|background-image: url(@{${logo}});|) + '}'">
-        .header-image {
-            background-image: url(/resources/oss/images/product-logo.png);
-        }
-    </style>
 </head>
 <body class="predix-uaa">
+
   <div class="predix-uaa__wrap">
     <div class="predix-uaa__header">
       <div>
-          <img id="logo-header" class="header img-responsive logo" style="max-width:330px" th:with="logo=${branding.getProductLogo()},defaultLogo=@{${assetBaseUrl+'/images/predix-word.svg'}}" th:src="${logo != null ? 'data:image/png;base64,'+logo : defaultLogo}"/>
+          <img id="logo-header" class="header img-responsive logo" style="max-width:330px" th:with="logo=${branding.getProductLogo()},defaultLogo=@{${assetBaseUrl+'/images/GE_Vernova_Standard_RGB-White.svg'}}" th:src="${logo != null ? 'data:image/png;base64,'+logo : defaultLogo}"/>
         <div layout:fragment="page-nav"></div>
       </div>
     </div>
@@ -47,7 +44,9 @@
     <div class="copyright" th:with="links=${branding.getFooterLinks()}"
       th:inline="text"
       th:title="|Version: ${@buildInfo.version}, Commit: ${@buildInfo.commitId}, Timestamp: ${@buildInfo.timestamp}, UAA: ${@buildInfo.uaaUrl}|">
-      [[${copyright}]]
+      <img style="width: 60px;margin-bottom:20px;" src="/resources/predix/images/predix-word.svg"/>
+      <div>[[${copyright}]]</div>
+      <div>[[${copyright2}]]</div>
       <th:block th:each="link,iter : ${links}">
         <th:block th:if="${!iter.first}"> &mdash;</th:block>
         <a href="/" th:href="${link.value}">[[${link.key}]]</a>

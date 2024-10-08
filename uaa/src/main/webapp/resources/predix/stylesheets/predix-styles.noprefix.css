@@ -47,10 +47,10 @@
   src: url("../fonts/GEInspiraSans-BoldItalic-v01.eot");
   src: url("../fonts/GEInspiraSans-BoldItalic-v01.eot?#iefix") format("embedded-opentype"), url("../fonts/GEInspiraSans-BoldItalic-v01.woff") format("woff"), url("../fonts/GEInspiraSans-BoldItalic-v01.ttf") format("truetype"), url("../fonts/GEInspiraSans-BoldItalic-v01.svg#GE Inspira Sans") format("svg"); }
 html {
-  font-family: 'GE Inspira Sans', sans-serif; }
+  font-family: Roboto, 'Noto Sans' !important; }
 
 html {
-  background: #333;
+  background: #005e60;
   font-size: 16px;
   overflow: hidden;
   max-width: none !important;
@@ -102,14 +102,14 @@ body {
 a:active,
 a:hover {
   outline: 0;
-  color: #3ab4d4; }
+  color: #fff !important; }
 
 .link-lowlight,
 a,
 a:link,
 a:visited {
   outline: 0;
-  color: #2886af;
+  color: #fff !important;
   text-decoration: none; }
 
 h1,

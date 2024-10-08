@@ -684,8 +684,7 @@ public class LoginMockMvcTests {
                 .andExpect(content().string(containsString("example company")))
                 .andExpect(content().string(containsString("example footer text")))
                 .andExpect(content().string(containsString("Example Legal Text")))
-                .andExpect(content().string(containsString("data:image/png;base64," + squareIconData)))
-                .andExpect(content().string(containsString("/resources/predix/images/predix-word.svg")));
+                .andExpect(content().string(containsString("data:image/png;base64," + squareIconData)));
     }
 
     //Predix does not use a image tag for logo, uses header.background in css. (see main.html/predix-styles.css)

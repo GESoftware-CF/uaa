@@ -20,7 +20,8 @@
 
         <div class="form-group email_address_field">
             <div>
-                <input class="form-control" id="email" name="email" type="text" autofocus="true" placeholder="Email or Username" style="width: 100%;"/>
+                <label>Email or Username</label>
+                <input class="form-control" id="email" name="email" type="text" autofocus="true" style="width: 100%;"/>
             </div>
             <input th:if="${param.login_hint}"
                th:unless="${login_hint}"
