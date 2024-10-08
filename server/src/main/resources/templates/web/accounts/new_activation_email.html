@@ -27,9 +27,12 @@
             </div>
             <input type="hidden" name="client_id" th:value="${client_id}"/>
             <input type="hidden" name="redirect_uri" th:value="${redirect_uri}"/>
-            <input name="email" type="email" placeholder="Enter your email" autofocus="autofocus" required="required" class="form-control"/>
-            <input name="password" type="password" required="required" placeholder="Password" autocomplete="off" class="form-control"/>
-            <input name="password_confirmation" type="password" required="required" placeholder="Confirm" autocomplete="off" class="form-control"/>
+            <label>Enter your email</label>
+            <input name="email" type="email" autofocus="autofocus" required="required" class="form-control"/>
+            <label>Password</label>
+            <input name="password" type="password" required="required" autocomplete="off" class="form-control"/>
+            <label>Confirm Password</label>
+            <input name="password_confirmation" type="password" required="required" autocomplete="off" class="form-control"/>
 
             <label th:if="${consent_text}" style="margin-bottom: 20px">
                 <input name="does_user_consent" type="checkbox" style="display: inline">

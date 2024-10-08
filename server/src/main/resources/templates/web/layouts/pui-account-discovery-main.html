@@ -5,11 +5,12 @@
                 zoneName=${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).get().getName()},
                 branding=${T(org.cloudfoundry.identity.uaa.zone.MergedZoneBrandingInformation).resolveBranding()},
                 banner=${branding.getBanner()},
-                companyName=${branding.getCompanyName() ?: 'General Electric Company'},
-                copyrightCompanyName=${branding.getCompanyName() ?: 'General Electric Company'},
-                copyrightFallback=${'Copyright &#169; ' + copyrightCompanyName + ' ' + #dates.year(#dates.createNow()) + '. All Rights Reserved.'},
-                copyright=${branding.getFooterLegalText() ?: copyrightFallback}" >
-
+                companyName=${branding.getCompanyName() ?: 'GE Vernova'},
+                copyrightCompanyName=${branding.getCompanyName() ?: 'GE Vernova'},
+                copyrightFallback=${'Copyright &#169; ' + #dates.year(#dates.createNow()) + ' ' + copyrightCompanyName + ' and/or its affiliates. All Rights Reserved.'},
+                copyright2=${'GE is a trademark of General Electric Company and is used under trademark license.'},
+                copyright=${branding.getFooterLegalText() ?: copyrightFallback}"
+                 >
 <head>
     <title th:text="${isUaa ? companyName : zoneName}" th:inline="text"></title>
     <link href='/resources/predix/images/square-logo.png' th:with="icon=${branding.getSquareLogo()}" th:href="@{${icon != null ? 'data:image/png;base64,'+icon : (assetBaseUrl + '/images/square-logo.png')}}" rel='shortcut icon' />
@@ -24,6 +25,7 @@
     <link href="/vendor/font-awesome/css/font-awesome.min.css" th:href="@{/vendor/font-awesome/css/font-awesome.min.css}" rel="stylesheet"/>
     <link href="/resources/predix/stylesheets/application.css" th:href="@{${assetBaseUrl}+'/stylesheets/application.css'}" rel="stylesheet"/>
     <link th:href="@{${assetBaseUrl}+'/stylesheets/predix-styles.css'}" rel="stylesheet"/>
+    <link th:href="@{${assetBaseUrl}+'/stylesheets/roboto.css'}" rel="stylesheet"/>
 </head>
 <body class="predix-uaa">
     <div th:if="${banner != null && (T(org.springframework.util.StringUtils).hasText(banner.getText()) || T(org.springframework.util.StringUtils).hasText(banner.getLogo()))}" class="login-header top-header banner-header"
@@ -53,7 +55,9 @@
             th:with="links=${branding.getFooterLinks()}"
             th:inline="text"
             th:title="|Version: ${@buildInfo.version}, Commit: ${@buildInfo.commitId}, Timestamp: ${@buildInfo.timestamp}, UAA: ${@buildInfo.uaaUrl}|">
-            [[${copyright}]]
+            <img style="width: 60px;margin-bottom:20px;" src="/resources/predix/images/predix-word.svg"/>
+              <div>[[${copyright}]]</div>
+              <div>[[${copyright2}]]</div>
             <th:block th:each="link,iter : ${links}"><th:block th:if="${!iter.first}"> &mdash;</th:block> <a href="/" th:href="${link.value}">[[${link.key}]]</a></th:block>
         </div>
     </div>

@@ -224,7 +224,7 @@ public class LoginIT {
 
         //assert Predix logo
         assertThat(webDriver.findElement(By.id("logo-header")).getAttribute("src"),
-                containsString("predix-word.svg"));
+                containsString("GE_Vernova_Standard_RGB-White.svg"));
 
         attemptLogin(newUserEmail, USER_PASSWORD);
         assertThat(webDriver.findElement(By.cssSelector("h1")).getText(),
