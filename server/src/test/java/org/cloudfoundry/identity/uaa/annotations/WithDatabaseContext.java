@@ -1,5 +1,6 @@
 package org.cloudfoundry.identity.uaa.annotations;
 
+import org.cloudfoundry.identity.uaa.db.beans.DatabaseConfiguration;
 import org.cloudfoundry.identity.uaa.db.beans.FlywayConfiguration;
 import org.cloudfoundry.identity.uaa.extensions.PollutionPreventionExtension;
 import org.cloudfoundry.identity.uaa.util.beans.PasswordEncoderConfig;
@@ -18,6 +19,7 @@ import java.lang.annotation.Target;
 @ExtendWith(PollutionPreventionExtension.class)
 @WebAppConfiguration
 @SpringJUnitConfig(classes = {
+        DatabaseConfiguration.class,
         DatabaseOnlyConfiguration.class,
         PasswordEncoderConfig.class,
         FlywayConfiguration.FlywayConfigurationWithMigration.class,

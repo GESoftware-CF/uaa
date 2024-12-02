@@ -16,4 +16,15 @@ public class UaaDatabaseName {
 
         return UAA_DB_NAME + "_" + gradleWorkerId;
     }
+
+    // TODO dgarnier
+    // This is a test utility and should not be a prod class
+    public static String getDbNameFromSystemProperties() {
+        var gradleWorkerId = System.getProperty("org.gradle.test.worker");
+        if (gradleWorkerId == null) {
+            return UAA_DB_NAME;
+        }
+
+        return UAA_DB_NAME + "_" + gradleWorkerId;
+    }
 }

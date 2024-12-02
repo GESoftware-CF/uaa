@@ -9,8 +9,8 @@
        http://www.springframework.org/schema/tx https://www.springframework.org/schema/tx/spring-tx.xsd">
 
     <bean id="databaseUrlModifier" class="org.cloudfoundry.identity.uaa.db.DatabaseUrlModifier">
-        <constructor-arg name="databaseType" value="#{@platform}"/>
-        <constructor-arg name="url" value="${database.url}"/>
+        <constructor-arg name="databaseType" value="#{@databaseProperties.getType()}"/>
+        <constructor-arg name="url" value="#{@databaseProperties.getUrl()}"/>
         <property name="connectTimeoutSeconds" value="${database.connecttimeout:10}"/>
     </bean>
 
@@ -20,7 +20,7 @@
         <property name="username" value="${database.username}"/>
         <property name="password" value="${database.password}"/>
         <property name="validationInterval" value="${database.validationinterval:5000}"/>
-        <property name="validationQuery" value="#{@validationQuery}"/>
+        <property name="validationQuery" value="#{@databaseProperties.getValidationQuery()}"/>
         <property name="testOnBorrow" value="true"/>
         <property name="testWhileIdle" value="${database.testwhileidle:false}"/>
         <property name="minIdle" value="${database.minidle:0}"/>
@@ -35,10 +35,6 @@
         <property name="timeBetweenEvictionRunsMillis" value="${database.evictionintervalms:15000}"/>
         <property name="minEvictableIdleTimeMillis" value="${database.minevictionidlems:60000}"/>
         <property name="jdbcInterceptors" value="org.cloudfoundry.identity.uaa.metrics.QueryFilter(threshold=3000)"/>
-    </bean>
-
-    <bean id="dataSourceAccessor" class="org.cloudfoundry.identity.uaa.db.DataSourceAccessor" depends-on="dataSource">
-        <property name="dataSource" ref="dataSource"/>
     </bean>
 
     <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
@@ -84,6 +80,6 @@
 
     <bean id="useCaseInsensitiveQueries" class="java.lang.Boolean" factory-method="valueOf">
         <constructor-arg
-                              value="#{ (@platform eq 'mysql' and '${database.caseinsensitive:true}') ? true : '${database.caseinsensitive:false}'}"/>
+                value="#{ (@databaseProperties.getType() eq 'mysql' and '${database.caseinsensitive:true}') ? true : '${database.caseinsensitive:false}'}"/>
     </bean>
 </beans>
