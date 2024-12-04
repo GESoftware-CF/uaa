@@ -21,7 +21,7 @@
                 </constructor-arg>
             </bean>
         </property>
-        <property name="dbCaseInsensitive" ref="useCaseInsensitiveQueries"/>
+        <property name="dbCaseInsensitive" value="#{@databaseProperties.isCaseinsensitive()}"/>
     </bean>
 
     <bean id="scimJoinQueryConverter" class="org.cloudfoundry.identity.uaa.resources.jdbc.SimpleSearchQueryConverter">
@@ -30,7 +30,7 @@
                 <constructor-arg name="name" value="u"/>
             </bean>
         </property>
-        <property name="dbCaseInsensitive" ref="useCaseInsensitiveQueries"/>
+        <property name="dbCaseInsensitive" value="#{@databaseProperties.isCaseinsensitive()}"/>
     </bean>
 
     <bean id="globalPasswordPolicy" class="org.cloudfoundry.identity.uaa.provider.PasswordPolicy">

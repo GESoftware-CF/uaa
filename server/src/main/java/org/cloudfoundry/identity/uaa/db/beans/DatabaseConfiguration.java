@@ -2,6 +2,7 @@ package org.cloudfoundry.identity.uaa.db.beans;
 
 import org.cloudfoundry.identity.uaa.db.DatabasePlatform;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.context.annotation.PropertySource;
@@ -17,6 +18,12 @@ import org.springframework.context.annotation.PropertySource;
 @Configuration
 @EnableConfigurationProperties(DatabaseProperties.class)
 public class DatabaseConfiguration {
+
+    // TODO dgarnier remove
+    @Bean
+    Boolean useCaseInsensitiveQueries(DatabaseProperties databaseProperties) {
+        return databaseProperties.isCaseinsensitive();
+    }
 
     // Default profile
     @Configuration
