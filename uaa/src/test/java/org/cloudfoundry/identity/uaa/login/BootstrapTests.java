@@ -161,7 +161,7 @@ class BootstrapTests {
 
     @Test
     void legacyDeprecatedProperties() {
-        context = getServletContext("hsqldb", "test/bootstrap/deprecated_properties_still_work.yml");
+        context = getServletContext("default", "test/bootstrap/deprecated_properties_still_work.yml");
         ScimGroupProvisioning scimGroupProvisioning = context.getBean("scimGroupProvisioning", ScimGroupProvisioning.class);
         List<ScimGroup> scimGroups = scimGroupProvisioning.retrieveAll(IdentityZoneHolder.get().getId());
         assertThat(scimGroups)
