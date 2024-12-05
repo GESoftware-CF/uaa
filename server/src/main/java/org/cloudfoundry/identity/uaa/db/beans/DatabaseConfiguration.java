@@ -1,6 +1,10 @@
 package org.cloudfoundry.identity.uaa.db.beans;
 
 import org.cloudfoundry.identity.uaa.db.DatabasePlatform;
+import org.cloudfoundry.identity.uaa.resources.jdbc.HsqlDbLimitSqlAdapter;
+import org.cloudfoundry.identity.uaa.resources.jdbc.LimitSqlAdapter;
+import org.cloudfoundry.identity.uaa.resources.jdbc.MySqlLimitSqlAdapter;
+import org.cloudfoundry.identity.uaa.resources.jdbc.PostgresLimitSqlAdapter;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,6 +35,11 @@ public class DatabaseConfiguration {
     @PropertySource("classpath:application-hsqldb.properties")
     public static class DefaultConfiguration {
 
+        @Bean
+        LimitSqlAdapter limitSqlAdapter() {
+            return new HsqlDbLimitSqlAdapter();
+        }
+
     }
 
     @Configuration
@@ -38,6 +47,12 @@ public class DatabaseConfiguration {
     // The property source location is already inferred by the profile but we make it explicit
     @PropertySource("classpath:application-postgresql.properties")
     public static class PostgresConfiguration {
+
+        @Bean
+        LimitSqlAdapter limitSqlAdapter() {
+            return new PostgresLimitSqlAdapter();
+        }
+
     }
 
     @Configuration
@@ -45,6 +60,11 @@ public class DatabaseConfiguration {
     // The property source location is already inferred by the profile but we make it explicit
     @PropertySource("classpath:application-mysql.properties")
     public static class MysqlConfiguration {
+
+        @Bean
+        LimitSqlAdapter limitSqlAdapter() {
+            return new MySqlLimitSqlAdapter();
+        }
 
     }
 
