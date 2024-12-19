@@ -49,16 +49,16 @@ pipeline
                     steps {
                         echo env.BRANCH_NAME
                         dir('uaa-cf-release') {
-                            git changelog: false, credentialsId: 'github.build.ge.com', poll: false,
-                                url: 'https://github.build.ge.com/predix/uaa-cf-release.git',
+                            git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                                url: 'https://github.software.gevernova.com/pers/uaa-cf-release.git',
                                 branch: params.UAA_CI_CONFIG_BRANCH
                         }
                         dir('uaa') {
                             checkout scm
                         }
                         dir('uaa/iam-k8s-utils') {
-                            git changelog: false, credentialsId: 'github.build.ge.com', poll: false,
-                                url: 'https://github.build.ge.com/predix/iam-k8s-utils.git'
+                            git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                                url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
                         }
                         sh '''#!/bin/bash -ex
                             source uaa-cf-release/config-local/set-env.sh
@@ -101,16 +101,16 @@ pipeline
                     steps {
                         echo env.BRANCH_NAME
                         dir('uaa-cf-release') {
-                            git changelog: false, credentialsId: 'github.build.ge.com', poll: false,
-                                url: 'https://github.build.ge.com/predix/uaa-cf-release.git',
+                            git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                                url: 'https://github.software.gevernova.com/pers/uaa-cf-release.git',
                                 branch: params.UAA_CI_CONFIG_BRANCH
                         }
                         dir('uaa') {
                             checkout scm
                         }
                         dir('uaa/iam-k8s-utils') {
-                            git changelog: false, credentialsId: 'github.build.ge.com', poll: false,
-                                url: 'https://github.build.ge.com/predix/iam-k8s-utils.git'
+                            git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                                url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
                         }
                         sh '''#!/bin/bash -ex
                                 source uaa-cf-release/config-local/set-env.sh
@@ -177,16 +177,16 @@ pipeline
                     steps {
                         echo env.BRANCH_NAME
                         dir('uaa-cf-release') {
-                            git changelog: false, credentialsId: 'github.build.ge.com', poll: false,
-                                url: 'https://github.build.ge.com/predix/uaa-cf-release.git',
+                            git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                                url: 'https://github.software.gevernova.com/pers/uaa-cf-release.git',
                                 branch: params.UAA_CI_CONFIG_BRANCH
                         }
                         dir('uaa') {
                             checkout scm
                         }
                         dir('uaa/iam-k8s-utils') {
-                            git changelog: false, credentialsId: 'github.build.ge.com', poll: false,
-                                url: 'https://github.build.ge.com/predix/iam-k8s-utils.git'
+                            git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                                url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
                         }
                         sh '''#!/bin/bash -ex
                             source uaa-cf-release/config-local/set-env.sh
@@ -247,16 +247,16 @@ pipeline
             steps {
                 echo env.BRANCH_NAME
                 dir('uaa-cf-release') {
-                    git changelog: false, credentialsId: 'github.build.ge.com', poll: false,
-                        url: 'https://github.build.ge.com/predix/uaa-cf-release.git',
+                    git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                        url: 'https://github.software.gevernova.com/pers/uaa-cf-release.git',
                         branch: params.UAA_CI_CONFIG_BRANCH
                 }
                 dir('uaa') {
                     checkout scm
                 }
                 dir('uaa/iam-k8s-utils') {
-                    git changelog: false, credentialsId: 'github.build.ge.com', poll: false,
-                        url: 'https://github.build.ge.com/predix/iam-k8s-utils.git'
+                    git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                        url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
                 }
 
                 sh '''#!/bin/bash -ex
@@ -385,9 +385,9 @@ pipeline
                             {
                                 // Check out repo with Dockerfiles and build/publish script
                                 git changelog: false,
-                                    credentialsId: 'github.build.ge.com',
+                                    credentialsId: 'github.software.gevernova.com',
                                     poll: false,
-                                    url: 'https://github.build.ge.com/predix/iam-container-config.git',
+                                    url: 'https://github.software.gevernova.com/pers/iam-container-config.git',
                                     branch: 'master'
                             }
                         }
@@ -468,20 +468,20 @@ pipeline
                     steps {
                         echo env.BRANCH_NAME
                         dir('uaa-cf-release') {
-                            git changelog: false, credentialsId: 'github.build.ge.com', poll: false,
-                                url: 'https://github.build.ge.com/predix/uaa-cf-release.git',
+                            git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                                url: 'https://github.software.gevernova.com/pers/uaa-cf-release.git',
                                 branch: params.UAA_CI_CONFIG_BRANCH
                         }
                         dir('uaa') {
                             checkout scm
                         }
                         dir('uaa/iam-k8s-utils') {
-                            git changelog: false, credentialsId: 'github.build.ge.com', poll: false,
-                                url: 'https://github.build.ge.com/predix/iam-k8s-utils.git'
+                            git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                                url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
                         }
                         dir('uaa-k8s-deploy') {
-                            git changelog: false, credentialsId: 'github.devtools.predix.io', poll: false,
-                                url: 'https://github.devtools.predix.io/predix-security/uaa-k8s-deploy.git',
+                            git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                                url: 'https://github.software.gevernova.com/pers/uaa-k8s-deploy.git',
                                 branch: params.UAA_K8S_DEPLOY_BRANCH
                         }
 
