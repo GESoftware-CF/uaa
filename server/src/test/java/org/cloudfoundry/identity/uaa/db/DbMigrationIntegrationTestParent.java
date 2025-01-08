@@ -6,6 +6,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
+import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
@@ -19,6 +21,7 @@ import java.sql.SQLException;
         "classpath:spring/jdbc-test-base-add-flyway.xml",
         "classpath:spring/data-source.xml",
 })
+@ImportAutoConfiguration({JdbcTemplateAutoConfiguration.class})
 public abstract class DbMigrationIntegrationTestParent {
 
     @Autowired

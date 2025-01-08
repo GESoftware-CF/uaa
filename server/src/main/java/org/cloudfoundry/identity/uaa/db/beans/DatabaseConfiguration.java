@@ -7,11 +7,14 @@ import org.cloudfoundry.identity.uaa.resources.jdbc.HsqlDbLimitSqlAdapter;
 import org.cloudfoundry.identity.uaa.resources.jdbc.LimitSqlAdapter;
 import org.cloudfoundry.identity.uaa.resources.jdbc.MySqlLimitSqlAdapter;
 import org.cloudfoundry.identity.uaa.resources.jdbc.PostgresLimitSqlAdapter;
+import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 /**
  * Configuration properties for the database so that they can be injected into various beans.
@@ -20,6 +23,14 @@ import org.springframework.context.annotation.PropertySource;
  * <p>
  * Note that we reference property sources directly here, without relying on Boot auto-discovery. We do this so
  * that all configuration is visible from a single place.
+ * <p>
+ * The following beans are wired by Spring Boot auto-configuration.
+ * <p>
+ * In {@link JdbcTemplateAutoConfiguration}:
+ * <ul>
+ *      <li>{@link JdbcTemplate}</li>
+ *      <li>{@link NamedParameterJdbcTemplate}</li>
+ * </ul>
  */
 @Configuration
 @EnableConfigurationProperties(DatabaseProperties.class)
