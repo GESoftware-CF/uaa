@@ -39,6 +39,30 @@ public class DatabaseConfiguration {
         return databaseUrlModifier;
     }
 
+    @Bean(destroyMethod = "close")
+    org.apache.tomcat.jdbc.pool.DataSource dataSource(DatabaseUrlModifier databaseUrlModifier, DatabaseProperties databaseProperties) {
+        var dataSource = new org.apache.tomcat.jdbc.pool.DataSource();
+        dataSource.setDriverClassName(databaseProperties.getDriverClassName());
+        dataSource.setUrl(databaseUrlModifier.getUrl());
+        dataSource.setUsername(databaseProperties.getUsername());
+        dataSource.setPassword(databaseProperties.getPassword());
+        dataSource.setValidationInterval(databaseProperties.getValidationinterval());
+        dataSource.setValidationQuery(databaseProperties.getValidationQuery());
+        dataSource.setTestOnBorrow(true);
+        dataSource.setTestWhileIdle(databaseProperties.isTestwhileidle());
+        dataSource.setMinIdle(databaseProperties.getMinidle());
+        dataSource.setMaxIdle(databaseProperties.getMaxidle());
+        dataSource.setMaxActive(databaseProperties.getMaxactive());
+        dataSource.setMaxWait(databaseProperties.getMaxwait());
+        dataSource.setInitialSize(databaseProperties.getInitialsize());
+        dataSource.setValidationQueryTimeout(databaseProperties.getValidationquerytimeout());
+        dataSource.setRemoveAbandoned(databaseProperties.isRemovedabandoned());
+        dataSource.setTimeBetweenEvictionRunsMillis(databaseProperties.getEvictionintervalms());
+        dataSource.setMinEvictableIdleTimeMillis(databaseProperties.getMinEvictionIdleMs());
+        dataSource.setJdbcInterceptors("org.cloudfoundry.identity.uaa.metrics.QueryFilter(threshold=3000)");
+        return dataSource;
+    }
+
     // Default profile
     @Configuration
     @Profile("!(postgresql | mysql)")

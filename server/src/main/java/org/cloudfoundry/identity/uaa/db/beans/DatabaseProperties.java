@@ -9,10 +9,11 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 /**
- * Represents a subset of the configurable properties for the database, either through
+ * Represents the configurable properties for the database, set either through
  * end-user config, or through profiles.
  * <p>
- * TODO(dgarnier): remove the @Component annotationm added so that this class is consumable in XML configuration.
+ * Casing is inconsistent but required by legacy configuration properties.
+ * TODO(dgarnier): remove the @Component annotation, added so that this class is consumable in XML configuration.
  */
 @Component
 @ConfigurationProperties(prefix = "database")
@@ -26,8 +27,23 @@ public class DatabaseProperties implements EnvironmentAware {
     private boolean useSkipLocked;
     private boolean caseinsensitive;
     private DatabasePlatform platform;
-    private String defaultUrl;
+
+    // With defaults
+    private String defaultUrl; // default set in setEnvironment
     private Integer connecttimeout = 10;
+    private long validationinterval = 5000;
+    private boolean testwhileidle = false;
+    private int minidle = 0;
+    private int maxidle = 10;
+    private int maxactive = 100;
+    private int maxwait = 30_000;
+    private int initialsize = 10;
+    private int validationquerytimeout = 10;
+    private boolean removedAbandoned = false;
+    private boolean logabandoned = true;
+    private int abandonedtimeout = 300;
+    private int evictionintervalms = 15_000;
+    private int minevictionidlems = 60_000;
 
     public void setCaseinsensitive(boolean caseinsensitive) {
         this.caseinsensitive = caseinsensitive;
@@ -59,6 +75,58 @@ public class DatabaseProperties implements EnvironmentAware {
 
     public void setConnecttimeout(int connecttimeout) {
         this.connecttimeout = connecttimeout;
+    }
+
+    public void setValidationinterval(long validationinterval) {
+        this.validationinterval = validationinterval;
+    }
+
+    public void setTestwhileidle(boolean testwhileidle) {
+        this.testwhileidle = testwhileidle;
+    }
+
+    public void setMinidle(int minidle) {
+        this.minidle = minidle;
+    }
+
+    public void setMaxidle(int maxidle) {
+        this.maxidle = maxidle;
+    }
+
+    public void setMaxactive(int maxactive) {
+        this.maxactive = maxactive;
+    }
+
+    public void setMaxwait(int maxwait) {
+        this.maxwait = maxwait;
+    }
+
+    public void setInitialsize(int initialsize) {
+        this.initialsize = initialsize;
+    }
+
+    public void setValidationquerytimeout(int validationquerytimeout) {
+        this.validationquerytimeout = validationquerytimeout;
+    }
+
+    public void setRemovedabandoned(boolean removedabandoned) {
+        this.removedAbandoned = removedabandoned;
+    }
+
+    public void setLogabandoned(boolean logabandoned) {
+        this.logabandoned = logabandoned;
+    }
+
+    public void setAbandonedtimeout(int abandonedtimeout) {
+        this.abandonedtimeout = abandonedtimeout;
+    }
+
+    public void setEvictionintervalms(int evictionintervalms) {
+        this.evictionintervalms = evictionintervalms;
+    }
+
+    public void setMinevictionidlems(int minevictionidlems) {
+        this.minevictionidlems = minevictionidlems;
     }
 
     public String getUsername() {
@@ -101,6 +169,58 @@ public class DatabaseProperties implements EnvironmentAware {
         return this.connecttimeout;
     }
 
+    public long getValidationinterval() {
+        return validationinterval;
+    }
+
+    public int getMinEvictionIdleMs() {
+        return minevictionidlems;
+    }
+
+    public int getEvictionintervalms() {
+        return evictionintervalms;
+    }
+
+    public int getAbandonedtimeout() {
+        return abandonedtimeout;
+    }
+
+    public boolean isLogabandoned() {
+        return logabandoned;
+    }
+
+    public boolean isRemovedabandoned() {
+        return removedAbandoned;
+    }
+
+    public int getValidationquerytimeout() {
+        return validationquerytimeout;
+    }
+
+    public int getInitialsize() {
+        return initialsize;
+    }
+
+    public int getMaxwait() {
+        return maxwait;
+    }
+
+    public int getMaxactive() {
+        return maxactive;
+    }
+
+    public int getMaxidle() {
+        return maxidle;
+    }
+
+    public int getMinidle() {
+        return minidle;
+    }
+
+    public boolean isTestwhileidle() {
+        return testwhileidle;
+    }
+
     @Override
     public void setEnvironment(Environment environment) {
         var profiles = environment.getActiveProfiles();
@@ -121,4 +241,5 @@ public class DatabaseProperties implements EnvironmentAware {
         this.defaultUrl = "jdbc:hsqldb:mem:%s".formatted(dbName);
 
     }
+
 }

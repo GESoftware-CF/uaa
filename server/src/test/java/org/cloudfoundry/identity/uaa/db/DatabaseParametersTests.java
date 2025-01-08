@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         "database.initialsize=0",
         "database.validationquerytimeout=5",
         "database.connecttimeout=5",
+        "database.testwhileidle=true",
 })
 class DatabaseParametersTests {
 
@@ -41,6 +42,11 @@ class DatabaseParametersTests {
     @Test
     void validation_query_timeout() {
         assertThat(dataSource.getValidationQueryTimeout()).isEqualTo(5);
+    }
+
+    @Test
+    void testWhileIdle() {
+        assertThat(dataSource.isTestWhileIdle()).isTrue();
     }
 
     @Test
