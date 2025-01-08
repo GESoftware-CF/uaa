@@ -1,5 +1,6 @@
 package org.cloudfoundry.identity.uaa.db.beans;
 
+
 import org.cloudfoundry.identity.uaa.db.DatabasePlatform;
 import org.cloudfoundry.identity.uaa.db.UaaDatabaseName;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -26,6 +27,7 @@ public class DatabaseProperties implements EnvironmentAware {
     private boolean caseinsensitive;
     private DatabasePlatform platform;
     private String defaultUrl;
+    private Integer connecttimeout = 10;
 
     public void setCaseinsensitive(boolean caseinsensitive) {
         this.caseinsensitive = caseinsensitive;
@@ -53,6 +55,10 @@ public class DatabaseProperties implements EnvironmentAware {
 
     public void setDriverClassName(String driverClassName) {
         this.driverClassName = driverClassName;
+    }
+
+    public void setConnecttimeout(int connecttimeout) {
+        this.connecttimeout = connecttimeout;
     }
 
     public String getUsername() {
@@ -89,6 +95,10 @@ public class DatabaseProperties implements EnvironmentAware {
 
     public String getValidationQuery() {
         return this.platform.validationQuery;
+    }
+
+    public int getConnecttimeout() {
+        return this.connecttimeout;
     }
 
     @Override

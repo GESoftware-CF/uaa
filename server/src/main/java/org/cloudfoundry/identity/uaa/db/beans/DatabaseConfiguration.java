@@ -1,6 +1,8 @@
 package org.cloudfoundry.identity.uaa.db.beans;
 
 import org.cloudfoundry.identity.uaa.db.DatabasePlatform;
+import org.cloudfoundry.identity.uaa.db.DatabaseUrlModifier;
+import org.cloudfoundry.identity.uaa.db.Vendor;
 import org.cloudfoundry.identity.uaa.resources.jdbc.HsqlDbLimitSqlAdapter;
 import org.cloudfoundry.identity.uaa.resources.jdbc.LimitSqlAdapter;
 import org.cloudfoundry.identity.uaa.resources.jdbc.MySqlLimitSqlAdapter;
@@ -27,6 +29,14 @@ public class DatabaseConfiguration {
     @Bean
     Boolean useCaseInsensitiveQueries(DatabaseProperties databaseProperties) {
         return databaseProperties.isCaseinsensitive();
+    }
+
+    // TODO dgarnier remove
+    @Bean
+    DatabaseUrlModifier databaseUrlModifier(DatabaseProperties databaseProperties) {
+        var databaseUrlModifier = new DatabaseUrlModifier(Vendor.valueOf(databaseProperties.getType()), databaseProperties.getUrl());
+        databaseUrlModifier.setConnectTimeoutSeconds(databaseProperties.getConnecttimeout());
+        return databaseUrlModifier;
     }
 
     // Default profile
