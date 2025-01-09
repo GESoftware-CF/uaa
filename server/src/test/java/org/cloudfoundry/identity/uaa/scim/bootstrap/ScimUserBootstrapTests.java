@@ -805,8 +805,6 @@ class ScimUserBootstrapTests {
             jdbcScimGroupMembershipManager.addMember(gid, member, IdentityZone.getUaaZoneId());
         }
 
-        bootstrap.onApplicationEvent(new ExternalGroupAuthorizationEvent(user, true, getAuthorities(externalAuthorities), true));
-
         ExternalGroupAuthorizationEvent externalGroupAuthorizationEvent = new ExternalGroupAuthorizationEvent(user, false, getAuthorities(externalAuthorities), true);
 
         Thread[] threads = new Thread[numthreads];

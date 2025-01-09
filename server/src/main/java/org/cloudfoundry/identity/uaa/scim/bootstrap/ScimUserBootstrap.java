@@ -25,6 +25,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.util.StringUtils;
 
@@ -254,7 +255,11 @@ public class ScimUserBootstrap implements
                     }
                 }
                 for (ScimGroup group : groupsMap.values()) {
-                    membershipManager.removeMemberById(group.getId(), exEvent.getUser().getId(), group.getZoneId());
+                    try {
+                        membershipManager.removeMemberById(group.getId(), exEvent.getUser().getId(), group.getZoneId());
+                    } catch (MemberNotFoundException ex) {
+                        // do nothing
+                    }
                 }
             }
             //update the user itself
@@ -294,6 +299,8 @@ public class ScimUserBootstrap implements
             groupMember.setOrigin(ofNullable(origin).orElse(OriginKeys.UAA));
             membershipManager.addMember(group.getId(), groupMember, IdentityZoneHolder.get().getId());
         } catch (MemberAlreadyExistsException ex) {
+            // do nothing
+        } catch (DuplicateKeyException ex) {
             // do nothing
         }
     }
