@@ -16,6 +16,8 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
+import javax.sql.DataSource;
+
 /**
  * Configuration properties for the database so that they can be injected into various beans.
  * For each platform, defaults are encoded either in {@code application-{PLATFORM}.properties} files when they

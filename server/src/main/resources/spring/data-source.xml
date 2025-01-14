@@ -35,9 +35,4 @@
             </bean>
         </property>
     </bean>
-
-    <bean id="jdbcPagingListFactory" class="org.cloudfoundry.identity.uaa.resources.jdbc.JdbcPagingListFactory">
-        <constructor-arg ref="namedJdbcTemplate"/>
-        <constructor-arg ref="limitSqlAdapter"/>
-    </bean>
 </beans>
