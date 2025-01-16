@@ -17,8 +17,16 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jmx.export.MBeanExporter;
+import org.springframework.jmx.export.assembler.MethodNameBasedMBeanInfoAssembler;
+import org.springframework.jmx.support.RegistrationPolicy;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
+
+import javax.sql.DataSource;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
 
 /**
  * Configuration properties for the database so that they can be injected into various beans.
@@ -82,6 +90,22 @@ public class DatabaseConfiguration {
         dataSource.setMinEvictableIdleTimeMillis(databaseProperties.getMinEvictionIdleMs());
         dataSource.setJdbcInterceptors("org.cloudfoundry.identity.uaa.metrics.QueryFilter(threshold=3000)");
         return dataSource;
+    }
+
+    @Bean
+    public MBeanExporter dataSourceMBeanExporter(DataSource dataSource) {
+        MBeanExporter exporter = new MBeanExporter();
+        exporter.setRegistrationPolicy(RegistrationPolicy.REPLACE_EXISTING);
+
+        Map<String, Object> beans = new HashMap<>();
+        beans.put("spring.application:type=DataSource,name=dataSource", dataSource);
+        exporter.setBeans(beans);
+        var assembler = new MethodNameBasedMBeanInfoAssembler();
+        var methodMappings = new Properties();
+        methodMappings.put("spring.application:type=DataSource,name=dataSource", "getMaxIdle,getMaxActive,getNumIdle,getNumActive");
+        assembler.setMethodMappings(methodMappings);
+        exporter.setAssembler(assembler);
+        return exporter;
     }
 
     // Default profile

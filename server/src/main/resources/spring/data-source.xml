@@ -1,32 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xmlns="http://www.springframework.org/schema/beans"
-          xmlns:tx="http://www.springframework.org/schema/tx"
-          xmlns:util="http://www.springframework.org/schema/util"
-          xsi:schemaLocation="
-       http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd
-       http://www.springframework.org/schema/util https://www.springframework.org/schema/util/spring-util.xsd
-       http://www.springframework.org/schema/tx https://www.springframework.org/schema/tx/spring-tx.xsd">
+       xmlns="http://www.springframework.org/schema/beans"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd">
 
-    <bean class="org.springframework.jmx.export.MBeanExporter">
-        <property name="server" ref="mbeanServer"/>
-        <property name="registrationPolicy">
-            <util:constant static-field="org.springframework.jmx.support.RegistrationPolicy.REPLACE_EXISTING"/>
-        </property>
-        <property name="beans">
-            <map>
-                <entry key="spring.application:type=DataSource,name=dataSource" value-ref="dataSource"/>
-            </map>
-        </property>
-        <property name="assembler">
-            <bean class="org.springframework.jmx.export.assembler.MethodNameBasedMBeanInfoAssembler">
-                <property name="methodMappings">
-                    <map>
-                        <entry key="spring.application:type=DataSource,name=dataSource"
-                                                                      value="getMaxIdle,getMaxActive,getNumIdle,getNumActive"/>
-                    </map>
-                </property>
-            </bean>
-        </property>
-    </bean>
 </beans>
