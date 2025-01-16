@@ -28,7 +28,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ImportResource(locations = {
         "classpath:spring/env.xml",
         "classpath:spring/jdbc-test-base-add-flyway.xml",
-        "classpath:spring/data-source.xml",
 })
 class TableAndColumnNormalizationTestConfiguration {
 }

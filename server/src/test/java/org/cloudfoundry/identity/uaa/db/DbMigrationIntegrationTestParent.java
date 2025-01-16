@@ -19,7 +19,6 @@ import java.sql.SQLException;
 @ContextConfiguration(locations = {
         "classpath:spring/env.xml",
         "classpath:spring/jdbc-test-base-add-flyway.xml",
-        "classpath:spring/data-source.xml",
 })
 @ImportAutoConfiguration({JdbcTemplateAutoConfiguration.class})
 public abstract class DbMigrationIntegrationTestParent {

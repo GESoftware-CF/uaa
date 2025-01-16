@@ -39,7 +39,6 @@ public @interface WithDatabaseContext {
 
 @ImportResource(locations = {
         "classpath:spring/env.xml",
-        "classpath:spring/data-source.xml",
         "classpath:spring/jdbc-test-base-add-flyway.xml"
 })
 class DatabaseOnlyConfiguration {
