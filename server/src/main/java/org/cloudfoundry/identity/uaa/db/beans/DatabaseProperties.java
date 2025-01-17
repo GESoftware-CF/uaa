@@ -23,7 +23,7 @@ public class DatabaseProperties implements EnvironmentAware {
     private int maxParameters;
     private boolean useSkipLocked;
     private boolean caseinsensitive;
-    private DatabasePlatform platform;
+    private DatabasePlatform platform = DatabasePlatform.HSQLDB;
 
     // With defaults
     private String defaultUrl; // default set in setEnvironment
@@ -41,6 +41,10 @@ public class DatabaseProperties implements EnvironmentAware {
     private int abandonedtimeout = 300;
     private int evictionintervalms = 15_000;
     private int minevictionidlems = 60_000;
+
+    public String getUrl() {
+        return this.url != null ? this.url : this.defaultUrl;
+    }
 
     public void setCaseinsensitive(boolean caseinsensitive) {
         this.caseinsensitive = caseinsensitive;
@@ -136,10 +140,6 @@ public class DatabaseProperties implements EnvironmentAware {
 
     public String getPassword() {
         return this.password;
-    }
-
-    public String getUrl() {
-        return this.url != null ? this.url : this.defaultUrl;
     }
 
     public int getMaxParameters() {

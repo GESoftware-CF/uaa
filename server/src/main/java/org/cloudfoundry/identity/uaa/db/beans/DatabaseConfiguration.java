@@ -1,7 +1,6 @@
 package org.cloudfoundry.identity.uaa.db.beans;
 
 import org.cloudfoundry.identity.uaa.db.DatabasePlatform;
-import org.cloudfoundry.identity.uaa.db.DatabaseUrlModifier;
 import org.cloudfoundry.identity.uaa.resources.jdbc.HsqlDbLimitSqlAdapter;
 import org.cloudfoundry.identity.uaa.resources.jdbc.LimitSqlAdapter;
 import org.cloudfoundry.identity.uaa.resources.jdbc.MySqlLimitSqlAdapter;
@@ -23,6 +22,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import javax.sql.DataSource;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -53,19 +53,17 @@ import java.util.Properties;
 @EnableConfigurationProperties(DatabaseProperties.class)
 public class DatabaseConfiguration {
 
-    // TODO dgarnier remove
-    @Bean
-    DatabaseUrlModifier databaseUrlModifier(DatabaseProperties databaseProperties) {
-        var databaseUrlModifier = new DatabaseUrlModifier(databaseProperties.getDatabasePlatform(), databaseProperties.getUrl());
-        databaseUrlModifier.setConnectTimeoutSeconds(databaseProperties.getConnecttimeout());
-        return databaseUrlModifier;
-    }
-
     @Bean(destroyMethod = "close")
-    org.apache.tomcat.jdbc.pool.DataSource dataSource(DatabaseUrlModifier databaseUrlModifier, DatabaseProperties databaseProperties) {
+    org.apache.tomcat.jdbc.pool.DataSource dataSource(DatabaseProperties databaseProperties) {
+        var jdbcUrl = jdbcUrlWithTimeout(
+                databaseProperties.getUrl(),
+                databaseProperties.getDatabasePlatform(),
+                databaseProperties.getConnecttimeout()
+        );
+
         var dataSource = new org.apache.tomcat.jdbc.pool.DataSource();
         dataSource.setDriverClassName(databaseProperties.getDriverClassName());
-        dataSource.setUrl(databaseUrlModifier.getUrl());
+        dataSource.setUrl(jdbcUrl);
         dataSource.setUsername(databaseProperties.getUsername());
         dataSource.setPassword(databaseProperties.getPassword());
         dataSource.setValidationInterval(databaseProperties.getValidationinterval());
@@ -138,6 +136,12 @@ public class DatabaseConfiguration {
             return new MySqlLimitSqlAdapter();
         }
 
+    }
+
+    private static String jdbcUrlWithTimeout(String url, DatabasePlatform databasePlatform, int connectTimeoutSeconds) {
+        var timeout = Duration.ofSeconds(connectTimeoutSeconds);
+        String connectorCharacter = url.contains("?") ? "&" : "?";
+        return url + connectorCharacter + "connectTimeout=" + databasePlatform.getJdbcUrlTimeoutValue(timeout);
     }
 
 }

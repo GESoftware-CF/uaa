@@ -1,7 +1,7 @@
 package org.cloudfoundry.identity.uaa.user;
 
 import org.apache.commons.lang3.ArrayUtils;
-import org.cloudfoundry.identity.uaa.db.DatabaseUrlModifier;
+import org.cloudfoundry.identity.uaa.db.DatabasePlatform;
 import org.cloudfoundry.identity.uaa.db.beans.DatabaseProperties;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.util.TimeService;
@@ -17,7 +17,6 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import javax.annotation.PostConstruct;
@@ -56,7 +55,7 @@ public class JdbcUaaUserDatabase implements UaaUserDatabase {
     private final JdbcTemplate jdbcTemplate;
     private final boolean caseInsensitive;
     private final IdentityZoneManager identityZoneManager;
-    private final DatabaseUrlModifier databaseUrlModifier;
+    private final DatabasePlatform databasePlatform;
 
     @Value("${database.useSkipLocked:false}")
     private boolean useSkipLocked;
@@ -76,14 +75,13 @@ public class JdbcUaaUserDatabase implements UaaUserDatabase {
             final TimeService timeService,
             final DatabaseProperties databaseProperties,
             final IdentityZoneManager identityZoneManager,
-            final DatabaseUrlModifier databaseUrlModifier,
             final DbUtils dbUtils) throws SQLException {
         this.jdbcTemplate = jdbcTemplate;
         this.timeService = timeService;
         this.caseInsensitive = databaseProperties.isCaseinsensitive();
         this.identityZoneManager = identityZoneManager;
-        this.databaseUrlModifier = databaseUrlModifier;
         this.quotedGroupsIdentifier = dbUtils.getQuotedIdentifier("groups", jdbcTemplate);
+        this.databasePlatform = databaseProperties.getDatabasePlatform();
     }
 
     @PostConstruct
@@ -296,8 +294,7 @@ public class JdbcUaaUserDatabase implements UaaUserDatabase {
         }
 
         private List<Map<String, Object>> executeAuthoritiesQuery(List<String> memberList) {
-            var dbPlatform = databaseUrlModifier.getDatabasePlatform();
-            return switch (dbPlatform) {
+            return switch (databasePlatform) {
                 case POSTGRESQL -> executeAuthoritiesQueryPostgresql(memberList);
                 case MYSQL -> executeAuthoritiesQueryDefault(memberList);
                 case HSQLDB -> executeAuthoritiesQueryHSQL(memberList);

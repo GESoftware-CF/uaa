@@ -4,6 +4,7 @@ import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URLEncodedUtils;
 import org.apache.tomcat.jdbc.pool.DataSource;
 import org.cloudfoundry.identity.uaa.annotations.WithDatabaseContext;
+import org.cloudfoundry.identity.uaa.db.beans.DatabaseProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
@@ -24,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DatabaseParametersTests {
 
     @Autowired
-    DatabaseUrlModifier databaseUrlModifier;
+    DatabaseProperties databaseProperties;
 
     @Autowired
     private DataSource dataSource;
@@ -46,7 +47,7 @@ class DatabaseParametersTests {
 
     @Test
     void connection_timeout_property_set() {
-        switch (databaseUrlModifier.getDatabasePlatform()) {
+        switch (databaseProperties.getDatabasePlatform()) {
             case MYSQL: {
                 assertThat(getUrlParameter("connectTimeout")).isEqualTo("5000");
                 break;
@@ -55,9 +56,8 @@ class DatabaseParametersTests {
                 assertThat(getUrlParameter("connectTimeout")).isEqualTo("5");
                 break;
             }
-            case HSQLDB: {
-                break;
-            }
+            case HSQLDB:
+                // For in-memory HSQLDB, the timeout MAY be present but is irrelevant
         }
     }
 
