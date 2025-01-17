@@ -6,16 +6,13 @@ import org.cloudfoundry.identity.uaa.db.UaaDatabaseName;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.EnvironmentAware;
 import org.springframework.core.env.Environment;
-import org.springframework.stereotype.Component;
 
 /**
  * Represents the configurable properties for the database, set either through
  * end-user config, or through profiles.
  * <p>
- * Casing is inconsistent but required by legacy configuration properties.
- * TODO(dgarnier): remove the @Component annotation, added so that this class is consumable in XML configuration.
+ * Casing is inconsistent but required by legacy configuration property names.
  */
-@Component
 @ConfigurationProperties(prefix = "database")
 public class DatabaseProperties implements EnvironmentAware {
 
