@@ -7,6 +7,7 @@ import org.cloudfoundry.identity.uaa.authentication.event.IdentityProviderAuthen
 import org.cloudfoundry.identity.uaa.authentication.manager.AuthEvent;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.db.DatabaseUrlModifier;
+import org.cloudfoundry.identity.uaa.db.beans.DatabaseProperties;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.JdbcIdentityProviderProvisioning;
 import org.cloudfoundry.identity.uaa.provider.SamlIdentityProviderDefinition;
@@ -249,7 +250,7 @@ class OpenSaml4AuthenticationProviderUaaTests {
                 identityZoneManager.getCurrentIdentityZone().getId());
 
         TimeService timeService = mock(TimeService.class);
-        userDatabase = new JdbcUaaUserDatabase(jdbcTemplate, timeService, false,
+        userDatabase = new JdbcUaaUserDatabase(jdbcTemplate, timeService, new DatabaseProperties(),
                 identityZoneManager,
                 databaseUrlModifier, new DbUtils());
         providerProvisioning = new JdbcIdentityProviderProvisioning(jdbcTemplate);

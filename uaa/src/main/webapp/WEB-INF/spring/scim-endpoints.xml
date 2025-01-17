@@ -9,30 +9,6 @@
         http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd
         http://www.springframework.org/schema/util https://www.springframework.org/schema/util/spring-util.xsd">
 
-    <bean id="scimUserQueryConverter" class="org.cloudfoundry.identity.uaa.resources.jdbc.SimpleSearchQueryConverter">
-        <property name="attributeNameMapper">
-            <bean class="org.cloudfoundry.identity.uaa.resources.SimpleAttributeNameMapper">
-                <constructor-arg name="paramsMap">
-                    <map key-type="java.lang.String" value-type="java.lang.String">
-                        <entry key="emails\.value" value="email"/>
-                        <entry key="groups\.display" value="authorities"/>
-                        <entry key="phoneNumbers\.value" value="phoneNumber"/>
-                    </map>
-                </constructor-arg>
-            </bean>
-        </property>
-        <property name="dbCaseInsensitive" ref="useCaseInsensitiveQueries"/>
-    </bean>
-
-    <bean id="scimJoinQueryConverter" class="org.cloudfoundry.identity.uaa.resources.jdbc.SimpleSearchQueryConverter">
-        <property name="attributeNameMapper">
-            <bean class="org.cloudfoundry.identity.uaa.resources.JoinAttributeNameMapper">
-                <constructor-arg name="name" value="u"/>
-            </bean>
-        </property>
-        <property name="dbCaseInsensitive" ref="useCaseInsensitiveQueries"/>
-    </bean>
-
     <bean id="globalPasswordPolicy" class="org.cloudfoundry.identity.uaa.provider.PasswordPolicy">
         <constructor-arg name="minLength" value="${password.policy.global.minLength:0}"/>
         <constructor-arg name="maxLength" value="${password.policy.global.maxLength:255}"/>

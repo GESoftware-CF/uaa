@@ -55,12 +55,6 @@ public class DatabaseConfiguration {
 
     // TODO dgarnier remove
     @Bean
-    Boolean useCaseInsensitiveQueries(DatabaseProperties databaseProperties) {
-        return databaseProperties.isCaseinsensitive();
-    }
-
-    // TODO dgarnier remove
-    @Bean
     DatabaseUrlModifier databaseUrlModifier(DatabaseProperties databaseProperties) {
         var databaseUrlModifier = new DatabaseUrlModifier(databaseProperties.getDatabasePlatform(), databaseProperties.getUrl());
         databaseUrlModifier.setConnectTimeoutSeconds(databaseProperties.getConnecttimeout());

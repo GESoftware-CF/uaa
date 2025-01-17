@@ -3,6 +3,7 @@ package org.cloudfoundry.identity.uaa.user;
 import org.cloudfoundry.identity.uaa.annotations.WithDatabaseContext;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.db.DatabaseUrlModifier;
+import org.cloudfoundry.identity.uaa.db.beans.DatabaseProperties;
 import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
 import org.cloudfoundry.identity.uaa.test.TestUtils;
 import org.cloudfoundry.identity.uaa.util.TimeService;
@@ -94,7 +95,7 @@ class JdbcUaaUserDatabaseTests {
         jdbcUaaUserDatabase = new JdbcUaaUserDatabase(
                 jdbcTemplate,
                 timeService,
-                false,
+                new DatabaseProperties(),
                 mockIdentityZoneManager,
                 databaseUrlModifier,
                 dbUtils);
@@ -206,7 +207,7 @@ class JdbcUaaUserDatabaseTests {
     @Test
     void is_the_right_query_used() throws SQLException {
         JdbcTemplate mockJdbcTemplate = mock(JdbcTemplate.class);
-        jdbcUaaUserDatabase = new JdbcUaaUserDatabase(mockJdbcTemplate, timeService, false, mockIdentityZoneManager,
+        jdbcUaaUserDatabase = new JdbcUaaUserDatabase(mockJdbcTemplate, timeService, new DatabaseProperties(), mockIdentityZoneManager,
                 databaseUrlModifier, dbUtils);
 
         String username = new RandomValueStringGenerator().generate() + "@test.org";
@@ -216,9 +217,11 @@ class JdbcUaaUserDatabaseTests {
         jdbcUaaUserDatabase.retrieveUserByEmail(username, OriginKeys.UAA);
         verify(mockJdbcTemplate).query(eq(DEFAULT_CASE_SENSITIVE_USER_BY_EMAIL_AND_ORIGIN_QUERY), eq(jdbcUaaUserDatabase.getMapper()), eq(username.toLowerCase()), eq(true), eq(OriginKeys.UAA), eq("zone-the-first"));
 
-        jdbcUaaUserDatabase = new JdbcUaaUserDatabase(mockJdbcTemplate, timeService, true, mockIdentityZoneManager,
-                databaseUrlModifier, dbUtils)
-        ;
+        var dbProps = new DatabaseProperties();
+        dbProps.setCaseinsensitive(true);
+        jdbcUaaUserDatabase = new JdbcUaaUserDatabase(mockJdbcTemplate, timeService, dbProps, mockIdentityZoneManager,
+                databaseUrlModifier, dbUtils);
+
         jdbcUaaUserDatabase.retrieveUserByName(username, OriginKeys.UAA);
         verify(mockJdbcTemplate).queryForObject(eq(DEFAULT_CASE_INSENSITIVE_USER_BY_USERNAME_QUERY), eq(jdbcUaaUserDatabase.getMapper()), eq(username.toLowerCase()), eq(true), eq(OriginKeys.UAA), eq("zone-the-first"));
         jdbcUaaUserDatabase.retrieveUserByEmail(username, OriginKeys.UAA);
@@ -230,7 +233,9 @@ class JdbcUaaUserDatabaseTests {
     void getValidUserCaseInsensitive() throws SQLException {
         for (boolean caseInsensitive : Arrays.asList(true, false)) {
             try {
-                jdbcUaaUserDatabase = new JdbcUaaUserDatabase(jdbcTemplate, timeService, caseInsensitive, mockIdentityZoneManager,
+                var dbProps = new DatabaseProperties();
+                dbProps.setCaseinsensitive(caseInsensitive);
+                jdbcUaaUserDatabase = new JdbcUaaUserDatabase(jdbcTemplate, timeService, dbProps, mockIdentityZoneManager,
                         databaseUrlModifier, dbUtils);
                 UaaUser joe = jdbcUaaUserDatabase.retrieveUserByName("JOE", OriginKeys.UAA);
                 validateJoe(joe);
@@ -282,7 +287,7 @@ class JdbcUaaUserDatabaseTests {
         addAuthority("additional", jdbcTemplate, "zone-the-first", JOE_ID);
         addAuthority("anotherOne", jdbcTemplate, "zone-the-first", JOE_ID);
         JdbcTemplate spiedJdbcTemplate = Mockito.spy(jdbcTemplate);
-        jdbcUaaUserDatabase = new JdbcUaaUserDatabase(spiedJdbcTemplate, timeService, false, mockIdentityZoneManager,
+        jdbcUaaUserDatabase = new JdbcUaaUserDatabase(spiedJdbcTemplate, timeService, new DatabaseProperties(), mockIdentityZoneManager,
                 databaseUrlModifier, dbUtils);
         UaaUser joe = jdbcUaaUserDatabase.retrieveUserByName("joe", OriginKeys.UAA);
         verify(spiedJdbcTemplate, times(2)).queryForList(anyString(), ArgumentMatchers.<String>any());

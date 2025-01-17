@@ -2,13 +2,13 @@ package org.cloudfoundry.identity.uaa.user;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.cloudfoundry.identity.uaa.db.DatabaseUrlModifier;
+import org.cloudfoundry.identity.uaa.db.beans.DatabaseProperties;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.util.TimeService;
 import org.cloudfoundry.identity.uaa.util.beans.DbUtils;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
@@ -17,6 +17,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import javax.annotation.PostConstruct;
@@ -73,13 +74,13 @@ public class JdbcUaaUserDatabase implements UaaUserDatabase {
     public JdbcUaaUserDatabase(
             final JdbcTemplate jdbcTemplate,
             final TimeService timeService,
-            @Qualifier("useCaseInsensitiveQueries") final boolean caseInsensitive,
+            final DatabaseProperties databaseProperties,
             final IdentityZoneManager identityZoneManager,
             final DatabaseUrlModifier databaseUrlModifier,
             final DbUtils dbUtils) throws SQLException {
         this.jdbcTemplate = jdbcTemplate;
         this.timeService = timeService;
-        this.caseInsensitive = caseInsensitive;
+        this.caseInsensitive = databaseProperties.isCaseinsensitive();
         this.identityZoneManager = identityZoneManager;
         this.databaseUrlModifier = databaseUrlModifier;
         this.quotedGroupsIdentifier = dbUtils.getQuotedIdentifier("groups", jdbcTemplate);
