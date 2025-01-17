@@ -3,7 +3,6 @@ package org.cloudfoundry.identity.uaa.user;
 import org.cloudfoundry.identity.uaa.annotations.WithDatabaseContext;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.db.DatabaseUrlModifier;
-import org.cloudfoundry.identity.uaa.db.Vendor;
 import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
 import org.cloudfoundry.identity.uaa.test.TestUtils;
 import org.cloudfoundry.identity.uaa.util.TimeService;
@@ -69,10 +68,12 @@ class JdbcUaaUserDatabaseTests {
     private IdentityZoneManager mockIdentityZoneManager;
     private Set<SimpleGrantedAuthority> defaultAuthorities;
     private DbUtils dbUtils;
-    private DatabaseUrlModifier databaseUrlModifier;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private DatabaseUrlModifier databaseUrlModifier;
 
     @Autowired
     private Environment environment;
@@ -85,8 +86,6 @@ class JdbcUaaUserDatabaseTests {
                 .collect(Collectors.toSet());
 
         timeService = mock(TimeService.class);
-
-        databaseUrlModifier = new DatabaseUrlModifier(Vendor.unknown, ""); //Do not mock, so it works for all databases in Unit tests
 
         mockIdentityZoneManager = mock(IdentityZoneManager.class);
         setUpIdentityZone(mockIdentityZoneManager);

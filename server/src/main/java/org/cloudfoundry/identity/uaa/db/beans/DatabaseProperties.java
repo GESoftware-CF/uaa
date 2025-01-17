@@ -157,8 +157,8 @@ public class DatabaseProperties implements EnvironmentAware {
         return this.caseinsensitive;
     }
 
-    public String getType() {
-        return this.platform.type;
+    public DatabasePlatform getDatabasePlatform() {
+        return this.platform;
     }
 
     public String getValidationQuery() {

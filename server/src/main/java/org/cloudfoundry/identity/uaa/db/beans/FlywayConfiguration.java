@@ -28,7 +28,7 @@ public class FlywayConfiguration {
         return Flyway.configure()
                 .baselineOnMigrate(true)
                 .dataSource(dataSource)
-                .locations("classpath:org/cloudfoundry/identity/uaa/db/" + databaseProperties.getType() + "/")
+                .locations("classpath:org/cloudfoundry/identity/uaa/db/" + databaseProperties.getDatabasePlatform().type + "/")
                 .baselineVersion("1.5.2")
                 .validateOnMigrate(false)
                 .table(VERSION_TABLE)

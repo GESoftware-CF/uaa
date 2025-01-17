@@ -4,7 +4,6 @@ import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URLEncodedUtils;
 import org.apache.tomcat.jdbc.pool.DataSource;
 import org.cloudfoundry.identity.uaa.annotations.WithDatabaseContext;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
@@ -24,15 +23,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 })
 class DatabaseParametersTests {
 
-    private Vendor vendor;
+    @Autowired
+    DatabaseUrlModifier databaseUrlModifier;
 
     @Autowired
     private DataSource dataSource;
-
-    @BeforeEach
-    void setUp(@Autowired DatabaseUrlModifier databaseUrlModifier) {
-        vendor = databaseUrlModifier.getDatabaseType();
-    }
 
     @Test
     void initial_size() {
@@ -51,20 +46,18 @@ class DatabaseParametersTests {
 
     @Test
     void connection_timeout_property_set() {
-        switch (vendor) {
-            case mysql: {
+        switch (databaseUrlModifier.getDatabasePlatform()) {
+            case MYSQL: {
                 assertThat(getUrlParameter("connectTimeout")).isEqualTo("5000");
                 break;
             }
-            case postgresql: {
+            case POSTGRESQL: {
                 assertThat(getUrlParameter("connectTimeout")).isEqualTo("5");
                 break;
             }
-            case hsqldb: {
+            case HSQLDB: {
                 break;
             }
-            default:
-                throw new IllegalStateException("Unrecognized database: " + vendor);
         }
     }
 

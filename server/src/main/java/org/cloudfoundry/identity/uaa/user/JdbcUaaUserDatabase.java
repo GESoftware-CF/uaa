@@ -1,11 +1,10 @@
 package org.cloudfoundry.identity.uaa.user;
 
 import org.apache.commons.lang3.ArrayUtils;
-import org.cloudfoundry.identity.uaa.util.beans.DbUtils;
 import org.cloudfoundry.identity.uaa.db.DatabaseUrlModifier;
-import org.cloudfoundry.identity.uaa.db.Vendor;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.util.TimeService;
+import org.cloudfoundry.identity.uaa.util.beans.DbUtils;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -296,14 +295,12 @@ public class JdbcUaaUserDatabase implements UaaUserDatabase {
         }
 
         private List<Map<String, Object>> executeAuthoritiesQuery(List<String> memberList) {
-            Vendor dbVendor = databaseUrlModifier.getDatabaseType();
-            if (Vendor.postgresql.equals(dbVendor)) {
-                return executeAuthoritiesQueryPostgresql(memberList);
-            } else if (Vendor.hsqldb.equals(dbVendor)) {
-                return executeAuthoritiesQueryHSQL(memberList);
-            } else {
-                return executeAuthoritiesQueryDefault(memberList);
-            }
+            var dbPlatform = databaseUrlModifier.getDatabasePlatform();
+            return switch (dbPlatform) {
+                case POSTGRESQL -> executeAuthoritiesQueryPostgresql(memberList);
+                case MYSQL -> executeAuthoritiesQueryDefault(memberList);
+                case HSQLDB -> executeAuthoritiesQueryHSQL(memberList);
+            };
         }
 
         private List<Map<String, Object>> executeAuthoritiesQueryDefault(List<String> memberList) {

@@ -1,6 +1,7 @@
 package org.cloudfoundry.identity.uaa.db.beans;
 
 
+import org.cloudfoundry.identity.uaa.db.DatabasePlatform;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,7 +34,7 @@ class DatabasePropertiesTest {
             assertThat(properties.isUseSkipLocked()).isFalse();
             assertThat(properties.isCaseinsensitive()).isFalse();
 
-            assertThat(properties.getType()).isEqualTo("hsqldb");
+            assertThat(properties.getDatabasePlatform()).isEqualTo(DatabasePlatform.HSQLDB);
             assertThat(properties.getValidationQuery()).isEqualTo("select 1 from information_schema.system_users");
             // DB name may be uaa_* when running from Gradle
             assertThat(properties.getUrl()).matches("jdbc:hsqldb:mem:uaa(_\\d+)?");
@@ -58,7 +59,7 @@ class DatabasePropertiesTest {
             assertThat(properties.isUseSkipLocked()).isTrue();
             assertThat(properties.isCaseinsensitive()).isFalse();
 
-            assertThat(properties.getType()).isEqualTo("postgresql");
+            assertThat(properties.getDatabasePlatform()).isEqualTo(DatabasePlatform.POSTGRESQL);
             assertThat(properties.getValidationQuery()).isEqualTo("select 1");
             // DB name may be uaa_* when running from Gradle
             assertThat(properties.getUrl()).matches("jdbc:postgresql:uaa(_\\d+)?");
@@ -83,7 +84,7 @@ class DatabasePropertiesTest {
             assertThat(properties.isUseSkipLocked()).isFalse();
             assertThat(properties.isCaseinsensitive()).isTrue();
 
-            assertThat(properties.getType()).isEqualTo("mysql");
+            assertThat(properties.getDatabasePlatform()).isEqualTo(DatabasePlatform.MYSQL);
             assertThat(properties.getValidationQuery()).isEqualTo("select 1");
             // DB name may be uaa_* when running from Gradle
             assertThat(properties.getUrl()).matches("jdbc:mysql://127\\.0\\.0\\.1:3306/uaa(_\\d+)?\\?useSSL=true&trustServerCertificate=true");

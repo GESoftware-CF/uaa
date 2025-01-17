@@ -17,16 +17,16 @@ package org.cloudfoundry.identity.uaa.db;
 
 public class DatabaseUrlModifier {
 
-    private final Vendor databaseType;
+    private final DatabasePlatform databasePlatform;
     private final String url;
     private int connectTimeoutSeconds = 10;
 
-    public DatabaseUrlModifier(Vendor databaseType, String url) {
-        if (databaseType == null) {
+    public DatabaseUrlModifier(DatabasePlatform databasePlatform, String url) {
+        if (databasePlatform == null) {
             throw new NullPointerException();
         }
 
-        this.databaseType = databaseType;
+        this.databasePlatform = databasePlatform;
         this.url = url;
     }
 
@@ -38,25 +38,23 @@ public class DatabaseUrlModifier {
         this.connectTimeoutSeconds = connectTimeoutSeconds;
     }
 
-    public Vendor getDatabaseType() {
-        return databaseType;
+    public DatabasePlatform getDatabasePlatform() {
+        return this.databasePlatform;
     }
 
     public String getUrl() {
         StringBuilder result = new StringBuilder(url);
-        switch (getDatabaseType()) {
-            case mysql : {
+        switch (getDatabasePlatform()) {
+            case MYSQL: {
                 appendParameter(result, "connectTimeout", getConnectTimeoutSeconds() * 1000);
                 break;
             }
-            case postgresql : {
+            case POSTGRESQL: {
                 appendParameter(result, "connectTimeout", getConnectTimeoutSeconds());
                 break;
             }
-            case hsqldb : {
+            case HSQLDB:
                 break;
-            }
-            default : throw new IllegalStateException("Unrecognized database: " + databaseType);
         }
         return result.toString();
     }
