@@ -1,5 +1,7 @@
 package org.cloudfoundry.identity.uaa.db;
 
+import org.cloudfoundry.identity.uaa.db.beans.DatabaseConfiguration;
+import org.cloudfoundry.identity.uaa.db.beans.FlywayConfiguration;
 import org.cloudfoundry.identity.uaa.db.mysql.V1_5_4__NormalizeTableAndColumnNames;
 import org.cloudfoundry.identity.uaa.extensions.PollutionPreventionExtension;
 import org.cloudfoundry.identity.uaa.extensions.profiles.EnabledIfProfile;
@@ -11,7 +13,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.context.annotation.ImportResource;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.context.web.WebAppConfiguration;
@@ -25,12 +26,6 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@ImportResource(locations = {
-        "classpath:spring/env.xml",
-        "classpath:spring/jdbc-test-base-add-flyway.xml",
-})
-class TableAndColumnNormalizationTestConfiguration {
-}
 
 /**
  * For MySQL, the database name is hardcoded in the {@link V1_5_4__NormalizeTableAndColumnNames} migration as
@@ -54,8 +49,9 @@ class MySQLInitializer implements ApplicationContextInitializer<ConfigurableAppl
 @ExtendWith(PollutionPreventionExtension.class)
 @WebAppConfiguration
 @SpringJUnitConfig(classes = {
-        TableAndColumnNormalizationTestConfiguration.class,
-        PasswordEncoderConfig.class
+        PasswordEncoderConfig.class,
+        FlywayConfiguration.class,
+        DatabaseConfiguration.class
 },
         initializers = MySQLInitializer.class
 )

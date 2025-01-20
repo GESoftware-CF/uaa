@@ -9,7 +9,6 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration;
 import org.springframework.boot.autoconfigure.transaction.TransactionAutoConfiguration;
-import org.springframework.context.annotation.ImportResource;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.context.web.WebAppConfiguration;
 
@@ -24,8 +23,8 @@ import java.lang.annotation.Target;
 @WebAppConfiguration
 @SpringJUnitConfig(classes = {
         DatabaseConfiguration.class,
-        DatabaseOnlyConfiguration.class,
         PasswordEncoderConfig.class,
+        FlywayConfiguration.class,
         FlywayConfiguration.FlywayConfigurationWithMigration.class,
 })
 @ImportAutoConfiguration(classes = {
@@ -34,13 +33,5 @@ import java.lang.annotation.Target;
         TransactionAutoConfiguration.class
 })
 public @interface WithDatabaseContext {
-
-}
-
-@ImportResource(locations = {
-        "classpath:spring/env.xml",
-        "classpath:spring/jdbc-test-base-add-flyway.xml"
-})
-class DatabaseOnlyConfiguration {
 
 }
