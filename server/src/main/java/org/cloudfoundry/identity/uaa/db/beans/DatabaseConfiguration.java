@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 import javax.sql.DataSource;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -54,13 +55,14 @@ import java.util.Properties;
 public class DatabaseConfiguration {
 
     @Bean(destroyMethod = "close")
-    org.apache.tomcat.jdbc.pool.DataSource dataSource(DatabaseProperties databaseProperties) {
-        var jdbcUrl = jdbcUrlWithTimeout(
-                databaseProperties.getUrl(),
-                databaseProperties.getDatabasePlatform(),
-                databaseProperties.getConnecttimeout()
-        );
-
+    org.apache.tomcat.jdbc.pool.DataSource dataSource(
+            DatabaseProperties databaseProperties,
+            List<JdbcUrlCustomizer> jdbcUrlCustomizers
+    ) {
+        var jdbcUrl = databaseProperties.getUrl();
+        for (var jdbcUrlCustomizer : jdbcUrlCustomizers) {
+            jdbcUrl = jdbcUrlCustomizer.customize(jdbcUrl);
+        }
         var dataSource = new org.apache.tomcat.jdbc.pool.DataSource();
         dataSource.setDriverClassName(databaseProperties.getDriverClassName());
         dataSource.setUrl(jdbcUrl);
@@ -81,6 +83,19 @@ public class DatabaseConfiguration {
         dataSource.setMinEvictableIdleTimeMillis(databaseProperties.getMinEvictionIdleMs());
         dataSource.setJdbcInterceptors("org.cloudfoundry.identity.uaa.metrics.QueryFilter(threshold=3000)");
         return dataSource;
+    }
+
+    /**
+     * Add a platform-specific timeout to the JDBC url.
+     */
+    @Bean
+    JdbcUrlCustomizer jdbcUrlAddTimeoutCustomizer(DatabaseProperties databaseProperties) {
+        return url -> {
+            DatabasePlatform databasePlatform = databaseProperties.getDatabasePlatform();
+            var timeout = Duration.ofSeconds(databaseProperties.getConnecttimeout());
+            String connectorCharacter = url.contains("?") ? "&" : "?";
+            return url + connectorCharacter + "connectTimeout=" + databasePlatform.getJdbcUrlTimeoutValue(timeout);
+        };
     }
 
     @Bean
@@ -136,12 +151,6 @@ public class DatabaseConfiguration {
             return new MySqlLimitSqlAdapter();
         }
 
-    }
-
-    private static String jdbcUrlWithTimeout(String url, DatabasePlatform databasePlatform, int connectTimeoutSeconds) {
-        var timeout = Duration.ofSeconds(connectTimeoutSeconds);
-        String connectorCharacter = url.contains("?") ? "&" : "?";
-        return url + connectorCharacter + "connectTimeout=" + databasePlatform.getJdbcUrlTimeoutValue(timeout);
     }
 
 }

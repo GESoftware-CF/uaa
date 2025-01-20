@@ -3,6 +3,7 @@ package org.cloudfoundry.identity.uaa.annotations;
 import org.cloudfoundry.identity.uaa.db.beans.DatabaseConfiguration;
 import org.cloudfoundry.identity.uaa.db.beans.FlywayConfiguration;
 import org.cloudfoundry.identity.uaa.extensions.PollutionPreventionExtension;
+import org.cloudfoundry.identity.uaa.test.TestDatabaseNameCustomizer;
 import org.cloudfoundry.identity.uaa.util.beans.PasswordEncoderConfig;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
@@ -26,6 +27,7 @@ import java.lang.annotation.Target;
         PasswordEncoderConfig.class,
         FlywayConfiguration.class,
         FlywayConfiguration.FlywayConfigurationWithMigration.class,
+        TestDatabaseNameCustomizer.class
 })
 @ImportAutoConfiguration(classes = {
         JdbcTemplateAutoConfiguration.class,

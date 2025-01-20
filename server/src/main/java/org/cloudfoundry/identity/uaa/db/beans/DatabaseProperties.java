@@ -2,10 +2,11 @@ package org.cloudfoundry.identity.uaa.db.beans;
 
 
 import org.cloudfoundry.identity.uaa.db.DatabasePlatform;
-import org.cloudfoundry.identity.uaa.db.UaaDatabaseName;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.EnvironmentAware;
 import org.springframework.core.env.Environment;
+
+import java.util.Arrays;
 
 /**
  * Represents the configurable properties for the database, set either through
@@ -23,10 +24,11 @@ public class DatabaseProperties implements EnvironmentAware {
     private int maxParameters;
     private boolean useSkipLocked;
     private boolean caseinsensitive;
-    private DatabasePlatform platform = DatabasePlatform.HSQLDB;
+    // This is not intended to be exposed in the configuration, but is useful for tests
+    private String defaultUrl;
 
     // With defaults
-    private String defaultUrl; // default set in setEnvironment
+    private DatabasePlatform platform = DatabasePlatform.HSQLDB;
     private Integer connecttimeout = 10;
     private long validationinterval = 5000;
     private boolean testwhileidle = false;
@@ -60,6 +62,10 @@ public class DatabaseProperties implements EnvironmentAware {
 
     public void setUrl(String url) {
         this.url = url;
+    }
+
+    public void setDefaultUrl(String defaultUrl) {
+        this.defaultUrl = defaultUrl;
     }
 
     public void setPassword(String password) {
@@ -220,23 +226,15 @@ public class DatabaseProperties implements EnvironmentAware {
 
     @Override
     public void setEnvironment(Environment environment) {
-        var profiles = environment.getActiveProfiles();
-        var dbName = UaaDatabaseName.getDbNameFromSystemProperties();
-        for (var profile : profiles) {
-            switch (profile) {
-                case "postgresql":
-                    this.platform = DatabasePlatform.POSTGRESQL;
-                    this.defaultUrl = "jdbc:postgresql:%s".formatted(dbName);
-                    return;
-                case "mysql":
-                    this.platform = DatabasePlatform.MYSQL;
-                    this.defaultUrl = "jdbc:mysql://127.0.0.1:3306/%s?useSSL=true&trustServerCertificate=true".formatted(dbName);
-                    return;
-            }
-        }
-        this.platform = DatabasePlatform.HSQLDB;
-        this.defaultUrl = "jdbc:hsqldb:mem:%s".formatted(dbName);
+        var profiles = Arrays.asList(environment.getActiveProfiles());
 
+        if (profiles.contains("postgresql")) {
+            this.platform = DatabasePlatform.POSTGRESQL;
+        } else if (profiles.contains("mysql")) {
+            this.platform = DatabasePlatform.MYSQL;
+        } else {
+            this.platform = DatabasePlatform.HSQLDB;
+        }
     }
 
 }
