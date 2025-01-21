@@ -78,9 +78,9 @@ public class DatabaseConfiguration {
         dataSource.setMaxWait(databaseProperties.getMaxwait());
         dataSource.setInitialSize(databaseProperties.getInitialsize());
         dataSource.setValidationQueryTimeout(databaseProperties.getValidationquerytimeout());
-        dataSource.setRemoveAbandoned(databaseProperties.isRemovedabandoned());
+        dataSource.setRemoveAbandoned(databaseProperties.isRemovedAbandoned());
         dataSource.setTimeBetweenEvictionRunsMillis(databaseProperties.getEvictionintervalms());
-        dataSource.setMinEvictableIdleTimeMillis(databaseProperties.getMinEvictionIdleMs());
+        dataSource.setMinEvictableIdleTimeMillis(databaseProperties.getMinevictionidlems());
         dataSource.setJdbcInterceptors("org.cloudfoundry.identity.uaa.metrics.QueryFilter(threshold=3000)");
         return dataSource;
     }

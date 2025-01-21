@@ -1,6 +1,8 @@
 package org.cloudfoundry.identity.uaa.db.beans;
 
 
+import lombok.Getter;
+import lombok.Setter;
 import org.cloudfoundry.identity.uaa.db.DatabasePlatform;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.EnvironmentAware;
@@ -15,6 +17,8 @@ import java.util.Arrays;
  * Casing is inconsistent but required by legacy configuration property names.
  */
 @ConfigurationProperties(prefix = "database")
+@Getter
+@Setter
 public class DatabaseProperties implements EnvironmentAware {
 
     private String driverClassName;
@@ -48,180 +52,12 @@ public class DatabaseProperties implements EnvironmentAware {
         return this.url != null ? this.url : this.defaultUrl;
     }
 
-    public void setCaseinsensitive(boolean caseinsensitive) {
-        this.caseinsensitive = caseinsensitive;
-    }
-
-    public void setUseSkipLocked(boolean useSkipLocked) {
-        this.useSkipLocked = useSkipLocked;
-    }
-
-    public void setMaxParameters(int maxParameters) {
-        this.maxParameters = maxParameters;
-    }
-
-    public void setUrl(String url) {
-        this.url = url;
-    }
-
-    public void setDefaultUrl(String defaultUrl) {
-        this.defaultUrl = defaultUrl;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public void setDriverClassName(String driverClassName) {
-        this.driverClassName = driverClassName;
-    }
-
-    public void setConnecttimeout(int connecttimeout) {
-        this.connecttimeout = connecttimeout;
-    }
-
-    public void setValidationinterval(long validationinterval) {
-        this.validationinterval = validationinterval;
-    }
-
-    public void setTestwhileidle(boolean testwhileidle) {
-        this.testwhileidle = testwhileidle;
-    }
-
-    public void setMinidle(int minidle) {
-        this.minidle = minidle;
-    }
-
-    public void setMaxidle(int maxidle) {
-        this.maxidle = maxidle;
-    }
-
-    public void setMaxactive(int maxactive) {
-        this.maxactive = maxactive;
-    }
-
-    public void setMaxwait(int maxwait) {
-        this.maxwait = maxwait;
-    }
-
-    public void setInitialsize(int initialsize) {
-        this.initialsize = initialsize;
-    }
-
-    public void setValidationquerytimeout(int validationquerytimeout) {
-        this.validationquerytimeout = validationquerytimeout;
-    }
-
-    public void setRemovedabandoned(boolean removedabandoned) {
-        this.removedAbandoned = removedabandoned;
-    }
-
-    public void setLogabandoned(boolean logabandoned) {
-        this.logabandoned = logabandoned;
-    }
-
-    public void setAbandonedtimeout(int abandonedtimeout) {
-        this.abandonedtimeout = abandonedtimeout;
-    }
-
-    public void setEvictionintervalms(int evictionintervalms) {
-        this.evictionintervalms = evictionintervalms;
-    }
-
-    public void setMinevictionidlems(int minevictionidlems) {
-        this.minevictionidlems = minevictionidlems;
-    }
-
-    public String getUsername() {
-        return this.username;
-    }
-
-    public String getDriverClassName() {
-        return this.driverClassName;
-    }
-
-    public String getPassword() {
-        return this.password;
-    }
-
-    public int getMaxParameters() {
-        return this.maxParameters;
-    }
-
-    public boolean isUseSkipLocked() {
-        return this.useSkipLocked;
-    }
-
-    public boolean isCaseinsensitive() {
-        return this.caseinsensitive;
-    }
-
-    public DatabasePlatform getDatabasePlatform() {
-        return this.platform;
-    }
-
     public String getValidationQuery() {
         return this.platform.validationQuery;
     }
 
-    public int getConnecttimeout() {
-        return this.connecttimeout;
-    }
-
-    public long getValidationinterval() {
-        return validationinterval;
-    }
-
-    public int getMinEvictionIdleMs() {
-        return minevictionidlems;
-    }
-
-    public int getEvictionintervalms() {
-        return evictionintervalms;
-    }
-
-    public int getAbandonedtimeout() {
-        return abandonedtimeout;
-    }
-
-    public boolean isLogabandoned() {
-        return logabandoned;
-    }
-
-    public boolean isRemovedabandoned() {
-        return removedAbandoned;
-    }
-
-    public int getValidationquerytimeout() {
-        return validationquerytimeout;
-    }
-
-    public int getInitialsize() {
-        return initialsize;
-    }
-
-    public int getMaxwait() {
-        return maxwait;
-    }
-
-    public int getMaxactive() {
-        return maxactive;
-    }
-
-    public int getMaxidle() {
-        return maxidle;
-    }
-
-    public int getMinidle() {
-        return minidle;
-    }
-
-    public boolean isTestwhileidle() {
-        return testwhileidle;
+    public DatabasePlatform getDatabasePlatform() {
+        return this.platform;
     }
 
     @Override
