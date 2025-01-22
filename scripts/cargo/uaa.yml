@@ -129,6 +129,45 @@ ratelimit:
       pathSelectors:
         - "other"
 
+scim:
+  userids_enabled: true
+  users:
+    - marissa|koala|marissa@test.org|Marissa|Bloggs|uaa.user
+    - testbootuser|password|testbootuser@test.org|Test|Bootstrap|uaa.user,scim.read
+    - admin|admin|admin|||foo.bar,uaa.admin|uaa
+  external_groups:
+    - organizations.acme|cn=test_org,ou=people,o=springsource,o=org
+    - internal.read|cn=developers,ou=scopes,dc=test,dc=com
+    - internal.write|cn=operators,ou=scopes,dc=test,dc=com
+    - internal.everything|cn=superusers,ou=scopes,dc=test,dc=com
+    - internal.superuser|cn=superusers,ou=scopes,dc=test,dc=com
+  groups:
+    zones.read: Read identity zones
+    zones.write: Create and update identity zones
+    idps.read: Retrieve identity providers
+    idps.write: Create and update identity providers
+    clients.admin: Create, modify and delete OAuth clients
+    clients.write: Create and modify OAuth clients
+    clients.read: Read information about OAuth clients
+    clients.secret: Change the password of an OAuth client
+    scim.write: Create, modify and delete SCIM entities, i.e. users and groups
+    scim.read: Read all SCIM entities, i.e. users and groups
+    scim.create: Create users
+    scim.userids: Read user IDs and retrieve users by ID
+    scim.zones: Control a user's ability to manage a zone
+    scim.invite: Send invitations to users
+    password.write: Change your password
+    oauth.approval: Manage approved scopes
+    oauth.login: Authenticate users outside of the UAA
+    openid: Access profile information, i.e. email, first and last name, and phone number
+    groups.update: Update group information and memberships
+    uaa.user: Act as a user in the UAA
+    uaa.resource: Serve resources protected by the UAA
+    uaa.admin: Act as an administrator throughout the UAA
+    uaa.none: Forbid acting as a user
+    uaa.offline_token: Allow offline access
+
+
 oauth:
   client:
     autoapprove:
@@ -284,3 +323,19 @@ oauth:
       autoapprove: 'true'
       redirect-uri: 'http://localhost/*,http://localhost:8080/**,http://localhost:7000/**'
       jwt_creds: '[{"iss":"http://localhost:8080/uaa/oauth/token","sub":"client_with_jwks_trust","aud":"client_with_jwks_trust"}]'
+  user:
+    authorities:
+      - openid
+      - scim.me
+      - cloud_controller.read
+      - cloud_controller.write
+      - cloud_controller_service_permissions.read
+      - password.write
+      - scim.userids
+      - uaa.user
+      - approvals.me
+      - oauth.approvals
+      - profile
+      - roles
+      - user_attributes
+      - uaa.offline_token
