@@ -356,8 +356,4 @@
         <constructor-arg ref="globalPasswordPolicy"/>
     </bean>
 
-    <bean id="messagePropertiesSource" class="org.springframework.core.io.support.ResourcePropertySource">
-        <constructor-arg value="messages.properties"/>
-    </bean>
-
 </beans>
