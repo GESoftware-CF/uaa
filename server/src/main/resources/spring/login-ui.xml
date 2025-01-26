@@ -17,8 +17,6 @@
     <oauth:resource id="uaa" access-token-uri="${uaa.token.url:http://localhost:8080/uaa/oauth/token}"
                     client-id="login" client-secret="${LOGIN_SECRET:loginsecret}" type="client_credentials"/>
 
-    <bean id="notificationsTemplate" class="org.cloudfoundry.identity.uaa.message.LocalUaaRestTemplate"/>
-
     <!-- Pattern: /oauth/authorize parameters:{response_type=code,code=?} -->
     <http name="secFilterAutologinAuthorize" request-matcher-ref="autologinAuthorizeRequestMatcher"
                     entry-point-ref="loginEntryPoint"
