@@ -291,10 +291,6 @@
 
     <!--<mvc:resources location="/" mapping="/**" />-->
 
-    <bean id="links" class="java.util.HashMap">
-        <constructor-arg value="#{@config['links']==null ? T(java.util.Collections).EMPTY_MAP : @config['links']}"/>
-    </bean>
-
     <!--apply the oauth client context -->
     <oauth:client id="oauth2ClientFilter"/>
 
