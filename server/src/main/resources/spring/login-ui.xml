@@ -45,9 +45,6 @@
         <csrf disabled="true"/>
     </http>
 
-    <bean id="backwardsCompatibleScopeParameter"
-                    class="org.cloudfoundry.identity.uaa.web.BackwardsCompatibleScopeParsingFilter"/>
-
     <bean id="acceptInvitationSecurityContextPersistenceFilter"
                     class="org.springframework.security.web.context.SecurityContextPersistenceFilter">
         <constructor-arg name="repo">
