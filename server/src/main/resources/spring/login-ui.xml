@@ -352,8 +352,4 @@
     <mvc:resources mapping="/resources/**" location="/resources/"/>
     <mvc:default-servlet-handler/>
 
-    <bean id="uaaPasswordValidator" class="org.cloudfoundry.identity.uaa.scim.validate.UaaPasswordPolicyValidator">
-        <constructor-arg ref="globalPasswordPolicy"/>
-    </bean>
-
 </beans>
