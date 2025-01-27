@@ -15,6 +15,7 @@
 
 package org.cloudfoundry.identity.uaa.mock.token;
 
+import org.cloudfoundry.identity.uaa.UaaConfiguration;
 import org.cloudfoundry.identity.uaa.test.JUnitRestDocumentationExtension;
 import org.cloudfoundry.identity.uaa.test.TestClient;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.restdocs.ManualRestDocumentation;
 import org.springframework.restdocs.headers.RequestHeadersSnippet;
 import org.springframework.restdocs.snippet.Snippet;
@@ -45,13 +47,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @ExtendWith(JUnitRestDocumentationExtension.class)
 class JwtBearerGrantEndpointDocs extends JwtBearerGrantMockMvcTests {
+    @Qualifier(UaaConfiguration.SPRING_SECURITY_FILTER_CHAIN_ID)
     @Autowired
-    FilterChainProxy springSecurityFilterChain;
+    FilterChainProxy securityFilterChain;
 
     @BeforeEach
     void setUpContext(ManualRestDocumentation manualRestDocumentation) {
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
-                .addFilter(springSecurityFilterChain)
+                .addFilter(securityFilterChain)
                 .apply(documentationConfiguration(manualRestDocumentation)
                         .uris().withPort(80)
                         .and()

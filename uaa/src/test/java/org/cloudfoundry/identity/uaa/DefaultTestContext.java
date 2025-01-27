@@ -4,12 +4,15 @@ import org.cloudfoundry.identity.uaa.db.beans.JdbcUrlCustomizer;
 import org.cloudfoundry.identity.uaa.extensions.PollutionPreventionExtension;
 import org.cloudfoundry.identity.uaa.test.TestClient;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.ldap.LdapAutoConfiguration;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.autoconfigure.session.SessionAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ImportResource;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.context.web.WebAppConfiguration;
@@ -35,7 +38,8 @@ import java.lang.annotation.Target;
         // Conflicts with UaaJdbcSessionConfig
         SessionAutoConfiguration.class,
         // Conflicts with LdapSearchAndCompareConfig/LdapSearchAndBindConfig/LdapSimpleBindConfig
-        LdapAutoConfiguration.class
+        LdapAutoConfiguration.class,
+        SecurityAutoConfiguration.class
 })
 public @interface DefaultTestContext {
 }
@@ -50,10 +54,10 @@ class TestClientAndMockMvcTestConfig {
     @Bean
     public MockMvc mockMvc(
             WebApplicationContext webApplicationContext,
-            @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") FilterChainProxy springSecurityFilterChain
+            @Qualifier(UaaConfiguration.SPRING_SECURITY_FILTER_CHAIN_ID) FilterChainProxy securityFilterChain
     ) {
         return MockMvcBuilders.webAppContextSetup(webApplicationContext)
-                .addFilter(springSecurityFilterChain)
+                .addFilter(securityFilterChain)
                 .build();
     }
 
