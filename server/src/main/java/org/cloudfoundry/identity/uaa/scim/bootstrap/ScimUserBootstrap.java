@@ -11,6 +11,7 @@ import org.cloudfoundry.identity.uaa.scim.*;
 import org.cloudfoundry.identity.uaa.scim.exception.InvalidPasswordException;
 import org.cloudfoundry.identity.uaa.scim.exception.MemberAlreadyExistsException;
 import org.cloudfoundry.identity.uaa.scim.exception.MemberNotFoundException;
+import org.cloudfoundry.identity.uaa.scim.exception.ScimResourceAlreadyExistsException;
 import org.cloudfoundry.identity.uaa.scim.exception.ScimResourceNotFoundException;
 import org.cloudfoundry.identity.uaa.scim.services.ScimUserService;
 import org.cloudfoundry.identity.uaa.user.UaaUser;
@@ -290,7 +291,15 @@ public class ScimUserBootstrap implements
             return;
         } else if (g == null || g.isEmpty()) {
             group = new ScimGroup(null, gName, IdentityZoneHolder.get().getId());
-            group = scimGroupProvisioning.create(group, IdentityZoneHolder.get().getId());
+            try {
+                group = scimGroupProvisioning.create(group, IdentityZoneHolder.get().getId());
+            }
+            catch (ScimResourceAlreadyExistsException ignore) {
+                g = scimGroupProvisioning.query("displayName eq \"%s\"".formatted(gName), IdentityZoneHolder.get().getId());
+                if (g != null && !g.isEmpty()) {
+                    group = g.get(0);
+                }
+            }
         } else {
             group = g.get(0);
         }
