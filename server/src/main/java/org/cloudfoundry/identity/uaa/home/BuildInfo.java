@@ -22,8 +22,8 @@ public class BuildInfo implements InitializingBean {
     private String commitId;
     private String timestamp;
 
-    public BuildInfo(UaaProperties properties) {
-        this.uaaUrl = properties.getUrl();
+    public BuildInfo(UaaProperties.Uaa properties) {
+        this.uaaUrl = properties.url();
     }
 
     @Override

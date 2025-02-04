@@ -1,15 +1,21 @@
 package org.cloudfoundry.identity.uaa;
 
-import lombok.Getter;
-import lombok.Setter;
 import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-@ConfigurationProperties(prefix = "uaa")
-@Getter
-@Setter
+/**
+ * Future replacement of {@link org.cloudfoundry.identity.uaa.impl.config.UaaConfiguration}
+ * for binding properties and validating them.
+ */
 public class UaaProperties {
 
-    private String url = UaaStringUtils.DEFAULT_UAA_URL;
-
+    @ConfigurationProperties(prefix = "uaa")
+    public record Uaa(String url) {
+        public Uaa {
+            if (url == null) {
+                url = UaaStringUtils.DEFAULT_UAA_URL;
+            }
+        }
+    }
 }
+

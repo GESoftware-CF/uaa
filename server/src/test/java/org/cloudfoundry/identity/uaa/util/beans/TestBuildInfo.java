@@ -5,6 +5,6 @@ import org.cloudfoundry.identity.uaa.home.BuildInfo;
 
 public class TestBuildInfo extends BuildInfo {
     public TestBuildInfo() {
-        super(new UaaProperties());
+        super(new UaaProperties.Uaa(null));
     }
 }

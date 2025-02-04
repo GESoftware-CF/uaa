@@ -14,7 +14,7 @@ import org.springframework.security.web.FilterChainProxy;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
-@EnableConfigurationProperties(UaaProperties.class)
+@EnableConfigurationProperties(UaaProperties.Uaa.class)
 public class UaaConfiguration {
 
     /**
@@ -23,8 +23,8 @@ public class UaaConfiguration {
     public static final String SPRING_SECURITY_FILTER_CHAIN_ID = "aggregateSpringSecurityFilterChain";
 
     @Bean
-    public KeyInfoService keyInfoService(UaaProperties uaaProperties) {
-        return new KeyInfoService(uaaProperties.getUrl());
+    public KeyInfoService keyInfoService(UaaProperties.Uaa uaaProperties) {
+        return new KeyInfoService(uaaProperties.url());
     }
 
     /**
