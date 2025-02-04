@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 
+@Component
 public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
 
     private final String samlEntityID;

@@ -48,8 +48,8 @@ class LoginSecurityConfiguration {
     UaaFilterChain uiSecurity(
             HttpSecurity http,
             @Qualifier("zoneAwareAuthzAuthenticationManager") AuthenticationManager authenticationManager,
-            ReAuthenticationRequiredFilter reAuthenticationRequiredFilter, // TODO: make @Component
-            PasswordChangeUiRequiredFilter passwordChangeUiRequiredFilter, // TODO: make @Component
+            ReAuthenticationRequiredFilter reAuthenticationRequiredFilter,
+            PasswordChangeUiRequiredFilter passwordChangeUiRequiredFilter,
             LogoutFilter logoutFilter,
             CookieBasedCsrfTokenRepository csrfTokenRepository,
             UaaSavedRequestCache clientRedirectStateCache, // TODO: remove bean

@@ -177,13 +177,6 @@
         <csrf disabled="true"/>
     </http>
 
-    <bean id="passwordChangeUiRequiredFilter"
-                    class="org.cloudfoundry.identity.uaa.authentication.PasswordChangeUiRequiredFilter"/>
-
-    <bean id="reAuthenticationRequiredFilter"
-                    class="org.cloudfoundry.identity.uaa.authentication.ReAuthenticationRequiredFilter">
-    </bean>
-
     <http name="idpSecurity"
                     use-expressions="true"
                     pattern="/saml/idp/SSO/**"
