@@ -177,18 +177,6 @@
         <csrf disabled="true"/>
     </http>
 
-    <bean id="catchAllFilterChainProxy" class="org.springframework.security.web.FilterChainProxy">
-        <constructor-arg>
-            <util:list>
-                <security:filter-chain pattern="/**" filters="
-                    httpsHeaderFilter"/>
-                <!--                    httpsHeaderFilter,-->
-                <!--                    metadataGeneratorFilter,-->
-                <!--                    samlFilter"/>-->
-            </util:list>
-        </constructor-arg>
-    </bean>
-
     <bean id="passwordChangeUiRequiredFilter"
                     class="org.cloudfoundry.identity.uaa.authentication.PasswordChangeUiRequiredFilter"/>
 
@@ -230,8 +218,6 @@
         <constructor-arg name="delegate" ref="errorMessageAuthenticationFailureHandler"/>
         <constructor-arg name="currentUserCookieFactory" ref="currentUserCookieFactory"/>
     </bean>
-
-    <bean id="httpsHeaderFilter" class="org.cloudfoundry.identity.uaa.security.web.HttpsHeaderFilter"/>
 
     <bean id="loginEntryPoint" class="org.cloudfoundry.identity.uaa.security.CsrfAwareEntryPointAndDeniedHandler">
         <constructor-arg name="redirectCsrf" value="/invalid_request"/>

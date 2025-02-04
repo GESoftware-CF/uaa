@@ -48,7 +48,6 @@ class LoginSecurityConfiguration {
     UaaFilterChain uiSecurity(
             HttpSecurity http,
             @Qualifier("zoneAwareAuthzAuthenticationManager") AuthenticationManager authenticationManager,
-            HttpsHeaderFilter httpsHeaderFilter,
             ReAuthenticationRequiredFilter reAuthenticationRequiredFilter, // TODO: make @Component
             PasswordChangeUiRequiredFilter passwordChangeUiRequiredFilter, // TODO: make @Component
             LogoutFilter logoutFilter,
@@ -81,8 +80,7 @@ class LoginSecurityConfiguration {
                     login.failureHandler(loginFailureHandler);
                     login.authenticationDetailsSource(new UaaAuthenticationDetailsSource());
                 })
-                // TODO: is this required, with the double filter chain proxy?
-                .addFilterBefore(httpsHeaderFilter, DisableEncodeUrlFilter.class)
+                .addFilterBefore(new HttpsHeaderFilter(), DisableEncodeUrlFilter.class)
                 // TODO: Opt in to SecurityContextHolder filter instead of SecurityContextPersistenceFilter
                 // See: https://docs.spring.io/spring-security/reference/5.8/migration/servlet/session-management.html
                 .addFilterAfter(reAuthenticationRequiredFilter, SecurityContextPersistenceFilter.class)
