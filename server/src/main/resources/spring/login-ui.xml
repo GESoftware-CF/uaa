@@ -231,11 +231,6 @@
         <constructor-arg name="keyInfoService" ref="keyInfoService"/>
     </bean>
 
-    <!--<mvc:resources location="/" mapping="/**" />-->
-
-    <!--apply the oauth client context -->
-    <oauth:client id="oauth2ClientFilter"/>
-
     <mvc:annotation-driven content-negotiation-manager="contentNegotiationManager">
         <mvc:message-converters>
             <bean class="org.cloudfoundry.identity.uaa.authentication.manager.AutologinRequestConverter"/>
