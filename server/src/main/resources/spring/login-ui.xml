@@ -276,7 +276,4 @@
         </property>
     </bean>
 
-    <mvc:resources mapping="/resources/**" location="/resources/"/>
-    <mvc:default-servlet-handler/>
-
 </beans>
