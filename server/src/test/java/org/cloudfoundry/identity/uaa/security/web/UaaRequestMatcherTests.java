@@ -14,6 +14,8 @@
 package org.cloudfoundry.identity.uaa.security.web;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 
@@ -65,6 +67,26 @@ class UaaRequestMatcherTests {
         UaaRequestMatcher matcher = new UaaRequestMatcher("/somePath");
         matcher.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON.toString()));
         assertThat(matcher.matches(request("/somePath", null))).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "", "   ", "\n", "\t", " \n", "\t   " })
+    void pathMatcherMatchesExpectedPathsAndAcceptHeaderBlank(final String blankAcceptHeaderValue) {
+        // Accept only JSON
+        UaaRequestMatcher matcher = new UaaRequestMatcher("/somePath");
+        matcher.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON.toString()));
+
+        assertThat(matcher.matches(request("/somePath", blankAcceptHeaderValue))).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { ",", "  ,  ", "  , \n" })
+    void pathMatcherMatchesExpectedPathsAndAcceptHeaderEmpty(final String blankAcceptHeaderValue) {
+        // Accept only JSON
+        UaaRequestMatcher matcher = new UaaRequestMatcher("/somePath");
+        matcher.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON.toString()));
+
+        assertThat(matcher.matches(request("/somePath", blankAcceptHeaderValue))).isFalse();
     }
 
     @Test
