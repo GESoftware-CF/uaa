@@ -143,6 +143,10 @@ public final class UaaRequestMatcher implements RequestMatcher, BeanNameAware {
         }
 
         List<MediaType> requestValues = MediaType.parseMediaTypes(requestValue);
+        if (requestValues.isEmpty()) {
+            // the "Accept" header is set, but blank -> cannot match any expected value
+            return false;
+        }
         for (String expectedValue : expectedValues) {
             if (MediaType.parseMediaType(expectedValue).includes(requestValues.get(0))) {
                 return true;
