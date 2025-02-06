@@ -125,7 +125,7 @@ ratelimit:
         - "startsWith:/Users"
         - "startsWith:/Groups"
     - name: EverythingElse
-      global: 200r/s
+      global: 1000r/s
       pathSelectors:
         - "other"
 
