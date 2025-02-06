@@ -130,6 +130,7 @@ import static org.springframework.http.HttpHeaders.CONTENT_TYPE;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.OPTIONS;
 import static org.springframework.http.HttpMethod.POST;
+import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.http.MediaType.TEXT_HTML;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.securityContext;
@@ -2210,6 +2211,23 @@ public class LoginMockMvcTests {
                         .header("Authorization", "Basic " + new String(ENCODER.encode("admin:adminsecret".getBytes())))
                         .contentType(APPLICATION_JSON)
                         .content(JsonUtils.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/autologin")
+                        .param("code", "test" + generator.counter.get())
+                        .param("client_id", "admin"))
+                .andExpect(redirectedUrl("home"));
+    }
+
+    @Test
+    void autologin_with_validCode_and_formencoded_RedirectsToHome() throws Exception {
+        MockMvcUtils.PredictableGenerator generator = new MockMvcUtils.PredictableGenerator();
+        jdbcExpiringCodeStore.setGenerator(generator);
+
+        mockMvc.perform(post("/autologin")
+                        .header("Authorization", "Basic " + new String(ENCODER.encode("admin:adminsecret".getBytes())))
+                        .contentType(APPLICATION_FORM_URLENCODED)
+                        .content("username=marissa&password=koala"))
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/autologin")

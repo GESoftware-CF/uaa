@@ -231,13 +231,6 @@
         <constructor-arg name="keyInfoService" ref="keyInfoService"/>
     </bean>
 
-    <mvc:annotation-driven content-negotiation-manager="contentNegotiationManager">
-        <mvc:message-converters>
-            <bean class="org.cloudfoundry.identity.uaa.authentication.manager.AutologinRequestConverter"/>
-        </mvc:message-converters>
-        <mvc:path-matching registered-suffixes-only="true"/>
-    </mvc:annotation-driven>
-
     <bean id="autologinAuthenticationFilter"
                     class="org.cloudfoundry.identity.uaa.authentication.AuthzAuthenticationFilter">
         <constructor-arg ref="autologinAuthenticationManager"/>
