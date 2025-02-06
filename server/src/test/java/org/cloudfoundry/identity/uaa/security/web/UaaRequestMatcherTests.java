@@ -70,18 +70,13 @@ class UaaRequestMatcherTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = { "", "   ", "\n", "\t", " \n", "\t   " })
-    void pathMatcherMatchesExpectedPathsAndAcceptHeaderBlank(final String blankAcceptHeaderValue) {
-        // Accept only JSON
-        UaaRequestMatcher matcher = new UaaRequestMatcher("/somePath");
-        matcher.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON.toString()));
-
-        assertThat(matcher.matches(request("/somePath", blankAcceptHeaderValue))).isFalse();
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = { ",", "  ,  ", "  , \n" })
-    void pathMatcherMatchesExpectedPathsAndAcceptHeaderEmpty(final String blankAcceptHeaderValue) {
+    @ValueSource(strings = {
+            // blank strings
+            "", "   ", "\n", "\t", " \n", "\t   ",
+            // strings with only commas and whitespace -> will be treated like blank strings internally
+            ",", "  ,  ", "  , \n", " , , ", " , \t ,\n"
+    })
+    void pathMatcherMatchesExpectedPathsAndAcceptHeaderBlankOrEmpty(final String blankAcceptHeaderValue) {
         // Accept only JSON
         UaaRequestMatcher matcher = new UaaRequestMatcher("/somePath");
         matcher.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON.toString()));
