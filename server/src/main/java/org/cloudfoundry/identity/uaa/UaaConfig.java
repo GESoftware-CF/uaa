@@ -13,9 +13,13 @@ import org.springframework.security.config.annotation.web.configuration.WebSecur
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.security.web.SecurityFilterChain;
 
+/**
+ * Configuration for application-wide beans, as well as "infrastructure" beans
+ * that help enable other beans (e.g. during the migration from XML config to Java config).
+ */
 @Configuration
 @EnableConfigurationProperties(UaaProperties.Uaa.class)
-public class UaaConfiguration {
+public class UaaConfig {
 
     /**
      * Represents the Spring Security Filter Chain bean we are using in the application.

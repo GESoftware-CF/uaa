@@ -12,7 +12,6 @@ import org.springframework.boot.autoconfigure.session.SessionAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ImportResource;
 import org.springframework.context.annotation.PropertySource;
-import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.context.web.WebAppConfiguration;
@@ -54,7 +53,7 @@ class TestClientAndMockMvcTestConfig {
     @Bean
     public MockMvc mockMvc(
             WebApplicationContext webApplicationContext,
-            @Qualifier(UaaConfiguration.SPRING_SECURITY_FILTER_CHAIN_ID) FilterChainProxy securityFilterChain
+            @Qualifier(UaaConfig.SPRING_SECURITY_FILTER_CHAIN_ID) FilterChainProxy securityFilterChain
     ) {
         return MockMvcBuilders.webAppContextSetup(webApplicationContext)
                 .addFilter(securityFilterChain)

@@ -1,7 +1,7 @@
 package org.cloudfoundry.identity.uaa.login;
 
 import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
-import org.cloudfoundry.identity.uaa.UaaConfiguration;
+import org.cloudfoundry.identity.uaa.UaaConfig;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthentication;
 import org.cloudfoundry.identity.uaa.authentication.UaaPrincipal;
 import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
@@ -154,7 +154,7 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
 
     private ScimUser user;
 
-    @Qualifier(UaaConfiguration.SPRING_SECURITY_FILTER_CHAIN_ID)
+    @Qualifier(UaaConfig.SPRING_SECURITY_FILTER_CHAIN_ID)
     @Autowired
     FilterChainProxy securityFilterChain;
 

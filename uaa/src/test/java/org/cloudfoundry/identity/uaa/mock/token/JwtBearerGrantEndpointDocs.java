@@ -15,7 +15,7 @@
 
 package org.cloudfoundry.identity.uaa.mock.token;
 
-import org.cloudfoundry.identity.uaa.UaaConfiguration;
+import org.cloudfoundry.identity.uaa.UaaConfig;
 import org.cloudfoundry.identity.uaa.test.JUnitRestDocumentationExtension;
 import org.cloudfoundry.identity.uaa.test.TestClient;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
@@ -31,7 +31,9 @@ import org.springframework.security.web.FilterChainProxy;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_JWT_BEARER;
-import static org.cloudfoundry.identity.uaa.test.SnippetUtils.*;
+import static org.cloudfoundry.identity.uaa.test.SnippetUtils.fieldWithPath;
+import static org.cloudfoundry.identity.uaa.test.SnippetUtils.headerWithName;
+import static org.cloudfoundry.identity.uaa.test.SnippetUtils.parameterWithName;
 import static org.springframework.restdocs.headers.HeaderDocumentation.requestHeaders;
 import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.documentationConfiguration;
@@ -47,7 +49,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @ExtendWith(JUnitRestDocumentationExtension.class)
 class JwtBearerGrantEndpointDocs extends JwtBearerGrantMockMvcTests {
-    @Qualifier(UaaConfiguration.SPRING_SECURITY_FILTER_CHAIN_ID)
+    @Qualifier(UaaConfig.SPRING_SECURITY_FILTER_CHAIN_ID)
     @Autowired
     FilterChainProxy securityFilterChain;
 

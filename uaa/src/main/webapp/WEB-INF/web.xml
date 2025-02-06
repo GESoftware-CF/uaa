@@ -27,7 +27,7 @@
     </filter>
 
     <filter>
-        <!-- Filter name MUST match org.cloudfoundry.identity.uaa.UaaConfiguration.SPRING_SECURITY_FILTER_CHAIN_ID -->
+        <!-- Filter name MUST match org.cloudfoundry.identity.uaa.UaaConfig.SPRING_SECURITY_FILTER_CHAIN_ID -->
         <filter-name>aggregateSpringSecurityFilterChain</filter-name>
         <filter-class>org.springframework.web.filter.DelegatingFilterProxy</filter-class>
         <init-param>

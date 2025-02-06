@@ -1,6 +1,6 @@
 package org.cloudfoundry.identity.uaa.web;
 
-import org.cloudfoundry.identity.uaa.UaaConfiguration;
+import org.cloudfoundry.identity.uaa.UaaConfig;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfiguration;
 import org.springframework.security.web.SecurityFilterChain;
 
@@ -12,7 +12,7 @@ import java.util.List;
  * Represents a Java-managed {@link SecurityFilterChain}. This allows mixing
  * XML-based configuration and Java-based configuration.
  * <p>
- * See {@link UaaConfiguration#aggregateSpringSecurityFilterChain(WebSecurityConfiguration, List)} for more information.
+ * See {@link UaaConfig#aggregateSpringSecurityFilterChain(WebSecurityConfiguration, List)} for more information.
  *
  * @deprecated Remove this once there are no more XML-based filter chains.
  */
