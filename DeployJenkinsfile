@@ -58,8 +58,8 @@ pipeline
                             checkout scm
                         }
                         dir('uaa/iam-k8s-utils') {
-                            git changelog: false, credentialsId: 'github.build.ge.com', poll: false,
-                                url: 'https://github.build.ge.com/predix/iam-k8s-utils.git'
+                            git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                                url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
                         }
                         script {
                             def util = load('uaa/JenkinsfileCommon.groovy')
@@ -86,8 +86,8 @@ pipeline
                         }
 
                         dir('uaa-cf-release') {
-                            git changelog: false, credentialsId: 'github.build.ge.com', poll: false,
-                                url: 'https://github.build.ge.com/predix/uaa-cf-release.git',
+                            git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                                url: 'https://github.software.gevernova.com/pers/uaa-cf-release.git',
                                 branch: params.UAA_CI_CONFIG_BRANCH
                         }
                         sh '''#!/bin/bash -ex
@@ -174,9 +174,9 @@ pipeline
                         {
                             // Check out repo with Dockerfiles and build/publish script
                             git changelog: false,
-                                    credentialsId: 'github.devtools.predix.io',
+                                    credentialsId: 'github.software.gevernova.com',
                                     poll: false,
-                                    url: 'https://github.devtools.predix.io/predix-security/uaa-k8s-deploy.git',
+                                    url: 'https://github.software.gevernova.com/pers/uaa-k8s-deploy.git',
                                     branch: 'master'
                         }
                     }
@@ -197,7 +197,7 @@ pipeline
                         
                         script
                         {
-                            withCredentials([gitUsernamePassword(credentialsId: 'github.devtools.predix.io',gitToolName: 'git-tool')])
+                            withCredentials([gitUsernamePassword(credentialsId: 'github.software.gevernova.com',gitToolName: 'git-tool')])
                             {
                                 sh """
                                 cd uaa-k8s-deploy

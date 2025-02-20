@@ -37,14 +37,14 @@ pipeline {
                             steps {
                                 checkout scm
                                 dir('uaa/iam-k8s-utils') {
-                                    git changelog: false, credentialsId: 'github.build.ge.com', poll: false,
-                                        url: 'https://github.build.ge.com/predix/iam-k8s-utils.git'
+                                    git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                                        url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
                                 }
                                 dir('uaa-cf-release') {
                                     git changelog: false,
-                                        credentialsId: 'github.build.ge.com',
+                                        credentialsId: 'github.software.gevernova.com',
                                         poll: false,
-                                        url: 'https://github.build.ge.com/predix/uaa-cf-release.git',
+                                        url: 'https://github.software.gevernova.com/pers/uaa-cf-release.git',
                                         branch: 'master'
                                 }
                             }
@@ -117,14 +117,14 @@ pipeline {
                             steps {
                                 checkout scm
                                 dir('uaa/iam-k8s-utils') {
-                                    git changelog: false, credentialsId: 'github.build.ge.com', poll: false,
-                                        url: 'https://github.build.ge.com/predix/iam-k8s-utils.git'
+                                    git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                                        url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
                                 }
                                 dir('uaa-cf-release') {
                                     git changelog: false,
-                                        credentialsId: 'github.build.ge.com',
+                                        credentialsId: 'github.software.gevernova.com',
                                         poll: false,
-                                        url: 'https://github.build.ge.com/predix/uaa-cf-release.git',
+                                        url: 'https://github.software.gevernova.com/pers/uaa-cf-release.git',
                                         branch: 'master'
                                 }
                             }
