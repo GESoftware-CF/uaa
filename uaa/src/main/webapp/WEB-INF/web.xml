@@ -45,6 +45,16 @@
     </filter>
 
     <filter>
+        <filter-name>CSPFilter</filter-name>
+        <filter-class>org.cloudfoundry.identity.uaa.CSPFilter</filter-class>
+    </filter>
+
+    <filter-mapping>
+        <filter-name>CSPFilter</filter-name>
+        <url-pattern>/*</url-pattern> <!-- Apply to all requests -->
+    </filter-mapping>
+
+    <filter>
         <filter-name>HttpHeaderSecurityFilter</filter-name>
         <filter-class>org.apache.catalina.filters.HttpHeaderSecurityFilter</filter-class>
         <init-param>
