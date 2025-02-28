@@ -60,6 +60,9 @@ import static org.cloudfoundry.identity.uaa.web.AuthorizationManagersUtils.anyOf
 @EnableWebSecurity
 class LoginSecurityConfiguration {
 
+    private static final CsrfAwareEntryPointAndDeniedHandler LOGIN_ENTRYPOINT = new CsrfAwareEntryPointAndDeniedHandler("/invalid_request", "/login?error=invalid_login_request");
+    private static final CsrfAwareEntryPointAndDeniedHandler ACCESS_DENIED_HANDLER = LOGIN_ENTRYPOINT;
+
     @Bean
     ResourcePropertySource messagePropertiesSource() throws IOException {
         return new ResourcePropertySource("messages.properties");
@@ -85,7 +88,7 @@ class LoginSecurityConfiguration {
                 .anonymous(AnonymousConfigurer::disable)
                 .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository))
                 .addFilterAt(autologinFilter, UsernamePasswordAuthenticationFilter.class)
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(new CsrfAwareEntryPointAndDeniedHandler("/invalid_request", "/login?error=invalid_login_request")))
+                .exceptionHandling(exception -> exception.authenticationEntryPoint(LOGIN_ENTRYPOINT))
                 .build();
 
         return new UaaFilterChain(originalChain);
@@ -104,7 +107,7 @@ class LoginSecurityConfiguration {
                 .anonymous(AnonymousConfigurer::disable)
                 .csrf(CsrfConfigurer::disable)
                 .addFilterAt(autologinFilter, UsernamePasswordAuthenticationFilter.class)
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(new CsrfAwareEntryPointAndDeniedHandler("/invalid_request", "/login?error=invalid_login_request")))
+                .exceptionHandling(exception -> exception.authenticationEntryPoint(LOGIN_ENTRYPOINT))
                 .build();
         return new UaaFilterChain(originalChain);
     }
@@ -154,9 +157,8 @@ class LoginSecurityConfiguration {
                 })
                 .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository))
                 .exceptionHandling(exception -> {
-                    var authenticationEntryPoint = new CsrfAwareEntryPointAndDeniedHandler("/invalid_request", "/login?error=invalid_login_request");
-                    exception.authenticationEntryPoint(authenticationEntryPoint);
-                    exception.accessDeniedHandler(authenticationEntryPoint);
+                    exception.authenticationEntryPoint(LOGIN_ENTRYPOINT);
+                    exception.accessDeniedHandler(ACCESS_DENIED_HANDLER);
                 })
                 .build();
         return new UaaFilterChain(originalChain);
@@ -206,9 +208,8 @@ class LoginSecurityConfiguration {
                 .addFilterAfter(resetPasswordAuthenticationFilter, AuthorizationFilter.class)
                 .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository))
                 .exceptionHandling(exception -> {
-                    var authenticationEntryPoint = new CsrfAwareEntryPointAndDeniedHandler("/invalid_request", "/login?error=invalid_login_request");
-                    exception.authenticationEntryPoint(authenticationEntryPoint);
-                    exception.accessDeniedHandler(authenticationEntryPoint);
+                    exception.authenticationEntryPoint(LOGIN_ENTRYPOINT);
+                    exception.accessDeniedHandler(ACCESS_DENIED_HANDLER);
                 })
                 .build();
         return new UaaFilterChain(originalChain);
@@ -225,7 +226,7 @@ class LoginSecurityConfiguration {
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .csrf(CsrfConfigurer::disable)
                 .exceptionHandling(exception -> {
-                    exception.authenticationEntryPoint(new CsrfAwareEntryPointAndDeniedHandler("/invalid_request", "/login?error=invalid_login_request"));
+                    exception.authenticationEntryPoint(LOGIN_ENTRYPOINT);
                 })
                 .build();
         return new UaaFilterChain(originalChain);
@@ -243,9 +244,7 @@ class LoginSecurityConfiguration {
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .authenticationManager(authenticationManager)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(exception -> {
-                    exception.authenticationEntryPoint(authenticationEntryPoint);
-                })
+                .exceptionHandling(exception -> exception.authenticationEntryPoint(authenticationEntryPoint))
                 .build();
         return new UaaFilterChain(originalChain);
     }
@@ -258,7 +257,7 @@ class LoginSecurityConfiguration {
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .csrf(CsrfConfigurer::disable)
                 .exceptionHandling(exception -> {
-                    exception.authenticationEntryPoint(new CsrfAwareEntryPointAndDeniedHandler("/invalid_request", "/login?error=invalid_login_request"));
+                    exception.authenticationEntryPoint(LOGIN_ENTRYPOINT);
                 })
                 .build();
         return new UaaFilterChain(originalChain);
@@ -271,9 +270,7 @@ class LoginSecurityConfiguration {
                 .securityMatcher("/verify_user")
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .csrf(CsrfConfigurer::disable)
-                .exceptionHandling(exception -> {
-                    exception.authenticationEntryPoint(new CsrfAwareEntryPointAndDeniedHandler("/invalid_request", "/login?error=invalid_login_request"));
-                })
+                .exceptionHandling(exception -> exception.authenticationEntryPoint(LOGIN_ENTRYPOINT))
                 .build();
         return new UaaFilterChain(originalChain);
     }
@@ -286,7 +283,7 @@ class LoginSecurityConfiguration {
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .csrf(CsrfConfigurer::disable)
                 .exceptionHandling(exception -> {
-                    exception.authenticationEntryPoint(new CsrfAwareEntryPointAndDeniedHandler("/invalid_request", "/login?error=invalid_login_request"));
+                    exception.authenticationEntryPoint(LOGIN_ENTRYPOINT);
                 })
                 .build();
         return new UaaFilterChain(originalChain);
@@ -364,10 +361,7 @@ class LoginSecurityConfiguration {
                 .addFilterBefore(clientRedirectStateCache, CsrfFilter.class)
                 .addFilterBefore(passwordChangeUiRequiredFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAt(logoutFilter, LogoutFilter.class)
-                .exceptionHandling(exception -> {
-                    // TODO: make common?
-                    exception.accessDeniedHandler(new CsrfAwareEntryPointAndDeniedHandler("/invalid_request", "/login?error=invalid_login_request"));
-                })
+                .exceptionHandling(exception -> exception.accessDeniedHandler(ACCESS_DENIED_HANDLER))
                 .requestCache(cache -> cache.requestCache(clientRedirectStateCache))
                 .build();
         return new UaaFilterChain(originalChain);
