@@ -290,21 +290,6 @@ class LoginSecurityConfiguration {
     }
 
     /**
-     * Handle login callbacks from SAML upstream providers.
-     */
-    @Bean
-    @Order(FilterChainOrder.SAML_IDP_SSO)
-    UaaFilterChain samlSsoCallback(HttpSecurity http) throws Exception {
-        var originalChain = http
-                .securityMatcher("/saml/idp/SSO/**")
-                .authorizeHttpRequests(auth -> auth.anyRequest().fullyAuthenticated())
-                .csrf(CsrfConfigurer::disable)
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(LOGIN_ENTRYPOINT))
-                .build();
-        return new UaaFilterChain(originalChain);
-    }
-
-    /**
      * Handle the UI-related components, such as the login page, the home page, etc.
      * <p>
      * This is the catch-all "any-request" filter-chain that is executed last.
