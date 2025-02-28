@@ -294,18 +294,12 @@ class LoginSecurityConfiguration {
      */
     @Bean
     @Order(FilterChainOrder.SAML_IDP_SSO)
-    UaaFilterChain samlSsoCallback(
-            HttpSecurity http,
-            PasswordChangeUiRequiredFilter passwordChangeUiRequiredFilter
-    ) throws Exception {
+    UaaFilterChain samlSsoCallback(HttpSecurity http) throws Exception {
         var originalChain = http
                 .securityMatcher("/saml/idp/SSO/**")
                 .authorizeHttpRequests(auth -> auth.anyRequest().fullyAuthenticated())
-                .addFilterBefore(passwordChangeUiRequiredFilter, BasicAuthenticationFilter.class)
                 .csrf(CsrfConfigurer::disable)
-                .exceptionHandling(exception -> {
-                    exception.authenticationEntryPoint(new CsrfAwareEntryPointAndDeniedHandler("/invalid_request", "/login?error=invalid_login_request"));
-                })
+                .exceptionHandling(exception -> exception.authenticationEntryPoint(LOGIN_ENTRYPOINT))
                 .build();
         return new UaaFilterChain(originalChain);
     }
@@ -323,13 +317,13 @@ class LoginSecurityConfiguration {
             HttpSecurity http,
             @Qualifier("zoneAwareAuthzAuthenticationManager") AuthenticationManager authenticationManager,
             ReAuthenticationRequiredFilter reAuthenticationRequiredFilter,
-            PasswordChangeUiRequiredFilter passwordChangeUiRequiredFilter,
             LogoutFilter logoutFilter,
             CookieBasedCsrfTokenRepository csrfTokenRepository,
-            UaaSavedRequestCache clientRedirectStateCache, // TODO: remove bean
             AccountSavingAuthenticationSuccessHandler loginSuccessHandler,
             UaaAuthenticationFailureHandler loginFailureHandler
     ) throws Exception {
+        var clientRedirectStateCache = new UaaSavedRequestCache();
+        clientRedirectStateCache.setRequestMatcher(new AntPathRequestMatcher("/oauth/authorize**"));
 
         var originalChain = http
                 .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository))
@@ -359,7 +353,7 @@ class LoginSecurityConfiguration {
                 // See: https://docs.spring.io/spring-security/reference/5.8/migration/servlet/session-management.html
                 .addFilterAfter(reAuthenticationRequiredFilter, SecurityContextPersistenceFilter.class)
                 .addFilterBefore(clientRedirectStateCache, CsrfFilter.class)
-                .addFilterBefore(passwordChangeUiRequiredFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new PasswordChangeUiRequiredFilter(), UsernamePasswordAuthenticationFilter.class)
                 .addFilterAt(logoutFilter, LogoutFilter.class)
                 .exceptionHandling(exception -> exception.accessDeniedHandler(ACCESS_DENIED_HANDLER))
                 .requestCache(cache -> cache.requestCache(clientRedirectStateCache))

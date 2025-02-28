@@ -25,10 +25,6 @@
         <constructor-arg name="expiringCodeStore" ref="codeStore"/>
     </bean>
 
-    <bean id="uiAuthorizeRequestMatcher" class="org.springframework.security.web.util.matcher.AntPathRequestMatcher">
-        <constructor-arg value="/oauth/authorize**"/>
-    </bean>
-
     <bean id="loginCookieCsrfRepository"
                     class="org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository">
         <property name="secure" value="${require_https:false}"/>
@@ -43,10 +39,6 @@
     <bean id="currentUserCookieFactory" class="org.cloudfoundry.identity.uaa.login.CurrentUserCookieFactory">
         <constructor-arg name="sessionTimeout" value="${servlet.session-cookie.max-age:1800}"/>
         <constructor-arg name="secure" value="${require_https:false}"/>
-    </bean>
-
-    <bean name="clientRedirectStateCache" class="org.cloudfoundry.identity.uaa.web.UaaSavedRequestCache">
-        <property name="requestMatcher" ref="uiAuthorizeRequestMatcher"/>
     </bean>
 
     <bean id="errorMessageAuthenticationFailureHandler"
