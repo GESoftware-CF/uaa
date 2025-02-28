@@ -10,6 +10,7 @@ import org.cloudfoundry.identity.uaa.invitations.InvitationsAuthenticationTrustR
 import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationProcessingFilter;
 import org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AccessDeniedHandler;
 import org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AuthenticationEntryPoint;
+import org.cloudfoundry.identity.uaa.provider.saml.UaaDelegatingLogoutSuccessHandler;
 import org.cloudfoundry.identity.uaa.scim.DisableUserManagementSecurityFilter;
 import org.cloudfoundry.identity.uaa.security.CsrfAwareEntryPointAndDeniedHandler;
 import org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository;
@@ -36,13 +37,17 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.logout.CookieClearingLogoutHandler;
 import org.springframework.security.web.authentication.logout.LogoutFilter;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextPersistenceFilter;
 import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.csrf.CsrfLogoutHandler;
 import org.springframework.security.web.session.DisableEncodeUrlFilter;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 import java.io.IOException;
 import java.util.List;
@@ -358,7 +363,7 @@ class LoginSecurityConfiguration {
                 .addFilterAfter(reAuthenticationRequiredFilter, SecurityContextPersistenceFilter.class)
                 .addFilterBefore(clientRedirectStateCache, CsrfFilter.class)
                 .addFilterBefore(passwordChangeUiRequiredFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(logoutFilter, LogoutFilter.class)
+                .addFilterAt(logoutFilter, LogoutFilter.class)
                 .exceptionHandling(exception -> {
                     // TODO: make common?
                     exception.accessDeniedHandler(new CsrfAwareEntryPointAndDeniedHandler("/invalid_request", "/login?error=invalid_login_request"));
@@ -378,6 +383,35 @@ class LoginSecurityConfiguration {
         filter.setMethods(Set.of(HttpMethod.GET.name(), HttpMethod.POST.name()));
         filter.setSuccessHandler(loginSuccessHandler);
         return filter;
+    }
+
+
+    /**
+     * Handles a Logout click from the user, removes the Authentication object,
+     * and determines if an OAuth2 or SAML2 Logout should be performed.
+     * If Saml, it forwards a Saml2LogoutRequest to IDP/asserting party if configured.
+     */
+    @Bean
+    LogoutFilter logoutFilter(
+            UaaDelegatingLogoutSuccessHandler delegatingLogoutSuccessHandler,
+            UaaAuthenticationFailureHandler authenticationFailureHandler,
+            CookieBasedCsrfTokenRepository loginCookieCsrfRepository
+    ) {
+
+        SecurityContextLogoutHandler securityContextLogoutHandlerWithHandler = new SecurityContextLogoutHandler();
+        CsrfLogoutHandler csrfLogoutHandler = new CsrfLogoutHandler(loginCookieCsrfRepository);
+        CookieClearingLogoutHandler cookieClearingLogoutHandlerWithHandler = new CookieClearingLogoutHandler("JSESSIONID");
+
+        LogoutFilter logoutFilter = new LogoutFilter(
+                delegatingLogoutSuccessHandler,
+                authenticationFailureHandler,
+                securityContextLogoutHandlerWithHandler,
+                csrfLogoutHandler,
+                cookieClearingLogoutHandlerWithHandler
+        );
+        logoutFilter.setLogoutRequestMatcher(new AntPathRequestMatcher("/logout.do"));
+
+        return logoutFilter;
     }
 
 }

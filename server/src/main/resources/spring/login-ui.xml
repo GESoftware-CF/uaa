@@ -74,23 +74,4 @@
         <constructor-arg name="currentUserCookieFactory" ref="currentUserCookieFactory"/>
     </bean>
 
-    <bean id="loginEntryPoint" class="org.cloudfoundry.identity.uaa.security.CsrfAwareEntryPointAndDeniedHandler">
-        <constructor-arg name="redirectCsrf" value="/invalid_request"/>
-        <constructor-arg name="redirectNotLoggedIn" value="/login?error=invalid_login_request"/>
-    </bean>
-
-    <bean id="externalOAuthLogoutHandler"
-                    class="org.cloudfoundry.identity.uaa.provider.oauth.ExternalOAuthLogoutSuccessHandler">
-        <constructor-arg name="providerProvisioning" ref="externalOAuthProviderConfigurator"/>
-        <constructor-arg name="oidcMetadataFetcher" ref="oidcMetadataFetcher"/>
-        <constructor-arg name="identityZoneManager" ref="identityZoneManager"/>
-    </bean>
-
-    <bean id="logoutHandler"
-                    class="org.cloudfoundry.identity.uaa.authentication.ZoneAwareWhitelistLogoutSuccessHandler">
-        <constructor-arg name="clientDetailsService" ref="jdbcClientDetailsService"/>
-        <constructor-arg name="externalOAuthLogoutHandler" ref="externalOAuthLogoutHandler"/>
-        <constructor-arg name="keyInfoService" ref="keyInfoService"/>
-    </bean>
-
 </beans>

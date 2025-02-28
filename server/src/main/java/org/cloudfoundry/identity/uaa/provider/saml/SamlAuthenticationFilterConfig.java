@@ -162,42 +162,6 @@ public class SamlAuthenticationFilterConfig {
         return new Saml2RelyingPartyInitiatedLogoutSuccessHandler(logoutRequestResolver);
     }
 
-    @Autowired
-    @Bean
-    UaaDelegatingLogoutSuccessHandler uaaDelegatingLogoutSuccessHandler(ZoneAwareWhitelistLogoutSuccessHandler zoneAwareWhitelistLogoutHandler,
-            Saml2RelyingPartyInitiatedLogoutSuccessHandler saml2RelyingPartyInitiatedLogoutSuccessHandler,
-            ExternalOAuthLogoutSuccessHandler externalOAuthLogoutHandler,
-            RelyingPartyRegistrationResolver relyingPartyRegistrationResolver) {
-
-        return new UaaDelegatingLogoutSuccessHandler(zoneAwareWhitelistLogoutHandler,
-                saml2RelyingPartyInitiatedLogoutSuccessHandler,
-                externalOAuthLogoutHandler,
-                relyingPartyRegistrationResolver);
-    }
-
-    /**
-     * Handles a Logout click from the user, removes the Authentication object,
-     * and determines if an OAuth2 or SAML2 Logout should be performed.
-     * If Saml, it forwards a Saml2LogoutRequest to IDP/asserting party if configured.
-     */
-    @Autowired
-    @Bean
-    LogoutFilter logoutFilter(UaaDelegatingLogoutSuccessHandler delegatingLogoutSuccessHandler,
-            UaaAuthenticationFailureHandler authenticationFailureHandler,
-            CookieBasedCsrfTokenRepository loginCookieCsrfRepository) {
-
-        SecurityContextLogoutHandler securityContextLogoutHandlerWithHandler = new SecurityContextLogoutHandler();
-        CsrfLogoutHandler csrfLogoutHandler = new CsrfLogoutHandler(loginCookieCsrfRepository);
-        CookieClearingLogoutHandler cookieClearingLogoutHandlerWithHandler = new CookieClearingLogoutHandler("JSESSIONID");
-
-        LogoutFilter logoutFilter = new LogoutFilter(delegatingLogoutSuccessHandler,
-                authenticationFailureHandler, securityContextLogoutHandlerWithHandler, csrfLogoutHandler,
-                cookieClearingLogoutHandlerWithHandler);
-        logoutFilter.setLogoutRequestMatcher(new AntPathRequestMatcher("/logout.do"));
-
-        return logoutFilter;
-    }
-
     /**
      * Handles a return SAML2LogoutResponse from IDP/asserting party in response to a Saml2LogoutRequest from UAA.
      */
