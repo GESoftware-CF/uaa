@@ -5,9 +5,11 @@ import org.apache.http.conn.ssl.SSLContextBuilder;
 import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.cloudfoundry.identity.uaa.UaaProperties;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.oauth.client.OAuth2ClientContext;
 import org.cloudfoundry.identity.uaa.oauth.client.OAuth2RestTemplate;
+import org.cloudfoundry.identity.uaa.oauth.client.resource.ClientCredentialsResourceDetails;
 import org.cloudfoundry.identity.uaa.oauth.client.resource.OAuth2ProtectedResourceDetails;
 import org.cloudfoundry.identity.uaa.oauth.client.resource.UserRedirectRequiredException;
 import org.cloudfoundry.identity.uaa.oauth.common.OAuth2AccessToken;
@@ -45,13 +47,13 @@ public class LocalUaaRestTemplate extends OAuth2RestTemplate {
     private final IdentityZoneManager identityZoneManager;
 
     LocalUaaRestTemplate(
-            @Qualifier("uaa") final OAuth2ProtectedResourceDetails resource,
+            UaaProperties.RootLevel uaaProperties,
             final AuthorizationServerTokenServices authorizationServerTokenServices,
             final MultitenantClientServices multitenantClientServices,
             @Value("${notifications.verify_ssl:false}") final boolean verifySsl,
             final IdentityZoneManager identityZoneManager)
             throws NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
-        super(resource);
+        super(clientResourceDetails(uaaProperties.LOGIN_SECRET()));
 
         this.authorizationServerTokenServices = authorizationServerTokenServices;
         this.clientId = "login";
@@ -61,6 +63,14 @@ public class LocalUaaRestTemplate extends OAuth2RestTemplate {
         if (!verifySsl) {
             skipSslValidation();
         }
+    }
+
+    static ClientCredentialsResourceDetails clientResourceDetails(String loginSecret) {
+        var res = new ClientCredentialsResourceDetails();
+        res.setClientId("uaa");
+        res.setClientId("login");
+        res.setClientSecret(loginSecret);
+        return res;
     }
 
     @Override

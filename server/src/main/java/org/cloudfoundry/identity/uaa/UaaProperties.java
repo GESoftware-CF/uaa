@@ -12,7 +12,10 @@ import org.springframework.lang.Nullable;
 public class UaaProperties {
 
     @ConfigurationProperties
-    public record RootLevel(@DefaultValue("false") boolean require_https) {
+    public record RootLevel(
+            @DefaultValue("false") boolean require_https,
+            @DefaultValue("loginsecret") String LOGIN_SECRET
+    ) {
 
     }
 
