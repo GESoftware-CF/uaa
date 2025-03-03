@@ -32,7 +32,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
-import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.util.StringUtils;
 
 import javax.servlet.FilterChain;
@@ -60,7 +59,6 @@ class ResetPasswordAuthenticationFilterTest {
     private ScimUser user;
     private ResetPasswordService.ResetPasswordResponse resetPasswordResponse;
     private ResetPasswordAuthenticationFilter filter;
-    private AuthenticationSuccessHandler authenticationSuccessHandler;
     private AuthenticationEntryPoint entryPoint;
     private String email;
 
@@ -91,9 +89,8 @@ class ResetPasswordAuthenticationFilterTest {
         user = new ScimUser("id", "username", "first name", "last name");
         resetPasswordResponse = new ResetPasswordService.ResetPasswordResponse(user, "/", null);
         when(service.resetPassword(any(ExpiringCode.class), eq(password))).thenReturn(resetPasswordResponse);
-        authenticationSuccessHandler = mock(AuthenticationSuccessHandler.class);
         entryPoint = mock(AuthenticationEntryPoint.class);
-        filter = new ResetPasswordAuthenticationFilter(service, authenticationSuccessHandler, entryPoint, codeStore);
+        filter = new ResetPasswordAuthenticationFilter(service, entryPoint, codeStore);
     }
 
     @Test
@@ -129,7 +126,6 @@ class ResetPasswordAuthenticationFilterTest {
         filter.doFilterInternal(request, response, chain);
         //do our assertion
         verify(service, times(1)).resetPassword(any(ExpiringCode.class), eq(password));
-        verify(authenticationSuccessHandler, times(0)).onAuthenticationSuccess(same(request), same(response), any(Authentication.class));
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         if (!StringUtils.hasText(redirectUri) || "home".equals(redirectUri)) {
             verify(response, times(1)).sendRedirect(request.getContextPath() + "/login?success=password_reset");
@@ -180,7 +176,6 @@ class ResetPasswordAuthenticationFilterTest {
         filter.doFilterInternal(request, response, chain);
 
         //do our assertion
-        verify(authenticationSuccessHandler, times(0)).onAuthenticationSuccess(same(request), same(response), any(Authentication.class));
         verify(entryPoint, times(1)).commence(same(request), same(response), authenticationException.capture());
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
 

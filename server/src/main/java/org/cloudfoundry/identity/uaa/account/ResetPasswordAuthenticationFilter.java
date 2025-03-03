@@ -20,10 +20,11 @@ import org.cloudfoundry.identity.uaa.codestore.ExpiringCodeStore;
 import org.cloudfoundry.identity.uaa.error.UaaException;
 import org.cloudfoundry.identity.uaa.scim.exception.InvalidPasswordException;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.InternalAuthenticationServiceException;
 import org.springframework.security.web.AuthenticationEntryPoint;
-import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -34,17 +35,26 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.sql.Timestamp;
 
+@Component
 public class ResetPasswordAuthenticationFilter extends OncePerRequestFilter {
     private final ResetPasswordService service;
-    private final AuthenticationSuccessHandler handler;
     private final AuthenticationEntryPoint entryPoint;
     private final ExpiringCodeStore expiringCodeStore;
 
-    public ResetPasswordAuthenticationFilter(ResetPasswordService service, AuthenticationSuccessHandler handler, AuthenticationEntryPoint entryPoint, ExpiringCodeStore expiringCodeStore) {
+    public ResetPasswordAuthenticationFilter(
+            ResetPasswordService service,
+            AuthenticationEntryPoint entryPoint,
+            ExpiringCodeStore expiringCodeStore) {
         this.service = service;
-        this.handler = handler;
         this.entryPoint = entryPoint;
         this.expiringCodeStore = expiringCodeStore;
+    }
+
+    @Autowired
+    public ResetPasswordAuthenticationFilter(
+            ResetPasswordService service,
+            ExpiringCodeStore expiringCodeStore) {
+        this(service, new ResetPasswordAuthenticationEntryPoint(), expiringCodeStore);
     }
 
     @Override
