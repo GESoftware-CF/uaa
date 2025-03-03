@@ -15,9 +15,4 @@
     <oauth:resource id="uaa" access-token-uri="${uaa.token.url:http://localhost:8080/uaa/oauth/token}"
                     client-id="login" client-secret="${LOGIN_SECRET:loginsecret}" type="client_credentials"/>
 
-    <bean id="currentUserCookieFactory" class="org.cloudfoundry.identity.uaa.login.CurrentUserCookieFactory">
-        <constructor-arg name="sessionTimeout" value="${servlet.session-cookie.max-age:1800}"/>
-        <constructor-arg name="secure" value="${require_https:false}"/>
-    </bean>
-
 </beans>
