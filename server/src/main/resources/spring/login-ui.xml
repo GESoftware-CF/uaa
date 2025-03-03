@@ -41,29 +41,4 @@
         <constructor-arg name="secure" value="${require_https:false}"/>
     </bean>
 
-    <bean id="errorMessageAuthenticationFailureHandler"
-                    class="org.springframework.security.web.authentication.ExceptionMappingAuthenticationFailureHandler">
-        <property name="exceptionMappings">
-            <map>
-                <entry key="org.cloudfoundry.identity.uaa.authentication.AccountNotVerifiedException"
-                                                  value="/login?error=account_not_verified"/>
-                <entry key="org.cloudfoundry.identity.uaa.authentication.PasswordExpiredException"
-                                                  value="/login?error=password_expired"/>
-                <entry key="org.cloudfoundry.identity.uaa.authentication.AuthenticationPolicyRejectionException"
-                                                  value="/login?error=account_locked"/>
-                <entry key="org.cloudfoundry.identity.uaa.authentication.AccountNotPreCreatedException"
-                                                  value="/login?error=account_not_precreated"/>
-                <entry key="org.cloudfoundry.identity.uaa.authentication.PasswordChangeRequiredException"
-                                                  value="/force_password_change"/>
-            </map>
-        </property>
-        <property name="defaultFailureUrl" value="/login?error=login_failure"/>
-    </bean>
-
-    <bean id="uaaAuthenticationFailureHandler"
-                    class="org.cloudfoundry.identity.uaa.login.UaaAuthenticationFailureHandler">
-        <constructor-arg name="delegate" ref="errorMessageAuthenticationFailureHandler"/>
-        <constructor-arg name="currentUserCookieFactory" ref="currentUserCookieFactory"/>
-    </bean>
-
 </beans>
