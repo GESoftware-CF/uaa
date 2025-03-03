@@ -25,11 +25,6 @@
         <constructor-arg name="expiringCodeStore" ref="codeStore"/>
     </bean>
 
-    <bean id="loginCookieCsrfRepository"
-                    class="org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository">
-        <property name="secure" value="${require_https:false}"/>
-    </bean>
-
     <bean id="accountSavingAuthenticationSuccessHandler"
                     class="org.cloudfoundry.identity.uaa.login.AccountSavingAuthenticationSuccessHandler">
         <constructor-arg name="redirectingHandler" ref="successRedirectHandler"/>

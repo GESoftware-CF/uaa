@@ -11,6 +11,11 @@ import org.springframework.lang.Nullable;
  */
 public class UaaProperties {
 
+    @ConfigurationProperties
+    public record RootLevel(@DefaultValue("false") boolean require_https) {
+
+    }
+
     @ConfigurationProperties(prefix = "uaa")
     public record Uaa(String url) {
         public Uaa {
@@ -22,6 +27,11 @@ public class UaaProperties {
 
     @ConfigurationProperties(prefix = "servlet")
     public record Servlet(SessionCookie sessionCookie, @DefaultValue("1800") int idleTimeout) {
+        public Servlet {
+            if (sessionCookie == null) {
+                sessionCookie = new SessionCookie(true, null);
+            }
+        }
     }
 
     public record SessionCookie(@DefaultValue("true") boolean encodeBase64, @Nullable Integer maxAge) {
