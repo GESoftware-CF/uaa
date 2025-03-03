@@ -6,7 +6,8 @@ package org.cloudfoundry.identity.uaa.web;
  */
 public class FilterChainOrder {
 
-    // Order of filters in login-ui.xml
+    // Order of filters handling user login features, formerly defined by
+    // ordering filter chains in login-ui.xml
     public static final int AUTOLOGIN_AUTHORIZE = 1200;
     public static final int AUTOLOGIN_CODE = 1201;
     public static final int AUTOLOGIN = 1202;
