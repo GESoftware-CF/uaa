@@ -198,36 +198,29 @@ class LoginSecurityConfiguration {
     }
 
     @Bean
-    @Order(FilterChainOrder.RESET_PASSWORD)
-    UaaFilterChain resetPassword(
+    @Order(FilterChainOrder.LOGIN_PUBLIC_OPERATIONS)
+    UaaFilterChain loginPublicOperations(
             HttpSecurity http,
             DisableUserManagementSecurityFilter disableUserManagementSecurityFilter,
             ResetPasswordAuthenticationFilter resetPasswordAuthenticationFilter,
             CookieBasedCsrfTokenRepository csrfTokenRepository
     ) throws Exception {
         var originalChain = http
-                .securityMatcher("/reset_password.do")
-                .addFilterBefore(disableUserManagementSecurityFilter, AnonymousAuthenticationFilter.class)
-                .addFilterAfter(resetPasswordAuthenticationFilter, AuthorizationFilter.class)
-                .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository))
-                .exceptionHandling(EXCEPTION_HANDLING)
-                .build();
-        return new UaaFilterChain(originalChain);
-    }
-
-    @Bean
-    @Order(FilterChainOrder.LOGIN_PUBLIC_OPERATIONS)
-    UaaFilterChain loginPublicOperations(HttpSecurity http) throws Exception {
-        var originalChain = http
                 .securityMatcher(
                         "/delete_saved_account",
                         "/verify_user",
                         "/verify_email",
                         "/forgot_password",
-                        "/forgot_password.do"
+                        "/forgot_password.do",
+                        ResetPasswordAuthenticationFilter.RESET_PASSWORD_URL
                 )
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                .csrf(csrf -> csrf.ignoringRequestMatchers("/forgot_password.do"))
+                .csrf(csrf -> {
+                    csrf.ignoringRequestMatchers("/forgot_password.do");
+                    csrf.csrfTokenRepository(csrfTokenRepository);
+                })
+                .addFilterBefore(disableUserManagementSecurityFilter, AnonymousAuthenticationFilter.class)
+                .addFilterAfter(resetPasswordAuthenticationFilter, AuthorizationFilter.class)
                 .exceptionHandling(EXCEPTION_HANDLING)
                 .build();
         return new UaaFilterChain(originalChain);

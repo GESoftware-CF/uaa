@@ -24,6 +24,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.InternalAuthenticationServiceException;
 import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -40,6 +42,8 @@ public class ResetPasswordAuthenticationFilter extends OncePerRequestFilter {
     private final ResetPasswordService service;
     private final AuthenticationEntryPoint entryPoint;
     private final ExpiringCodeStore expiringCodeStore;
+    public static final String RESET_PASSWORD_URL = "/reset_password.do";
+    private static final RequestMatcher matcher = new AntPathRequestMatcher(RESET_PASSWORD_URL, "POST");
 
     public ResetPasswordAuthenticationFilter(
             ResetPasswordService service,
@@ -59,6 +63,10 @@ public class ResetPasswordAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+        if (!matcher.matches(request)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
         String email = request.getParameter("email");
         String code = request.getParameter("code");
         String password = request.getParameter("password");

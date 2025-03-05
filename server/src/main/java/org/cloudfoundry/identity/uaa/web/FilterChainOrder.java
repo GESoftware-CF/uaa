@@ -13,8 +13,7 @@ public class FilterChainOrder {
     public static final int AUTOLOGIN = 1202;
     public static final int INVITATIONS = 1203;
     public static final int INVITE = 1204;
-    public static final int RESET_PASSWORD = 1205;
-    public static final int LOGIN_PUBLIC_OPERATIONS = 1206;
-    public static final int UI_SECURITY = 1207;
+    public static final int LOGIN_PUBLIC_OPERATIONS = 1205;
+    public static final int UI_SECURITY = 1206;
 
 }
