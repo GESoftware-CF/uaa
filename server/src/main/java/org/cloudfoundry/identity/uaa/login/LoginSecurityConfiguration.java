@@ -216,56 +216,18 @@ class LoginSecurityConfiguration {
     }
 
     @Bean
-    @Order(FilterChainOrder.FORGOT_PASSWORD)
-    UaaFilterChain forgotPassword(HttpSecurity http) throws Exception {
+    @Order(FilterChainOrder.LOGIN_PUBLIC_OPERATIONS)
+    UaaFilterChain loginPublicOperations(HttpSecurity http) throws Exception {
         var originalChain = http
                 .securityMatcher(
+                        "/delete_saved_account",
+                        "/verify_user",
+                        "/verify_email",
                         "/forgot_password",
                         "/forgot_password.do"
                 )
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                .csrf(CsrfConfigurer::disable)
-                .exceptionHandling(EXCEPTION_HANDLING)
-                .build();
-        return new UaaFilterChain(originalChain);
-    }
-
-    @Bean
-    @Order(FilterChainOrder.DELETE_SAVED_ACCOUNT)
-    UaaFilterChain deleteSavedAccount(
-            HttpSecurity http,
-            @Qualifier("clientAuthenticationManager") AuthenticationManager authenticationManager,
-            @Qualifier("basicAuthenticationEntryPoint") AuthenticationEntryPoint authenticationEntryPoint
-    ) throws Exception {
-        var originalChain = http
-                .securityMatcher("/delete_saved_account")
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                .authenticationManager(authenticationManager)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(authenticationEntryPoint))
-                .build();
-        return new UaaFilterChain(originalChain);
-    }
-
-    @Bean
-    @Order(FilterChainOrder.VERIFY_EMAIL)
-    UaaFilterChain verifyEmail(HttpSecurity http) throws Exception {
-        var originalChain = http
-                .securityMatcher("/verify_email")
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                .csrf(CsrfConfigurer::disable)
-                .exceptionHandling(EXCEPTION_HANDLING)
-                .build();
-        return new UaaFilterChain(originalChain);
-    }
-
-    @Bean
-    @Order(FilterChainOrder.VERIFY_USER)
-    UaaFilterChain verifyUser(HttpSecurity http) throws Exception {
-        var originalChain = http
-                .securityMatcher("/verify_user")
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                .csrf(CsrfConfigurer::disable)
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/forgot_password.do"))
                 .exceptionHandling(EXCEPTION_HANDLING)
                 .build();
         return new UaaFilterChain(originalChain);

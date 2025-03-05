@@ -14,10 +14,7 @@ public class FilterChainOrder {
     public static final int INVITATIONS = 1203;
     public static final int INVITE = 1204;
     public static final int RESET_PASSWORD = 1205;
-    public static final int FORGOT_PASSWORD = 1206;
-    public static final int DELETE_SAVED_ACCOUNT = 1207;
-    public static final int VERIFY_EMAIL = 1208;
-    public static final int VERIFY_USER = 1209;
-    public static final int UI_SECURITY = 1210;
+    public static final int LOGIN_PUBLIC_OPERATIONS = 1206;
+    public static final int UI_SECURITY = 1207;
 
 }
