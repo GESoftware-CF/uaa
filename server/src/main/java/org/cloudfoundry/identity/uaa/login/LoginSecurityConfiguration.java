@@ -27,10 +27,12 @@ import org.springframework.core.io.support.ResourcePropertySource;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AnonymousConfigurer;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
+import org.springframework.security.config.annotation.web.configurers.ExceptionHandlingConfigurer;
 import org.springframework.security.config.authentication.AuthenticationManagerBeanDefinitionParser;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.AuthenticationEntryPoint;
@@ -62,6 +64,10 @@ class LoginSecurityConfiguration {
 
     private static final CsrfAwareEntryPointAndDeniedHandler LOGIN_ENTRYPOINT = new CsrfAwareEntryPointAndDeniedHandler("/invalid_request", "/login?error=invalid_login_request");
     private static final CsrfAwareEntryPointAndDeniedHandler ACCESS_DENIED_HANDLER = LOGIN_ENTRYPOINT;
+    private static final Customizer<ExceptionHandlingConfigurer<HttpSecurity>> EXCEPTION_HANDLING = exceptionHandling -> {
+        exceptionHandling.accessDeniedHandler(ACCESS_DENIED_HANDLER);
+        exceptionHandling.authenticationEntryPoint(LOGIN_ENTRYPOINT);
+    };
 
     @Bean
     ResourcePropertySource messagePropertiesSource() throws IOException {
@@ -88,7 +94,7 @@ class LoginSecurityConfiguration {
                 .anonymous(AnonymousConfigurer::disable)
                 .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository))
                 .addFilterAt(autologinFilter, UsernamePasswordAuthenticationFilter.class)
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(LOGIN_ENTRYPOINT))
+                .exceptionHandling(EXCEPTION_HANDLING)
                 .build();
 
         return new UaaFilterChain(originalChain);
@@ -107,7 +113,7 @@ class LoginSecurityConfiguration {
                 .anonymous(AnonymousConfigurer::disable)
                 .csrf(CsrfConfigurer::disable)
                 .addFilterAt(autologinFilter, UsernamePasswordAuthenticationFilter.class)
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(LOGIN_ENTRYPOINT))
+                .exceptionHandling(EXCEPTION_HANDLING)
                 .build();
         return new UaaFilterChain(originalChain);
     }
@@ -156,10 +162,7 @@ class LoginSecurityConfiguration {
                     securityContext.securityContextRepository(securityContextRepository);
                 })
                 .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository))
-                .exceptionHandling(exception -> {
-                    exception.authenticationEntryPoint(LOGIN_ENTRYPOINT);
-                    exception.accessDeniedHandler(ACCESS_DENIED_HANDLER);
-                })
+                .exceptionHandling(EXCEPTION_HANDLING)
                 .build();
         return new UaaFilterChain(originalChain);
     }
@@ -207,10 +210,7 @@ class LoginSecurityConfiguration {
                 .addFilterBefore(disableUserManagementSecurityFilter, AnonymousAuthenticationFilter.class)
                 .addFilterAfter(resetPasswordAuthenticationFilter, AuthorizationFilter.class)
                 .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository))
-                .exceptionHandling(exception -> {
-                    exception.authenticationEntryPoint(LOGIN_ENTRYPOINT);
-                    exception.accessDeniedHandler(ACCESS_DENIED_HANDLER);
-                })
+                .exceptionHandling(EXCEPTION_HANDLING)
                 .build();
         return new UaaFilterChain(originalChain);
     }
@@ -225,9 +225,7 @@ class LoginSecurityConfiguration {
                 )
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .csrf(CsrfConfigurer::disable)
-                .exceptionHandling(exception -> {
-                    exception.authenticationEntryPoint(LOGIN_ENTRYPOINT);
-                })
+                .exceptionHandling(EXCEPTION_HANDLING)
                 .build();
         return new UaaFilterChain(originalChain);
     }
@@ -256,9 +254,7 @@ class LoginSecurityConfiguration {
                 .securityMatcher("/verify_email")
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .csrf(CsrfConfigurer::disable)
-                .exceptionHandling(exception -> {
-                    exception.authenticationEntryPoint(LOGIN_ENTRYPOINT);
-                })
+                .exceptionHandling(EXCEPTION_HANDLING)
                 .build();
         return new UaaFilterChain(originalChain);
     }
@@ -270,7 +266,7 @@ class LoginSecurityConfiguration {
                 .securityMatcher("/verify_user")
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .csrf(CsrfConfigurer::disable)
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(LOGIN_ENTRYPOINT))
+                .exceptionHandling(EXCEPTION_HANDLING)
                 .build();
         return new UaaFilterChain(originalChain);
     }
@@ -282,9 +278,7 @@ class LoginSecurityConfiguration {
                 .securityMatcher("/invitations/accept")
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .csrf(CsrfConfigurer::disable)
-                .exceptionHandling(exception -> {
-                    exception.authenticationEntryPoint(LOGIN_ENTRYPOINT);
-                })
+                .exceptionHandling(EXCEPTION_HANDLING)
                 .build();
         return new UaaFilterChain(originalChain);
     }
@@ -340,7 +334,7 @@ class LoginSecurityConfiguration {
                 .addFilterBefore(clientRedirectStateCache, CsrfFilter.class)
                 .addFilterBefore(new PasswordChangeUiRequiredFilter(), UsernamePasswordAuthenticationFilter.class)
                 .addFilterAt(logoutFilter, LogoutFilter.class)
-                .exceptionHandling(exception -> exception.accessDeniedHandler(ACCESS_DENIED_HANDLER))
+                .exceptionHandling(EXCEPTION_HANDLING)
                 .requestCache(cache -> cache.requestCache(clientRedirectStateCache))
                 .build();
         return new UaaFilterChain(originalChain);
