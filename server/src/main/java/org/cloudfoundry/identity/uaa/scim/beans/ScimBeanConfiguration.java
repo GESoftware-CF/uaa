@@ -40,6 +40,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -120,7 +121,8 @@ public class ScimBeanConfiguration {
 
     @Bean(name = "exceptionToStatusMap")
     public Map<Class<? extends Exception>, HttpStatus> exceptionToStatusMap() {
-        HashMap<Class<? extends Exception>, HttpStatus> map = new HashMap<>();
+        Map<Class<? extends Exception>, HttpStatus> map = new LinkedHashMap<>();
+        map.put(org.springframework.dao.DataAccessException.class, HttpStatus.UNPROCESSABLE_ENTITY);
         map.put(org.springframework.dao.DataIntegrityViolationException.class, HttpStatus.BAD_REQUEST);
         map.put(org.springframework.http.converter.HttpMessageConversionException.class, HttpStatus.BAD_REQUEST);
         map.put(org.springframework.web.HttpMediaTypeException.class, HttpStatus.BAD_REQUEST);
@@ -132,8 +134,8 @@ public class ScimBeanConfiguration {
         map.put(org.cloudfoundry.identity.uaa.scim.exception.ScimResourceAlreadyExistsException.class, HttpStatus.CONFLICT);
         map.put(org.cloudfoundry.identity.uaa.scim.exception.ScimResourceConflictException.class, HttpStatus.CONFLICT);
         map.put(org.springframework.jdbc.BadSqlGrammarException.class, HttpStatus.BAD_REQUEST);
-        map.put(org.springframework.dao.DataAccessException.class, HttpStatus.UNPROCESSABLE_ENTITY);
-        return map;
+
+        return Collections.unmodifiableMap(map);
     }
 
     @Bean
