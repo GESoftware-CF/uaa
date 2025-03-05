@@ -271,18 +271,6 @@ class LoginSecurityConfiguration {
         return new UaaFilterChain(originalChain);
     }
 
-    @Bean
-    @Order(FilterChainOrder.INVITATIONS_ACCEPT)
-    UaaFilterChain acceptInvitation(HttpSecurity http) throws Exception {
-        var originalChain = http
-                .securityMatcher("/invitations/accept")
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                .csrf(CsrfConfigurer::disable)
-                .exceptionHandling(EXCEPTION_HANDLING)
-                .build();
-        return new UaaFilterChain(originalChain);
-    }
-
     /**
      * Handle the UI-related components, such as the login page, the home page, etc.
      * <p>
