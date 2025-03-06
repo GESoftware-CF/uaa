@@ -75,14 +75,17 @@ class LoginSecurityConfiguration {
     }
 
     @Bean
-    @Order(FilterChainOrder.AUTOLOGIN_AUTHORIZE)
-    UaaFilterChain autologinAuthorization(
+    @Order(FilterChainOrder.AUTOLOGIN_CODE)
+    UaaFilterChain autologinCode(
             HttpSecurity http,
             CookieBasedCsrfTokenRepository csrfTokenRepository,
             @Qualifier("autologinAuthenticationFilter") AuthzAuthenticationFilter autologinFilter
     ) throws Exception {
-        var securityMatcher = new UaaRequestMatcher("/oauth/authorize");
-        securityMatcher.setParameters(
+        var autologinMatcher = new UaaRequestMatcher("/autologin");
+        autologinMatcher.setParameters(Map.of("code", ""));
+
+        var oauthAuthorizeMatcher = new UaaRequestMatcher("/oauth/authorize");
+        oauthAuthorizeMatcher.setParameters(
                 Map.of(
                         "response_type", "code",
                         "code", ""
@@ -90,28 +93,12 @@ class LoginSecurityConfiguration {
         );
 
         var originalChain = http
-                .securityMatcher(securityMatcher)
+                .securityMatchers(matchers -> matchers.requestMatchers(autologinMatcher, oauthAuthorizeMatcher))
                 .anonymous(AnonymousConfigurer::disable)
-                .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository))
-                .addFilterAt(autologinFilter, UsernamePasswordAuthenticationFilter.class)
-                .exceptionHandling(EXCEPTION_HANDLING)
-                .build();
-
-        return new UaaFilterChain(originalChain);
-    }
-
-    @Bean
-    @Order(FilterChainOrder.AUTOLOGIN_CODE)
-    UaaFilterChain autologinCode(
-            HttpSecurity http,
-            @Qualifier("autologinAuthenticationFilter") AuthzAuthenticationFilter autologinFilter
-    ) throws Exception {
-        var securityMatcher = new UaaRequestMatcher("/autologin");
-        securityMatcher.setParameters(Map.of("code", ""));
-        var originalChain = http
-                .securityMatcher(securityMatcher)
-                .anonymous(AnonymousConfigurer::disable)
-                .csrf(CsrfConfigurer::disable)
+                .csrf(csrf -> {
+                    csrf.ignoringRequestMatchers("/autologin");
+                    csrf.csrfTokenRepository(csrfTokenRepository);
+                })
                 .addFilterAt(autologinFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(EXCEPTION_HANDLING)
                 .build();
