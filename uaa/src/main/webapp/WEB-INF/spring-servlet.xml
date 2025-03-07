@@ -14,6 +14,8 @@
     <context:annotation-config/>
     <context:component-scan base-package="org.cloudfoundry.identity.uaa"/>
 
+    <authentication-manager alias="emptyAuthenticationManager" id="emptyAuthenticationManager" xmlns="http://www.springframework.org/schema/security"/>
+
     <bean id="uaaConfigValidation" class="org.cloudfoundry.identity.uaa.impl.config.YamlConfigurationValidator">
         <constructor-arg>
             <bean class="org.cloudfoundry.identity.uaa.impl.config.UaaConfiguration.UaaConfigConstructor"/>
@@ -355,7 +357,6 @@
     <import resource="spring/resource-endpoints.xml"/>
     <import resource="spring/openid-endpoints.xml"/>
     <import resource="spring/codestore-endpoints.xml"/>
-    <import resource="spring/authentication.xml"/>
 
     <bean id="messageSource" class="org.springframework.context.support.ReloadableResourceBundleMessageSource">
         <property name="basenames">
@@ -376,6 +377,11 @@
         <property name="realmName" value="UAA/client"/>
         <property name="typeName" value="Basic"/>
         <property name="exceptionTranslator" ref="accountNotVerifiedExceptionTranslator"/>
+    </bean>
+
+    <bean id="oauthAuthenticationEntryPoint"
+          class="org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AuthenticationEntryPoint">
+        <property name="realmName" value="UAA/oauth"/>
     </bean>
 
     <bean id="accountNotVerifiedExceptionTranslator"
