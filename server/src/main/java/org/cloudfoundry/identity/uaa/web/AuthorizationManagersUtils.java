@@ -1,17 +1,16 @@
 package org.cloudfoundry.identity.uaa.web;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Supplier;
+
 import org.cloudfoundry.identity.uaa.oauth.provider.expression.OAuth2ExpressionUtils;
 import org.cloudfoundry.identity.uaa.security.ContextSensitiveOAuth2SecurityExpressionMethods;
-import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.springframework.security.authorization.AuthenticatedAuthorizationManager;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Supplier;
 
 /**
  * Utility class for creating {@link AuthorizationManager} instances.
@@ -96,8 +95,7 @@ public class AuthorizationManagersUtils {
         public AnyOfAuthorizationManager hasScopeWithZoneId(String scope) {
             delegateAuthorizationManagers.add(
                     (auth, ctx) -> {
-                        var identityZone = IdentityZoneHolder.getUaaZone();
-                        var securityMethods = new ContextSensitiveOAuth2SecurityExpressionMethods(auth.get(), identityZone);
+                        var securityMethods = new ContextSensitiveOAuth2SecurityExpressionMethods(auth.get());
                         return new AuthorizationDecision(securityMethods.hasScopeInAuthZone(scope));
                     }
             );
