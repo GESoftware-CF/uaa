@@ -392,8 +392,6 @@
         </constructor-arg>
     </bean>
 
-    <import resource="classpath:spring/login-ui.xml"/>
-
     <bean id="http403EntryPoint" class="org.springframework.security.web.authentication.Http403ForbiddenEntryPoint"/>
 
     <mvc:default-servlet-handler/>
