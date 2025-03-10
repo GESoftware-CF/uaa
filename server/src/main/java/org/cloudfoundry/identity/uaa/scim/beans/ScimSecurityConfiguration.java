@@ -3,6 +3,7 @@ package org.cloudfoundry.identity.uaa.scim.beans;
 import org.cloudfoundry.identity.uaa.oauth.UaaTokenServices;
 import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationManager;
 import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationProcessingFilter;
+import org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AccessDeniedHandler;
 import org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AuthenticationEntryPoint;
 import org.cloudfoundry.identity.uaa.security.IsSelfCheck;
 import org.cloudfoundry.identity.uaa.security.SelfCheckAuthorizationManager;
@@ -44,6 +45,10 @@ class ScimSecurityConfiguration {
     AuthenticationManager emptyAuthenticationManager;
 
     @Autowired
+    @Qualifier("oauthAccessDeniedHandler")
+    OAuth2AccessDeniedHandler oauthAccessDeniedHandler;
+
+    @Autowired
     CookieBasedCsrfTokenRepository csrfTokenRepository;
 
     @Bean
@@ -60,7 +65,10 @@ class ScimSecurityConfiguration {
                 .addFilterBefore(passwordResourceAuthenticationFilter(), BasicAuthenticationFilter.class)
                 .anonymous(AnonymousConfigurer::disable)
                 .csrf(CsrfConfigurer::disable)
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(oauthAuthenticationEntryPoint))
+                .exceptionHandling(exception ->
+                        exception.authenticationEntryPoint(oauthAuthenticationEntryPoint)
+                                .accessDeniedHandler(oauthAccessDeniedHandler)
+                )
                 .build();
 
         return new UaaFilterChain(chain, "scimUserPassword");
@@ -80,7 +88,10 @@ class ScimSecurityConfiguration {
                 .addFilterBefore(resourceAgnosticAuthenticationFilter(), BasicAuthenticationFilter.class)
                 .anonymous(AnonymousConfigurer::disable)
                 .csrf(CsrfConfigurer::disable)
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(oauthAuthenticationEntryPoint))
+                .exceptionHandling(exception ->
+                        exception.authenticationEntryPoint(oauthAuthenticationEntryPoint)
+                                .accessDeniedHandler(oauthAccessDeniedHandler)
+                )
                 .build();
 
         return new UaaFilterChain(chain, "scimUserIds");
@@ -109,7 +120,10 @@ class ScimSecurityConfiguration {
                 .addFilterBefore(resourceAgnosticAuthenticationFilter(), BasicAuthenticationFilter.class)
                 .anonymous(AnonymousConfigurer::disable)
                 .csrf(CsrfConfigurer::disable)
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(oauthAuthenticationEntryPoint))
+                .exceptionHandling(exception ->
+                        exception.authenticationEntryPoint(oauthAuthenticationEntryPoint)
+                                .accessDeniedHandler(oauthAccessDeniedHandler)
+                )
                 .build();
 
         return new UaaFilterChain(chain, "groupEndpointSecurity");
@@ -136,7 +150,10 @@ class ScimSecurityConfiguration {
                 .addFilterBefore(resourceAgnosticAuthenticationFilter(), BasicAuthenticationFilter.class)
                 .anonymous(AnonymousConfigurer::disable)
                 .csrf(CsrfConfigurer::disable)
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(oauthAuthenticationEntryPoint))
+                .exceptionHandling(exception ->
+                        exception.authenticationEntryPoint(oauthAuthenticationEntryPoint)
+                                .accessDeniedHandler(oauthAccessDeniedHandler)
+                )
                 .build();
 
         return new UaaFilterChain(chain, "scimUsers");
