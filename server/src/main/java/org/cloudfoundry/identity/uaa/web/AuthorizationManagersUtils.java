@@ -1,11 +1,16 @@
 package org.cloudfoundry.identity.uaa.web;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Supplier;
 
+import org.cloudfoundry.identity.uaa.oauth.common.exceptions.InsufficientScopeException;
 import org.cloudfoundry.identity.uaa.oauth.provider.expression.OAuth2ExpressionUtils;
 import org.cloudfoundry.identity.uaa.security.ContextSensitiveOAuth2SecurityExpressionMethods;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authorization.AuthenticatedAuthorizationManager;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
@@ -24,19 +29,44 @@ public class AuthorizationManagersUtils {
         return new AnyOfAuthorizationManager();
     }
 
+    public static AnyOfAuthorizationManager anyOf(boolean throwOnError) {
+        AnyOfAuthorizationManager result = anyOf();
+        if (throwOnError) {
+            result.throwOnError();
+        }
+        return result;
+    }
+
     public static class AnyOfAuthorizationManager implements AuthorizationManager<RequestAuthorizationContext> {
 
         private final List<AuthorizationManager<RequestAuthorizationContext>> delegateAuthorizationManagers = new ArrayList<>();
+        private boolean throwOnError = false;
+        private Set<String> missingScopes = new LinkedHashSet<>();
 
         @Override
         public AuthorizationDecision check(Supplier<Authentication> authentication, RequestAuthorizationContext object) {
             for (var authorizationManager : this.delegateAuthorizationManagers) {
-                var decision = authorizationManager.check(authentication, object);
-                if (decision != null && decision.isGranted()) {
-                    return decision;
+                AuthorizationDecision decision = authorizationManager.check(authentication, object);
+                if (decision != null) {
+                    if (decision.isGranted()) {
+                        return decision;
+                    } else if (decision instanceof ScopeTrackingAuthorizationDecision) {
+                        ScopeTrackingAuthorizationDecision scopeDecision = (ScopeTrackingAuthorizationDecision)decision;
+                        missingScopes.addAll(scopeDecision.getScopes());
+                    }
                 }
+
+            }
+            if (throwOnError && !missingScopes.isEmpty()) {
+                Throwable failure = new InsufficientScopeException("Insufficient scope for this resource", missingScopes);
+                throw new AccessDeniedException(failure.getMessage(), failure);
             }
             return new AuthorizationDecision(false);
+        }
+
+        public AnyOfAuthorizationManager throwOnError() {
+            this.throwOnError = true;
+            return this;
         }
 
         /**
@@ -84,7 +114,7 @@ public class AuthorizationManagersUtils {
          */
         public AnyOfAuthorizationManager hasScope(String... scope) {
             delegateAuthorizationManagers.add(
-                    (auth, ctx) -> new AuthorizationDecision(OAuth2ExpressionUtils.hasAnyScope(auth.get(), scope))
+                    (auth, ctx) -> new ScopeTrackingAuthorizationDecision(OAuth2ExpressionUtils.hasAnyScope(auth.get(), scope), scope)
             );
             return this;
         }
@@ -96,10 +126,28 @@ public class AuthorizationManagersUtils {
             delegateAuthorizationManagers.add(
                     (auth, ctx) -> {
                         var securityMethods = new ContextSensitiveOAuth2SecurityExpressionMethods(auth.get());
-                        return new AuthorizationDecision(securityMethods.hasScopeInAuthZone(scope));
+                        return new ScopeTrackingAuthorizationDecision(securityMethods.hasScopeInAuthZone(scope), scope);
                     }
             );
             return this;
+        }
+    }
+
+    public static class ScopeTrackingAuthorizationDecision extends AuthorizationDecision {
+        private Set<String> scopes = new LinkedHashSet<>();
+        public ScopeTrackingAuthorizationDecision(boolean granted, String... scopes) {
+            super(granted);
+            if (scopes != null) {
+                Collections.addAll(this.scopes, scopes);
+            }
+        }
+
+        public boolean hasScopes() {
+            return !scopes.isEmpty();
+        }
+
+        public Set<String> getScopes() {
+            return this.scopes;
         }
     }
 }
