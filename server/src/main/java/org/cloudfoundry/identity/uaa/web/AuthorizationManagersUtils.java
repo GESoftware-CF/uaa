@@ -133,17 +133,13 @@ public class AuthorizationManagersUtils {
         }
     }
 
-    public static class ScopeTrackingAuthorizationDecision extends AuthorizationDecision {
+    private static class ScopeTrackingAuthorizationDecision extends AuthorizationDecision {
         private Set<String> scopes = new LinkedHashSet<>();
         public ScopeTrackingAuthorizationDecision(boolean granted, String... scopes) {
             super(granted);
             if (scopes != null) {
                 Collections.addAll(this.scopes, scopes);
             }
-        }
-
-        public boolean hasScopes() {
-            return !scopes.isEmpty();
         }
 
         public Set<String> getScopes() {
