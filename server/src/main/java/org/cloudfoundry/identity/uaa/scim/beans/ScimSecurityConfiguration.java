@@ -63,7 +63,7 @@ class ScimSecurityConfiguration {
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(oauthAuthenticationEntryPoint))
                 .build();
 
-        return new UaaFilterChain(chain, "groupEndpointSecurity");
+        return new UaaFilterChain(chain, "scimUserPassword");
     }
 
     @Bean
@@ -83,7 +83,7 @@ class ScimSecurityConfiguration {
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(oauthAuthenticationEntryPoint))
                 .build();
 
-        return new UaaFilterChain(chain, "groupEndpointSecurity");
+        return new UaaFilterChain(chain, "scimUserIds");
     }
 
     @Bean
