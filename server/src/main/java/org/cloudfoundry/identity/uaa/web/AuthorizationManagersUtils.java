@@ -50,8 +50,7 @@ public class AuthorizationManagersUtils {
                 if (decision != null) {
                     if (decision.isGranted()) {
                         return decision;
-                    } else if (decision instanceof ScopeTrackingAuthorizationDecision) {
-                        ScopeTrackingAuthorizationDecision scopeDecision = (ScopeTrackingAuthorizationDecision)decision;
+                    } else if (decision instanceof ScopeTrackingAuthorizationDecision scopeDecision) {
                         missingScopes.addAll(scopeDecision.getScopes());
                     }
                 }
