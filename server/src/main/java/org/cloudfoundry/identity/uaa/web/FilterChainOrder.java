@@ -6,8 +6,10 @@ package org.cloudfoundry.identity.uaa.web;
  */
 public class FilterChainOrder {
 
+    // Order of filters in login-ui.xml
     public static final int SCIM_PASSWORD = 400;
     public static final int SCIM = 401;
+    public static final int RATE_LIMIT = 700;
     public static final int CODESTORE = 900;
 
     // Order of filters handling user login features, formerly defined by
