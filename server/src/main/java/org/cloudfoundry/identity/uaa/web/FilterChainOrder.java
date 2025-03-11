@@ -12,7 +12,8 @@ public class FilterChainOrder {
     public static final int INVITATIONS = 1202;
     public static final int INVITE = 1203;
     public static final int LOGIN_PUBLIC_OPERATIONS = 1204;
-    public static final int SCIM = 1205;
-    public static final int UI_SECURITY = 1206;
+    public static final int SCIM_PASSWORD = 1205;
+    public static final int SCIM = 1206;
+    public static final int UI_SECURITY = 1207;
 
 }

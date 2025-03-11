@@ -52,7 +52,7 @@ class ScimSecurityConfiguration {
     CookieBasedCsrfTokenRepository csrfTokenRepository;
 
     @Bean
-    @Order(FilterChainOrder.SCIM)
+    @Order(FilterChainOrder.SCIM_PASSWORD)
     UaaFilterChain scimUserPassword(HttpSecurity http) throws Exception {
         SecurityFilterChain chain = http
                 .securityMatcher("/User*/*/password", "/User*/*/password/**")
