@@ -6,7 +6,7 @@ import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2Authent
 import org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AccessDeniedHandler;
 import org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AuthenticationEntryPoint;
 import org.cloudfoundry.identity.uaa.security.IsSelfCheck;
-import org.cloudfoundry.identity.uaa.security.SelfCheckAuthorizationManager;
+import org.cloudfoundry.identity.uaa.web.SelfCheckAuthorizationManager;
 import org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository;
 import org.cloudfoundry.identity.uaa.web.FilterChainOrder;
 import org.cloudfoundry.identity.uaa.web.UaaFilterChain;
@@ -16,8 +16,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.access.vote.UnanimousBased;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AnonymousConfigurer;
@@ -41,10 +39,6 @@ class ScimSecurityConfiguration {
     OAuth2AuthenticationEntryPoint oauthAuthenticationEntryPoint;
 
     @Autowired
-    @Qualifier("emptyAuthenticationManager")
-    AuthenticationManager emptyAuthenticationManager;
-
-    @Autowired
     @Qualifier("oauthAccessDeniedHandler")
     OAuth2AccessDeniedHandler oauthAccessDeniedHandler;
 
@@ -55,12 +49,11 @@ class ScimSecurityConfiguration {
     @Order(FilterChainOrder.SCIM_PASSWORD)
     UaaFilterChain scimUserPassword(HttpSecurity http) throws Exception {
         SecurityFilterChain chain = http
-                .securityMatcher("/User*/*/password", "/User*/*/password/**")
+                .securityMatcher("/Users/*/password", "/Users/*/password/**")
                 .authorizeHttpRequests( auth -> {
                     auth.requestMatchers("/**").access(anyOf(true).hasScopeWithZoneId("password.write"));
                     auth.anyRequest().denyAll();
                 })
-                .authenticationManager(emptyAuthenticationManager)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(passwordResourceAuthenticationFilter(), BasicAuthenticationFilter.class)
                 .anonymous(AnonymousConfigurer::disable)
@@ -83,7 +76,6 @@ class ScimSecurityConfiguration {
                     auth.requestMatchers("/**").access(anyOf(true).hasScopeWithZoneId("scim.userids"));
                     auth.anyRequest().denyAll();
                 })
-                .authenticationManager(emptyAuthenticationManager)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(resourceAgnosticAuthenticationFilter(), BasicAuthenticationFilter.class)
                 .anonymous(AnonymousConfigurer::disable)
@@ -115,7 +107,6 @@ class ScimSecurityConfiguration {
                     auth.requestMatchers(HttpMethod.POST, "/Groups").access(anyOf(true).hasScope("scim.write").isZoneAdmin());
                     auth.anyRequest().denyAll();
                 })
-                .authenticationManager(emptyAuthenticationManager)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(resourceAgnosticAuthenticationFilter(), BasicAuthenticationFilter.class)
                 .anonymous(AnonymousConfigurer::disable)
@@ -145,7 +136,6 @@ class ScimSecurityConfiguration {
                     auth.requestMatchers(HttpMethod.POST, "/Users","/Users/*").access(anyOf(true).hasScope("scim.write", "scim.create").isZoneAdmin());
                     auth.anyRequest().denyAll();
                 })
-                .authenticationManager(emptyAuthenticationManager)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(resourceAgnosticAuthenticationFilter(), BasicAuthenticationFilter.class)
                 .anonymous(AnonymousConfigurer::disable)

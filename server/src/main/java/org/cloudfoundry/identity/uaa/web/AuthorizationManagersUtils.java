@@ -29,10 +29,10 @@ public class AuthorizationManagersUtils {
         return new AnyOfAuthorizationManager();
     }
 
-    public static AnyOfAuthorizationManager anyOf(boolean throwOnError) {
+    public static AnyOfAuthorizationManager anyOf(boolean throwOnMissingScope) {
         AnyOfAuthorizationManager result = anyOf();
-        if (throwOnError) {
-            result.throwOnError();
+        if (throwOnMissingScope) {
+            result.throwOnMissingScope();
         }
         return result;
     }
@@ -40,7 +40,7 @@ public class AuthorizationManagersUtils {
     public static class AnyOfAuthorizationManager implements AuthorizationManager<RequestAuthorizationContext> {
 
         private final List<AuthorizationManager<RequestAuthorizationContext>> delegateAuthorizationManagers = new ArrayList<>();
-        private boolean throwOnError = false;
+        private boolean throwOnMissingScope = false;
         private Set<String> missingScopes = new LinkedHashSet<>();
 
         @Override
@@ -56,15 +56,15 @@ public class AuthorizationManagersUtils {
                 }
 
             }
-            if (throwOnError && !missingScopes.isEmpty()) {
+            if (throwOnMissingScope && !missingScopes.isEmpty()) {
                 Throwable failure = new InsufficientScopeException("Insufficient scope for this resource", missingScopes);
                 throw new AccessDeniedException(failure.getMessage(), failure);
             }
             return new AuthorizationDecision(false);
         }
 
-        public AnyOfAuthorizationManager throwOnError() {
-            this.throwOnError = true;
+        public AnyOfAuthorizationManager throwOnMissingScope() {
+            this.throwOnMissingScope = true;
             return this;
         }
 
