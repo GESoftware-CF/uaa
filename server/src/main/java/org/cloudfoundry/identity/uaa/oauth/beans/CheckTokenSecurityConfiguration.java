@@ -1,4 +1,4 @@
-package org.cloudfoundry.identity.uaa.ratelimiting.beans;
+package org.cloudfoundry.identity.uaa.oauth.beans;
 
 import org.cloudfoundry.identity.uaa.authentication.ClientBasicAuthenticationFilter;
 import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationProcessingFilter;
@@ -20,13 +20,9 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 
-import static org.cloudfoundry.identity.uaa.web.AuthorizationManagersUtils.anyOf;
-
 @Configuration
 @EnableWebSecurity
-class RateLimiterSecurityConfiguration {
-
-
+public class CheckTokenSecurityConfiguration {
     @Autowired
     @Qualifier("basicAuthenticationEntryPoint")
     OAuth2AuthenticationEntryPoint basicAuthenticationEntryPoint;
@@ -40,26 +36,21 @@ class RateLimiterSecurityConfiguration {
     OAuth2AccessDeniedHandler oauthAccessDeniedHandler;
 
     @Autowired
-    @Qualifier("oauthWithoutResourceAuthenticationFilter")
-    OAuth2AuthenticationProcessingFilter oauthWithoutResourceAuthenticationFilter;
-
-    @Autowired
     @Qualifier("clientAuthenticationFilter")
     ClientBasicAuthenticationFilter clientAuthenticationFilter;
 
     @Bean
     @Order(FilterChainOrder.RATE_LIMIT)
-    UaaFilterChain ratelimitSecurity(HttpSecurity http) throws Exception {
+    UaaFilterChain checkTokenSecurity(HttpSecurity http) throws Exception {
         SecurityFilterChain chain = http
-                .securityMatcher("/RateLimitingStatus/**")
+                .securityMatcher("/check_token")
                 .authorizeHttpRequests( auth -> {
-                    auth.requestMatchers("/**").hasAuthority("uaa.admin");
+                    auth.requestMatchers("/**").hasAuthority("uaa.resource");
                     auth.anyRequest().denyAll();
                 })
                 //TODO is the auth manager needed?
                 .authenticationManager(clientAuthenticationManager)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(oauthWithoutResourceAuthenticationFilter, BasicAuthenticationFilter.class)
                 .addFilterAt(clientAuthenticationFilter, BasicAuthenticationFilter.class)
                 .anonymous(AnonymousConfigurer::disable)
                 .csrf(CsrfConfigurer::disable)
@@ -69,6 +60,6 @@ class RateLimiterSecurityConfiguration {
                 )
                 .build();
 
-        return new UaaFilterChain(chain, "ratelimitSecurity");
+        return new UaaFilterChain(chain, "checkTokenSecurity");
     }
 }

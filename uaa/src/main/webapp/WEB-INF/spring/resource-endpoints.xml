@@ -3,17 +3,6 @@
           xsi:schemaLocation="http://www.springframework.org/schema/security https://www.springframework.org/schema/security/spring-security.xsd
         http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd">
 
-    <http name="checkTokenSecurity" pattern="/check_token" create-session="stateless"
-                    entry-point-ref="basicAuthenticationEntryPoint"
-                    authentication-manager-ref="clientAuthenticationManager" use-expressions="true"
-                    xmlns="http://www.springframework.org/schema/security">
-        <intercept-url pattern="/**" access="hasAuthority('uaa.resource')"/>
-        <anonymous enabled="false"/>
-        <custom-filter ref="clientAuthenticationFilter" position="BASIC_AUTH_FILTER"/>
-        <access-denied-handler ref="oauthAccessDeniedHandler"/>
-        <csrf disabled="true"/>
-    </http>
-
     <http name="introspectSecurity" pattern="/introspect" create-session="stateless"
                     entry-point-ref="basicAuthenticationEntryPoint"
                     authentication-manager-ref="clientAuthenticationManager" use-expressions="true"
