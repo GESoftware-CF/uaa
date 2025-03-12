@@ -13,11 +13,9 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
-import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
-import org.springframework.security.config.authentication.AuthenticationManagerBeanDefinitionParser;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter;
 
@@ -33,8 +31,6 @@ class UserInfoSecurityConfiguration {
             @Qualifier("oauthAccessDeniedHandler") OAuth2AccessDeniedHandler oauthAccessDeniedHandler,
             @Qualifier("oauthAuthenticationEntryPoint") OAuth2AuthenticationEntryPoint oauthAuthenticationEntryPoint
     ) throws Exception {
-        var emptyAuthenticationManager = new ProviderManager(new AuthenticationManagerBeanDefinitionParser.NullAuthenticationProvider());
-
         var oauth2AuthenticationManager = new OAuth2AuthenticationManager();
         oauth2AuthenticationManager.setTokenServices(tokenServices);
         oauth2AuthenticationManager.setResourceId("openid");
@@ -44,11 +40,13 @@ class UserInfoSecurityConfiguration {
 
         var originalChain = http
                 .securityMatcher("/userinfo")
-                .authenticationManager(emptyAuthenticationManager) // TODO
                 .authorizeHttpRequests(auth -> auth.anyRequest().access(anyOf().hasScope("openid")))
                 .addFilterBefore(oidcResourceAuthenticationFilter, AbstractPreAuthenticatedProcessingFilter.class)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .csrf(CsrfConfigurer::disable) // TODO
+                // Although it is RECOMMENDED that /userinfo requests be GET requests, they MAY be POST requests.
+                // We disable CSRF protection for that use-case.
+                // https://openid.net/specs/openid-connect-core-1_0.html#UserInfo
+                .csrf(CsrfConfigurer::disable)
                 .exceptionHandling(exception -> {
                     exception.authenticationEntryPoint(oauthAuthenticationEntryPoint);
                     exception.accessDeniedHandler(oauthAccessDeniedHandler);
