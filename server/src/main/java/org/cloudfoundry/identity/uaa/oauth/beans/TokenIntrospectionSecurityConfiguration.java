@@ -20,6 +20,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 
+import static org.cloudfoundry.identity.uaa.web.AuthorizationManagersUtils.anyOf;
+
 @Configuration
 @EnableWebSecurity
 public class TokenIntrospectionSecurityConfiguration {
@@ -65,6 +67,29 @@ public class TokenIntrospectionSecurityConfiguration {
                 .build();
 
         return new UaaFilterChain(chain, "checkTokenSecurity");
+    }
+
+    @Bean
+    @Order(FilterChainOrder.RATE_LIMIT)
+    UaaFilterChain tokenKeySecurity(HttpSecurity http) throws Exception {
+        SecurityFilterChain chain = http
+                .securityMatcher("/token_key/**", "/token_keys/**")
+                .authorizeHttpRequests( auth -> {
+                    auth.requestMatchers("/**").access(anyOf().anonymous().fullyAuthenticated());
+                    auth.anyRequest().denyAll();
+                })
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                //TODO is the auth manager needed?
+                .authenticationManager(clientAuthenticationManager)
+                .addFilterAt(clientAuthenticationFilter, BasicAuthenticationFilter.class)
+                .csrf(CsrfConfigurer::disable)
+                .exceptionHandling(exception ->
+                        exception.authenticationEntryPoint(basicAuthenticationEntryPoint)
+                                .accessDeniedHandler(oauthAccessDeniedHandler)
+                )
+                .build();
+
+        return new UaaFilterChain(chain, "tokenKeySecurity");
     }
 
     @Bean
