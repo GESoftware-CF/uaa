@@ -22,7 +22,7 @@ import org.springframework.security.web.authentication.www.BasicAuthenticationFi
 
 @Configuration
 @EnableWebSecurity
-public class CheckTokenSecurityConfiguration {
+public class TokenIntrospectionSecurityConfiguration {
     @Autowired
     @Qualifier("basicAuthenticationEntryPoint")
     OAuth2AuthenticationEntryPoint basicAuthenticationEntryPoint;
@@ -34,6 +34,10 @@ public class CheckTokenSecurityConfiguration {
     @Autowired
     @Qualifier("oauthAccessDeniedHandler")
     OAuth2AccessDeniedHandler oauthAccessDeniedHandler;
+
+    @Autowired
+    @Qualifier("oauthWithoutResourceAuthenticationFilter")
+    OAuth2AuthenticationProcessingFilter oauthWithoutResourceAuthenticationFilter;
 
     @Autowired
     @Qualifier("clientAuthenticationFilter")
@@ -61,5 +65,30 @@ public class CheckTokenSecurityConfiguration {
                 .build();
 
         return new UaaFilterChain(chain, "checkTokenSecurity");
+    }
+
+    @Bean
+    @Order(FilterChainOrder.RATE_LIMIT)
+    UaaFilterChain introspectSecurity(HttpSecurity http) throws Exception {
+        SecurityFilterChain chain = http
+                .securityMatcher("/introspect")
+                .authorizeHttpRequests( auth -> {
+                    auth.requestMatchers("/**").hasAuthority("uaa.resource");
+                    auth.anyRequest().denyAll();
+                })
+                //TODO is the auth manager needed?
+                .authenticationManager(clientAuthenticationManager)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(oauthWithoutResourceAuthenticationFilter, BasicAuthenticationFilter.class)
+                .addFilterAt(clientAuthenticationFilter, BasicAuthenticationFilter.class)
+                .anonymous(AnonymousConfigurer::disable)
+                .csrf(CsrfConfigurer::disable)
+                .exceptionHandling(exception ->
+                        exception.authenticationEntryPoint(basicAuthenticationEntryPoint)
+                                .accessDeniedHandler(oauthAccessDeniedHandler)
+                )
+                .build();
+
+        return new UaaFilterChain(chain, "introspectSecurity");
     }
 }
