@@ -12,18 +12,4 @@
         <constructor-arg ref="jdbcTemplate"/>
     </bean>
 
-    <http name="approvalsSecurity" pattern="/approvals/**" create-session="stateless"
-                    authentication-manager-ref="emptyAuthenticationManager"
-                    entry-point-ref="oauthAuthenticationEntryPoint" access-decision-manager-ref="accessDecisionManager"
-                    use-expressions="false"
-                    xmlns="http://www.springframework.org/schema/security">
-        <intercept-url pattern="/**" access="scope=oauth.approvals"/>
-        <custom-filter ref="approvalsResourceAuthenticationFilter" position="PRE_AUTH_FILTER"/>
-        <access-denied-handler ref="oauthAccessDeniedHandler"/>
-        <csrf disabled="true"/>
-    </http>
-
-    <oauth:resource-server id="approvalsResourceAuthenticationFilter" token-services-ref="tokenServices"
-                    resource-id="oauth" entry-point-ref="oauthAuthenticationEntryPoint"/>
-
 </beans>
