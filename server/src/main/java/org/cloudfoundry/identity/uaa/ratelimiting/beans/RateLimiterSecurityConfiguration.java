@@ -51,7 +51,7 @@ class RateLimiterSecurityConfiguration {
     @Order(FilterChainOrder.RATE_LIMIT)
     UaaFilterChain ratelimitSecurity(HttpSecurity http) throws Exception {
         SecurityFilterChain chain = http
-                .securityMatcher("/RateLimitingStatus/**", "/RateLimitingStatus" )
+                .securityMatcher("/RateLimitingStatus/**")
                 .authorizeHttpRequests( auth -> {
                     auth.requestMatchers("/**").hasAuthority("uaa.admin");
                     auth.anyRequest().denyAll();
