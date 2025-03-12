@@ -21,6 +21,7 @@ public class FilterChainOrder {
     // multitenant-endpoints.xml: 400
 
     // approval-endpoints.xml: 500
+    public static final int APPROVAL = 500;
 
     // client-admin-endpoints.xml: 600
 
