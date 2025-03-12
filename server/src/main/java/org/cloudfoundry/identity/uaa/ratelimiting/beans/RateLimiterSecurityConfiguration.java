@@ -48,7 +48,7 @@ class RateLimiterSecurityConfiguration {
     ClientBasicAuthenticationFilter clientAuthenticationFilter;
 
     @Bean
-    @Order(FilterChainOrder.RATE_LIMIT)
+    @Order(FilterChainOrder.RESOURCE)
     UaaFilterChain ratelimitSecurity(HttpSecurity http) throws Exception {
         SecurityFilterChain chain = http
                 .securityMatcher("/RateLimitingStatus/**")

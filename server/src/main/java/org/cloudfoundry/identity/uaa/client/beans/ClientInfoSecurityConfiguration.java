@@ -39,7 +39,7 @@ public class ClientInfoSecurityConfiguration {
     @Qualifier("clientAuthenticationFilter")
     ClientBasicAuthenticationFilter clientAuthenticationFilter;
     @Bean
-    @Order(FilterChainOrder.RATE_LIMIT)
+    @Order(FilterChainOrder.RESOURCE)
     UaaFilterChain clientInfoSecurity(HttpSecurity http) throws Exception {
         SecurityFilterChain chain = http
                 .securityMatcher("/clientinfo/**")

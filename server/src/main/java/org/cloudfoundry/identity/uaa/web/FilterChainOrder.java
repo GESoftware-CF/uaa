@@ -25,7 +25,7 @@ public class FilterChainOrder {
     // client-admin-endpoints.xml: 600
 
     // resource-endpoints.xml: 700
-    public static final int RATE_LIMIT = 700;
+    public static final int RESOURCE = 700;
 
     // openid-endpoints.xml: 800
     public static final int USERINFO = 800;

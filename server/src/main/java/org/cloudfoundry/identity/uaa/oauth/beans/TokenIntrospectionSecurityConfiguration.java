@@ -46,7 +46,7 @@ public class TokenIntrospectionSecurityConfiguration {
     ClientBasicAuthenticationFilter clientAuthenticationFilter;
 
     @Bean
-    @Order(FilterChainOrder.RATE_LIMIT)
+    @Order(FilterChainOrder.RESOURCE)
     UaaFilterChain checkTokenSecurity(HttpSecurity http) throws Exception {
         SecurityFilterChain chain = http
                 .securityMatcher("/check_token")
@@ -70,7 +70,7 @@ public class TokenIntrospectionSecurityConfiguration {
     }
 
     @Bean
-    @Order(FilterChainOrder.RATE_LIMIT)
+    @Order(FilterChainOrder.RESOURCE)
     UaaFilterChain tokenKeySecurity(HttpSecurity http) throws Exception {
         SecurityFilterChain chain = http
                 .securityMatcher("/token_key/**", "/token_keys/**")
@@ -93,7 +93,7 @@ public class TokenIntrospectionSecurityConfiguration {
     }
 
     @Bean
-    @Order(FilterChainOrder.RATE_LIMIT)
+    @Order(FilterChainOrder.RESOURCE)
     UaaFilterChain introspectSecurity(HttpSecurity http) throws Exception {
         SecurityFilterChain chain = http
                 .securityMatcher("/introspect")
