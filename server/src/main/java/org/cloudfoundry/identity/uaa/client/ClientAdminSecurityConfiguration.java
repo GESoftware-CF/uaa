@@ -14,12 +14,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authorization.AuthorizationManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
-import org.springframework.security.config.authentication.AuthenticationManagerBeanDefinitionParser;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter;
@@ -36,7 +34,6 @@ class ClientAdminSecurityConfiguration {
             @Qualifier("oauthAccessDeniedHandler") OAuth2AccessDeniedHandler oauthAccessDeniedHandler,
             @Qualifier("clientAdminOAuth2ResourceFilter") OAuth2AuthenticationProcessingFilter resourceFilter
     ) throws Exception {
-        var emptyAuthManager = new ProviderManager(new AuthenticationManagerBeanDefinitionParser.NullAuthenticationProvider());
         var originalChain = http
                 .securityMatcher("/oauth/clients/**")
                 .authorizeHttpRequests(auth -> {
@@ -59,7 +56,6 @@ class ClientAdminSecurityConfiguration {
 
                     auth.anyRequest().denyAll();
                 })
-                .authenticationManager(emptyAuthManager)
                 .addFilterAt(resourceFilter, AbstractPreAuthenticatedProcessingFilter.class)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .csrf(CsrfConfigurer::disable)
