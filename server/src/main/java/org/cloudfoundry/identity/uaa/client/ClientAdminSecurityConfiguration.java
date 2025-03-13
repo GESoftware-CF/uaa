@@ -15,11 +15,13 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authorization.AuthorizationManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.config.authentication.AuthenticationManagerBeanDefinitionParser;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter;
 
 @Configuration
@@ -36,122 +38,28 @@ class ClientAdminSecurityConfiguration {
     ) throws Exception {
         var emptyAuthManager = new ProviderManager(new AuthenticationManagerBeanDefinitionParser.NullAuthenticationProvider());
         var originalChain = http
-                .securityMatcher("/oauth/clients/*/secret")
-                .authenticationManager(emptyAuthManager)
-                .authorizeHttpRequests(auth -> {
-                    auth.anyRequest().access(
-                            anyOf()
-                                    .isUaaAdmin()
-                                    .hasScope("clients.secret", "clients.admin")
-                                    .isZoneAdmin()
-                    );
-                })
-                .addFilterAt(resourceFilter, AbstractPreAuthenticatedProcessingFilter.class)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .csrf(CsrfConfigurer::disable)
-                .exceptionHandling(exception -> {
-                    exception.authenticationEntryPoint(oauthAuthenticationEntryPoint);
-                    exception.accessDeniedHandler(oauthAccessDeniedHandler);
-                })
-                .build();
-        return new UaaFilterChain(originalChain, "clientAdminCatchAll");
-    }
-
-    @Bean
-    @Order(FilterChainOrder.CLIENT_ADMIN)
-    UaaFilterChain clientJwt(
-            HttpSecurity http,
-            @Qualifier("oauthAuthenticationEntryPoint") OAuth2AuthenticationEntryPoint oauthAuthenticationEntryPoint,
-            @Qualifier("oauthAccessDeniedHandler") OAuth2AccessDeniedHandler oauthAccessDeniedHandler,
-            @Qualifier("clientAdminOAuth2ResourceFilter") OAuth2AuthenticationProcessingFilter resourceFilter
-    ) throws Exception {
-        var emptyAuthManager = new ProviderManager(new AuthenticationManagerBeanDefinitionParser.NullAuthenticationProvider());
-        var originalChain = http
-                .securityMatcher("/oauth/clients/*/clientjwt")
-                .authenticationManager(emptyAuthManager)
-                .authorizeHttpRequests(auth -> {
-                    auth.anyRequest().access(
-                            anyOf()
-                                    .isUaaAdmin()
-                                    .hasScope("clients.trust", "clients.admin")
-                                    .isZoneAdmin()
-                    );
-                })
-                .addFilterAt(resourceFilter, AbstractPreAuthenticatedProcessingFilter.class)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .csrf(CsrfConfigurer::disable)
-                .exceptionHandling(exception -> {
-                    exception.authenticationEntryPoint(oauthAuthenticationEntryPoint);
-                    exception.accessDeniedHandler(oauthAccessDeniedHandler);
-                })
-                .build();
-        return new UaaFilterChain(originalChain, "clientJwt");
-    }
-
-    @Bean
-    @Order(FilterChainOrder.CLIENT_ADMIN)
-    UaaFilterChain clientTx(
-            HttpSecurity http,
-            @Qualifier("oauthAuthenticationEntryPoint") OAuth2AuthenticationEntryPoint oauthAuthenticationEntryPoint,
-            @Qualifier("oauthAccessDeniedHandler") OAuth2AccessDeniedHandler oauthAccessDeniedHandler,
-            @Qualifier("clientAdminOAuth2ResourceFilter") OAuth2AuthenticationProcessingFilter resourceFilter
-    ) throws Exception {
-        var emptyAuthManager = new ProviderManager(new AuthenticationManagerBeanDefinitionParser.NullAuthenticationProvider());
-        var originalChain = http
-                .securityMatcher("/oauth/clients/tx/**")
-                .authenticationManager(emptyAuthManager)
-                .authorizeHttpRequests(auth -> {
-                    var clientAdminScope = anyOf()
-                            .isUaaAdmin()
-                            .isZoneAdmin()
-                            .hasScope("clients.admin");
-                    auth.requestMatchers(HttpMethod.POST, "/oauth/clients/tx/**").access(clientAdminScope);
-                    auth.requestMatchers(HttpMethod.PUT, "/oauth/clients/tx/**").access(clientAdminScope);
-                    auth.requestMatchers(HttpMethod.DELETE, "/oauth/clients/tx/**").access(clientAdminScope);
-                    auth.anyRequest().denyAll();
-                })
-                .addFilterAt(resourceFilter, AbstractPreAuthenticatedProcessingFilter.class)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .csrf(CsrfConfigurer::disable)
-                .exceptionHandling(exception -> {
-                    exception.authenticationEntryPoint(oauthAuthenticationEntryPoint);
-                    exception.accessDeniedHandler(oauthAccessDeniedHandler);
-                })
-                .build();
-        return new UaaFilterChain(originalChain, "clientTx");
-    }
-
-    @Bean
-    @Order(FilterChainOrder.CLIENT_SECRET_CATCHALL)
-    UaaFilterChain clientAdminCatchAll(
-            HttpSecurity http,
-            @Qualifier("oauthAuthenticationEntryPoint") OAuth2AuthenticationEntryPoint oauthAuthenticationEntryPoint,
-            @Qualifier("oauthAccessDeniedHandler") OAuth2AccessDeniedHandler oauthAccessDeniedHandler,
-            @Qualifier("clientAdminOAuth2ResourceFilter") OAuth2AuthenticationProcessingFilter resourceFilter
-    ) throws Exception {
-        var emptyAuthManager = new ProviderManager(new AuthenticationManagerBeanDefinitionParser.NullAuthenticationProvider());
-        var originalChain = http
                 .securityMatcher("/oauth/clients/**")
-                .authenticationManager(emptyAuthManager)
                 .authorizeHttpRequests(auth -> {
-                    auth.requestMatchers(HttpMethod.GET, "oauth/clients/meta", "/oauth/clients/*/meta").fullyAuthenticated();
-                    auth.requestMatchers(HttpMethod.GET, "/oauth/clients/**").access(
-                            anyOf()
-                                    .isUaaAdmin()
-                                    .isZoneAdmin()
-                                    .hasScope("clients.read", "clients.admin")
-                    );
 
-                    var canWriteClients = anyOf()
-                            .isUaaAdmin()
-                            .isZoneAdmin()
-                            .hasScope("clients.write", "clients.admin");
-                    auth.requestMatchers(HttpMethod.POST, "/oauth/clients/**").access(canWriteClients);
-                    auth.requestMatchers(HttpMethod.PUT, "/oauth/clients/**").access(canWriteClients);
-                    auth.requestMatchers(HttpMethod.DELETE, "/oauth/clients/**").access(canWriteClients);
+                    auth.requestMatchers("/oauth/clients/*/secret").access(isAdminOrHasScopes("clients.secret"));
+
+                    auth.requestMatchers("/oauth/clients/*/clientjwt").access(isAdminOrHasScopes("clients.trust"));
+
+                    auth.requestMatchers(HttpMethod.POST, "/oauth/clients/tx/**").access(isAdminOrHasScopes());
+                    auth.requestMatchers(HttpMethod.PUT, "/oauth/clients/tx/**").access(isAdminOrHasScopes());
+                    auth.requestMatchers(HttpMethod.DELETE, "/oauth/clients/tx/**").access(isAdminOrHasScopes());
+
+                    auth.requestMatchers(HttpMethod.GET, "oauth/clients/meta", "/oauth/clients/*/meta").fullyAuthenticated();
+
+                    auth.requestMatchers(HttpMethod.GET, "/oauth/clients/**").access(isAdminOrHasScopes("clients.read"));
+
+                    auth.requestMatchers(HttpMethod.POST, "/oauth/clients/**").access(isAdminOrHasScopes("clients.write"));
+                    auth.requestMatchers(HttpMethod.PUT, "/oauth/clients/**").access(isAdminOrHasScopes("clients.write"));
+                    auth.requestMatchers(HttpMethod.DELETE, "/oauth/clients/**").access(isAdminOrHasScopes("clients.write"));
 
                     auth.anyRequest().denyAll();
                 })
+                .authenticationManager(emptyAuthManager)
                 .addFilterAt(resourceFilter, AbstractPreAuthenticatedProcessingFilter.class)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .csrf(CsrfConfigurer::disable)
@@ -160,7 +68,6 @@ class ClientAdminSecurityConfiguration {
                     exception.accessDeniedHandler(oauthAccessDeniedHandler);
                 })
                 .build();
-
         return new UaaFilterChain(originalChain, "clientAdminCatchAll");
     }
 
@@ -173,6 +80,26 @@ class ClientAdminSecurityConfiguration {
         oauth2ResourceFilter.setAuthenticationManager(oauth2AuthenticationManager);
         oauth2ResourceFilter.setAuthenticationEntryPoint(oauthAuthenticationEntryPoint);
         return oauth2ResourceFilter;
+    }
+
+    /**
+     * The user either:
+     * <ul>
+     * <li>is UAA admin</li>
+     * <li>is Zone admin</li>
+     * <li>has scope clients.admin</li>
+     * <li>has any of the scopes in {@code scopes}</li>
+     * </ul>
+     */
+    public static AuthorizationManager<RequestAuthorizationContext> isAdminOrHasScopes(String... scopes) {
+        String[] requiredScopes = new String[scopes.length + 1];
+        requiredScopes[0] = "clients.admin";
+        System.arraycopy(scopes, 0, requiredScopes, 1, scopes.length);
+        return anyOf()
+                .isUaaAdmin()
+                .isZoneAdmin()
+                .hasScope(requiredScopes)
+                .throwOnMissingScope();
     }
 
 }

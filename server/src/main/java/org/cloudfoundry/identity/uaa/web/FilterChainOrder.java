@@ -25,7 +25,6 @@ public class FilterChainOrder {
 
     // client-admin-endpoints.xml: 600
     public static final int CLIENT_ADMIN = 600;
-    public static final int CLIENT_SECRET_CATCHALL = 601;
 
     // resource-endpoints.xml: 700
     public static final int RESOURCE = 700;
