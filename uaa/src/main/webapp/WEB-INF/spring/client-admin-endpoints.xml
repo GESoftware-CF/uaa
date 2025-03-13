@@ -7,9 +7,6 @@
         http://www.springframework.org/schema/security https://www.springframework.org/schema/security/spring-security.xsd
         http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd">
 
-    <oauth:resource-server id="clientResourceAuthenticationFilter" token-services-ref="tokenServices"
-                    resource-id="clients" entry-point-ref="oauthAuthenticationEntryPoint"/>
-
     <bean id="clientAdminEventPublisher" class="org.cloudfoundry.identity.uaa.client.event.ClientAdminEventPublisher"/>
 
     <aop:config proxy-target-class="true">
