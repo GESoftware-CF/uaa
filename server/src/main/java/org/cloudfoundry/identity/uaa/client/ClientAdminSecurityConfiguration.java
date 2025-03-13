@@ -89,6 +89,39 @@ class ClientAdminSecurityConfiguration {
     }
 
     @Bean
+    @Order(FilterChainOrder.CLIENT_ADMIN)
+    UaaFilterChain clientTx(
+            HttpSecurity http,
+            @Qualifier("oauthAuthenticationEntryPoint") OAuth2AuthenticationEntryPoint oauthAuthenticationEntryPoint,
+            @Qualifier("oauthAccessDeniedHandler") OAuth2AccessDeniedHandler oauthAccessDeniedHandler,
+            @Qualifier("clientAdminOAuth2ResourceFilter") OAuth2AuthenticationProcessingFilter resourceFilter
+    ) throws Exception {
+        var emptyAuthManager = new ProviderManager(new AuthenticationManagerBeanDefinitionParser.NullAuthenticationProvider());
+        var originalChain = http
+                .securityMatcher("/oauth/clients/tx/**")
+                .authenticationManager(emptyAuthManager)
+                .authorizeHttpRequests(auth -> {
+                    var clientAdminScope = anyOf()
+                            .isUaaAdmin()
+                            .isZoneAdmin()
+                            .hasScope("clients.admin");
+                    auth.requestMatchers(HttpMethod.POST, "/oauth/clients/tx/**").access(clientAdminScope);
+                    auth.requestMatchers(HttpMethod.PUT, "/oauth/clients/tx/**").access(clientAdminScope);
+                    auth.requestMatchers(HttpMethod.DELETE, "/oauth/clients/tx/**").access(clientAdminScope);
+                    auth.anyRequest().denyAll();
+                })
+                .addFilterAt(resourceFilter, AbstractPreAuthenticatedProcessingFilter.class)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .csrf(CsrfConfigurer::disable)
+                .exceptionHandling(exception -> {
+                    exception.authenticationEntryPoint(oauthAuthenticationEntryPoint);
+                    exception.accessDeniedHandler(oauthAccessDeniedHandler);
+                })
+                .build();
+        return new UaaFilterChain(originalChain, "clientTx");
+    }
+
+    @Bean
     @Order(FilterChainOrder.CLIENT_SECRET_CATCHALL)
     UaaFilterChain clientAdminCatchAll(
             HttpSecurity http,
