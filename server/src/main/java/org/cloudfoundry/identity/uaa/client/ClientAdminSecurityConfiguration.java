@@ -58,6 +58,37 @@ class ClientAdminSecurityConfiguration {
     }
 
     @Bean
+    @Order(FilterChainOrder.CLIENT_ADMIN)
+    UaaFilterChain clientJwt(
+            HttpSecurity http,
+            @Qualifier("oauthAuthenticationEntryPoint") OAuth2AuthenticationEntryPoint oauthAuthenticationEntryPoint,
+            @Qualifier("oauthAccessDeniedHandler") OAuth2AccessDeniedHandler oauthAccessDeniedHandler,
+            @Qualifier("clientAdminOAuth2ResourceFilter") OAuth2AuthenticationProcessingFilter resourceFilter
+    ) throws Exception {
+        var emptyAuthManager = new ProviderManager(new AuthenticationManagerBeanDefinitionParser.NullAuthenticationProvider());
+        var originalChain = http
+                .securityMatcher("/oauth/clients/*/clientjwt")
+                .authenticationManager(emptyAuthManager)
+                .authorizeHttpRequests(auth -> {
+                    auth.anyRequest().access(
+                            anyOf()
+                                    .isUaaAdmin()
+                                    .hasScope("clients.trust", "clients.admin")
+                                    .isZoneAdmin()
+                    );
+                })
+                .addFilterAt(resourceFilter, AbstractPreAuthenticatedProcessingFilter.class)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .csrf(CsrfConfigurer::disable)
+                .exceptionHandling(exception -> {
+                    exception.authenticationEntryPoint(oauthAuthenticationEntryPoint);
+                    exception.accessDeniedHandler(oauthAccessDeniedHandler);
+                })
+                .build();
+        return new UaaFilterChain(originalChain, "clientJwt");
+    }
+
+    @Bean
     @Order(FilterChainOrder.CLIENT_SECRET_CATCHALL)
     UaaFilterChain clientAdminCatchAll(
             HttpSecurity http,
