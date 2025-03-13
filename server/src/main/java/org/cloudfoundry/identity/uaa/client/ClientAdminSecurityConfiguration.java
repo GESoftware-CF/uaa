@@ -27,6 +27,37 @@ import org.springframework.security.web.authentication.preauth.AbstractPreAuthen
 class ClientAdminSecurityConfiguration {
 
     @Bean
+    @Order(FilterChainOrder.CLIENT_ADMIN)
+    UaaFilterChain clientAdminSecret(
+            HttpSecurity http,
+            @Qualifier("oauthAuthenticationEntryPoint") OAuth2AuthenticationEntryPoint oauthAuthenticationEntryPoint,
+            @Qualifier("oauthAccessDeniedHandler") OAuth2AccessDeniedHandler oauthAccessDeniedHandler,
+            @Qualifier("clientAdminOAuth2ResourceFilter") OAuth2AuthenticationProcessingFilter resourceFilter
+    ) throws Exception {
+        var emptyAuthManager = new ProviderManager(new AuthenticationManagerBeanDefinitionParser.NullAuthenticationProvider());
+        var originalChain = http
+                .securityMatcher("/oauth/clients/*/secret")
+                .authenticationManager(emptyAuthManager)
+                .authorizeHttpRequests(auth -> {
+                    auth.anyRequest().access(
+                            anyOf()
+                                    .isUaaAdmin()
+                                    .hasScope("clients.secret", "clients.admin")
+                                    .isZoneAdmin()
+                    );
+                })
+                .addFilterAt(resourceFilter, AbstractPreAuthenticatedProcessingFilter.class)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .csrf(CsrfConfigurer::disable)
+                .exceptionHandling(exception -> {
+                    exception.authenticationEntryPoint(oauthAuthenticationEntryPoint);
+                    exception.accessDeniedHandler(oauthAccessDeniedHandler);
+                })
+                .build();
+        return new UaaFilterChain(originalChain, "clientAdminCatchAll");
+    }
+
+    @Bean
     @Order(FilterChainOrder.CLIENT_SECRET_CATCHALL)
     UaaFilterChain clientAdminCatchAll(
             HttpSecurity http,
@@ -68,7 +99,6 @@ class ClientAdminSecurityConfiguration {
 
         return new UaaFilterChain(originalChain, "clientAdminCatchAll");
     }
-
 
     // TODO: object provider?
     @Bean(name = "clientAdminOAuth2ResourceFilter")
