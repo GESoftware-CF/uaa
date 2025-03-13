@@ -339,6 +339,11 @@
     </bean>
 
 
+    <bean id="clientDetailsValidator" class="org.cloudfoundry.identity.uaa.client.ClientAdminEndpointsValidator">
+        <property name="clientDetailsService" ref="clientDetailsService"/>
+        <property name="clientSecretValidator" ref="zoneAwareClientSecretPolicyValidator"/>
+    </bean>
+
     <bean id="zoneAwareClientSecretPolicyValidator"
                     class="org.cloudfoundry.identity.uaa.zone.ZoneAwareClientSecretPolicyValidator">
         <constructor-arg ref="globalClientSecretPolicy"/>
