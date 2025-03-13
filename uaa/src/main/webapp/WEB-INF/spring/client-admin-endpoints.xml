@@ -1,50 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.springframework.org/schema/beans"
-          xmlns:oauth="http://www.springframework.org/schema/security/oauth2"
-          xmlns:aop="http://www.springframework.org/schema/aop"
-          xsi:schemaLocation="http://www.springframework.org/schema/aop https://www.springframework.org/schema/aop/spring-aop.xsd
-        http://www.springframework.org/schema/security/oauth2 https://www.springframework.org/schema/security/spring-security-oauth2.xsd
-        http://www.springframework.org/schema/security https://www.springframework.org/schema/security/spring-security.xsd
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/aop https://www.springframework.org/schema/aop/spring-aop.xsd
         http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd">
-
-    <bean id="clientAdminEventPublisher" class="org.cloudfoundry.identity.uaa.client.event.ClientAdminEventPublisher"/>
-
-    <aop:config proxy-target-class="true">
-        <aop:aspect ref="clientAdminEventPublisher">
-            <aop:after-returning method="create"
-                                        pointcut="execution(* *..ClientAdminEndpoints+.createClientDetails(..)) and bean(clientAdminEndpoints)"
-                                        returning="client"/>
-            <aop:after-returning method="update"
-                                        pointcut="execution(* *..ClientAdminEndpoints+.updateClientDetails(..)) and bean(clientAdminEndpoints)"
-                                        returning="client"/>
-            <aop:around method="delete"
-                                        pointcut="execution(* *..ClientAdminEndpoints+.removeClientDetails(String, ..)) and args(clientId,..) and bean(clientAdminEndpoints)"/>
-            <aop:after-returning method="secretChange"
-                                        pointcut="execution(* *..ClientAdminEndpoints+.changeSecret(String, ..)) and args(clientId,..) and bean(clientAdminEndpoints)"/>
-            <aop:after-throwing method="secretFailure"
-                                        pointcut="execution(* *..ClientAdminEndpoints+.changeSecret(String, ..)) and args(clientId,..) and bean(clientAdminEndpoints)"
-                                        throwing="e"/>
-            <aop:after-returning method="clientJwtChange"
-                                        pointcut="execution(* *..ClientAdminEndpoints+.changeClientJwt(String, ..)) and args(clientId,..) and bean(clientAdminEndpoints)"/>
-            <aop:after-throwing method="clientJwtFailure"
-                                        pointcut="execution(* *..ClientAdminEndpoints+.changeClientJwt(String, ..)) and args(clientId,..) and bean(clientAdminEndpoints)"
-                                        throwing="e"/>
-            <aop:after-returning method="createTx"
-                                        pointcut="execution(* *..ClientAdminEndpoints+.createClientDetailsTx(..)) and bean(clientAdminEndpoints)"
-                                        returning="clients"/>
-            <aop:after-returning method="updateTx"
-                                        pointcut="execution(* *..ClientAdminEndpoints+.updateClientDetailsTx(..)) and bean(clientAdminEndpoints)"
-                                        returning="clients"/>
-            <aop:after-returning method="deleteTx"
-                                        pointcut="execution(* *..ClientAdminEndpoints+.removeClientDetailsTx(..)) and bean(clientAdminEndpoints)"
-                                        returning="clients"/>
-            <aop:after-returning method="modifyTx"
-                                        pointcut="execution(* *..ClientAdminEndpoints+.modifyClientDetailsTx(..)) and bean(clientAdminEndpoints)"
-                                        returning="clients"/>
-            <aop:after-returning method="secretTx"
-                                        pointcut="execution(* *..ClientAdminEndpoints+.changeSecretTx(..)) and bean(clientAdminEndpoints)"
-                                        returning="clients"/>
-        </aop:aspect>
-    </aop:config>
-
 </beans>
