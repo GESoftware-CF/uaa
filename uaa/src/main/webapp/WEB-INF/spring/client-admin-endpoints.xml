@@ -50,30 +50,6 @@
         <csrf disabled="true"/>
     </http>
 
-    <http name="clientAdminSecurity" pattern="/oauth/clients/**" create-session="stateless"
-                    entry-point-ref="oauthAuthenticationEntryPoint"
-                    use-expressions="true" authentication-manager-ref="emptyAuthenticationManager"
-                    xmlns="http://www.springframework.org/schema/security">
-        <intercept-url pattern="/oauth/clients/**/meta" method="GET" access="isFullyAuthenticated()"/>
-        <intercept-url pattern="/**"
-                              access="#oauth2.hasAnyScope('clients.write','clients.admin') or #oauth2.hasScopeInAuthZone('zones.{zone.id}.admin')"
-                              method="DELETE"/>
-        <intercept-url pattern="/**"
-                              access="#oauth2.hasAnyScope('clients.write','clients.admin') or #oauth2.hasScopeInAuthZone('zones.{zone.id}.admin')"
-                              method="POST"/>
-        <intercept-url pattern="/**"
-                              access="#oauth2.hasAnyScope('clients.write','clients.admin') or #oauth2.hasScopeInAuthZone('zones.{zone.id}.admin')"
-                              method="PUT"/>
-        <intercept-url pattern="/**"
-                              access="#oauth2.hasAnyScope('clients.read','clients.admin') or #oauth2.hasScopeInAuthZone('zones.{zone.id}.admin')"
-                              method="GET"/>
-        <intercept-url pattern="/**" access="denyAll"/>
-        <custom-filter ref="oauthWithoutResourceAuthenticationFilter" before="PRE_AUTH_FILTER"/>
-        <access-denied-handler ref="oauthAccessDeniedHandler"/>
-        <expression-handler ref="oauthWebExpressionHandler"/>
-        <csrf disabled="true"/>
-    </http>
-
     <oauth:resource-server id="clientResourceAuthenticationFilter" token-services-ref="tokenServices"
                     resource-id="clients" entry-point-ref="oauthAuthenticationEntryPoint"/>
 
