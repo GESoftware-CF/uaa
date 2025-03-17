@@ -38,42 +38,6 @@
         <csrf disabled="true"/>
     </http>
 
-    <bean id="denyAccessToUaaAdvice" class="org.cloudfoundry.identity.uaa.zone.DenyAccessToUaaAdvice"/>
-
-    <aop:config proxy-target-class="true">
-        <aop:aspect ref="denyAccessToUaaAdvice">
-            <aop:before method="checkIdentityZone"
-                                        pointcut="execution(* *..IdentityZoneEndpoints+.updateIdentityZone(..)) and args(identityZone,*)"/>
-            <aop:before method="checkIdentityZoneId"
-                                        pointcut="execution(* *..IdentityZoneEndpoints+.updateIdentityZone(..)) and args(*,identityZoneId)"/>
-            <aop:before method="checkIdentityZoneId"
-                                        pointcut="execution(* *..IdentityZoneEndpoints+.createClient(..)) and args(identityZoneId,*)"/>
-            <aop:before method="checkIdentityZoneId"
-                                        pointcut="execution(* *..IdentityZoneEndpoints+.deleteClient(..)) and args(identityZoneId,*)"/>
-        </aop:aspect>
-    </aop:config>
-
-    <aop:config proxy-target-class="true">
-        <aop:aspect ref="identityZoneEventPublisher">
-            <aop:after-returning method="identityZoneCreated"
-                                        pointcut="execution(* *..IdentityZoneProvisioning+.create(..)) and bean(identityZoneProvisioning)"
-                                        returning="identityZone"/>
-            <aop:after-returning method="identityZoneModified"
-                                        pointcut="execution(* *..IdentityZoneProvisioning+.update(..)) and bean(identityZoneProvisioning)"
-                                        returning="identityZone"/>
-        </aop:aspect>
-    </aop:config>
-
-    <aop:config proxy-target-class="true">
-        <aop:aspect ref="clientAdminEventPublisher">
-            <aop:after-returning method="create"
-                                        pointcut="execution(* *..IdentityZoneEndpointClientRegistrationService.createClient(..)) and bean(zoneEndpointsClientRegistrationService)"
-                                        returning="client"/>
-            <aop:around method="delete"
-                                        pointcut="execution(* *..IdentityZoneEndpointClientRegistrationService.deleteClient(..)) and bean(zoneEndpointsClientRegistrationService) and args(clientId)"/>
-        </aop:aspect>
-    </aop:config>
-
     <http name="identityProviderSecurity" pattern="/identity-providers/**" create-session="stateless"
                     entry-point-ref="oauthAuthenticationEntryPoint"
                     use-expressions="true" authentication-manager-ref="emptyAuthenticationManager"
@@ -98,17 +62,5 @@
         <expression-handler ref="oauthWebExpressionHandler"/>
         <csrf disabled="true"/>
     </http>
-
-    <aop:config proxy-target-class="true">
-        <aop:aspect ref="idpEventPublisher">
-            <aop:after-returning method="idpCreated"
-                                        pointcut="execution(* *..IdentityProviderProvisioning+.create(..)) and bean(identityProviderProvisioning)"
-                                        returning="identityProvider"/>
-            <aop:after-returning method="idpModified"
-                                        pointcut="execution(* *..IdentityProviderProvisioning+.update(..)) and bean(identityProviderProvisioning)"
-                                        returning="identityProvider"/>
-
-        </aop:aspect>
-    </aop:config>
 
 </beans>
