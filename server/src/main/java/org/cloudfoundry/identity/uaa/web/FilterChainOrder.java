@@ -19,6 +19,7 @@ public class FilterChainOrder {
     public static final int SCIM = 301;
 
     // multitenant-endpoints.xml: 400
+    public static final int IDENTITY_ZONES = 400;
 
     // approval-endpoints.xml: 500
     public static final int APPROVAL = 500;
