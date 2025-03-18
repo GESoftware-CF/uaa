@@ -20,7 +20,6 @@ public class FilterChainOrder {
 
     // multitenant-endpoints.xml: 400
     public static final int IDENTITY_ZONES = 400;
-    public static final int IDENTITY_PROVIDERS = 401;
 
     // approval-endpoints.xml: 500
     public static final int APPROVAL = 500;

@@ -44,7 +44,7 @@ class IdentityZoneSecurityConfiguration {
         oauth2ResourceFilter.setAuthenticationEntryPoint(oauthAuthenticationEntryPoint);
 
         var originalFilterChain = http
-                .securityMatcher("/identity-zones/**")
+                .securityMatcher("/identity-zones/**", "/identity-providers/**")
                 .authenticationManager(emptyAuthenticationManager)
                 .authorizeHttpRequests(auth -> {
                     auth.requestMatchers(HttpMethod.GET, "/identity-zones").access(
@@ -78,13 +78,20 @@ class IdentityZoneSecurityConfiguration {
                                     .throwOnMissingScope()
                     );
 
-                    var canWriteIdp = anyOf()
-                            .isUaaAdmin()
-                            .isZoneAdmin()
-                            .hasScopeWithZoneId("zones.write")
-                            .throwOnMissingScope();
-                    auth.requestMatchers(HttpMethod.POST, "/identity-zones/**").access(canWriteIdp);
-                    auth.requestMatchers(HttpMethod.DELETE, "/identity-zones/**").access(canWriteIdp);
+                    auth.requestMatchers(HttpMethod.POST, "/identity-zones/**").access(
+                            anyOf()
+                                    .isUaaAdmin()
+                                    .isZoneAdmin()
+                                    .hasScopeWithZoneId("zones.write")
+                                    .throwOnMissingScope()
+                    );
+                    auth.requestMatchers(HttpMethod.DELETE, "/identity-zones/**").access(
+                            anyOf()
+                                    .isUaaAdmin()
+                                    .isZoneAdmin()
+                                    .hasScopeWithZoneId("zones.write")
+                                    .throwOnMissingScope()
+                    );
 
                     auth.requestMatchers(HttpMethod.PUT, "/identity-zones/**").access(
                             anyOf()
@@ -95,40 +102,6 @@ class IdentityZoneSecurityConfiguration {
                                     .throwOnMissingScope()
                     );
 
-                    auth.requestMatchers("/identity-zones/**").denyAll();
-                })
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(oauth2ResourceFilter, AbstractPreAuthenticatedProcessingFilter.class)
-                .csrf(CsrfConfigurer::disable)
-                .exceptionHandling(exception -> {
-                    exception.authenticationEntryPoint(oauthAuthenticationEntryPoint);
-                    exception.accessDeniedHandler(oauthAccessDeniedHandler);
-                })
-                .build();
-        return new UaaFilterChain(originalFilterChain, "identityZones");
-    }
-
-
-    @Bean
-    @Order(FilterChainOrder.IDENTITY_PROVIDERS)
-    public SecurityFilterChain identityProviders(
-            HttpSecurity http,
-            UaaTokenServices tokenServices,
-            @Qualifier("oauthAccessDeniedHandler") OAuth2AccessDeniedHandler oauthAccessDeniedHandler,
-            @Qualifier("oauthAuthenticationEntryPoint") OAuth2AuthenticationEntryPoint oauthAuthenticationEntryPoint
-    ) throws Exception {
-        var emptyAuthenticationManager = new ProviderManager(new AuthenticationManagerBeanDefinitionParser.NullAuthenticationProvider());
-
-        OAuth2AuthenticationManager authenticationManager = new OAuth2AuthenticationManager();
-        authenticationManager.setTokenServices(tokenServices);
-        OAuth2AuthenticationProcessingFilter oauth2ResourceFilter = new OAuth2AuthenticationProcessingFilter();
-        oauth2ResourceFilter.setAuthenticationManager(authenticationManager);
-        oauth2ResourceFilter.setAuthenticationEntryPoint(oauthAuthenticationEntryPoint);
-
-        var originalFilterChain = http
-                .securityMatcher("/identity-providers/**")
-                .authenticationManager(emptyAuthenticationManager)
-                .authorizeHttpRequests(auth -> {
                     auth.requestMatchers(HttpMethod.GET, "/identity-providers/**").access(
                             anyOf()
                                     .isUaaAdmin()
@@ -146,7 +119,9 @@ class IdentityZoneSecurityConfiguration {
                     auth.requestMatchers(HttpMethod.PUT, "/identity-providers/**").access(canWriteIdp);
                     auth.requestMatchers(HttpMethod.PATCH, "/identity-providers/**").access(canWriteIdp);
                     auth.requestMatchers(HttpMethod.DELETE, "/identity-providers/**").access(canWriteIdp);
+
                     auth.requestMatchers("/identity-providers/**").denyAll();
+                    auth.requestMatchers("/identity-zones/**").denyAll();
                 })
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(oauth2ResourceFilter, AbstractPreAuthenticatedProcessingFilter.class)
@@ -156,7 +131,7 @@ class IdentityZoneSecurityConfiguration {
                     exception.accessDeniedHandler(oauthAccessDeniedHandler);
                 })
                 .build();
-        return new UaaFilterChain(originalFilterChain, "identityProviders");
+        return new UaaFilterChain(originalFilterChain, "identityZones");
     }
 
 }
