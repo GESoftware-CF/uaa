@@ -91,6 +91,34 @@ class LoginSecurityConfiguration {
     }
 
     @Bean
+    @Order(FilterChainOrder.LOGIN_PASSWORD)
+    UaaFilterChain password(HttpSecurity http) throws Exception {
+        // TODO: remove
+        var emptyAuthenticationManager = new ProviderManager(new AuthenticationManagerBeanDefinitionParser.NullAuthenticationProvider());
+
+        var originalFilterChain = http
+                .securityMatcher("/password_*")
+                .authorizeHttpRequests(auth -> auth.requestMatchers("/password_*").access(
+                        anyOf()
+                                .isZoneAdmin()
+                                .hasScope("oauth.login")
+                                .throwOnMissingScope()
+                ))
+                .authenticationManager(emptyAuthenticationManager)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(oauth2ResourceFilter(null), AbstractPreAuthenticatedProcessingFilter.class)
+                .csrf(CsrfConfigurer::disable)
+                .anonymous(AnonymousConfigurer::disable)
+                .exceptionHandling(exception -> {
+                    exception.authenticationEntryPoint(oauthAuthenticationEntryPoint);
+                    exception.accessDeniedHandler(oauthAccessDeniedHandler);
+                })
+                .build();
+
+        return new UaaFilterChain(originalFilterChain, "password");
+    }
+
+    @Bean
     @Order(FilterChainOrder.EMAIL)
     UaaFilterChain email(HttpSecurity http) throws Exception {
         // TODO: remove
