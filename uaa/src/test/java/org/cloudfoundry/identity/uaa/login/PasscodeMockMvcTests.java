@@ -70,16 +70,6 @@ class PasscodeMockMvcTests {
             captureSecurityContextFilter = new CaptureSecurityContextFilter();
             UaaFilterChain chain = webApplicationContext.getBean("tokenEndpointSecurityForPasscodes", UaaFilterChain.class);
             chain.getFilters().add(captureSecurityContextFilter);
-//            List<SecurityFilterChain> chains = filterChainProxy.getFilterChains();
-//            for (SecurityFilterChain chain : chains) {
-//
-//                if (chain instanceof DefaultSecurityFilterChain dfc
-//                        && dfc.getRequestMatcher() instanceof UaaRequestMatcher matcher
-//                        && matcher.toString().contains("passcodeTokenMatcher")) {
-//                    dfc.getFilters().add(captureSecurityContextFilter);
-//                    break;
-//                }
-//            }
             UaaUserDatabase db = webApplicationContext.getBean(UaaUserDatabase.class);
             marissa = new UaaPrincipal(db.retrieveUserByName("marissa", OriginKeys.UAA));
             webApplicationContext.getBean(JdbcExpiringCodeStore.class).setGenerator(new RandomValueStringGenerator(32));
