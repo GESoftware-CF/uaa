@@ -7,6 +7,8 @@ import org.cloudfoundry.identity.uaa.authentication.PasswordChangeUiRequiredFilt
 import org.cloudfoundry.identity.uaa.authentication.ReAuthenticationRequiredFilter;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthenticationDetailsSource;
 import org.cloudfoundry.identity.uaa.invitations.InvitationsAuthenticationTrustResolver;
+import org.cloudfoundry.identity.uaa.oauth.UaaTokenServices;
+import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationManager;
 import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationProcessingFilter;
 import org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AccessDeniedHandler;
 import org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AuthenticationEntryPoint;
@@ -25,6 +27,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.support.ResourcePropertySource;
 import org.springframework.http.HttpMethod;
+import org.springframework.lang.Nullable;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.config.Customizer;
@@ -68,10 +71,50 @@ class LoginSecurityConfiguration {
         exceptionHandling.accessDeniedHandler(ACCESS_DENIED_HANDLER);
         exceptionHandling.authenticationEntryPoint(LOGIN_ENTRYPOINT);
     };
+    private final UaaTokenServices tokenServices;
+    private final OAuth2AccessDeniedHandler oauthAccessDeniedHandler;
+    private final OAuth2AuthenticationEntryPoint oauthAuthenticationEntryPoint;
+
+    public LoginSecurityConfiguration(
+            UaaTokenServices tokenServices,
+            @Qualifier("oauthAuthenticationEntryPoint") OAuth2AuthenticationEntryPoint oauthAuthenticationEntryPoint,
+            @Qualifier("oauthAccessDeniedHandler") OAuth2AccessDeniedHandler oauthAccessDeniedHandler
+    ) {
+        this.tokenServices = tokenServices;
+        this.oauthAuthenticationEntryPoint = oauthAuthenticationEntryPoint;
+        this.oauthAccessDeniedHandler = oauthAccessDeniedHandler;
+    }
 
     @Bean
     ResourcePropertySource messagePropertiesSource() throws IOException {
         return new ResourcePropertySource("messages.properties");
+    }
+
+    @Bean
+    @Order(FilterChainOrder.EMAIL)
+    UaaFilterChain email(HttpSecurity http) throws Exception {
+        // TODO: remove
+        var emptyAuthenticationManager = new ProviderManager(new AuthenticationManagerBeanDefinitionParser.NullAuthenticationProvider());
+
+        var originalFilterChain = http
+                .securityMatcher("/email_*")
+                .authorizeHttpRequests(auth -> auth.requestMatchers("/email_*").access(
+                        anyOf()
+                                .hasScope("oauth.login")
+                                .throwOnMissingScope()
+                ))
+                .authenticationManager(emptyAuthenticationManager)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(oauth2ResourceFilter(null), AbstractPreAuthenticatedProcessingFilter.class)
+                .csrf(CsrfConfigurer::disable)
+                .anonymous(AnonymousConfigurer::disable)
+                .exceptionHandling(exception -> {
+                    exception.authenticationEntryPoint(oauthAuthenticationEntryPoint);
+                    exception.accessDeniedHandler(oauthAccessDeniedHandler);
+                })
+                .build();
+
+        return new UaaFilterChain(originalFilterChain, "email");
     }
 
     @Bean
@@ -315,6 +358,18 @@ class LoginSecurityConfiguration {
         logoutFilter.setLogoutRequestMatcher(new AntPathRequestMatcher("/logout.do"));
 
         return logoutFilter;
+    }
+
+    public OAuth2AuthenticationProcessingFilter oauth2ResourceFilter(@Nullable String resourceId) {
+        var oauth2AuthenticationManager = new OAuth2AuthenticationManager();
+        oauth2AuthenticationManager.setTokenServices(tokenServices);
+        if (resourceId != null) {
+            oauth2AuthenticationManager.setResourceId(resourceId);
+        }
+        var oauth2ResourceFilter = new OAuth2AuthenticationProcessingFilter();
+        oauth2ResourceFilter.setAuthenticationManager(oauth2AuthenticationManager);
+        oauth2ResourceFilter.setAuthenticationEntryPoint(oauthAuthenticationEntryPoint);
+        return oauth2ResourceFilter;
     }
 
 }

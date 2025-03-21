@@ -11,6 +11,13 @@ package org.cloudfoundry.identity.uaa.web;
 public class FilterChainOrder {
 
     // login-server-security.xml: 100
+    public static final int AUTHENTICATE_BEARER = 100;
+    public static final int AUTHENTICATE_CATCH_ALL = 101;
+    public static final int LOGIN_AUTHORIZE = 102;
+    public static final int LOGIN_TOKEN = 103;
+    public static final int LOGIN_AUTHORIZE_OLD = 104;
+    public static final int LOGIN_PASSWORD = 105;
+    public static final int EMAIL = 106;
 
     // oauth-endpoints.xml: 200
     public static final int OAUTH = 200;
