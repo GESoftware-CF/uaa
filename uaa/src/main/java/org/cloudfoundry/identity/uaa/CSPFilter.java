@@ -24,7 +24,7 @@ public class CSPFilter implements Filter {
 
         // Set the CSP header
        httpResponse.setHeader("Content-Security-Policy",
-                              "object-src 'none'; object-src 'none';");
+                              "object-src 'none'; object-src 'none'; form-action 'self';");
 
         // Continue with the next filter in the chain
         chain.doFilter(request, response);
