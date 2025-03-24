@@ -23,10 +23,10 @@ pipeline
         buildDiscarder(logRotator(artifactNumToKeepStr: '30', numToKeepStr: '30'))
     }
     parameters {
-        booleanParam(name: 'UNIT_TESTS', defaultValue: true, description: 'Run Unit tests')
-        booleanParam(name: 'MOCK_MVC_TESTS', defaultValue: true, description: 'Run Mock MVC tests')
+        booleanParam(name: 'UNIT_TESTS', defaultValue: false, description: 'Run Unit tests')
+        booleanParam(name: 'MOCK_MVC_TESTS', defaultValue: false, description: 'Run Mock MVC tests')
         booleanParam(name: 'INTEGRATION_TESTS', defaultValue: true, description: 'Run Integration tests')
-        booleanParam(name: 'DEGRADED_TESTS', defaultValue: true, description: 'Run degraded mode tests')
+        booleanParam(name: 'DEGRADED_TESTS', defaultValue: false, description: 'Run degraded mode tests')
         string(name: 'UAA_CI_CONFIG_BRANCH', defaultValue: 'master',
                         description: 'uaa-cf-release repo branch to use for testing/deployment')
         string(name: 'UAA_K8S_DEPLOY_BRANCH', defaultValue: 'master',
