@@ -23,8 +23,8 @@ public class CSPFilter implements Filter {
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
         // Set the CSP header
-        httpResponse.setHeader("Content-Security-Policy",
-                               " object-src 'none'; form-action 'self'; base-uri 'self'; frame-ancestors 'none'; font-src 'self' https://cdn.predix-ui.com; img-src 'self'; frame-src 'self';");
+       // httpResponse.setHeader("Content-Security-Policy",
+                              // " object-src 'none'; form-action 'self'; base-uri 'self'; frame-ancestors 'none'; font-src 'self' https://cdn.predix-ui.com; img-src 'self'; frame-src 'self';");
 
         // Continue with the next filter in the chain
         chain.doFilter(request, response);
