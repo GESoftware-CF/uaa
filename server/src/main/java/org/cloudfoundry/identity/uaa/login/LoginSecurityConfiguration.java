@@ -3,9 +3,12 @@ package org.cloudfoundry.identity.uaa.login;
 import org.cloudfoundry.identity.uaa.account.ResetPasswordAuthenticationFilter;
 import org.cloudfoundry.identity.uaa.authentication.AuthzAuthenticationFilter;
 import org.cloudfoundry.identity.uaa.authentication.ClientBasicAuthenticationFilter;
+import org.cloudfoundry.identity.uaa.authentication.LoginClientParametersAuthenticationFilter;
+import org.cloudfoundry.identity.uaa.authentication.LoginServerTokenEndpointFilter;
 import org.cloudfoundry.identity.uaa.authentication.PasswordChangeUiRequiredFilter;
 import org.cloudfoundry.identity.uaa.authentication.ReAuthenticationRequiredFilter;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthenticationDetailsSource;
+import org.cloudfoundry.identity.uaa.authentication.manager.ScopeAuthenticationFilter;
 import org.cloudfoundry.identity.uaa.invitations.InvitationsAuthenticationTrustResolver;
 import org.cloudfoundry.identity.uaa.oauth.UaaTokenServices;
 import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationManager;
@@ -28,6 +31,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.support.ResourcePropertySource;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.lang.Nullable;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
@@ -89,6 +93,43 @@ class LoginSecurityConfiguration {
     @Bean
     ResourcePropertySource messagePropertiesSource() throws IOException {
         return new ResourcePropertySource("messages.properties");
+    }
+
+    @Bean
+    @Order(FilterChainOrder.LOGIN_TOKEN)
+    UaaFilterChain loginToken(
+            HttpSecurity http,
+            @Qualifier("loginAuthenticationMgr") AuthenticationManager loginAuthenticationManager,
+            @Qualifier("oauthLoginScopeAuthenticatingFilter") ScopeAuthenticationFilter scopeAuthenticationFilter,
+            LoginClientParametersAuthenticationFilter loginClientParametersAuthenticationFilter,
+            @Qualifier("loginServerTokenEndpointAuthenticationFilter") LoginServerTokenEndpointFilter loginFilter
+    ) throws Exception {
+        var requestMatcher = new UaaRequestMatcher("/oauth/token");
+        requestMatcher.setAccept(List.of(MediaType.APPLICATION_JSON_VALUE));
+        requestMatcher.setHeaders(Map.of("Authorization", List.of("bearer ")));
+        requestMatcher.setParameters(Map.of(
+                "source", "login",
+                "grant_type", "password",
+                "add_new", ""
+        ));
+        var originalChain = http
+                .securityMatcher(requestMatcher)
+                .authorizeHttpRequests(auth -> auth.anyRequest().fullyAuthenticated())
+                .authenticationManager(loginAuthenticationManager)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.NEVER))
+                .addFilterBefore(new BackwardsCompatibleScopeParsingFilter(), DisableEncodeUrlFilter.class)
+                .addFilterBefore(oauth2ResourceFilter("oauth"), AbstractPreAuthenticatedProcessingFilter.class)
+                .addFilterBefore(scopeAuthenticationFilter, AbstractPreAuthenticatedProcessingFilter.class)
+                .addFilterBefore(loginClientParametersAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(loginFilter, BasicAuthenticationFilter.class)
+                .exceptionHandling(exception -> {
+                    exception.authenticationEntryPoint(oauthAuthenticationEntryPoint);
+                    exception.accessDeniedHandler(oauthAccessDeniedHandler);
+                })
+                .csrf(CsrfConfigurer::disable)
+                .anonymous(AnonymousConfigurer::disable)
+                .build();
+        return new UaaFilterChain(originalChain, "loginToken");
     }
 
     @Bean

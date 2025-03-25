@@ -61,35 +61,6 @@
         </property>
     </bean>
 
-    <http name="secFilterLoginServerToken" request-matcher-ref="loginTokenRequestMatcher" create-session="never"
-                    entry-point-ref="oauthAuthenticationEntryPoint"
-                    authentication-manager-ref="loginAuthenticationMgr" xmlns="http://www.springframework.org/schema/security"
-                    use-expressions="false">
-        <!--
-          This represents a /oauth/token requests that gets passed through
-          from the login server. It assumes that the User has been authenticated
-          It requires that:
-           - userid parameter exists
-           - client_id and client_secret are present
-           - Bearer token belongs to login server (oauth.login) validated as resource="oauth"
-        -->
-        <intercept-url pattern="/**" access="IS_AUTHENTICATED_FULLY"/>
-        <!-- the oauthResourceAuthenticationFilter validates the Bearer token
-             What we need is scope=oauth.login
-         -->
-        <custom-filter ref="backwardsCompatibleScopeParameter" position="FIRST"/>
-        <custom-filter ref="oauthResourceAuthenticationFilter" position="PRE_AUTH_FILTER"/>
-        <!-- scope authentication filter configured with a scope authentication manager -->
-        <custom-filter ref="oauthLoginScopeAuthenticatingFilter" after="PRE_AUTH_FILTER"/>
-        <!-- filter to validate the client_id and client_secret -->
-        <custom-filter ref="loginClientParameterAuthenticationFilter" position="FORM_LOGIN_FILTER"/>
-        <!-- The loginServerTokenEndpointAuthenticationFilter validates the user or creates one-->
-        <custom-filter ref="loginServerTokenEndpointAuthenticationFilter" position="BASIC_AUTH_FILTER"/>
-        <anonymous enabled="false"/>
-        <access-denied-handler ref="oauthAccessDeniedHandler"/>
-        <csrf disabled="true"/>
-    </http>
-
     <bean id="oauthLoginScopeAuthenticatingFilter"
                     class="org.cloudfoundry.identity.uaa.authentication.manager.ScopeAuthenticationFilter">
         <property name="authenticationManager" ref="oauthLoginAuthManager"/>
@@ -101,23 +72,6 @@
             <list>
                 <value type="java.lang.String">oauth.login</value>
             </list>
-        </property>
-    </bean>
-
-    <bean id="loginTokenRequestMatcher" class="org.cloudfoundry.identity.uaa.security.web.UaaRequestMatcher">
-        <constructor-arg value="/oauth/token"/>
-        <property name="accept" value="application/json"/>
-        <property name="headers">
-            <map>
-                <entry key="Authorization" value="bearer "/>
-            </map>
-        </property>
-        <property name="parameters">
-            <map>
-                <entry key="source" value="login"/>
-                <entry key="grant_type" value="password"/>
-                <entry key="add_new" value=""/>
-            </map>
         </property>
     </bean>
 
