@@ -18,6 +18,7 @@ import org.cloudfoundry.identity.uaa.security.CsrfAwareEntryPointAndDeniedHandle
 import org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository;
 import org.cloudfoundry.identity.uaa.security.web.HttpsHeaderFilter;
 import org.cloudfoundry.identity.uaa.security.web.UaaRequestMatcher;
+import org.cloudfoundry.identity.uaa.web.BackwardsCompatibleScopeParsingFilter;
 import org.cloudfoundry.identity.uaa.web.FilterChainOrder;
 import org.cloudfoundry.identity.uaa.web.UaaFilterChain;
 import org.cloudfoundry.identity.uaa.web.UaaSavedRequestCache;
@@ -88,6 +89,35 @@ class LoginSecurityConfiguration {
     @Bean
     ResourcePropertySource messagePropertiesSource() throws IOException {
         return new ResourcePropertySource("messages.properties");
+    }
+
+    @Bean
+    @Order(FilterChainOrder.LOGIN_AUTHORIZE_OLD)
+    UaaFilterChain loginAuthorizeOld(
+            HttpSecurity http,
+            @Qualifier("loginAuthenticationMgr") AuthenticationManager loginAuthenticationManager,
+            @Qualifier("loginAuthenticationFilter") AuthzAuthenticationFilter loginFilter
+    ) throws Exception {
+        var requestMatcher = new UaaRequestMatcher("/oauth/authorize");
+        requestMatcher.setAccept(List.of("application/json"));
+        requestMatcher.setParameters(Map.of("login", "{"));
+
+        var originalFilterChain = http
+                .securityMatcher(requestMatcher)
+                .authorizeHttpRequests(auth -> auth.anyRequest().fullyAuthenticated())
+                .authenticationManager(loginAuthenticationManager)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.ALWAYS))
+                .addFilterBefore(new BackwardsCompatibleScopeParsingFilter(), DisableEncodeUrlFilter.class)
+                .addFilterBefore(loginFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(oauth2ResourceFilter("oauth"), AbstractPreAuthenticatedProcessingFilter.class)
+                .csrf(CsrfConfigurer::disable)
+                .anonymous(AnonymousConfigurer::disable)
+                .exceptionHandling(exception -> {
+                    exception.authenticationEntryPoint(oauthAuthenticationEntryPoint);
+                    exception.accessDeniedHandler(oauthAccessDeniedHandler);
+                })
+                .build();
+        return new UaaFilterChain(originalFilterChain, "loginAuthorizeOld");
     }
 
     @Bean

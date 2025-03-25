@@ -134,30 +134,6 @@
         <property name="clientAuthenticationManager" ref="clientAuthenticationManager"/>
     </bean>
 
-    <!-- Support for older login servers -->
-    <http name="secFilterLoginServerAuthorizeOld" request-matcher-ref="loginAuthorizeRequestMatcherOld"
-                    create-session="always" entry-point-ref="oauthAuthenticationEntryPoint"
-                    authentication-manager-ref="loginAuthenticationMgr" xmlns="http://www.springframework.org/schema/security"
-                    use-expressions="false">
-        <intercept-url pattern="/**" access="IS_AUTHENTICATED_FULLY"/>
-        <custom-filter ref="backwardsCompatibleScopeParameter" position="FIRST"/>
-        <custom-filter ref="oauthResourceAuthenticationFilter" position="PRE_AUTH_FILTER"/>
-        <custom-filter ref="loginAuthenticationFilter" position="FORM_LOGIN_FILTER"/>
-        <anonymous enabled="false"/>
-        <access-denied-handler ref="oauthAccessDeniedHandler"/>
-        <csrf disabled="true"/>
-    </http>
-
-    <bean id="loginAuthorizeRequestMatcherOld" class="org.cloudfoundry.identity.uaa.security.web.UaaRequestMatcher">
-        <constructor-arg value="/oauth/authorize"/>
-        <property name="accept" value="application/json"/>
-        <property name="parameters">
-            <map>
-                <entry key="login" value="{"/>
-            </map>
-        </property>
-    </bean>
-    <!-- End support for older login servers -->
     <util:list id="addNewUserParameters" value-type="java.lang.String">
         <value>login</value>
         <value>username</value>
