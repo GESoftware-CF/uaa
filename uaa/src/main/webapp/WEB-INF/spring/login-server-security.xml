@@ -36,31 +36,6 @@
 
     <sec:http name="secFilterAuthenticateOpen" pattern="/authenticate/**" security="none"/>
 
-    <http name="secFilterLoginServerAuthorize" request-matcher-ref="loginAuthorizeRequestMatcher" create-session="never"
-                    entry-point-ref="oauthAuthenticationEntryPoint"
-                    authentication-manager-ref="loginAuthenticationMgr" xmlns="http://www.springframework.org/schema/security"
-                    use-expressions="false">
-        <intercept-url pattern="/**" access="IS_AUTHENTICATED_FULLY"/>
-        <custom-filter ref="backwardsCompatibleScopeParameter" position="FIRST"/>
-        <custom-filter ref="oauthResourceAuthenticationFilter" position="PRE_AUTH_FILTER"/>
-        <!-- scope authentication filter configured with a scope authentication manager -->
-        <custom-filter ref="oauthLoginScopeAuthenticatingFilter" after="PRE_AUTH_FILTER"/>
-        <custom-filter ref="loginAuthenticationFilter" position="FORM_LOGIN_FILTER"/>
-        <anonymous enabled="false"/>
-        <access-denied-handler ref="oauthAccessDeniedHandler"/>
-        <csrf disabled="true"/>
-    </http>
-
-    <bean id="loginAuthorizeRequestMatcher" class="org.cloudfoundry.identity.uaa.security.web.UaaRequestMatcher">
-        <constructor-arg value="/oauth/authorize"/>
-        <property name="accept" value="application/json"/>
-        <property name="parameters">
-            <map>
-                <entry key="source" value="login"/>
-            </map>
-        </property>
-    </bean>
-
     <bean id="oauthLoginScopeAuthenticatingFilter"
                     class="org.cloudfoundry.identity.uaa.authentication.manager.ScopeAuthenticationFilter">
         <property name="authenticationManager" ref="oauthLoginAuthManager"/>

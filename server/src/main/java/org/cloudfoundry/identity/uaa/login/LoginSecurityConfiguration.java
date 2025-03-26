@@ -96,6 +96,36 @@ class LoginSecurityConfiguration {
     }
 
     @Bean
+    @Order(FilterChainOrder.LOGIN_AUTHORIZE)
+    UaaFilterChain loginAuthorize(
+            HttpSecurity http,
+            @Qualifier("loginAuthenticationMgr") AuthenticationManager loginAuthenticationManager,
+            @Qualifier("oauthLoginScopeAuthenticatingFilter") ScopeAuthenticationFilter scopeAuthenticationFilter,
+            @Qualifier("loginAuthenticationFilter") AuthzAuthenticationFilter loginAuthenticationFilter
+    ) throws Exception {
+        var requestMatcher = new UaaRequestMatcher("/oauth/authorize");
+        requestMatcher.setAccept(List.of(MediaType.APPLICATION_JSON_VALUE));
+        requestMatcher.setParameters(Map.of("source", "login"));
+        var originalChain = http
+                .securityMatcher(requestMatcher)
+                .authorizeHttpRequests(auth -> auth.anyRequest().fullyAuthenticated())
+                .authenticationManager(loginAuthenticationManager)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.NEVER))
+                .addFilterBefore(new BackwardsCompatibleScopeParsingFilter(), DisableEncodeUrlFilter.class)
+                .addFilterBefore(oauth2ResourceFilter("oauth"), AbstractPreAuthenticatedProcessingFilter.class)
+                .addFilterBefore(scopeAuthenticationFilter, AbstractPreAuthenticatedProcessingFilter.class)
+                .addFilterBefore(loginAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling(exception -> {
+                    exception.authenticationEntryPoint(oauthAuthenticationEntryPoint);
+                    exception.accessDeniedHandler(oauthAccessDeniedHandler);
+                })
+                .csrf(CsrfConfigurer::disable)
+                .anonymous(AnonymousConfigurer::disable)
+                .build();
+        return new UaaFilterChain(originalChain, "loginAuthorize");
+    }
+
+    @Bean
     @Order(FilterChainOrder.LOGIN_TOKEN)
     UaaFilterChain loginToken(
             HttpSecurity http,
@@ -140,7 +170,7 @@ class LoginSecurityConfiguration {
             @Qualifier("loginAuthenticationFilter") AuthzAuthenticationFilter loginFilter
     ) throws Exception {
         var requestMatcher = new UaaRequestMatcher("/oauth/authorize");
-        requestMatcher.setAccept(List.of("application/json"));
+        requestMatcher.setAccept(List.of(MediaType.APPLICATION_JSON_VALUE));
         requestMatcher.setParameters(Map.of("login", "{"));
 
         var originalFilterChain = http
