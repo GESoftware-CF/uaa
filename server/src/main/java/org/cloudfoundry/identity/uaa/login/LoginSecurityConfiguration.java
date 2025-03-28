@@ -25,6 +25,7 @@ import org.cloudfoundry.identity.uaa.web.BackwardsCompatibleScopeParsingFilter;
 import org.cloudfoundry.identity.uaa.web.FilterChainOrder;
 import org.cloudfoundry.identity.uaa.web.UaaFilterChain;
 import org.cloudfoundry.identity.uaa.web.UaaSavedRequestCache;
+
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -94,6 +95,34 @@ class LoginSecurityConfiguration {
     @Bean
     ResourcePropertySource messagePropertiesSource() throws IOException {
         return new ResourcePropertySource("messages.properties");
+    }
+
+    @Bean
+    @Order(FilterChainOrder.AUTHENTICATE_BEARER)
+    UaaFilterChain authenticateBearer(
+            HttpSecurity http,
+            @Qualifier("loginAuthenticationMgr") AuthenticationManager loginAuthenticationManager,
+            @Qualifier("oauthLoginScopeAuthenticatingFilter") ScopeAuthenticationFilter scopeAuthenticationFilter
+    ) throws Exception {
+        var requestMatcher = new UaaRequestMatcher("/authenticate");
+        requestMatcher.setAccept(List.of(MediaType.APPLICATION_JSON_VALUE));
+        requestMatcher.setHeaders(Map.of("Authorization", List.of("bearer ")));
+        var originalChain = http
+                .securityMatcher(requestMatcher)
+                .authorizeHttpRequests(auth -> auth.anyRequest().fullyAuthenticated())
+                .authenticationManager(loginAuthenticationManager)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.NEVER))
+                .addFilterBefore(oauth2ResourceFilter("oauth"), AbstractPreAuthenticatedProcessingFilter.class)
+                .addFilterBefore(scopeAuthenticationFilter, AbstractPreAuthenticatedProcessingFilter.class)
+                .exceptionHandling(exception -> {
+                    exception.authenticationEntryPoint(oauthAuthenticationEntryPoint);
+                    exception.accessDeniedHandler(oauthAccessDeniedHandler);
+                })
+                .csrf(CsrfConfigurer::disable)
+                .anonymous(AnonymousConfigurer::disable)
+                .build();
+        return new UaaFilterChain(originalChain, "authenticateCatchAll");
+
     }
 
     /**
