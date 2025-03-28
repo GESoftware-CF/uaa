@@ -58,6 +58,7 @@ import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfLogoutHandler;
 import org.springframework.security.web.session.DisableEncodeUrlFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.io.IOException;
 import java.util.List;
@@ -93,6 +94,26 @@ class LoginSecurityConfiguration {
     @Bean
     ResourcePropertySource messagePropertiesSource() throws IOException {
         return new ResourcePropertySource("messages.properties");
+    }
+
+    /**
+     * This used to be a fully "disable security" on XML. There is no way to do this with
+     * Spring Security itself, you would have to use a {@link WebMvcConfigurer}. However,
+     * it would take precedence over other filter chains that deal with the {@code /authenticate}
+     * endpoint.
+     * <p>
+     * Here, we are creating a simple, passthrough filter chain, disabling CSRF in the process.
+     */
+    @Bean
+    @Order(FilterChainOrder.AUTHENTICATE_CATCH_ALL)
+    UaaFilterChain authenticateCatchAll(HttpSecurity http) throws Exception {
+        var originalChain = http
+                .securityMatcher("/authenticate/**")
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                .csrf(CsrfConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .build();
+        return new UaaFilterChain(originalChain, "authenticateCatchAll");
     }
 
     @Bean

@@ -34,8 +34,6 @@
         </property>
     </bean>
 
-    <sec:http name="secFilterAuthenticateOpen" pattern="/authenticate/**" security="none"/>
-
     <bean id="oauthLoginScopeAuthenticatingFilter"
                     class="org.cloudfoundry.identity.uaa.authentication.manager.ScopeAuthenticationFilter">
         <property name="authenticationManager" ref="oauthLoginAuthManager"/>
