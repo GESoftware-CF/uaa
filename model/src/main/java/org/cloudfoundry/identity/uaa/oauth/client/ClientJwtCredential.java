@@ -10,6 +10,7 @@ import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Objects;
 
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -45,4 +46,21 @@ public class ClientJwtCredential {
         }
     }
 
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) return true;
+        if (object == null || getClass() != object.getClass()) return false;
+        ClientJwtCredential that = (ClientJwtCredential) object;
+        return subject.equals(that.subject) &&
+               issuer.equals(that.issuer) &&
+               Objects.equals(audience, that.audience);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = subject.hashCode();
+        result = 31 * result + issuer.hashCode();
+        result = 31 * result + (audience != null ? audience.hashCode() : 0);
+        return result;
+    }
 }
