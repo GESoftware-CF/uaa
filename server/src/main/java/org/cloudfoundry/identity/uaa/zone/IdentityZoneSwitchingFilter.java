@@ -6,6 +6,7 @@ import org.cloudfoundry.identity.uaa.oauth.UaaOauth2Authentication;
 import org.cloudfoundry.identity.uaa.oauth.provider.OAuth2Authentication;
 import org.cloudfoundry.identity.uaa.oauth.provider.OAuth2Request;
 import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
+import org.cloudfoundry.identity.uaa.web.HttpHeadersFilterRequestWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.security.core.Authentication;
@@ -18,6 +19,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -126,6 +128,14 @@ public class IdentityZoneSwitchingFilter extends OncePerRequestFilter {
         IdentityZone identityZone = validateIdentityZone(identityZoneIdFromHeader, identityZoneSubDomainFromHeader);
         if (identityZone == null) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "Identity zone with id/subdomain " + identityZoneIdFromHeader + "/" + identityZoneSubDomainFromHeader + " does not exist");
+            return;
+        }
+
+        if (identityZone.isUaa()) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("Superfluous attempt to switch to UAA(system) zone. Header[" + HEADER + "] will be ignored");
+            }
+            filterChain.doFilter(new HttpHeadersFilterRequestWrapper(Arrays.asList(HEADER),request), response);
             return;
         }
 
