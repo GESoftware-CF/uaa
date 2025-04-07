@@ -46,11 +46,6 @@
         <value>authorities</value>
     </util:list>
 
-    <bean id="loginAuthenticationFilter" class="org.cloudfoundry.identity.uaa.authentication.AuthzAuthenticationFilter">
-        <constructor-arg ref="loginAuthenticationMgr"/>
-        <property name="parameterNames" ref="addNewUserParameters"/>
-    </bean>
-
     <bean id="loginAuthenticationMgr"
                     class="org.cloudfoundry.identity.uaa.authentication.manager.LoginAuthenticationManager">
         <property name="userDatabase" ref="userDatabase"/>

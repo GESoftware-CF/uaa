@@ -25,7 +25,6 @@ import org.cloudfoundry.identity.uaa.web.BackwardsCompatibleScopeParsingFilter;
 import org.cloudfoundry.identity.uaa.web.FilterChainOrder;
 import org.cloudfoundry.identity.uaa.web.UaaFilterChain;
 import org.cloudfoundry.identity.uaa.web.UaaSavedRequestCache;
-
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -81,15 +80,31 @@ class LoginSecurityConfiguration {
     private final UaaTokenServices tokenServices;
     private final OAuth2AccessDeniedHandler oauthAccessDeniedHandler;
     private final OAuth2AuthenticationEntryPoint oauthAuthenticationEntryPoint;
+    private final AuthzAuthenticationFilter loginAuthenticationFilter;
+    private final AuthenticationManager loginAuthenticationManager;
 
     public LoginSecurityConfiguration(
             UaaTokenServices tokenServices,
             @Qualifier("oauthAuthenticationEntryPoint") OAuth2AuthenticationEntryPoint oauthAuthenticationEntryPoint,
-            @Qualifier("oauthAccessDeniedHandler") OAuth2AccessDeniedHandler oauthAccessDeniedHandler
+            @Qualifier("oauthAccessDeniedHandler") OAuth2AccessDeniedHandler oauthAccessDeniedHandler,
+            @Qualifier("loginAuthenticationMgr") AuthenticationManager loginAuthenticationManager
     ) {
         this.tokenServices = tokenServices;
         this.oauthAuthenticationEntryPoint = oauthAuthenticationEntryPoint;
         this.oauthAccessDeniedHandler = oauthAccessDeniedHandler;
+        this.loginAuthenticationManager = loginAuthenticationManager;
+
+        this.loginAuthenticationFilter = new AuthzAuthenticationFilter(loginAuthenticationManager);
+        this.loginAuthenticationFilter.setParameterNames(List.of(
+                "login",
+                "username",
+                "user_id",
+                "origin",
+                "given_name",
+                "family_name",
+                "email",
+                "authorities"
+        ));
     }
 
     @Bean
@@ -101,7 +116,6 @@ class LoginSecurityConfiguration {
     @Order(FilterChainOrder.AUTHENTICATE_BEARER)
     UaaFilterChain authenticateBearer(
             HttpSecurity http,
-            @Qualifier("loginAuthenticationMgr") AuthenticationManager loginAuthenticationManager,
             @Qualifier("oauthLoginScopeAuthenticatingFilter") ScopeAuthenticationFilter scopeAuthenticationFilter
     ) throws Exception {
         var requestMatcher = new UaaRequestMatcher("/authenticate");
@@ -149,9 +163,7 @@ class LoginSecurityConfiguration {
     @Order(FilterChainOrder.LOGIN_AUTHORIZE)
     UaaFilterChain loginAuthorize(
             HttpSecurity http,
-            @Qualifier("loginAuthenticationMgr") AuthenticationManager loginAuthenticationManager,
-            @Qualifier("oauthLoginScopeAuthenticatingFilter") ScopeAuthenticationFilter scopeAuthenticationFilter,
-            @Qualifier("loginAuthenticationFilter") AuthzAuthenticationFilter loginAuthenticationFilter
+            @Qualifier("oauthLoginScopeAuthenticatingFilter") ScopeAuthenticationFilter scopeAuthenticationFilter
     ) throws Exception {
         var requestMatcher = new UaaRequestMatcher("/oauth/authorize");
         requestMatcher.setAccept(List.of(MediaType.APPLICATION_JSON_VALUE));
@@ -179,7 +191,6 @@ class LoginSecurityConfiguration {
     @Order(FilterChainOrder.LOGIN_TOKEN)
     UaaFilterChain loginToken(
             HttpSecurity http,
-            @Qualifier("loginAuthenticationMgr") AuthenticationManager loginAuthenticationManager,
             @Qualifier("oauthLoginScopeAuthenticatingFilter") ScopeAuthenticationFilter scopeAuthenticationFilter,
             LoginClientParametersAuthenticationFilter loginClientParametersAuthenticationFilter,
             @Qualifier("loginServerTokenEndpointAuthenticationFilter") LoginServerTokenEndpointFilter loginFilter
@@ -214,11 +225,7 @@ class LoginSecurityConfiguration {
 
     @Bean
     @Order(FilterChainOrder.LOGIN_AUTHORIZE_OLD)
-    UaaFilterChain loginAuthorizeOld(
-            HttpSecurity http,
-            @Qualifier("loginAuthenticationMgr") AuthenticationManager loginAuthenticationManager,
-            @Qualifier("loginAuthenticationFilter") AuthzAuthenticationFilter loginFilter
-    ) throws Exception {
+    UaaFilterChain loginAuthorizeOld(HttpSecurity http) throws Exception {
         var requestMatcher = new UaaRequestMatcher("/oauth/authorize");
         requestMatcher.setAccept(List.of(MediaType.APPLICATION_JSON_VALUE));
         requestMatcher.setParameters(Map.of("login", "{"));
@@ -229,7 +236,7 @@ class LoginSecurityConfiguration {
                 .authenticationManager(loginAuthenticationManager)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.ALWAYS))
                 .addFilterBefore(new BackwardsCompatibleScopeParsingFilter(), DisableEncodeUrlFilter.class)
-                .addFilterBefore(loginFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(loginAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(oauth2ResourceFilter("oauth"), AbstractPreAuthenticatedProcessingFilter.class)
                 .csrf(CsrfConfigurer::disable)
                 .anonymous(AnonymousConfigurer::disable)
@@ -301,7 +308,8 @@ class LoginSecurityConfiguration {
     UaaFilterChain autologinCode(
             HttpSecurity http,
             CookieBasedCsrfTokenRepository csrfTokenRepository,
-            @Qualifier("autologinAuthenticationFilter") AuthzAuthenticationFilter autologinFilter
+            @Qualifier("autologinAuthenticationManager") AuthenticationManager authenticationManager,
+            AccountSavingAuthenticationSuccessHandler loginSuccessHandler
     ) throws Exception {
         var autologinMatcher = new UaaRequestMatcher("/autologin");
         autologinMatcher.setParameters(Map.of("code", ""));
@@ -313,6 +321,11 @@ class LoginSecurityConfiguration {
                         "code", ""
                 )
         );
+
+        var autologinFilter = new AuthzAuthenticationFilter(authenticationManager);
+        autologinFilter.setParameterNames(List.of("code", "response_type"));
+        autologinFilter.setMethods(Set.of(HttpMethod.GET.name(), HttpMethod.POST.name()));
+        autologinFilter.setSuccessHandler(loginSuccessHandler);
 
         var originalChain = http
                 .securityMatchers(matchers -> matchers.requestMatchers(autologinMatcher, oauthAuthorizeMatcher))
@@ -497,19 +510,6 @@ class LoginSecurityConfiguration {
                 .build();
         return new UaaFilterChain(originalChain);
     }
-
-    @Bean
-    AuthzAuthenticationFilter autologinAuthenticationFilter(
-            @Qualifier("autologinAuthenticationManager") AuthenticationManager authenticationManager,
-            AccountSavingAuthenticationSuccessHandler loginSuccessHandler
-    ) {
-        var filter = new AuthzAuthenticationFilter(authenticationManager);
-        filter.setParameterNames(List.of("code", "response_type"));
-        filter.setMethods(Set.of(HttpMethod.GET.name(), HttpMethod.POST.name()));
-        filter.setSuccessHandler(loginSuccessHandler);
-        return filter;
-    }
-
 
     /**
      * Handles a Logout click from the user, removes the Authentication object,

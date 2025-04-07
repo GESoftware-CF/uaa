@@ -134,7 +134,6 @@ class OauthEndpointSecurityConfiguration {
     AuthenticationManager clientAuthenticationManager;
 
     @Autowired
-    @Qualifier("authzAuthenticationFilter")
     AuthzAuthenticationFilter authzAuthenticationFilter;
 
     @Autowired
