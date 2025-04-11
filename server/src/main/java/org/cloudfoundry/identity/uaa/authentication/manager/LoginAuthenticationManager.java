@@ -36,33 +36,28 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
 import static org.cloudfoundry.identity.uaa.constants.OriginKeys.NotANumber;
 
+@Component
 public class LoginAuthenticationManager implements AuthenticationManager, ApplicationEventPublisherAware {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final IdentityZoneManager identityZoneManager;
+    private final UaaUserDatabase userDatabase;
 
     private ApplicationEventPublisher eventPublisher;
 
-    private UaaUserDatabase userDatabase;
-
-    public LoginAuthenticationManager(IdentityZoneManager identityZoneManager) {
+    public LoginAuthenticationManager(IdentityZoneManager identityZoneManager, UaaUserDatabase userDatabase) {
         this.identityZoneManager = identityZoneManager;
+        this.userDatabase = userDatabase;
     }
 
     @Override
     public void setApplicationEventPublisher(ApplicationEventPublisher eventPublisher) {
         this.eventPublisher = eventPublisher;
-    }
-
-    /**
-     * @param userDatabase the userDatabase to set
-     */
-    public void setUserDatabase(UaaUserDatabase userDatabase) {
-        this.userDatabase = userDatabase;
     }
 
     @Override

@@ -52,7 +52,7 @@ public class LoginServerTokenEndpointFilter extends TokenEndpointAuthenticationF
      * @param authenticationManager an AuthenticationManager for the incoming request
      */
     public LoginServerTokenEndpointFilter(
-            @Qualifier("loginAuthenticationMgr") LoginAuthenticationManager authenticationManager,
+            LoginAuthenticationManager authenticationManager,
             OAuth2RequestFactory oAuth2RequestFactory,
             UaaAuthenticationDetailsSource authenticationDetailsSource) {
         super(authenticationManager, oAuth2RequestFactory);

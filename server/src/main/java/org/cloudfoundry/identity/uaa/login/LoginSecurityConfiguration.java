@@ -8,6 +8,7 @@ import org.cloudfoundry.identity.uaa.authentication.LoginServerTokenEndpointFilt
 import org.cloudfoundry.identity.uaa.authentication.PasswordChangeUiRequiredFilter;
 import org.cloudfoundry.identity.uaa.authentication.ReAuthenticationRequiredFilter;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthenticationDetailsSource;
+import org.cloudfoundry.identity.uaa.authentication.manager.LoginAuthenticationManager;
 import org.cloudfoundry.identity.uaa.authentication.manager.ScopeAuthenticationFilter;
 import org.cloudfoundry.identity.uaa.invitations.InvitationsAuthenticationTrustResolver;
 import org.cloudfoundry.identity.uaa.oauth.UaaTokenServices;
@@ -88,7 +89,7 @@ class LoginSecurityConfiguration {
             UaaTokenServices tokenServices,
             @Qualifier("oauthAuthenticationEntryPoint") OAuth2AuthenticationEntryPoint oauthAuthenticationEntryPoint,
             @Qualifier("oauthAccessDeniedHandler") OAuth2AccessDeniedHandler oauthAccessDeniedHandler,
-            @Qualifier("loginAuthenticationMgr") AuthenticationManager loginAuthenticationManager,
+            LoginAuthenticationManager loginAuthenticationManager,
             ScopeAuthenticationFilter scopeAuthenticationFilter
     ) {
         this.tokenServices = tokenServices;
