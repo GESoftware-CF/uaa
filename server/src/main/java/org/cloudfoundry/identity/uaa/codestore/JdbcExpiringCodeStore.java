@@ -13,14 +13,15 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.codestore;
 
+import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
+import org.cloudfoundry.identity.uaa.util.TimeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.cloudfoundry.identity.uaa.util.TimeService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
-import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
+import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
 import javax.sql.DataSource;
@@ -29,6 +30,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Component(value = "codeStore")
 public class JdbcExpiringCodeStore implements ExpiringCodeStore {
 
     public static final String tableName = "expiring_code_store";
@@ -60,10 +62,6 @@ public class JdbcExpiringCodeStore implements ExpiringCodeStore {
 
     public void setExpirationInterval(long expirationInterval) {
         this.expirationInterval = expirationInterval;
-    }
-
-    protected JdbcExpiringCodeStore() {
-        // package protected for unit tests only
     }
 
     public JdbcExpiringCodeStore(DataSource dataSource, TimeService timeService) {

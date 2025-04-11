@@ -31,9 +31,4 @@
                     class="org.cloudfoundry.identity.uaa.authentication.manager.LoginAuthenticationManager">
         <property name="userDatabase" ref="userDatabase"/>
     </bean>
-
-    <bean id="codeStore" class="org.cloudfoundry.identity.uaa.codestore.JdbcExpiringCodeStore">
-        <constructor-arg name="dataSource" ref="dataSource"/>
-        <constructor-arg name="timeService" ref="timeService"/>
-    </bean>
 </beans>
