@@ -16,11 +16,6 @@
         <property name="authenticationDetailsSource" ref="authenticationDetailsSource"/>
     </bean>
 
-    <bean id="loginClientParameterAuthenticationFilter"
-                    class="org.cloudfoundry.identity.uaa.authentication.LoginClientParametersAuthenticationFilter">
-        <property name="clientAuthenticationManager" ref="clientAuthenticationManager"/>
-    </bean>
-
     <util:list id="addNewUserParameters" value-type="java.lang.String">
         <value>login</value>
         <value>username</value>
