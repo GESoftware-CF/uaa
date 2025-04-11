@@ -13,6 +13,10 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.authentication.manager;
 
+import java.util.List;
+
+import org.cloudfoundry.identity.uaa.oauth.common.exceptions.InvalidTokenException;
+import org.cloudfoundry.identity.uaa.oauth.common.exceptions.OAuth2Exception;
 import org.cloudfoundry.identity.uaa.oauth.provider.OAuth2Authentication;
 import org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AuthenticationEntryPoint;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -20,9 +24,8 @@ import org.springframework.security.authentication.InsufficientAuthenticationExc
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.cloudfoundry.identity.uaa.oauth.common.exceptions.InvalidTokenException;
-import org.cloudfoundry.identity.uaa.oauth.common.exceptions.OAuth2Exception;
 import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.stereotype.Component;
 
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -34,9 +37,15 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
+@Component
 public class ScopeAuthenticationFilter implements Filter {
-    private AuthenticationManager authenticationManager;
+    private final ScopeAuthenticationManager authenticationManager;
     private AuthenticationEntryPoint authenticationEntryPoint = new OAuth2AuthenticationEntryPoint();
+
+    public ScopeAuthenticationFilter() {
+        this.authenticationManager = new ScopeAuthenticationManager();
+        this.authenticationManager.setRequiredScopes(List.of("oauth.login"));
+    }
 
     public AuthenticationEntryPoint getAuthenticationEntryPoint() {
         return authenticationEntryPoint;
@@ -48,10 +57,6 @@ public class ScopeAuthenticationFilter implements Filter {
 
     public AuthenticationManager getAuthenticationManager() {
         return authenticationManager;
-    }
-
-    public void setAuthenticationManager(AuthenticationManager authenticationManager) {
-        this.authenticationManager = authenticationManager;
     }
 
     @Override

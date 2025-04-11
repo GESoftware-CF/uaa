@@ -82,12 +82,14 @@ class LoginSecurityConfiguration {
     private final OAuth2AuthenticationEntryPoint oauthAuthenticationEntryPoint;
     private final AuthzAuthenticationFilter loginAuthenticationFilter;
     private final AuthenticationManager loginAuthenticationManager;
+    private final ScopeAuthenticationFilter scopeAuthenticationFilter;
 
     public LoginSecurityConfiguration(
             UaaTokenServices tokenServices,
             @Qualifier("oauthAuthenticationEntryPoint") OAuth2AuthenticationEntryPoint oauthAuthenticationEntryPoint,
             @Qualifier("oauthAccessDeniedHandler") OAuth2AccessDeniedHandler oauthAccessDeniedHandler,
-            @Qualifier("loginAuthenticationMgr") AuthenticationManager loginAuthenticationManager
+            @Qualifier("loginAuthenticationMgr") AuthenticationManager loginAuthenticationManager,
+            ScopeAuthenticationFilter scopeAuthenticationFilter
     ) {
         this.tokenServices = tokenServices;
         this.oauthAuthenticationEntryPoint = oauthAuthenticationEntryPoint;
@@ -95,6 +97,7 @@ class LoginSecurityConfiguration {
         this.loginAuthenticationManager = loginAuthenticationManager;
 
         this.loginAuthenticationFilter = new AuthzAuthenticationFilter(loginAuthenticationManager);
+        this.scopeAuthenticationFilter = scopeAuthenticationFilter;
         this.loginAuthenticationFilter.setParameterNames(List.of(
                 "login",
                 "username",
@@ -115,8 +118,7 @@ class LoginSecurityConfiguration {
     @Bean
     @Order(FilterChainOrder.AUTHENTICATE_BEARER)
     UaaFilterChain authenticateBearer(
-            HttpSecurity http,
-            @Qualifier("oauthLoginScopeAuthenticatingFilter") ScopeAuthenticationFilter scopeAuthenticationFilter
+            HttpSecurity http
     ) throws Exception {
         var requestMatcher = new UaaRequestMatcher("/authenticate");
         requestMatcher.setAccept(List.of(MediaType.APPLICATION_JSON_VALUE));
@@ -162,8 +164,7 @@ class LoginSecurityConfiguration {
     @Bean
     @Order(FilterChainOrder.LOGIN_AUTHORIZE)
     UaaFilterChain loginAuthorize(
-            HttpSecurity http,
-            @Qualifier("oauthLoginScopeAuthenticatingFilter") ScopeAuthenticationFilter scopeAuthenticationFilter
+            HttpSecurity http
     ) throws Exception {
         var requestMatcher = new UaaRequestMatcher("/oauth/authorize");
         requestMatcher.setAccept(List.of(MediaType.APPLICATION_JSON_VALUE));
@@ -191,7 +192,6 @@ class LoginSecurityConfiguration {
     @Order(FilterChainOrder.LOGIN_TOKEN)
     UaaFilterChain loginToken(
             HttpSecurity http,
-            @Qualifier("oauthLoginScopeAuthenticatingFilter") ScopeAuthenticationFilter scopeAuthenticationFilter,
             LoginClientParametersAuthenticationFilter loginClientParametersAuthenticationFilter,
             @Qualifier("loginServerTokenEndpointAuthenticationFilter") LoginServerTokenEndpointFilter loginFilter
     ) throws Exception {

@@ -8,20 +8,6 @@
         http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd
         http://www.springframework.org/schema/util https://www.springframework.org/schema/util/spring-util.xsd">
 
-    <bean id="oauthLoginScopeAuthenticatingFilter"
-                    class="org.cloudfoundry.identity.uaa.authentication.manager.ScopeAuthenticationFilter">
-        <property name="authenticationManager" ref="oauthLoginAuthManager"/>
-    </bean>
-
-    <bean id="oauthLoginAuthManager"
-                    class="org.cloudfoundry.identity.uaa.authentication.manager.ScopeAuthenticationManager">
-        <property name="requiredScopes">
-            <list>
-                <value type="java.lang.String">oauth.login</value>
-            </list>
-        </property>
-    </bean>
-
     <bean id="loginServerTokenEndpointAuthenticationFilter"
                     class="org.cloudfoundry.identity.uaa.authentication.LoginServerTokenEndpointFilter">
         <constructor-arg ref="loginAuthenticationMgr"/>
