@@ -8,25 +8,6 @@
         http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd
         http://www.springframework.org/schema/util https://www.springframework.org/schema/util/spring-util.xsd">
 
-    <bean id="loginServerTokenEndpointAuthenticationFilter"
-                    class="org.cloudfoundry.identity.uaa.authentication.LoginServerTokenEndpointFilter">
-        <constructor-arg ref="loginAuthenticationMgr"/>
-        <constructor-arg ref="authorizationRequestManager"/>
-        <constructor-arg ref="addNewUserParameters"/>
-        <property name="authenticationDetailsSource" ref="authenticationDetailsSource"/>
-    </bean>
-
-    <util:list id="addNewUserParameters" value-type="java.lang.String">
-        <value>login</value>
-        <value>username</value>
-        <value>user_id</value>
-        <value>origin</value>
-        <value>given_name</value>
-        <value>family_name</value>
-        <value>email</value>
-        <value>authorities</value>
-    </util:list>
-
     <bean id="loginAuthenticationMgr"
                     class="org.cloudfoundry.identity.uaa.authentication.manager.LoginAuthenticationManager">
         <property name="userDatabase" ref="userDatabase"/>

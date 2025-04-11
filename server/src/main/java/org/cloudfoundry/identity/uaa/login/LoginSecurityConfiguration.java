@@ -193,7 +193,7 @@ class LoginSecurityConfiguration {
     UaaFilterChain loginToken(
             HttpSecurity http,
             LoginClientParametersAuthenticationFilter loginClientParametersAuthenticationFilter,
-            @Qualifier("loginServerTokenEndpointAuthenticationFilter") LoginServerTokenEndpointFilter loginFilter
+            LoginServerTokenEndpointFilter loginFilter
     ) throws Exception {
         var requestMatcher = new UaaRequestMatcher("/oauth/token");
         requestMatcher.setAccept(List.of(MediaType.APPLICATION_JSON_VALUE));
