@@ -6,8 +6,8 @@ import java.util.Set;
 
 import org.jspecify.annotations.Nullable;
 import org.openqa.selenium.By;
+import org.openqa.selenium.ElementNotInteractableException;
 import org.openqa.selenium.JavascriptExecutor;
-import org.openqa.selenium.Keys;
 import org.openqa.selenium.StaleElementReferenceException;
 import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
@@ -65,10 +65,12 @@ public class UaaWebDriver implements WebDriver {
      * the profile page or perform a logout.
      */
     public void pressUaaNavigation(String navigationElementId, String idButton) {
-        WebDriverWait wait = new WebDriverWait(this.delegate, Duration.ofSeconds(10));
-        this.delegate.findElement(By.id(navigationElementId)).sendKeys(Keys.ENTER);
-        WebElement elm = wait.until(ExpectedConditions.elementToBeClickable(By.id(idButton)));
-        elm.sendKeys(Keys.ENTER);
+        WebDriverWait wait1 = new WebDriverWait(this.delegate, Duration.ofSeconds(10));
+        WebElement elm1 = wait1.ignoreAll(List.of(StaleElementReferenceException.class, ElementNotInteractableException.class)).until(ExpectedConditions.visibilityOfElementLocated(By.id(navigationElementId)));
+        elm1.click();
+        WebDriverWait wait2 = new WebDriverWait(this.delegate, Duration.ofSeconds(30));
+        WebElement elm2 = wait2.ignoreAll(List.of(StaleElementReferenceException.class, ElementNotInteractableException.class)).until(ExpectedConditions.visibilityOfElementLocated(By.id(idButton)));
+        elm2.click();
     }
 
     public JavascriptExecutor getJavascriptExecutor() {
