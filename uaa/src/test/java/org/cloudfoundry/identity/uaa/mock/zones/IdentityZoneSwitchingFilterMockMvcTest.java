@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.httpBearer;
 import static org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter.HEADER;
 import static org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter.SUBDOMAIN_HEADER;
+import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -169,6 +170,24 @@ class IdentityZoneSwitchingFilterMockMvcTest {
     void scimWriteInAnotherZone() throws Exception {
         final String zoneId = createZone(mockMvc, identityToken).getId();
         createScimUserUsingZonesScimWrite(mockMvc, generator, testClient, zoneId);
+    }
+
+    @Test
+    void switchToUaaZone_superfluous_switch_header() throws Exception {
+
+        mockMvc.perform(
+                        post("/oauth/token")
+                                .accept(APPLICATION_JSON)
+                                .contentType(APPLICATION_FORM_URLENCODED)
+                                .header(HEADER, IdentityZone.getUaa().getId())
+                                .param("grant_type", "password")
+                                .param("client_id", "cf")
+                                .param("client_secret", "")
+                                .param("username", "marissa")
+                                .param("password", "koala")
+                )
+                //previously caused a ClassCastException
+                .andExpect(status().isOk());
     }
 
     private static ScimUser getScimUser(String username) {

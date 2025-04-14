@@ -15,10 +15,20 @@
 package org.cloudfoundry.identity.uaa.zone;
 
 import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
+import org.cloudfoundry.identity.uaa.web.HttpHeadersFilterRequestWrapper;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+import javax.servlet.FilterChain;
+import javax.servlet.http.HttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter.HEADER;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class IdentityZoneSwitchingFilterTests {
 
@@ -31,6 +41,25 @@ class IdentityZoneSwitchingFilterTests {
         assertThat(filter.stripPrefix("zones." + zoneId + ".clients.admin", zoneId)).isEqualTo("clients.admin");
         assertThat(filter.stripPrefix("zones." + zoneId + ".clients.read", zoneId)).isEqualTo("clients.read");
         assertThat(filter.stripPrefix("zones." + zoneId + ".idps.read", zoneId)).isEqualTo("idps.read");
+    }
+
+    @Test
+    void headerRemovedIfSwitchingToUaaZone() throws Exception {
+        IdentityZoneProvisioning zoneProvisioning = mock(IdentityZoneProvisioning.class);
+        when(zoneProvisioning.retrieve(anyString())).thenReturn(IdentityZone.getUaa());
+        IdentityZoneSwitchingFilter filter = new IdentityZoneSwitchingFilter(zoneProvisioning);
+
+        FilterChain chain = mock(FilterChain.class);
+        ArgumentCaptor<HttpServletRequest> requestArgumentCaptor = ArgumentCaptor.forClass(HttpServletRequest.class);
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getHeader(HEADER)).thenReturn(IdentityZone.getUaaZoneId());
+
+        filter.doFilterInternal(request, null, chain);
+        verify(chain).doFilter(requestArgumentCaptor.capture(), any());
+
+        HttpServletRequest modifiedRequest = requestArgumentCaptor.getValue();
+        assertThat(modifiedRequest).isInstanceOf(HttpHeadersFilterRequestWrapper.class);
+        assertThat(modifiedRequest.getHeader(HEADER)).isNull();
     }
 
 }
