@@ -214,10 +214,13 @@ public class OIDCLoginIT {
 
     private void validateSuccessfulOIDCLogin(String zoneUrl, String userName, String password) {
         login(zoneUrl, userName, password);
-
-        webDriver.findElement(By.cssSelector(".dropdown-trigger")).click();
-        webDriver.clickAndWait(By.linkText("Sign Out"));
+        logout(zoneUrl);
         IntegrationTestUtils.validateAccountChooserCookie(zoneUrl, webDriver, IdentityZoneHolder.get());
+    }
+
+    private void logout(String zoneUrl) {
+        webDriver.get(zoneUrl + "/logout.do");
+        webDriver.get(zoneUrl + "/");
     }
 
     private void login(String zoneUrl, String userName, String password) {

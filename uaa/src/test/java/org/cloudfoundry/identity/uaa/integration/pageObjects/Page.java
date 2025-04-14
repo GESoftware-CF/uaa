@@ -1,8 +1,9 @@
 package org.cloudfoundry.identity.uaa.integration.pageObjects;
 
 import org.assertj.core.api.AbstractStringAssert;
-import org.openqa.selenium.By;
+import org.cloudfoundry.identity.uaa.test.UaaWebDriver;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebDriverException;
 
 import java.time.Duration;
 import java.util.function.Consumer;
@@ -25,11 +26,20 @@ public class Page {
     // an assertion passes, before failing the test.
     protected static final Duration AWAIT_AT_MOST_SECONDS = Duration.ofSeconds(30);
 
+    // This is the base URL of the UAA zone under test.
+    protected String baseUrl;
+
     protected WebDriver driver;
+
 
     public Page(WebDriver driver) {
         this.driver = driver;
         driver.manage().timeouts().implicitlyWait(IMPLICIT_WAIT_SECONDS);
+    }
+
+    public Page(WebDriver driver, String baseUrl) {
+        this(driver);
+        this.baseUrl = baseUrl;
     }
 
     public static AbstractStringAssert<?> assertThatUrlEventuallySatisfies(WebDriver driver, Consumer<AbstractStringAssert<?>> assertUrl) {
@@ -60,14 +70,18 @@ public class Page {
         return assertThat(driver.getTitle());
     }
 
-    public LoginPage assertThatLogout_goesToLoginPage() {
-        clickLogout();
-        return new LoginPage(driver);
+    public LoginPage assertThatLogout_goesToLoginPage(String baseUrl) {
+        return clickLogout(baseUrl);
     }
 
-    private void clickLogout() {
-        driver.findElement(By.cssSelector(".dropdown-trigger")).click();
-        driver.findElement(By.linkText("Sign Out")).click();
+    private LoginPage clickLogout(String baseUrl) {
+        try {
+            ((UaaWebDriver) driver).pressUaaNavigation("nav-dropdown-button", "nav-dropdown-content-logout");
+        } catch (WebDriverException e) {
+            driver.get(baseUrl + "/logout.do");
+        }
+        // check that we end in /login
+        return LoginPage.go(driver, baseUrl).assertThatLoginPageShown();
     }
 
     public void clearCookies() {

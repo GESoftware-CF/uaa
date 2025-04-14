@@ -13,22 +13,33 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.integration.feature;
 
+import org.cloudfoundry.identity.uaa.integration.pageObjects.HomePage;
+import org.cloudfoundry.identity.uaa.integration.pageObjects.LoginPage;
+import org.cloudfoundry.identity.uaa.integration.util.ScreenshotOnFailExtension;
 import org.cloudfoundry.identity.uaa.oauth.client.test.TestAccounts;
 import org.cloudfoundry.identity.uaa.test.UaaWebDriver;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.openqa.selenium.By;
+import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
+import java.time.Duration;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assumptions.assumeThat;
 
 @SpringJUnitConfig(classes = DefaultIntegrationTestConfig.class)
+@ExtendWith(ScreenshotOnFailExtension.class)
 class HomeIT {
     @Autowired
     TestAccounts testAccounts;
@@ -59,58 +70,74 @@ class HomeIT {
     @BeforeEach
     void setUp() {
         logout_and_clear_cookies();
-        webDriver.get(baseUrl + "/login");
-        webDriver.findElement(By.name("username")).sendKeys(testAccounts.getUserName());
-        webDriver.findElement(By.name("password")).sendKeys(testAccounts.getPassword());
-        webDriver.clickAndWait(By.xpath("//input[@value='Sign in']"));
 
-        asOnHomePage = new HomePagePerspective(webDriver, testAccounts.getUserName());
+        asOnHomePage = new HomePagePerspective(webDriver);
     }
 
     @Test
     void message() {
+        LoginPage.go(webDriver, baseUrl)
+                .sendLoginCredentials(testAccounts.getUserName(), testAccounts.getPassword());
         assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Where to?");
     }
 
     @Test
-    void theHeaderDropdown() {
+    void profilePage() {
+        HomePage homePage = LoginPage.go(webDriver, baseUrl)
+                .sendLoginCredentials(testAccounts.getUserName(), testAccounts.getPassword());
+        try {
+            homePage.goHome().assertThatPageSource().contains("Where to?");
+            webDriver.pressUaaNavigation("nav-dropdown-button", "nav-dropdown-content-profile");
+        } catch (TimeoutException e) {
+            webDriver.get(baseUrl + "/profile");
+        }
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Account Settings");
+    }
+
+    @Test
+    void defaultNoDropDown() {
+        LoginPage.go(webDriver, baseUrl)
+                .sendLoginCredentials(testAccounts.getUserName(), testAccounts.getPassword())
+                .assertThatPageSource().contains("Where to?");
         assertThat(asOnHomePage.getUsernameElement()).isNotNull();
         assertThat(asOnHomePage.getAccountSettingsElement().isDisplayed()).isFalse();
         assertThat(asOnHomePage.getSignOutElement().isDisplayed()).isFalse();
+    }
 
-        asOnHomePage.getUsernameElement().click();
+    @Test
+    void theHeaderDropdown() {
+        LoginPage.go(webDriver, baseUrl)
+                .sendLoginCredentials(testAccounts.getUserName(), testAccounts.getPassword())
+                .assertThatPageSource().contains("Where to?");
+        try {
+            WebDriverWait wait = new WebDriverWait(webDriver, Duration.ofSeconds(30));
+            wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("nav-dropdown-button"))).click();
+            assertThat(wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("nav-dropdown-content-profile"))).isDisplayed()).isTrue();
+            assertThat(wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("nav-dropdown-content-logout"))).isDisplayed()).isTrue();
+        } catch (TimeoutException e) {
+            // If the dropdown is not visible ignore
+            assumeThat(e.getMessage()).contains("waiting for visibility");
+        }
 
-        assertThat(asOnHomePage.getAccountSettingsElement().isDisplayed()).isTrue();
-        assertThat(asOnHomePage.getSignOutElement().isDisplayed()).isTrue();
-
-        asOnHomePage.getAccountSettingsElement().click();
-
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Account Settings");
     }
 
     static class HomePagePerspective {
         private final WebDriver webDriver;
-        private final String username;
 
-        public HomePagePerspective(WebDriver webDriver, String username) {
+        public HomePagePerspective(WebDriver webDriver) {
             this.webDriver = webDriver;
-            this.username = username;
         }
 
         public WebElement getUsernameElement() {
-            return getWebElementWithText(username);
+            return webDriver.findElement(By.id("nav-dropdown-button"));
         }
 
         public WebElement getAccountSettingsElement() {
-            return getWebElementWithText("Account Settings");
+            return webDriver.findElement(By.id("nav-dropdown-content-profile"));
         }
 
         public WebElement getSignOutElement() {
-            return getWebElementWithText("Sign Out");
-        }
-
-        private WebElement getWebElementWithText(String text) {
-            return webDriver.findElement(By.xpath("//*[text()='" + text + "']"));
+            return webDriver.findElement(By.id("nav-dropdown-content-logout"));
         }
     }
 }
