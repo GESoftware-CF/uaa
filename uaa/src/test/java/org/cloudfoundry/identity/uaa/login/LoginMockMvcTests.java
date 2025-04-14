@@ -570,6 +570,32 @@ public class LoginMockMvcTests {
     }
 
     @Test
+    void when_login_token_present_response_contains_origin_key() throws Exception {
+        String username = generator.generate() + "@testdomain.com";
+        ScimUser user = createUser(scimUserProvisioning, username, IdentityZone.getUaaZoneId());
+        assertThat(user.getUserName()).isEqualTo(username);
+
+        String clientId = generator.generate();
+        UaaClientDetails client = new UaaClientDetails(clientId, "oauth", "oauth.approvals", "password", "oauth.login", "http://*.wildcard.testing,http://testing.com");
+        client.setClientSecret(clientId);
+        MockMvcUtils.createClient(webApplicationContext, client, getUaa());
+
+        var loginToken = MockMvcUtils.getClientCredentialsOAuthAccessToken(mockMvc, "login", "loginsecret", "oauth.login", "");
+        MockHttpServletRequestBuilder loginPost = post("/authenticate")
+                .accept(MediaType.APPLICATION_JSON_VALUE)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .header("Authorization", "Bearer " + loginToken)
+                .param("username", user.getUserName())
+                .param("password", user.getPassword());
+
+        mockMvc.perform(loginPost)
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("\"username\":\"" + user.getUserName())))
+                .andExpect(content().string(containsString("\"email\":\"" + user.getPrimaryEmail())))
+                .andExpect(content().string(containsString("\"origin\":\"uaa\"")));
+    }
+
+    @Test
     void previous_login_time_upon_authentication() throws Exception {
         ScimUser user = createUser(scimUserProvisioning, generator, IdentityZone.getUaaZoneId());
         MockHttpSession session = new MockHttpSession();

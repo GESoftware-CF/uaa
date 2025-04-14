@@ -15,7 +15,10 @@
 package org.cloudfoundry.identity.uaa.authentication;
 
 import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.stereotype.Component;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -27,9 +30,15 @@ import java.util.Map;
  * It sets the authentication to a client only
  * Oauth2Authentication object as that is expected by
  * the LoginAuthenticationManager.
- *
  */
+@Component
 public class LoginClientParametersAuthenticationFilter extends AbstractClientParametersAuthenticationFilter {
+
+    public LoginClientParametersAuthenticationFilter(
+            @Qualifier("clientAuthenticationManager") AuthenticationManager authenticationManager
+    ) {
+        this.setClientAuthenticationManager(authenticationManager);
+    }
 
     @Override
     public void wrapClientCredentialLogin(HttpServletRequest req, HttpServletResponse res, Map<String, String> loginInfo, String clientId) {

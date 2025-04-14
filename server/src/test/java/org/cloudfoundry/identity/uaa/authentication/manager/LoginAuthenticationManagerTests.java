@@ -51,10 +51,9 @@ class LoginAuthenticationManagerTests {
     void setUp() {
         publisher = TestApplicationEventPublisher.forEventClass(IdentityProviderAuthenticationSuccessEvent.class);
         mockIdentityZoneManager = mock(IdentityZoneManager.class);
-        manager = new LoginAuthenticationManager(mockIdentityZoneManager);
-        manager.setApplicationEventPublisher(publisher);
         userDatabase = mock(UaaUserDatabase.class);
-        manager.setUserDatabase(userDatabase);
+        manager = new LoginAuthenticationManager(mockIdentityZoneManager, userDatabase);
+        manager.setApplicationEventPublisher(publisher);
         OAuth2Authentication oauth2Authentication = new OAuth2Authentication(new AuthorizationRequest("client", Arrays.asList("read",
                 "write")).createOAuth2Request(), null);
         SecurityContextImpl context = new SecurityContextImpl();

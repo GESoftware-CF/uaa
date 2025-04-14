@@ -15,35 +15,48 @@
 
 package org.cloudfoundry.identity.uaa.authentication;
 
+import org.cloudfoundry.identity.uaa.authentication.manager.LoginAuthenticationManager;
 import org.cloudfoundry.identity.uaa.oauth.provider.OAuth2Authentication;
 import org.cloudfoundry.identity.uaa.oauth.provider.OAuth2RequestFactory;
 import org.cloudfoundry.identity.uaa.oauth.provider.endpoint.TokenEndpointAuthenticationFilter;
-import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_PASSWORD;
 
+@Component
 public class LoginServerTokenEndpointFilter extends TokenEndpointAuthenticationFilter {
 
-
-    private List<String> parameterNames = Collections.emptyList();
+    private final List<String> parameterNames = List.of(
+            "login",
+            "username",
+            "user_id",
+            "origin",
+            "given_name",
+            "family_name",
+            "email",
+            "authorities"
+    );
 
     /**
      * @param authenticationManager an AuthenticationManager for the incoming request
      */
-    public LoginServerTokenEndpointFilter(AuthenticationManager authenticationManager, OAuth2RequestFactory oAuth2RequestFactory, List<String> addNewUserParameters) {
+    public LoginServerTokenEndpointFilter(
+            LoginAuthenticationManager authenticationManager,
+            OAuth2RequestFactory oAuth2RequestFactory,
+            UaaAuthenticationDetailsSource authenticationDetailsSource) {
         super(authenticationManager, oAuth2RequestFactory);
-        this.parameterNames = addNewUserParameters;
+        setAuthenticationDetailsSource(authenticationDetailsSource);
     }
 
     @Override

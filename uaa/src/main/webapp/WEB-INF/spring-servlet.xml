@@ -351,9 +351,6 @@
     <bean id="oauthWebExpressionHandler"
           class="org.cloudfoundry.identity.uaa.security.ContextSensitiveOAuth2WebSecurityExpressionHandler" />
 
-    <!-- The order of these imports is important because of Spring Security filter chain rules -->
-    <import resource="spring/login-server-security.xml"/>
-
     <bean id="messageSource" class="org.springframework.context.support.ReloadableResourceBundleMessageSource">
         <property name="basenames">
             <list>

@@ -16,10 +16,12 @@ package org.cloudfoundry.identity.uaa.authentication;
 import javax.servlet.http.HttpServletRequest;
 
 import org.springframework.security.authentication.AuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
 
 /**
  * @author Luke Taylor
  */
+@Component
 public class UaaAuthenticationDetailsSource implements
         AuthenticationDetailsSource<HttpServletRequest, UaaAuthenticationDetails> {
     @Override

@@ -3,6 +3,7 @@ package org.cloudfoundry.identity.uaa.authentication.login;
 import org.cloudfoundry.identity.uaa.authentication.AccountNotVerifiedException;
 import org.cloudfoundry.identity.uaa.authentication.RemoteAuthenticationEndpoint;
 import org.cloudfoundry.identity.uaa.authentication.UaaPrincipal;
+import org.cloudfoundry.identity.uaa.authentication.manager.LoginAuthenticationManager;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.oauth.provider.OAuth2Authentication;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,7 +26,7 @@ class RemoteAuthenticationEndpointTests {
     private Authentication success;
     private RemoteAuthenticationEndpoint endpoint;
     private AuthenticationManager am;
-    private AuthenticationManager loginAuthMgr;
+    private LoginAuthenticationManager loginAuthMgr;
     private OAuth2Authentication loginAuthentication;
 
     @BeforeEach
@@ -33,7 +34,7 @@ class RemoteAuthenticationEndpointTests {
         UaaPrincipal principal = new UaaPrincipal("user-id-001", "joe", "joe@example.com", OriginKeys.UAA, null, null);
         success = new UsernamePasswordAuthenticationToken(principal, null);
 
-        loginAuthMgr = mock(AuthenticationManager.class);
+        loginAuthMgr = mock(LoginAuthenticationManager.class);
         am = mock(AuthenticationManager.class);
         endpoint = new RemoteAuthenticationEndpoint(am, loginAuthMgr);
         loginAuthentication = mock(OAuth2Authentication.class);

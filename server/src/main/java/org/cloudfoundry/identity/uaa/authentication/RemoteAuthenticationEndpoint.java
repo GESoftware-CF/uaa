@@ -1,5 +1,6 @@
 package org.cloudfoundry.identity.uaa.authentication;
 
+import org.cloudfoundry.identity.uaa.authentication.manager.LoginAuthenticationManager;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.login.AuthenticationResponse;
 import org.cloudfoundry.identity.uaa.oauth.provider.OAuth2Authentication;
@@ -39,7 +40,7 @@ public class RemoteAuthenticationEndpoint {
 
     public RemoteAuthenticationEndpoint(
             final @Qualifier("zoneAwareAuthzAuthenticationManager") AuthenticationManager authenticationManager,
-            final @Qualifier("loginAuthenticationMgr") AuthenticationManager loginAuthenticationManager) {
+            LoginAuthenticationManager loginAuthenticationManager) {
         this.authenticationManager = authenticationManager;
         this.loginAuthenticationManager = loginAuthenticationManager;
     }
