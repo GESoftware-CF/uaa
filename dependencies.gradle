@@ -101,7 +101,6 @@ libraries.springContext = "org.springframework:spring-context:${versions.springF
 libraries.springContextSupport = "org.springframework:spring-context-support:${versions.springFrameworkVersion}"
 libraries.springJdbc = "org.springframework:spring-jdbc:${versions.springFrameworkVersion}"
 libraries.springLdapCore = "org.springframework.ldap:spring-ldap-core"
-libraries.springLdapCoreTiger = "org.springframework.ldap:spring-ldap-core-tiger"
 libraries.springRestdocs = "org.springframework.restdocs:spring-restdocs-mockmvc"
 libraries.springRetry = "org.springframework.retry:spring-retry"
 libraries.springSecurityConfig = "org.springframework.security:spring-security-config:${versions.springSecurityVersion}"
