@@ -80,11 +80,12 @@
     <!--<sec:http name="secFilterOpen12" pattern="/create_account*" security="none" />-->
     <!--<sec:http name="secFilterIdpDiscovery21" pattern="/login/idp_discovery" security="none" create-session="ifRequired"/>-->
 
-    <bean id="oauth2TokenParseFilter" class="java.lang.Class" factory-method="forName">
-        <constructor-arg
-                              value="org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationProcessingFilter"/>
-    </bean>
-    <bean id="utf8ConversionFilter" class="org.cloudfoundry.identity.uaa.authentication.UTF8ConversionFilter"/>
+<!--    <bean id="oauth2TokenParseFilter" class="java.lang.Class" factory-method="forName">-->
+<!--        <constructor-arg-->
+<!--                              value="org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationProcessingFilter"/>-->
+<!--    </bean>-->
+
+<!--    <bean id="utf8ConversionFilter" class="org.cloudfoundry.identity.uaa.authentication.UTF8ConversionFilter"/>-->
     <bean id="corsFilter" class="org.cloudfoundry.identity.uaa.security.web.CorsFilter">
         <property name="corsAllowedUris"
                               value="#{@config['cors']==null ? T(java.util.Arrays).asList('.*') :

@@ -1,8 +1,10 @@
 package org.cloudfoundry.identity.uaa;
 
+import org.cloudfoundry.identity.uaa.authentication.UTF8ConversionFilter;
 import org.cloudfoundry.identity.uaa.impl.config.UaaConfiguration;
 import org.cloudfoundry.identity.uaa.impl.config.YamlConfigurationValidator;
 import org.cloudfoundry.identity.uaa.oauth.DisableIdTokenResponseTypeFilter;
+import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationProcessingFilter;
 import org.cloudfoundry.identity.uaa.web.BackwardsCompatibleScopeParsingFilter;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -63,6 +65,16 @@ public class SpringServletXml {
                 Arrays.asList("/**/oauth/authorize", "/oauth/authorize")
         );
         return bean;
+    }
+
+    @Bean
+    Class<OAuth2AuthenticationProcessingFilter> oauth2TokenParseFilter() {
+        return OAuth2AuthenticationProcessingFilter.class;
+    }
+
+    @Bean
+    UTF8ConversionFilter utf8ConversionFilter() {
+        return new UTF8ConversionFilter();
     }
 
 }
