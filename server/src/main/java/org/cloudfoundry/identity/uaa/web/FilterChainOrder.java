@@ -10,6 +10,9 @@ package org.cloudfoundry.identity.uaa.web;
  */
 public class FilterChainOrder {
 
+    // spring-servlet.xml: 0
+
+
     // login-server-security.xml: 100
     public static final int AUTHENTICATE_BEARER = 100;
     public static final int AUTHENTICATE_CATCH_ALL = 101;

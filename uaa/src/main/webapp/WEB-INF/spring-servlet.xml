@@ -11,50 +11,48 @@
        http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd
        http://www.springframework.org/schema/util https://www.springframework.org/schema/util/spring-util.xsd">
 
-    <context:annotation-config/>
+<!--    <context:annotation-config/>-->
     <context:component-scan base-package="org.cloudfoundry.identity.uaa"/>
 
-    <authentication-manager alias="emptyAuthenticationManager" id="emptyAuthenticationManager" xmlns="http://www.springframework.org/schema/security"/>
+<!--    <bean id="uaaConfigValidation" class="org.cloudfoundry.identity.uaa.impl.config.YamlConfigurationValidator">-->
+<!--        <constructor-arg>-->
+<!--            <bean class="org.cloudfoundry.identity.uaa.impl.config.UaaConfiguration.UaaConfigConstructor"/>-->
+<!--        </constructor-arg>-->
+<!--        <property name="yaml" value="${environmentYamlKey}"/>-->
+<!--    </bean>-->
 
-    <bean id="uaaConfigValidation" class="org.cloudfoundry.identity.uaa.impl.config.YamlConfigurationValidator">
-        <constructor-arg>
-            <bean class="org.cloudfoundry.identity.uaa.impl.config.UaaConfiguration.UaaConfigConstructor"/>
-        </constructor-arg>
-        <property name="yaml" value="${environmentYamlKey}"/>
-    </bean>
+<!--    <bean class="org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping">-->
+<!--        <property name="contentNegotiationManager" ref="contentNegotiationManager"/>-->
+<!--        <property name="useSuffixPatternMatch" value="false"/>-->
+<!--        <property name="order" value="1"/>-->
+<!--    </bean>-->
 
-    <bean class="org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping">
-        <property name="contentNegotiationManager" ref="contentNegotiationManager"/>
-        <property name="useSuffixPatternMatch" value="false"/>
-        <property name="order" value="1"/>
-    </bean>
+<!--    <bean name="contentNegotiationManager"-->
+<!--                    primary="true"-->
+<!--                    class="org.springframework.web.accept.ContentNegotiationManagerFactoryBean">-->
+<!--        <property name="favorPathExtension" value="false"/>-->
+<!--        <property name="favorParameter" value="true"/>-->
+<!--        <property name="mediaTypes">-->
+<!--            <value>-->
+<!--                json=application/json-->
+<!--                xml=application/xml-->
+<!--                html=test/html-->
+<!--            </value>-->
+<!--        </property>-->
+<!--    </bean>-->
 
-    <bean name="contentNegotiationManager"
-                    primary="true"
-                    class="org.springframework.web.accept.ContentNegotiationManagerFactoryBean">
-        <property name="favorPathExtension" value="false"/>
-        <property name="favorParameter" value="true"/>
-        <property name="mediaTypes">
-            <value>
-                json=application/json
-                xml=application/xml
-                html=test/html
-            </value>
-        </property>
-    </bean>
-
-    <bean id="backwardsCompatibleScopeParameter"
-                    class="org.cloudfoundry.identity.uaa.web.BackwardsCompatibleScopeParsingFilter"/>
-    <bean id="disableIdTokenResponseFilter"
-                    class="org.cloudfoundry.identity.uaa.oauth.DisableIdTokenResponseTypeFilter">
-        <constructor-arg index="0" value="${oauth.id_token.disable:false}"/>
-        <constructor-arg index="1">
-            <list>
-                <value>/**/oauth/authorize</value>
-                <value>/oauth/authorize</value>
-            </list>
-        </constructor-arg>
-    </bean>
+<!--    <bean id="backwardsCompatibleScopeParameter"-->
+<!--                    class="org.cloudfoundry.identity.uaa.web.BackwardsCompatibleScopeParsingFilter"/>-->
+<!--    <bean id="disableIdTokenResponseFilter"-->
+<!--                    class="org.cloudfoundry.identity.uaa.oauth.DisableIdTokenResponseTypeFilter">-->
+<!--        <constructor-arg index="0" value="${oauth.id_token.disable:false}"/>-->
+<!--        <constructor-arg index="1">-->
+<!--            <list>-->
+<!--                <value>/**/oauth/authorize</value>-->
+<!--                <value>/oauth/authorize</value>-->
+<!--            </list>-->
+<!--        </constructor-arg>-->
+<!--    </bean>-->
 
     <import resource="classpath:spring/env.xml"/>
 

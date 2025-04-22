@@ -1,0 +1,68 @@
+package org.cloudfoundry.identity.uaa;
+
+import org.cloudfoundry.identity.uaa.impl.config.UaaConfiguration;
+import org.cloudfoundry.identity.uaa.impl.config.YamlConfigurationValidator;
+import org.cloudfoundry.identity.uaa.oauth.DisableIdTokenResponseTypeFilter;
+import org.cloudfoundry.identity.uaa.web.BackwardsCompatibleScopeParsingFilter;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+import org.springframework.http.MediaType;
+import org.springframework.web.accept.ContentNegotiationManagerFactoryBean;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
+
+import java.util.Arrays;
+
+@Configuration
+@ComponentScan("org.cloudfoundry.identity.uaa")
+public class SpringServletXml {
+
+    @Bean
+    BackwardsCompatibleScopeParsingFilter backwardsCompatibleScopeParameter() {
+        return new BackwardsCompatibleScopeParsingFilter();
+    }
+    @Bean
+    YamlConfigurationValidator uaaConfigValidation(@Value("${environmentYamlKey}") String environmentYamlKey) {
+        YamlConfigurationValidator bean = new YamlConfigurationValidator(new UaaConfiguration.UaaConfigConstructor());
+        bean.setYaml(environmentYamlKey);
+        return bean;
+    }
+
+    @Bean
+    @Primary
+    ContentNegotiationManagerFactoryBean contentNegotiationManager() {
+        ContentNegotiationManagerFactoryBean bean = new ContentNegotiationManagerFactoryBean();
+        bean.setFavorPathExtension(false);
+        bean.setFavorParameter(true);
+        bean.addMediaType("json", MediaType.APPLICATION_JSON);
+        bean.addMediaType("xml", MediaType.APPLICATION_XML);
+        bean.addMediaType("html", MediaType.TEXT_HTML);
+        return bean;
+    }
+
+    @Bean
+    RequestMappingHandlerMapping requestMappingHandlerMapping(
+            @Qualifier("contentNegotiationManager") ContentNegotiationManagerFactoryBean contentNegotiationManagerFactoryBean
+    ) {
+        RequestMappingHandlerMapping bean = new RequestMappingHandlerMapping();
+        bean.setContentNegotiationManager(contentNegotiationManagerFactoryBean.build());
+        bean.setUseSuffixPatternMatch(false);
+        bean.setOrder(1);
+        return bean;
+    }
+
+    @Bean
+    DisableIdTokenResponseTypeFilter disableIdTokenResponseFilter(
+            @Value("${oauth.id_token.disable:false}") boolean disable
+    ) {
+        DisableIdTokenResponseTypeFilter bean = new DisableIdTokenResponseTypeFilter(
+                disable,
+                Arrays.asList("/**/oauth/authorize", "/oauth/authorize")
+        );
+        return bean;
+    }
+
+}
