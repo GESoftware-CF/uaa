@@ -6,6 +6,7 @@ import org.cloudfoundry.identity.uaa.authentication.UaaExceptionTranslator;
 import org.cloudfoundry.identity.uaa.cache.UrlContentCache;
 import org.cloudfoundry.identity.uaa.client.ClientAdminEndpointsValidator;
 import org.cloudfoundry.identity.uaa.client.event.ClientAdminEventPublisher;
+import org.cloudfoundry.identity.uaa.impl.config.IdentityProviderBootstrap;
 import org.cloudfoundry.identity.uaa.impl.config.UaaConfiguration;
 import org.cloudfoundry.identity.uaa.impl.config.YamlConfigurationValidator;
 import org.cloudfoundry.identity.uaa.login.Prompt;
@@ -15,7 +16,13 @@ import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2Authent
 import org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AuthenticationEntryPoint;
 import org.cloudfoundry.identity.uaa.oauth.provider.error.WebResponseExceptionTranslator;
 import org.cloudfoundry.identity.uaa.oauth.provider.vote.ScopeVoter;
+import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
+import org.cloudfoundry.identity.uaa.provider.IdentityProviderWrapper;
+import org.cloudfoundry.identity.uaa.provider.LockoutPolicy;
+import org.cloudfoundry.identity.uaa.provider.PasswordPolicy;
+import org.cloudfoundry.identity.uaa.provider.oauth.OauthIDPWrapperFactoryBean;
 import org.cloudfoundry.identity.uaa.provider.oauth.OidcMetadataFetcher;
+import org.cloudfoundry.identity.uaa.provider.saml.BootstrapSamlIdentityProviderData;
 import org.cloudfoundry.identity.uaa.resources.QueryableResourceManager;
 import org.cloudfoundry.identity.uaa.security.ContextSensitiveOAuth2WebSecurityExpressionHandler;
 import org.cloudfoundry.identity.uaa.security.beans.SecurityContextAccessor;
@@ -35,6 +42,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.support.ReloadableResourceBundleMessageSource;
+import org.springframework.core.env.Environment;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDecisionVoter;
 import org.springframework.security.access.vote.AuthenticatedVoter;
@@ -48,7 +56,9 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Configuration
 @ComponentScan("org.cloudfoundry.identity.uaa")
@@ -292,4 +302,69 @@ public class SpringServletXml {
         return bean;
     }
 
+    @Bean
+    IdentityProviderBootstrap idpBootstrap(
+            @Qualifier("identityProviderProvisioning") IdentityProviderProvisioning provisioning,
+            Environment environment,
+            @Qualifier("defaultUaaPasswordPolicy") PasswordPolicy defaultUaaPasswordPolicy,
+            @Qualifier("userLockoutPolicy") LockoutPolicy userLockoutPolicy,
+            @Value("#{@config['disableInternalUserManagement'] == null ? false : @config['disableInternalUserManagement']}") boolean disableInternalUserManagement,
+            @Value("#{@config['ldap']}") Map<String, Object> ldapConfig,
+            @Qualifier("bootstrapMetaDataProviders") BootstrapSamlIdentityProviderData samlProviders,
+            @Qualifier("oauthIdpDefinitions") List<IdentityProviderWrapper> oauthIdpDefinitions,
+            @Value("#{@config['delete']==null ? null : @config['delete']['identityProviders']}") List<String> originsToDelete
+    ) {
+        IdentityProviderBootstrap bean = new IdentityProviderBootstrap(provisioning, identityZoneManager, environment);
+        bean.setDefaultPasswordPolicy(defaultUaaPasswordPolicy);
+        bean.setDefaultLockoutPolicy(userLockoutPolicy);
+        bean.setDisableInternalUserManagement(disableInternalUserManagement);
+        bean.setLdapConfig(ldapConfig);
+        bean.setKeystoneConfig(null);
+        bean.setSamlProviders(samlProviders);
+        bean.setOauthIdpDefinitions(oauthIdpDefinitions);
+        bean.setOriginsToDelete(originsToDelete);
+        return bean;
+    }
+
+    @Bean
+    OauthIDPWrapperFactoryBean oauthIdpConfigurator(
+            @Value("#{@config['login']==null ? null : " +
+                    "@config['login']['oauth']==null ? null : " +
+                    "@config['login']['oauth']['providers']}") Map<String, Map> definitions
+    ) {
+
+        OauthIDPWrapperFactoryBean bean = new OauthIDPWrapperFactoryBean(definitions);
+        return bean;
+    }
+
+    @Bean
+    List<IdentityProviderWrapper> oauthIdpDefinitions(
+            @Qualifier("oauthIdpConfigurator") OauthIDPWrapperFactoryBean oauthIdpConfigurator
+    ) {
+        return oauthIdpConfigurator.getProviders();
+    }
+
+//    @Bean
+//    UserConfig defaultUserConfig(
+//            @Qualifier("defaultUserAuthorities") List<String> defaultUserAuthorities,
+//            @Value("${login.allowedGroups:#{null}}") List<String> allowedGroups,
+//            @Value("${login.checkOriginEnabled:false}") boolean checkOriginEnabled,
+//            @Value("${login.maxUsers:-1}") int maxUsers,
+//            @Value("${login.allowOriginLoop:true}") boolean allowOriginLoop
+//    ) {
+//        UserConfig bean = new UserConfig();
+//        bean.setDefaultGroups(defaultUserAuthorities);
+//        bean.setAllowedGroups(allowedGroups);
+//        bean.setCheckOriginEnabled(checkOriginEnabled);
+//        bean.setMaxUsers(maxUsers);
+//        bean.setAllowOriginLoop(allowOriginLoop);
+//        return bean;
+//    }
+
+    @Bean
+    HashMap<String, Object> links(
+            @Value("#{@config['links']==null ? T(java.util.Collections).EMPTY_MAP : @config['links']}") HashMap<String, Object> links
+    ) {
+        return links;
+    }
 }
