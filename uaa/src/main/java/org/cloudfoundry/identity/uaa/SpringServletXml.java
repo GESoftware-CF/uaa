@@ -32,6 +32,7 @@ import org.cloudfoundry.identity.uaa.zone.ClientSecretPolicy;
 import org.cloudfoundry.identity.uaa.zone.ClientSecretValidator;
 import org.cloudfoundry.identity.uaa.zone.Links;
 import org.cloudfoundry.identity.uaa.zone.MultitenantClientServices;
+import org.cloudfoundry.identity.uaa.zone.UserConfig;
 import org.cloudfoundry.identity.uaa.zone.ZoneAwareClientSecretPolicyValidator;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,6 +57,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -69,6 +71,10 @@ public class SpringServletXml {
 
     @Autowired
     IdentityZoneManager identityZoneManager;
+
+    @Autowired
+    @Qualifier("defaultUserAuthorities")
+    Collection<String> defaultAuthorities;
 
     @Bean
     BackwardsCompatibleScopeParsingFilter backwardsCompatibleScopeParameter() {
@@ -344,22 +350,22 @@ public class SpringServletXml {
         return oauthIdpConfigurator.getProviders();
     }
 
-//    @Bean
-//    UserConfig defaultUserConfig(
-//            @Qualifier("defaultUserAuthorities") List<String> defaultUserAuthorities,
-//            @Value("${login.allowedGroups:#{null}}") List<String> allowedGroups,
-//            @Value("${login.checkOriginEnabled:false}") boolean checkOriginEnabled,
-//            @Value("${login.maxUsers:-1}") int maxUsers,
-//            @Value("${login.allowOriginLoop:true}") boolean allowOriginLoop
-//    ) {
-//        UserConfig bean = new UserConfig();
-//        bean.setDefaultGroups(defaultUserAuthorities);
-//        bean.setAllowedGroups(allowedGroups);
-//        bean.setCheckOriginEnabled(checkOriginEnabled);
-//        bean.setMaxUsers(maxUsers);
-//        bean.setAllowOriginLoop(allowOriginLoop);
-//        return bean;
-//    }
+    @Bean
+    UserConfig defaultUserConfig(
+            @Value("${login.allowedGroups:#{null}}") List<String> allowedGroups,
+            @Value("${login.checkOriginEnabled:false}") boolean checkOriginEnabled,
+            @Value("${login.maxUsers:-1}") int maxUsers,
+            @Value("${login.allowOriginLoop:true}") boolean allowOriginLoop
+    ) {
+        UserConfig bean = new UserConfig();
+
+        bean.setDefaultGroups(defaultAuthorities.stream().toList());
+        bean.setAllowedGroups(allowedGroups);
+        bean.setCheckOriginEnabled(checkOriginEnabled);
+        bean.setMaxUsers(maxUsers);
+        bean.setAllowOriginLoop(allowOriginLoop);
+        return bean;
+    }
 
     @Bean
     HashMap<String, Object> links(
