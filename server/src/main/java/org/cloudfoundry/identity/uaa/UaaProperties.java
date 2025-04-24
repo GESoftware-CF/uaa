@@ -52,6 +52,16 @@ public class UaaProperties {
     )
     {}
 
+    @ConfigurationProperties(prefix = "metrics")
+    public record Metrics(
+            @DefaultValue("true")
+            boolean enabled,
+
+            @DefaultValue("false")
+            boolean perRequestMetrics
+    )
+    {}
+
     public record SessionCookie(@DefaultValue("true") boolean encodeBase64, @Nullable Integer maxAge) {
     }
 

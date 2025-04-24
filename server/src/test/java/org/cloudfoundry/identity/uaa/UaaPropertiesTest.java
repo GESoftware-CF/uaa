@@ -9,7 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class UaaPropertiesTest {
 
-    @EnableConfigurationProperties({UaaProperties.Servlet.class, UaaProperties.Csp.class})
+    @EnableConfigurationProperties({UaaProperties.Servlet.class, UaaProperties.Csp.class, UaaProperties.Metrics.class})
     static class TestUaaServletConfig {}
 
     private ApplicationContextRunner applicationContextRunner;
@@ -82,6 +82,33 @@ class UaaPropertiesTest {
                     assertThat(properties.scriptSrc()).containsExactly(
                             "'self'", "custom"
                     );
+
+                });
+    }
+
+    @Test
+    void whenNoMetricsPropertiesAreSet() {
+        applicationContextRunner
+                .run(context -> {
+                    UaaProperties.Metrics properties = context.getBean(UaaProperties.Metrics.class);
+
+                    assertThat(properties).isNotNull();
+                    assertThat(properties.enabled()).isTrue();
+                    assertThat(properties.perRequestMetrics()).isFalse();
+
+                });
+    }
+
+    @Test
+    void whenMetricsPropertiesAreSet() {
+        applicationContextRunner
+                .withPropertyValues("metrics.enabled=false", "metrics.perRequestMetrics=true")
+                .run(context -> {
+                    UaaProperties.Metrics properties = context.getBean(UaaProperties.Metrics.class);
+
+                    assertThat(properties).isNotNull();
+                    assertThat(properties.enabled()).isFalse();
+                    assertThat(properties.perRequestMetrics()).isTrue();
 
                 });
     }

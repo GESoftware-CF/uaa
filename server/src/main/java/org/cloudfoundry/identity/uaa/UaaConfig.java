@@ -21,7 +21,8 @@ import java.util.List;
         UaaProperties.Uaa.class,
         UaaProperties.Servlet.class,
         UaaProperties.RootLevel.class,
-        UaaProperties.Csp.class
+        UaaProperties.Csp.class,
+        UaaProperties.Metrics.class
 })
 public class UaaConfig {
 

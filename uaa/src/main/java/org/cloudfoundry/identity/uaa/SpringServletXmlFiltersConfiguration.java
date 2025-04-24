@@ -1,10 +1,12 @@
 package org.cloudfoundry.identity.uaa;
 
 import org.cloudfoundry.identity.uaa.authentication.UTF8ConversionFilter;
+import org.cloudfoundry.identity.uaa.metrics.UaaMetricsFilter;
 import org.cloudfoundry.identity.uaa.oauth.DisableIdTokenResponseTypeFilter;
 import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationProcessingFilter;
 import org.cloudfoundry.identity.uaa.security.web.ContentSecurityPolicyFilter;
 import org.cloudfoundry.identity.uaa.security.web.CorsFilter;
+import org.cloudfoundry.identity.uaa.util.TimeService;
 import org.cloudfoundry.identity.uaa.web.BackwardsCompatibleScopeParsingFilter;
 import org.cloudfoundry.identity.uaa.web.HeaderFilter;
 import org.cloudfoundry.identity.uaa.web.LimitedModeUaaFilter;
@@ -15,6 +17,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 
+import java.io.IOException;
 import java.util.Arrays;
 
 @Configuration
@@ -32,6 +35,9 @@ public class SpringServletXmlFiltersConfiguration {
 
     @Autowired
     UaaProperties.Csp cspProps;
+
+    @Autowired
+    UaaProperties.Metrics metricsProps;
 
     @Autowired
     IdentityZoneManager identityZoneManager;
@@ -100,5 +106,10 @@ public class SpringServletXmlFiltersConfiguration {
     @Bean
     ContentSecurityPolicyFilter contentSecurityPolicyFilter() {
         return new ContentSecurityPolicyFilter(cspProps.scriptSrc());
+    }
+
+    @Bean
+    UaaMetricsFilter metricsFilter(TimeService timeService) throws IOException {
+        return new UaaMetricsFilter(metricsProps.enabled(), metricsProps.perRequestMetrics(), timeService);
     }
 }
