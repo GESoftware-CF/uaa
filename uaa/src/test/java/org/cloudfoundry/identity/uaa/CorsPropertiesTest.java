@@ -5,7 +5,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import org.springframework.context.annotation.Configuration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.HttpHeaders.ACCEPT;
@@ -16,7 +15,6 @@ import static org.springframework.http.HttpHeaders.CONTENT_TYPE;
 
 class CorsPropertiesTest {
 
-    @Configuration
     @EnableConfigurationProperties({CorsProperties.class, CorsProperties.DefaultAllowed.class, CorsProperties.XhrAllowed.class})
     static class TestCorsConfig {}
 

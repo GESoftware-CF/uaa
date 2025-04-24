@@ -35,6 +35,7 @@ import org.cloudfoundry.identity.uaa.security.beans.SecurityContextAccessor;
 import org.cloudfoundry.identity.uaa.security.web.CorsFilter;
 import org.cloudfoundry.identity.uaa.user.JdbcUaaUserDatabase;
 import org.cloudfoundry.identity.uaa.web.BackwardsCompatibleScopeParsingFilter;
+import org.cloudfoundry.identity.uaa.web.LimitedModeUaaFilter;
 import org.cloudfoundry.identity.uaa.zone.ClientSecretPolicy;
 import org.cloudfoundry.identity.uaa.zone.ClientSecretValidator;
 import org.cloudfoundry.identity.uaa.zone.Links;
@@ -75,6 +76,9 @@ public class SpringServletXml {
 
     @Autowired
     CorsProperties corsProperties;
+
+    @Autowired
+    LimitedModeProperties limitedModeProperties;
 
     @Autowired
     IdentityZoneManager identityZoneManager;
@@ -409,6 +413,15 @@ public class SpringServletXml {
         bean.setExpiringCodeStore(codeStore);
         bean.setClientDetailsService(jdbcClientDetailsService);
         bean.setUserDatabase(userDatabase);
+        return bean;
+    }
+
+    @Bean
+    LimitedModeUaaFilter limitedModeUaaFilter() {
+        LimitedModeUaaFilter bean = new LimitedModeUaaFilter();
+        bean.setStatusFile(limitedModeProperties.statusFile);
+        bean.setPermittedEndpoints(limitedModeProperties.permitted.endpoints());
+        bean.setPermittedMethods(limitedModeProperties.permitted.methods());
         return bean;
     }
 }
