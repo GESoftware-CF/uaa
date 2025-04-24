@@ -510,22 +510,22 @@
         <property name="defaultIdentityProvider" value="${login.defaultIdentityProvider:#{null}}"/>
     </bean>
 
-    <bean id="ldapLoginAuthenticationMgr"
-                    class="org.cloudfoundry.identity.uaa.authentication.manager.LdapLoginAuthenticationManager">
-        <property name="userDatabase" ref="userDatabase"/>
-        <property name="origin" value="ldap"/>
-    </bean>
+<!--    <bean id="ldapLoginAuthenticationMgr"-->
+<!--                    class="org.cloudfoundry.identity.uaa.authentication.manager.LdapLoginAuthenticationManager">-->
+<!--        <property name="userDatabase" ref="userDatabase"/>-->
+<!--        <property name="origin" value="ldap"/>-->
+<!--    </bean>-->
 
-    <bean class="org.cloudfoundry.identity.uaa.authentication.listener.AuthenticationSuccessListener">
-        <constructor-arg name="scimUserProvisioning" ref="scimUserProvisioning"/>
-    </bean>
+<!--    <bean class="org.cloudfoundry.identity.uaa.authentication.listener.AuthenticationSuccessListener">-->
+<!--        <constructor-arg name="scimUserProvisioning" ref="scimUserProvisioning"/>-->
+<!--    </bean>-->
 
-    <bean id="autologinAuthenticationManager"
-                    class="org.cloudfoundry.identity.uaa.authentication.manager.AutologinAuthenticationManager">
-        <property name="expiringCodeStore" ref="codeStore"/>
-        <property name="clientDetailsService" ref="jdbcClientDetailsService"/>
-        <property name="userDatabase" ref="userDatabase"/>
-    </bean>
+<!--    <bean id="autologinAuthenticationManager"-->
+<!--                    class="org.cloudfoundry.identity.uaa.authentication.manager.AutologinAuthenticationManager">-->
+<!--        <property name="expiringCodeStore" ref="codeStore"/>-->
+<!--        <property name="clientDetailsService" ref="jdbcClientDetailsService"/>-->
+<!--        <property name="userDatabase" ref="userDatabase"/>-->
+<!--    </bean>-->
 
     <bean id="limitedModeUaaFilter" class="org.cloudfoundry.identity.uaa.web.LimitedModeUaaFilter">
         <property name="statusFile" value="${uaa.limitedFunctionality.statusFile:#{null}}"/>

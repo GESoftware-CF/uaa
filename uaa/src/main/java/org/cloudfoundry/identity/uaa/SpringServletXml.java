@@ -3,9 +3,14 @@ package org.cloudfoundry.identity.uaa;
 import org.cloudfoundry.identity.uaa.authentication.UTF8ConversionFilter;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthenticationDetailsSource;
 import org.cloudfoundry.identity.uaa.authentication.UaaExceptionTranslator;
+import org.cloudfoundry.identity.uaa.authentication.listener.AuthenticationSuccessListener;
+import org.cloudfoundry.identity.uaa.authentication.manager.AutologinAuthenticationManager;
+import org.cloudfoundry.identity.uaa.authentication.manager.LdapLoginAuthenticationManager;
 import org.cloudfoundry.identity.uaa.cache.UrlContentCache;
 import org.cloudfoundry.identity.uaa.client.ClientAdminEndpointsValidator;
 import org.cloudfoundry.identity.uaa.client.event.ClientAdminEventPublisher;
+import org.cloudfoundry.identity.uaa.codestore.ExpiringCodeStore;
+import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.impl.config.IdentityProviderBootstrap;
 import org.cloudfoundry.identity.uaa.impl.config.UaaConfiguration;
 import org.cloudfoundry.identity.uaa.impl.config.YamlConfigurationValidator;
@@ -24,9 +29,11 @@ import org.cloudfoundry.identity.uaa.provider.oauth.OauthIDPWrapperFactoryBean;
 import org.cloudfoundry.identity.uaa.provider.oauth.OidcMetadataFetcher;
 import org.cloudfoundry.identity.uaa.provider.saml.BootstrapSamlIdentityProviderData;
 import org.cloudfoundry.identity.uaa.resources.QueryableResourceManager;
+import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimUserProvisioning;
 import org.cloudfoundry.identity.uaa.security.ContextSensitiveOAuth2WebSecurityExpressionHandler;
 import org.cloudfoundry.identity.uaa.security.beans.SecurityContextAccessor;
 import org.cloudfoundry.identity.uaa.security.web.CorsFilter;
+import org.cloudfoundry.identity.uaa.user.JdbcUaaUserDatabase;
 import org.cloudfoundry.identity.uaa.web.BackwardsCompatibleScopeParsingFilter;
 import org.cloudfoundry.identity.uaa.zone.ClientSecretPolicy;
 import org.cloudfoundry.identity.uaa.zone.ClientSecretValidator;
@@ -372,5 +379,36 @@ public class SpringServletXml {
             @Value("#{@config['links']==null ? T(java.util.Collections).EMPTY_MAP : @config['links']}") HashMap<String, Object> links
     ) {
         return links;
+    }
+
+    @Bean
+    LdapLoginAuthenticationManager ldapLoginAuthenticationMgr(
+            @Qualifier("identityProviderProvisioning") IdentityProviderProvisioning provisioning,
+            @Qualifier("userDatabase")JdbcUaaUserDatabase userDatabase
+    ) {
+        LdapLoginAuthenticationManager bean = new LdapLoginAuthenticationManager(provisioning);
+        bean.setUserDatabase(userDatabase);
+        bean.setOrigin(OriginKeys.LDAP);
+        return bean;
+    }
+
+    @Bean
+    AuthenticationSuccessListener authenticationSuccessListener(
+            @Qualifier("scimUserProvisioning")JdbcScimUserProvisioning scimUserProvisioning
+    ) {
+        return new AuthenticationSuccessListener(scimUserProvisioning);
+    }
+
+    @Bean
+    AutologinAuthenticationManager autologinAuthenticationManager(
+            @Qualifier("codeStore") ExpiringCodeStore codeStore,
+            @Qualifier("jdbcClientDetailsService") MultitenantClientServices jdbcClientDetailsService,
+            @Qualifier("userDatabase")JdbcUaaUserDatabase userDatabase
+    ) {
+        AutologinAuthenticationManager bean = new AutologinAuthenticationManager();
+        bean.setExpiringCodeStore(codeStore);
+        bean.setClientDetailsService(jdbcClientDetailsService);
+        bean.setUserDatabase(userDatabase);
+        return bean;
     }
 }
