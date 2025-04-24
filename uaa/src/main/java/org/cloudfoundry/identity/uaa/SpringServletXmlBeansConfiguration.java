@@ -1,6 +1,5 @@
 package org.cloudfoundry.identity.uaa;
 
-import org.cloudfoundry.identity.uaa.authentication.UTF8ConversionFilter;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthenticationDetailsSource;
 import org.cloudfoundry.identity.uaa.authentication.UaaExceptionTranslator;
 import org.cloudfoundry.identity.uaa.authentication.listener.AuthenticationSuccessListener;
@@ -15,9 +14,7 @@ import org.cloudfoundry.identity.uaa.impl.config.IdentityProviderBootstrap;
 import org.cloudfoundry.identity.uaa.impl.config.UaaConfiguration;
 import org.cloudfoundry.identity.uaa.impl.config.YamlConfigurationValidator;
 import org.cloudfoundry.identity.uaa.login.Prompt;
-import org.cloudfoundry.identity.uaa.oauth.DisableIdTokenResponseTypeFilter;
 import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetails;
-import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationProcessingFilter;
 import org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AuthenticationEntryPoint;
 import org.cloudfoundry.identity.uaa.oauth.provider.error.WebResponseExceptionTranslator;
 import org.cloudfoundry.identity.uaa.oauth.provider.vote.ScopeVoter;
@@ -32,10 +29,7 @@ import org.cloudfoundry.identity.uaa.resources.QueryableResourceManager;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimUserProvisioning;
 import org.cloudfoundry.identity.uaa.security.ContextSensitiveOAuth2WebSecurityExpressionHandler;
 import org.cloudfoundry.identity.uaa.security.beans.SecurityContextAccessor;
-import org.cloudfoundry.identity.uaa.security.web.CorsFilter;
 import org.cloudfoundry.identity.uaa.user.JdbcUaaUserDatabase;
-import org.cloudfoundry.identity.uaa.web.BackwardsCompatibleScopeParsingFilter;
-import org.cloudfoundry.identity.uaa.web.LimitedModeUaaFilter;
 import org.cloudfoundry.identity.uaa.zone.ClientSecretPolicy;
 import org.cloudfoundry.identity.uaa.zone.ClientSecretValidator;
 import org.cloudfoundry.identity.uaa.zone.Links;
@@ -72,13 +66,7 @@ import java.util.Map;
 
 @Configuration
 @ComponentScan("org.cloudfoundry.identity.uaa")
-public class SpringServletXml {
-
-    @Autowired
-    CorsProperties corsProperties;
-
-    @Autowired
-    LimitedModeProperties limitedModeProperties;
+public class SpringServletXmlBeansConfiguration {
 
     @Autowired
     IdentityZoneManager identityZoneManager;
@@ -88,9 +76,16 @@ public class SpringServletXml {
     Collection<String> defaultAuthorities;
 
     @Bean
-    BackwardsCompatibleScopeParsingFilter backwardsCompatibleScopeParameter() {
-        return new BackwardsCompatibleScopeParsingFilter();
+    List<String> defaultFilteredHeaders() {
+        return Arrays.asList(
+                "X-Forwarded-For",
+                "X-Forwarded-Host",
+                "X-Forwarded-Proto",
+                "X-Forwarded-Prefix",
+                "Forwarded"
+        );
     }
+
     @Bean
     YamlConfigurationValidator uaaConfigValidation(@Value("${environmentYamlKey}") String environmentYamlKey) {
         YamlConfigurationValidator bean = new YamlConfigurationValidator(new UaaConfiguration.UaaConfigConstructor());
@@ -122,47 +117,6 @@ public class SpringServletXml {
     }
 
     @Bean
-    DisableIdTokenResponseTypeFilter disableIdTokenResponseFilter(
-            @Value("${oauth.id_token.disable:false}") boolean disable
-    ) {
-        DisableIdTokenResponseTypeFilter bean = new DisableIdTokenResponseTypeFilter(
-                disable,
-                Arrays.asList("/**/oauth/authorize", "/oauth/authorize")
-        );
-        return bean;
-    }
-
-    @Bean
-    Class<OAuth2AuthenticationProcessingFilter> oauth2TokenParseFilter() {
-        return OAuth2AuthenticationProcessingFilter.class;
-    }
-
-    @Bean
-    UTF8ConversionFilter utf8ConversionFilter() {
-        return new UTF8ConversionFilter();
-    }
-
-    @Bean
-    CorsFilter corsFilter() {
-        CorsFilter bean = new CorsFilter(identityZoneManager, corsProperties.enforceSystemZoneSettings);
-
-        bean.setCorsAllowedUris(corsProperties.defaultAllowed.uris());
-        bean.setCorsAllowedOrigins(corsProperties.defaultAllowed.origins());
-        bean.setCorsAllowedHeaders(corsProperties.defaultAllowed.headers());
-        bean.setCorsAllowedMethods(corsProperties.defaultAllowed.methods());
-        bean.setCorsAllowedCredentials(corsProperties.defaultAllowed.credentials());
-        bean.setCorsMaxAge(corsProperties.defaultMaxAge);
-
-        bean.setCorsXhrAllowedUris(corsProperties.xhrAllowed.uris());
-        bean.setCorsXhrAllowedOrigins(corsProperties.xhrAllowed.origins());
-        bean.setCorsXhrAllowedHeaders(corsProperties.xhrAllowed.headers());
-        bean.setCorsXhrAllowedMethods(corsProperties.xhrAllowed.methods());
-        bean.setCorsXhrAllowedCredentials(corsProperties.xhrAllowed.credentials());
-        bean.setCorsXhrMaxAge(corsProperties.xhrMaxAge);
-        return bean;
-    }
-
-    @Bean
     Boolean allowQueryStringForTokens(@Value("${jwt.token.queryString.enabled:true}") boolean enabled) {
         return enabled;
     }
@@ -170,17 +124,6 @@ public class SpringServletXml {
     @Bean
     ChangeSessionIdAuthenticationStrategy sessionFixationProtectionStrategy() {
         return new ChangeSessionIdAuthenticationStrategy();
-    }
-    
-    @Bean
-    List<String> defaultFilteredHeaders() {
-        return Arrays.asList(
-                "X-Forwarded-For",
-                "X-Forwarded-Host",
-                "X-Forwarded-Proto",
-                "X-Forwarded-Prefix",
-                "Forwarded"
-        );
     }
 
     @Bean
@@ -416,12 +359,4 @@ public class SpringServletXml {
         return bean;
     }
 
-    @Bean
-    LimitedModeUaaFilter limitedModeUaaFilter() {
-        LimitedModeUaaFilter bean = new LimitedModeUaaFilter();
-        bean.setStatusFile(limitedModeProperties.statusFile);
-        bean.setPermittedEndpoints(limitedModeProperties.permitted.endpoints());
-        bean.setPermittedMethods(limitedModeProperties.permitted.methods());
-        return bean;
-    }
 }
