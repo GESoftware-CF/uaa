@@ -81,5 +81,42 @@ public class UaaProperties {
     public record SessionCookie(@DefaultValue("true") boolean encodeBase64, @Nullable Integer maxAge) {
     }
 
+    @ConfigurationProperties(prefix = "oauth.client.secret.policy.global")
+    record GlobalClientSecretPolicy (
+            @DefaultValue("0") int minLength,
+            @DefaultValue("255") int maxLength,
+            @DefaultValue("0") int requireUpperCaseCharacter,
+            @DefaultValue("0") int requireLowerCaseCharacter,
+            @DefaultValue("0") int requireDigit,
+            @DefaultValue("0") int requireSpecialCharacter,
+            @DefaultValue("0") int expireSecretInMonths
+    ) { }
+
+    @ConfigurationProperties(prefix = "oauth.client.secret.policy")
+    record DefaultClientSecretPolicy(
+            GlobalClientSecretPolicy global,
+            @DefaultValue("-1") int minLength,
+            @DefaultValue("-1") int maxLength,
+            @DefaultValue("-1") int requireUpperCaseCharacter,
+            @DefaultValue("-1") int requireLowerCaseCharacter,
+            @DefaultValue("-1") int requireDigit,
+            @DefaultValue("-1") int requireSpecialCharacter,
+            @DefaultValue("-1") int expireSecretInMonths
+
+    ) {
+        public DefaultClientSecretPolicy {
+            if (global == null) {
+                global = new GlobalClientSecretPolicy(0,255,0,0,0,0,0);
+            }
+            minLength = (minLength < 0) ? global.minLength : minLength;
+            maxLength = (maxLength < 0) ? global.maxLength : maxLength;
+            requireUpperCaseCharacter = (requireUpperCaseCharacter < 0) ? global.requireUpperCaseCharacter : requireUpperCaseCharacter;
+            requireLowerCaseCharacter = (requireLowerCaseCharacter < 0) ? global.requireLowerCaseCharacter : requireLowerCaseCharacter;
+            requireDigit = (requireDigit < 0) ? global.requireDigit : requireDigit;
+            requireSpecialCharacter = (requireSpecialCharacter < 0) ? global.requireSpecialCharacter : requireSpecialCharacter;
+            expireSecretInMonths = (expireSecretInMonths < 0) ? global.expireSecretInMonths : expireSecretInMonths;
+        }
+    }
+
 }
 

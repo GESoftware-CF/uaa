@@ -9,7 +9,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class UaaPropertiesTest {
 
-    @EnableConfigurationProperties({UaaProperties.Servlet.class, UaaProperties.Csp.class, UaaProperties.Metrics.class})
+    @EnableConfigurationProperties({
+            UaaProperties.DefaultClientSecretPolicy.class,
+            UaaProperties.Servlet.class,
+            UaaProperties.Csp.class,
+            UaaProperties.Metrics.class
+    })
     static class TestUaaServletConfig {}
 
     private ApplicationContextRunner applicationContextRunner;
@@ -110,6 +115,141 @@ class UaaPropertiesTest {
                     assertThat(properties.enabled()).isFalse();
                     assertThat(properties.perRequestMetrics()).isTrue();
 
+                });
+    }
+
+    @Test
+    void whenClientSecretPolicyPropertiesAreNotSet() {
+        applicationContextRunner
+                .run(context -> {
+                    UaaProperties.DefaultClientSecretPolicy properties = context.getBean(UaaProperties.DefaultClientSecretPolicy.class);
+
+                    assertThat(properties).isNotNull();
+                    assertThat(properties.global()).isNotNull();
+                    assertThat(properties.global().minLength()).isEqualTo(0);
+                    assertThat(properties.global().maxLength()).isEqualTo(255);
+                    assertThat(properties.global().requireUpperCaseCharacter()).isEqualTo(0);
+                    assertThat(properties.global().requireLowerCaseCharacter()).isEqualTo(0);
+                    assertThat(properties.global().requireDigit()).isEqualTo(0);
+                    assertThat(properties.global().requireSpecialCharacter()).isEqualTo(0);
+                    assertThat(properties.global().expireSecretInMonths()).isEqualTo(0);
+
+                    assertThat(properties.minLength()).isEqualTo(properties.global().minLength());
+                    assertThat(properties.maxLength()).isEqualTo(properties.global().maxLength());
+                    assertThat(properties.requireUpperCaseCharacter()).isEqualTo(properties.global().requireUpperCaseCharacter());
+                    assertThat(properties.requireLowerCaseCharacter()).isEqualTo(properties.global().requireLowerCaseCharacter());
+                    assertThat(properties.requireDigit()).isEqualTo(properties.global().requireDigit());
+                    assertThat(properties.requireSpecialCharacter()).isEqualTo(properties.global().requireSpecialCharacter());
+                    assertThat(properties.expireSecretInMonths()).isEqualTo(properties.global().expireSecretInMonths());
+                });
+    }
+
+    @Test
+    void whenGlobalClientSecretPolicyPropertiesAreSet() {
+        applicationContextRunner
+                .withPropertyValues("oauth.client.secret.policy.global.minLength=1")
+                .withPropertyValues("oauth.client.secret.policy.global.maxLength=2")
+                .withPropertyValues("oauth.client.secret.policy.global.requireUpperCaseCharacter=3")
+                .withPropertyValues("oauth.client.secret.policy.global.requireLowerCaseCharacter=4")
+                .withPropertyValues("oauth.client.secret.policy.global.requireDigit=5")
+                .withPropertyValues("oauth.client.secret.policy.global.requireSpecialCharacter=6")
+                .withPropertyValues("oauth.client.secret.policy.global.expireSecretInMonths=7")
+                .run(context -> {
+                    UaaProperties.DefaultClientSecretPolicy properties = context.getBean(UaaProperties.DefaultClientSecretPolicy.class);
+
+                    assertThat(properties).isNotNull();
+                    assertThat(properties.global()).isNotNull();
+                    assertThat(properties.global().minLength()).isEqualTo(1);
+                    assertThat(properties.global().maxLength()).isEqualTo(2);
+                    assertThat(properties.global().requireUpperCaseCharacter()).isEqualTo(3);
+                    assertThat(properties.global().requireLowerCaseCharacter()).isEqualTo(4);
+                    assertThat(properties.global().requireDigit()).isEqualTo(5);
+                    assertThat(properties.global().requireSpecialCharacter()).isEqualTo(6);
+                    assertThat(properties.global().expireSecretInMonths()).isEqualTo(7);
+
+                    assertThat(properties.minLength()).isEqualTo(properties.global().minLength());
+                    assertThat(properties.maxLength()).isEqualTo(properties.global().maxLength());
+                    assertThat(properties.requireUpperCaseCharacter()).isEqualTo(properties.global().requireUpperCaseCharacter());
+                    assertThat(properties.requireLowerCaseCharacter()).isEqualTo(properties.global().requireLowerCaseCharacter());
+                    assertThat(properties.requireDigit()).isEqualTo(properties.global().requireDigit());
+                    assertThat(properties.requireSpecialCharacter()).isEqualTo(properties.global().requireSpecialCharacter());
+                    assertThat(properties.expireSecretInMonths()).isEqualTo(properties.global().expireSecretInMonths());
+                });
+    }
+
+    @Test
+    void whenDefaultClientSecretPolicyPropertiesAreSet() {
+        applicationContextRunner
+                .withPropertyValues("oauth.client.secret.policy.minLength=1")
+                .withPropertyValues("oauth.client.secret.policy.maxLength=2")
+                .withPropertyValues("oauth.client.secret.policy.requireUpperCaseCharacter=3")
+                .withPropertyValues("oauth.client.secret.policy.requireLowerCaseCharacter=4")
+                .withPropertyValues("oauth.client.secret.policy.requireDigit=5")
+                .withPropertyValues("oauth.client.secret.policy.requireSpecialCharacter=6")
+                .withPropertyValues("oauth.client.secret.policy.expireSecretInMonths=7")
+
+                .run(context -> {
+                    UaaProperties.DefaultClientSecretPolicy properties = context.getBean(UaaProperties.DefaultClientSecretPolicy.class);
+
+                    assertThat(properties).isNotNull();
+                    assertThat(properties.global()).isNotNull();
+
+                    assertThat(properties.global().minLength()).isEqualTo(0);
+                    assertThat(properties.global().maxLength()).isEqualTo(255);
+                    assertThat(properties.global().requireUpperCaseCharacter()).isEqualTo(0);
+                    assertThat(properties.global().requireLowerCaseCharacter()).isEqualTo(0);
+                    assertThat(properties.global().requireDigit()).isEqualTo(0);
+                    assertThat(properties.global().requireSpecialCharacter()).isEqualTo(0);
+                    assertThat(properties.global().expireSecretInMonths()).isEqualTo(0);
+
+                    assertThat(properties.minLength()).isEqualTo(1);
+                    assertThat(properties.maxLength()).isEqualTo(2);
+                    assertThat(properties.requireUpperCaseCharacter()).isEqualTo(3);
+                    assertThat(properties.requireLowerCaseCharacter()).isEqualTo(4);
+                    assertThat(properties.requireDigit()).isEqualTo(5);
+                    assertThat(properties.requireSpecialCharacter()).isEqualTo(6);
+                    assertThat(properties.expireSecretInMonths()).isEqualTo(7);
+                });
+    }
+
+    @Test
+    void whenDefaultAndGlobalClientSecretPolicyPropertiesAreSet() {
+        applicationContextRunner
+                .withPropertyValues("oauth.client.secret.policy.minLength=1")
+                .withPropertyValues("oauth.client.secret.policy.maxLength=2")
+                .withPropertyValues("oauth.client.secret.policy.requireUpperCaseCharacter=3")
+                .withPropertyValues("oauth.client.secret.policy.requireLowerCaseCharacter=4")
+                .withPropertyValues("oauth.client.secret.policy.requireDigit=5")
+                .withPropertyValues("oauth.client.secret.policy.requireSpecialCharacter=6")
+                .withPropertyValues("oauth.client.secret.policy.expireSecretInMonths=7")
+                .withPropertyValues("oauth.client.secret.policy.global.minLength=8")
+                .withPropertyValues("oauth.client.secret.policy.global.maxLength=9")
+                .withPropertyValues("oauth.client.secret.policy.global.requireUpperCaseCharacter=10")
+                .withPropertyValues("oauth.client.secret.policy.global.requireLowerCaseCharacter=11")
+                .withPropertyValues("oauth.client.secret.policy.global.requireDigit=12")
+                .withPropertyValues("oauth.client.secret.policy.global.requireSpecialCharacter=13")
+                .withPropertyValues("oauth.client.secret.policy.global.expireSecretInMonths=14")
+                .run(context -> {
+                    UaaProperties.DefaultClientSecretPolicy properties = context.getBean(UaaProperties.DefaultClientSecretPolicy.class);
+
+                    assertThat(properties).isNotNull();
+                    assertThat(properties.global()).isNotNull();
+
+                    assertThat(properties.global().minLength()).isEqualTo(8);
+                    assertThat(properties.global().maxLength()).isEqualTo(9);
+                    assertThat(properties.global().requireUpperCaseCharacter()).isEqualTo(10);
+                    assertThat(properties.global().requireLowerCaseCharacter()).isEqualTo(11);
+                    assertThat(properties.global().requireDigit()).isEqualTo(12);
+                    assertThat(properties.global().requireSpecialCharacter()).isEqualTo(13);
+                    assertThat(properties.global().expireSecretInMonths()).isEqualTo(14);
+
+                    assertThat(properties.minLength()).isEqualTo(1);
+                    assertThat(properties.maxLength()).isEqualTo(2);
+                    assertThat(properties.requireUpperCaseCharacter()).isEqualTo(3);
+                    assertThat(properties.requireLowerCaseCharacter()).isEqualTo(4);
+                    assertThat(properties.requireDigit()).isEqualTo(5);
+                    assertThat(properties.requireSpecialCharacter()).isEqualTo(6);
+                    assertThat(properties.expireSecretInMonths()).isEqualTo(7);
                 });
     }
 }

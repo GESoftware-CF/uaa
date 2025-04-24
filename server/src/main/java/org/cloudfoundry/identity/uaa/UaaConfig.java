@@ -24,7 +24,9 @@ import java.util.List;
         UaaProperties.RootLevel.class,
         UaaProperties.Csp.class,
         UaaProperties.Metrics.class,
-        UaaProperties.Zones.class
+        UaaProperties.Zones.class,
+        UaaProperties.GlobalClientSecretPolicy.class,
+        UaaProperties.DefaultClientSecretPolicy.class
 })
 public class UaaConfig {
 

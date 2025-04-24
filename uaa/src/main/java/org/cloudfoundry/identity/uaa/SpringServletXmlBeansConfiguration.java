@@ -75,6 +75,12 @@ public class SpringServletXmlBeansConfiguration {
     @Qualifier("defaultUserAuthorities")
     Collection<String> defaultAuthorities;
 
+    @Autowired
+    UaaProperties.GlobalClientSecretPolicy globalClientSecretPolicy;
+
+    @Autowired
+    UaaProperties.DefaultClientSecretPolicy defaultClientSecretPolicy;
+
     @Bean
     YamlConfigurationValidator uaaConfigValidation(@Value("${environmentYamlKey}") String environmentYamlKey) {
         YamlConfigurationValidator bean = new YamlConfigurationValidator(new UaaConfiguration.UaaConfigConstructor());
@@ -346,6 +352,32 @@ public class SpringServletXmlBeansConfiguration {
         bean.setClientDetailsService(jdbcClientDetailsService);
         bean.setUserDatabase(userDatabase);
         return bean;
+    }
+
+    @Bean
+    ClientSecretPolicy globalClientSecretPolicy() {
+        return new ClientSecretPolicy(
+                globalClientSecretPolicy.minLength(),
+                globalClientSecretPolicy.maxLength(),
+                globalClientSecretPolicy.requireUpperCaseCharacter(),
+                globalClientSecretPolicy.requireLowerCaseCharacter(),
+                globalClientSecretPolicy.requireDigit(),
+                globalClientSecretPolicy.requireSpecialCharacter(),
+                globalClientSecretPolicy.expireSecretInMonths()
+        );
+    }
+
+    @Bean
+    ClientSecretPolicy defaultUaaClientSecretPolicy() {
+        return new ClientSecretPolicy(
+                defaultClientSecretPolicy.minLength(),
+                defaultClientSecretPolicy.maxLength(),
+                defaultClientSecretPolicy.requireUpperCaseCharacter(),
+                defaultClientSecretPolicy.requireLowerCaseCharacter(),
+                defaultClientSecretPolicy.requireDigit(),
+                defaultClientSecretPolicy.requireSpecialCharacter(),
+                defaultClientSecretPolicy.expireSecretInMonths()
+        );
     }
 
 }

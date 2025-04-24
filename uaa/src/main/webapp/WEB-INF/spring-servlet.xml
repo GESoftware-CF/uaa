@@ -308,34 +308,34 @@
 <!--    </bean>-->
 
 
-    <bean id="globalClientSecretPolicy" class="org.cloudfoundry.identity.uaa.zone.ClientSecretPolicy">
-        <constructor-arg name="minLength" value="${oauth.client.secret.policy.global.minLength:0}"/>
-        <constructor-arg name="maxLength" value="${oauth.client.secret.policy.global.maxLength:255}"/>
-        <constructor-arg name="requireUpperCaseCharacter"
-                              value="${oauth.client.secret.policy.global.requireUpperCaseCharacter:0}"/>
-        <constructor-arg name="requireLowerCaseCharacter"
-                              value="${oauth.client.secret.policy.global.requireLowerCaseCharacter:0}"/>
-        <constructor-arg name="requireDigit" value="${oauth.client.secret.policy.global.requireDigit:0}"/>
-        <constructor-arg name="requireSpecialCharacter"
-                              value="${oauth.client.secret.policy.global.requireSpecialCharacter:0}"/>
-        <constructor-arg name="expireSecretInMonths" value="0"/>
-    </bean>
+<!--    <bean id="globalClientSecretPolicy" class="org.cloudfoundry.identity.uaa.zone.ClientSecretPolicy">-->
+<!--        <constructor-arg name="minLength" value="${oauth.client.secret.policy.global.minLength:0}"/>-->
+<!--        <constructor-arg name="maxLength" value="${oauth.client.secret.policy.global.maxLength:255}"/>-->
+<!--        <constructor-arg name="requireUpperCaseCharacter"-->
+<!--                              value="${oauth.client.secret.policy.global.requireUpperCaseCharacter:0}"/>-->
+<!--        <constructor-arg name="requireLowerCaseCharacter"-->
+<!--                              value="${oauth.client.secret.policy.global.requireLowerCaseCharacter:0}"/>-->
+<!--        <constructor-arg name="requireDigit" value="${oauth.client.secret.policy.global.requireDigit:0}"/>-->
+<!--        <constructor-arg name="requireSpecialCharacter"-->
+<!--                              value="${oauth.client.secret.policy.global.requireSpecialCharacter:0}"/>-->
+<!--        <constructor-arg name="expireSecretInMonths" value="0"/>-->
+<!--    </bean>-->
 
-    <bean id="defaultUaaClientSecretPolicy" class="org.cloudfoundry.identity.uaa.zone.ClientSecretPolicy">
-        <constructor-arg name="minLength"
-                              value="${oauth.client.secret.policy.minLength:#{globalClientSecretPolicy.getMinLength()}}"/>
-        <constructor-arg name="maxLength"
-                              value="${oauth.client.secret.policy.maxLength:#{globalClientSecretPolicy.getMaxLength()}}"/>
-        <constructor-arg name="requireUpperCaseCharacter"
-                              value="${oauth.client.secret.policy.requireUpperCaseCharacter:#{globalClientSecretPolicy.getRequireUpperCaseCharacter()}}"/>
-        <constructor-arg name="requireLowerCaseCharacter"
-                              value="${oauth.client.secret.policy.requireLowerCaseCharacter:#{globalClientSecretPolicy.getRequireLowerCaseCharacter()}}"/>
-        <constructor-arg name="requireDigit"
-                              value="${oauth.client.secret.policy.requireDigit:#{globalClientSecretPolicy.getRequireDigit()}}"/>
-        <constructor-arg name="requireSpecialCharacter"
-                              value="${oauth.client.secret.policy.requireSpecialCharacter:#{globalClientSecretPolicy.getRequireSpecialCharacter()}}"/>
-        <constructor-arg name="expireSecretInMonths" value="0"/>
-    </bean>
+<!--    <bean id="defaultUaaClientSecretPolicy" class="org.cloudfoundry.identity.uaa.zone.ClientSecretPolicy">-->
+<!--        <constructor-arg name="minLength"-->
+<!--                              value="${oauth.client.secret.policy.minLength:#{globalClientSecretPolicy.getMinLength()}}"/>-->
+<!--        <constructor-arg name="maxLength"-->
+<!--                              value="${oauth.client.secret.policy.maxLength:#{globalClientSecretPolicy.getMaxLength()}}"/>-->
+<!--        <constructor-arg name="requireUpperCaseCharacter"-->
+<!--                              value="${oauth.client.secret.policy.requireUpperCaseCharacter:#{globalClientSecretPolicy.getRequireUpperCaseCharacter()}}"/>-->
+<!--        <constructor-arg name="requireLowerCaseCharacter"-->
+<!--                              value="${oauth.client.secret.policy.requireLowerCaseCharacter:#{globalClientSecretPolicy.getRequireLowerCaseCharacter()}}"/>-->
+<!--        <constructor-arg name="requireDigit"-->
+<!--                              value="${oauth.client.secret.policy.requireDigit:#{globalClientSecretPolicy.getRequireDigit()}}"/>-->
+<!--        <constructor-arg name="requireSpecialCharacter"-->
+<!--                              value="${oauth.client.secret.policy.requireSpecialCharacter:#{globalClientSecretPolicy.getRequireSpecialCharacter()}}"/>-->
+<!--        <constructor-arg name="expireSecretInMonths" value="0"/>-->
+<!--    </bean>-->
 
 
 <!--    <bean id="clientDetailsValidator" class="org.cloudfoundry.identity.uaa.client.ClientAdminEndpointsValidator">-->
