@@ -70,7 +70,6 @@ dependencies {
     implementation(libraries.springWebMvc)
     implementation(libraries.springSecurityLdap)
     implementation(libraries.springLdapCore)
-    implementation(libraries.springLdapCoreTiger)
     implementation(libraries.apacheLdapApi) {
         exclude(module: "slf4j-api")
         exclude(module: "mina-core")
