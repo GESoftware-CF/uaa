@@ -76,17 +76,6 @@ public class SpringServletXmlBeansConfiguration {
     Collection<String> defaultAuthorities;
 
     @Bean
-    List<String> defaultFilteredHeaders() {
-        return Arrays.asList(
-                "X-Forwarded-For",
-                "X-Forwarded-Host",
-                "X-Forwarded-Proto",
-                "X-Forwarded-Prefix",
-                "Forwarded"
-        );
-    }
-
-    @Bean
     YamlConfigurationValidator uaaConfigValidation(@Value("${environmentYamlKey}") String environmentYamlKey) {
         YamlConfigurationValidator bean = new YamlConfigurationValidator(new UaaConfiguration.UaaConfigConstructor());
         bean.setYaml(environmentYamlKey);

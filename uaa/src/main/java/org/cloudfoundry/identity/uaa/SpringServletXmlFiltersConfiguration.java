@@ -3,8 +3,10 @@ package org.cloudfoundry.identity.uaa;
 import org.cloudfoundry.identity.uaa.authentication.UTF8ConversionFilter;
 import org.cloudfoundry.identity.uaa.oauth.DisableIdTokenResponseTypeFilter;
 import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationProcessingFilter;
+import org.cloudfoundry.identity.uaa.security.web.ContentSecurityPolicyFilter;
 import org.cloudfoundry.identity.uaa.security.web.CorsFilter;
 import org.cloudfoundry.identity.uaa.web.BackwardsCompatibleScopeParsingFilter;
+import org.cloudfoundry.identity.uaa.web.HeaderFilter;
 import org.cloudfoundry.identity.uaa.web.LimitedModeUaaFilter;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +26,12 @@ public class SpringServletXmlFiltersConfiguration {
 
     @Autowired
     LimitedModeProperties limitedModeProperties;
+
+    @Autowired
+    UaaProperties.Servlet servletProps;
+
+    @Autowired
+    UaaProperties.Csp cspProps;
 
     @Autowired
     IdentityZoneManager identityZoneManager;
@@ -80,5 +88,17 @@ public class SpringServletXmlFiltersConfiguration {
         bean.setPermittedEndpoints(limitedModeProperties.permitted.endpoints());
         bean.setPermittedMethods(limitedModeProperties.permitted.methods());
         return bean;
+    }
+
+    @Bean
+    HeaderFilter headerFilter(
+
+    ) {
+        return new HeaderFilter(servletProps.filteredHeaders());
+    }
+
+    @Bean
+    ContentSecurityPolicyFilter contentSecurityPolicyFilter() {
+        return new ContentSecurityPolicyFilter(cspProps.scriptSrc());
     }
 }

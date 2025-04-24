@@ -20,7 +20,8 @@ import java.util.List;
 @EnableConfigurationProperties({
         UaaProperties.Uaa.class,
         UaaProperties.Servlet.class,
-        UaaProperties.RootLevel.class
+        UaaProperties.RootLevel.class,
+        UaaProperties.Csp.class
 })
 public class UaaConfig {
 
