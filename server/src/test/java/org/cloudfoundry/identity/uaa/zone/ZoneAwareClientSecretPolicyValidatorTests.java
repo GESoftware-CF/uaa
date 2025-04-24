@@ -8,7 +8,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 
 @ExtendWith(PollutionPreventionExtension.class)
-class ZoneAwareDefaultClientSecretPolicyValidatorTests {
+class ZoneAwareClientSecretPolicyValidatorTests {
 
     private ZoneAwareClientSecretPolicyValidator validator;
 
