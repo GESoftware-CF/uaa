@@ -272,32 +272,32 @@
 <!--        <property name="perRequestMetrics" value="${metrics.perRequestMetrics:false}"/>-->
 <!--    </bean>-->
 
-    <bean id="userManagementSecurityFilter"
-                    class="org.cloudfoundry.identity.uaa.scim.DisableUserManagementSecurityFilter"/>
+<!--    <bean id="userManagementSecurityFilter"-->
+<!--                    class="org.cloudfoundry.identity.uaa.scim.DisableUserManagementSecurityFilter"/>-->
 
-    <bean id="userManagementFilter" class="org.cloudfoundry.identity.uaa.scim.DisableInternalUserManagementFilter"/>
+<!--    <bean id="userManagementFilter" class="org.cloudfoundry.identity.uaa.scim.DisableInternalUserManagementFilter"/>-->
 
-    <bean id="identityZoneResolvingFilter" class="org.cloudfoundry.identity.uaa.zone.IdentityZoneResolvingFilter">
-        <property name="defaultInternalHostnames">
-            <set>
-                <value>#{T(org.cloudfoundry.identity.uaa.util.UaaUrlUtils).getHostForURI(@uaaUrl)}</value>
-                <value>#{T(org.cloudfoundry.identity.uaa.util.UaaUrlUtils).getHostForURI(@loginUrl)}</value>
-                <value>localhost</value>
-            </set>
-        </property>
-        <property name="additionalInternalHostnames"
-                              value="#{@config['zones']==null ? null : @config['zones']['internal']==null ? null : @config['zones']['internal']['hostnames']}"/>
-    </bean>
+<!--    <bean id="identityZoneResolvingFilter" class="org.cloudfoundry.identity.uaa.zone.IdentityZoneResolvingFilter">-->
+<!--        <property name="defaultInternalHostnames">-->
+<!--            <set>-->
+<!--                <value>#{T(org.cloudfoundry.identity.uaa.util.UaaUrlUtils).getHostForURI(@uaaUrl)}</value>-->
+<!--                <value>#{T(org.cloudfoundry.identity.uaa.util.UaaUrlUtils).getHostForURI(@loginUrl)}</value>-->
+<!--                <value>localhost</value>-->
+<!--            </set>-->
+<!--        </property>-->
+<!--        <property name="additionalInternalHostnames"-->
+<!--                              value="#{@config['zones']==null ? null : @config['zones']['internal']==null ? null : @config['zones']['internal']['hostnames']}"/>-->
+<!--    </bean>-->
 
-    <bean id="sessionResetFilter" class="org.cloudfoundry.identity.uaa.authentication.SessionResetFilter">
-        <constructor-arg>
-            <bean class="org.springframework.security.web.DefaultRedirectStrategy"/>
-        </constructor-arg>
-        <constructor-arg value="/login"/>
-        <constructor-arg ref="userDatabase"/>
-    </bean>
+<!--    <bean id="sessionResetFilter" class="org.cloudfoundry.identity.uaa.authentication.SessionResetFilter">-->
+<!--        <constructor-arg>-->
+<!--            <bean class="org.springframework.security.web.DefaultRedirectStrategy"/>-->
+<!--        </constructor-arg>-->
+<!--        <constructor-arg value="/login"/>-->
+<!--        <constructor-arg ref="userDatabase"/>-->
+<!--    </bean>-->
 
-    <bean id="identityZoneSwitchingFilter" class="org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter"/>
+<!--    <bean id="identityZoneSwitchingFilter" class="org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter"/>-->
 
 <!--    <bean id="uaaUrl" class="java.lang.String">-->
 <!--        <constructor-arg value="${uaa.url:http://localhost:8080/uaa}"/>-->

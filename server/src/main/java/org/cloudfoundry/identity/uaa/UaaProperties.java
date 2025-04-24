@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.lang.Nullable;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Future replacement of {@link org.cloudfoundry.identity.uaa.impl.config.UaaConfiguration}
@@ -24,6 +25,15 @@ public class UaaProperties {
     @ConfigurationProperties(prefix = "uaa")
     public record Uaa(String url) {
         public Uaa {
+            if (url == null) {
+                url = UaaStringUtils.DEFAULT_UAA_URL;
+            }
+        }
+    }
+
+    @ConfigurationProperties(prefix = "login")
+    public record Login(String url) {
+        public Login {
             if (url == null) {
                 url = UaaStringUtils.DEFAULT_UAA_URL;
             }
@@ -61,6 +71,12 @@ public class UaaProperties {
             boolean perRequestMetrics
     )
     {}
+
+    @ConfigurationProperties(prefix = "zones")
+    public record Zones(@DefaultValue({}) Internal internal)
+    {}
+
+    public record Internal(Set<String> hostnames) {}
 
     public record SessionCookie(@DefaultValue("true") boolean encodeBase64, @Nullable Integer maxAge) {
     }

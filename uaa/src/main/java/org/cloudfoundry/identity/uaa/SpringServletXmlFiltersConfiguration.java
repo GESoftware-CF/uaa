@@ -1,24 +1,36 @@
 package org.cloudfoundry.identity.uaa;
 
+import org.cloudfoundry.identity.uaa.authentication.SessionResetFilter;
 import org.cloudfoundry.identity.uaa.authentication.UTF8ConversionFilter;
 import org.cloudfoundry.identity.uaa.metrics.UaaMetricsFilter;
 import org.cloudfoundry.identity.uaa.oauth.DisableIdTokenResponseTypeFilter;
 import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationProcessingFilter;
+import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
+import org.cloudfoundry.identity.uaa.scim.DisableInternalUserManagementFilter;
+import org.cloudfoundry.identity.uaa.scim.DisableUserManagementSecurityFilter;
 import org.cloudfoundry.identity.uaa.security.web.ContentSecurityPolicyFilter;
 import org.cloudfoundry.identity.uaa.security.web.CorsFilter;
+import org.cloudfoundry.identity.uaa.user.JdbcUaaUserDatabase;
 import org.cloudfoundry.identity.uaa.util.TimeService;
+import org.cloudfoundry.identity.uaa.util.UaaUrlUtils;
 import org.cloudfoundry.identity.uaa.web.BackwardsCompatibleScopeParsingFilter;
 import org.cloudfoundry.identity.uaa.web.HeaderFilter;
 import org.cloudfoundry.identity.uaa.web.LimitedModeUaaFilter;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneProvisioning;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneResolvingFilter;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.web.DefaultRedirectStrategy;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashSet;
 
 @Configuration
 @EnableWebSecurity
@@ -38,6 +50,15 @@ public class SpringServletXmlFiltersConfiguration {
 
     @Autowired
     UaaProperties.Metrics metricsProps;
+
+    @Autowired
+    UaaProperties.Uaa uaaProps;
+
+    @Autowired
+    UaaProperties.Login loginProps;
+
+    @Autowired
+    UaaProperties.Zones zoneProps;
 
     @Autowired
     IdentityZoneManager identityZoneManager;
@@ -112,4 +133,45 @@ public class SpringServletXmlFiltersConfiguration {
     UaaMetricsFilter metricsFilter(TimeService timeService) throws IOException {
         return new UaaMetricsFilter(metricsProps.enabled(), metricsProps.perRequestMetrics(), timeService);
     }
+
+    @Bean
+    DisableUserManagementSecurityFilter userManagementSecurityFilter(
+            @Qualifier("identityProviderProvisioning") IdentityProviderProvisioning provisioning
+    ) {
+        return new DisableUserManagementSecurityFilter(provisioning, identityZoneManager);
+    }
+
+    @Bean
+    DisableInternalUserManagementFilter userManagementFilter(
+            @Qualifier("identityProviderProvisioning") IdentityProviderProvisioning provisioning
+    ) {
+        return new DisableInternalUserManagementFilter(provisioning, identityZoneManager);
+    }
+
+    @Bean
+    IdentityZoneResolvingFilter identityZoneResolvingFilter(IdentityZoneProvisioning provisioning) {
+        IdentityZoneResolvingFilter bean = new IdentityZoneResolvingFilter(provisioning);
+        bean.setDefaultInternalHostnames(new HashSet<>(Arrays.asList(
+                UaaUrlUtils.getHostForURI(uaaProps.url()),
+                UaaUrlUtils.getHostForURI(loginProps.url()),
+                "localhost"
+        )));
+        bean.setAdditionalInternalHostnames(zoneProps.internal().hostnames());
+        return bean;
+    }
+
+    @Bean
+    SessionResetFilter sessionResetFilter(@Qualifier("userDatabase") JdbcUaaUserDatabase userDatabase) {
+        return new SessionResetFilter(
+                new DefaultRedirectStrategy(),
+                "/login",
+                userDatabase
+        );
+    }
+
+    @Bean
+    IdentityZoneSwitchingFilter identityZoneSwitchingFilter(IdentityZoneProvisioning provisioning) {
+        return new IdentityZoneSwitchingFilter(provisioning);
+    }
+
 }

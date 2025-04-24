@@ -19,10 +19,12 @@ import java.util.List;
 @Configuration
 @EnableConfigurationProperties({
         UaaProperties.Uaa.class,
+        UaaProperties.Login.class,
         UaaProperties.Servlet.class,
         UaaProperties.RootLevel.class,
         UaaProperties.Csp.class,
-        UaaProperties.Metrics.class
+        UaaProperties.Metrics.class,
+        UaaProperties.Zones.class
 })
 public class UaaConfig {
 
