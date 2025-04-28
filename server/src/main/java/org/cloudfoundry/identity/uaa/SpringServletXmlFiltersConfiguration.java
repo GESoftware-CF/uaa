@@ -4,7 +4,6 @@ import org.cloudfoundry.identity.uaa.authentication.SessionResetFilter;
 import org.cloudfoundry.identity.uaa.authentication.UTF8ConversionFilter;
 import org.cloudfoundry.identity.uaa.metrics.UaaMetricsFilter;
 import org.cloudfoundry.identity.uaa.oauth.DisableIdTokenResponseTypeFilter;
-import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationProcessingFilter;
 import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
 import org.cloudfoundry.identity.uaa.scim.DisableInternalUserManagementFilter;
 import org.cloudfoundry.identity.uaa.scim.DisableUserManagementSecurityFilter;
@@ -76,11 +75,6 @@ public class SpringServletXmlFiltersConfiguration {
                 Arrays.asList("/**/oauth/authorize", "/oauth/authorize")
         );
         return bean;
-    }
-
-    @Bean
-    Class<OAuth2AuthenticationProcessingFilter> oauth2TokenParseFilter() {
-        return OAuth2AuthenticationProcessingFilter.class;
     }
 
     @Bean

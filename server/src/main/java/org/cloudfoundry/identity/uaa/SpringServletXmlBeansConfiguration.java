@@ -11,6 +11,7 @@ import org.cloudfoundry.identity.uaa.client.event.ClientAdminEventPublisher;
 import org.cloudfoundry.identity.uaa.codestore.ExpiringCodeStore;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.impl.config.IdentityProviderBootstrap;
+import org.cloudfoundry.identity.uaa.impl.config.IdentityZoneConfigurationBootstrap;
 import org.cloudfoundry.identity.uaa.impl.config.UaaConfiguration;
 import org.cloudfoundry.identity.uaa.impl.config.YamlConfigurationValidator;
 import org.cloudfoundry.identity.uaa.login.Prompt;
@@ -32,8 +33,11 @@ import org.cloudfoundry.identity.uaa.security.beans.SecurityContextAccessor;
 import org.cloudfoundry.identity.uaa.user.JdbcUaaUserDatabase;
 import org.cloudfoundry.identity.uaa.zone.ClientSecretPolicy;
 import org.cloudfoundry.identity.uaa.zone.ClientSecretValidator;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneProvisioning;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneValidator;
 import org.cloudfoundry.identity.uaa.zone.Links;
 import org.cloudfoundry.identity.uaa.zone.MultitenantClientServices;
+import org.cloudfoundry.identity.uaa.zone.TokenPolicy;
 import org.cloudfoundry.identity.uaa.zone.UserConfig;
 import org.cloudfoundry.identity.uaa.zone.ZoneAwareClientSecretPolicyValidator;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
@@ -80,6 +84,12 @@ public class SpringServletXmlBeansConfiguration {
 
     @Autowired
     UaaProperties.DefaultClientSecretPolicy defaultClientSecretPolicy;
+
+    @Autowired
+    UaaProperties.Login loginProps;
+
+    @Autowired
+    UaaProperties.Logout logoutProps;
 
     @Bean
     YamlConfigurationValidator uaaConfigValidation(@Value("${environmentYamlKey}") String environmentYamlKey) {
@@ -378,6 +388,48 @@ public class SpringServletXmlBeansConfiguration {
                 defaultClientSecretPolicy.requireSpecialCharacter(),
                 defaultClientSecretPolicy.expireSecretInMonths()
         );
+    }
+
+    @Bean
+    IdentityZoneConfigurationBootstrap identityZoneConfigurationBootstrap(
+            IdentityZoneProvisioning provisioning,
+            IdentityZoneValidator identityZoneValidator,
+            @Qualifier("defaultUaaClientSecretPolicy") ClientSecretPolicy defaultUaaClientSecretPolicy,
+            @Qualifier("uaaTokenPolicy") TokenPolicy uaaTokenPolicy,
+            @Qualifier("links") HashMap<String, Object> links,
+            @Qualifier("prompts") List<Prompt> prompts,
+            @Qualifier("defaultUserConfig") UserConfig defaultUserConfig
+            ) {
+        IdentityZoneConfigurationBootstrap bean = new IdentityZoneConfigurationBootstrap(provisioning);
+        bean.setValidator(identityZoneValidator);
+        bean.setClientSecretPolicy(defaultUaaClientSecretPolicy);
+        bean.setTokenPolicy(uaaTokenPolicy);
+        bean.setSelfServiceLinksEnabled(loginProps.selfServiceLinksEnabled());
+        bean.setSelfServiceLinks(links);
+        if (links.containsKey("homeRedirect")) {
+            bean.setHomeRedirect((String) links.get("homeRedirect"));
+        } else {
+            bean.setHomeRedirect(loginProps.homeRedirect());
+        }
+        bean.setIdpDiscoveryEnabled(loginProps.idpDiscoveryEnabled());
+        bean.setAccountChooserEnabled(loginProps.accountChooserEnabled());
+        bean.setLogoutRedirectWhitelist(logoutProps.redirect().parameter().whitelist());
+        bean.setLogoutDefaultRedirectUrl(logoutProps.redirect().url());
+        bean.setLogoutRedirectParameterName("redirect"); //hard coded in XML
+        bean.setLogoutDisableRedirectParameter(logoutProps.redirect().parameter().disable());
+        bean.setPrompts(prompts);
+        bean.setBranding(loginProps.branding());
+        bean.setSamlSpPrivateKey(loginProps.serviceProviderKey());
+        bean.setSamlSpPrivateKeyPassphrase(loginProps.serviceProviderKeyPassword());
+        bean.setSamlSpCertificate(loginProps.serviceProviderCertificate());
+        bean.setActiveKeyId(loginProps.saml().activeKeyId());
+        bean.setSamlKeys(loginProps.saml().keys());
+        bean.setDisableSamlInResponseToCheck(loginProps.saml().disableInResponseToCheck());
+        bean.setSamlWantAssertionSigned(loginProps.saml().wantAssertionSigned());
+        bean.setSamlRequestSigned(loginProps.saml().signRequest());
+        bean.setDefaultUserConfig(defaultUserConfig);
+        bean.setDefaultIdentityProvider(loginProps.defaultIdentityProvider());
+        return bean;
     }
 
 }

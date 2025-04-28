@@ -339,7 +339,7 @@ class LoginSecurityConfiguration {
                 .headers(headers -> headers.xssProtection(xss -> xss.disable()))
                 .exceptionHandling(EXCEPTION_HANDLING)
                 .build();
-        return new UaaFilterChain(originalChain);
+        return new UaaFilterChain(originalChain, "autologinCode");
     }
 
     @Bean
@@ -361,7 +361,7 @@ class LoginSecurityConfiguration {
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(authenticationEntryPoint))
                 .headers(headers -> headers.xssProtection(xss -> xss.disable()))
                 .build();
-        return new UaaFilterChain(originalChain);
+        return new UaaFilterChain(originalChain, "autologin");
     }
 
     @Bean
@@ -390,7 +390,7 @@ class LoginSecurityConfiguration {
                 .headers(headers -> headers.xssProtection(xss -> xss.disable()))
                 .exceptionHandling(EXCEPTION_HANDLING)
                 .build();
-        return new UaaFilterChain(originalChain);
+        return new UaaFilterChain(originalChain, "invitation");
     }
 
 
@@ -421,7 +421,7 @@ class LoginSecurityConfiguration {
                     exception.accessDeniedHandler(new OAuth2AccessDeniedHandler());
                 })
                 .build();
-        return new UaaFilterChain(originalChain);
+        return new UaaFilterChain(originalChain, "inviteUser");
     }
 
     @Bean
@@ -451,7 +451,7 @@ class LoginSecurityConfiguration {
                 .addFilterAfter(resetPasswordAuthenticationFilter, AuthorizationFilter.class)
                 .exceptionHandling(EXCEPTION_HANDLING)
                 .build();
-        return new UaaFilterChain(originalChain);
+        return new UaaFilterChain(originalChain,"loginPublicOperations");
     }
 
     /**
@@ -509,7 +509,7 @@ class LoginSecurityConfiguration {
                 .requestCache(cache -> cache.requestCache(clientRedirectStateCache))
                 .headers(headers -> headers.xssProtection(xss -> xss.disable()))
                 .build();
-        return new UaaFilterChain(originalChain);
+        return new UaaFilterChain(originalChain, "uiSecurity");
     }
 
     /**

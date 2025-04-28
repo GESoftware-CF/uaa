@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.lang.Nullable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -17,7 +18,10 @@ public class UaaProperties {
     @ConfigurationProperties
     public record RootLevel(
             @DefaultValue("false") boolean require_https,
-            @DefaultValue("loginsecret") String LOGIN_SECRET
+            @DefaultValue("loginsecret") String LOGIN_SECRET,
+            @DefaultValue("false") boolean dump_requests,
+
+            @DefaultValue("443") int https_port
     ) {
 
     }
@@ -31,14 +35,64 @@ public class UaaProperties {
         }
     }
 
+
+    public record Saml(
+            String activeKeyId,
+            @DefaultValue("false") boolean disableInResponseToCheck,
+            @DefaultValue("true") boolean wantAssertionSigned,
+            @DefaultValue("true") boolean signRequest,
+            String defaultIdentityProvider,
+            Map<String, Map<String, String>> keys
+    ){}
+
     @ConfigurationProperties(prefix = "login")
-    public record Login(String url) {
-        public Login {
-            if (url == null) {
-                url = UaaStringUtils.DEFAULT_UAA_URL;
+    public record Login(
+            @DefaultValue(UaaStringUtils.DEFAULT_UAA_URL) String url,
+            @DefaultValue("true") boolean selfServiceLinksEnabled,
+            String homeRedirect,
+            @DefaultValue("false") boolean idpDiscoveryEnabled,
+            @DefaultValue("false") boolean accountChooserEnabled,
+            String serviceProviderKey,
+            String serviceProviderKeyPassword,
+            String serviceProviderCertificate,
+            String defaultIdentityProvider,
+            Map<String, Object> branding,
+            Saml saml
+    ) {
+    }
+
+
+    public record LogoutRedirectParameter(
+            @DefaultValue("false") boolean disable,
+            List<String> whitelist
+    ) {}
+
+    public record LogoutRedirect(
+            @DefaultValue("/login") String url,
+            LogoutRedirectParameter parameter
+    ){
+        public LogoutRedirect {
+            if (parameter == null) {
+                parameter = new LogoutRedirectParameter(false, null);
             }
         }
+
+        public LogoutRedirect() {
+            this("/login", null);
+        }
     }
+
+    @ConfigurationProperties(prefix = "logout")
+    public record Logout(LogoutRedirect redirect) {
+        public Logout {
+            if (redirect == null) {
+                redirect = new LogoutRedirect();
+            }
+        }
+
+    }
+
+
 
     @ConfigurationProperties(prefix = "servlet")
     public record Servlet(
