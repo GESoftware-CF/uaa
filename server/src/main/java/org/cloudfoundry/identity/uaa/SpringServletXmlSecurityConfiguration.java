@@ -104,6 +104,7 @@ public class SpringServletXmlSecurityConfiguration implements WebMvcConfigurer {
             @Qualifier("tracingFilter") Filter tracingFilter,
             @Qualifier("metricsFilter") Filter metricsFilter,
             @Qualifier("headerFilter") Filter headerFilter,
+            @Qualifier("backwardsCompatibleScopeParameter") Filter backwardsCompatibleScopeParameter,
             @Qualifier("contentSecurityPolicyFilter") Filter contentSecurityPolicyFilter,
             @Qualifier("utf8ConversionFilter") Filter utf8ConversionFilter,
             @Qualifier("limitedModeUaaFilter") Filter limitedModeUaaFilter,
@@ -136,6 +137,7 @@ public class SpringServletXmlSecurityConfiguration implements WebMvcConfigurer {
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(0), tracingFilter);
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(1), metricsFilter);
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(2), headerFilter);
+        additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(3), backwardsCompatibleScopeParameter);
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(4), contentSecurityPolicyFilter);
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(5), utf8ConversionFilter);
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(6), limitedModeUaaFilter);

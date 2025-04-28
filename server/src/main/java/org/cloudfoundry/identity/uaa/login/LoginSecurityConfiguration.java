@@ -22,7 +22,6 @@ import org.cloudfoundry.identity.uaa.security.CsrfAwareEntryPointAndDeniedHandle
 import org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository;
 import org.cloudfoundry.identity.uaa.security.web.HttpsHeaderFilter;
 import org.cloudfoundry.identity.uaa.security.web.UaaRequestMatcher;
-import org.cloudfoundry.identity.uaa.web.BackwardsCompatibleScopeParsingFilter;
 import org.cloudfoundry.identity.uaa.web.FilterChainOrder;
 import org.cloudfoundry.identity.uaa.web.UaaFilterChain;
 import org.cloudfoundry.identity.uaa.web.UaaSavedRequestCache;
@@ -175,7 +174,6 @@ class LoginSecurityConfiguration {
                 .authorizeHttpRequests(auth -> auth.anyRequest().fullyAuthenticated())
                 .authenticationManager(loginAuthenticationManager)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.NEVER))
-                .addFilterBefore(new BackwardsCompatibleScopeParsingFilter(), DisableEncodeUrlFilter.class)
                 .addFilterBefore(oauth2ResourceFilter("oauth"), AbstractPreAuthenticatedProcessingFilter.class)
                 .addFilterBefore(scopeAuthenticationFilter, AbstractPreAuthenticatedProcessingFilter.class)
                 .addFilterBefore(loginAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
@@ -209,7 +207,6 @@ class LoginSecurityConfiguration {
                 .authorizeHttpRequests(auth -> auth.anyRequest().fullyAuthenticated())
                 .authenticationManager(loginAuthenticationManager)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.NEVER))
-                .addFilterBefore(new BackwardsCompatibleScopeParsingFilter(), DisableEncodeUrlFilter.class)
                 .addFilterBefore(oauth2ResourceFilter("oauth"), AbstractPreAuthenticatedProcessingFilter.class)
                 .addFilterBefore(scopeAuthenticationFilter, AbstractPreAuthenticatedProcessingFilter.class)
                 .addFilterBefore(loginClientParametersAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
@@ -236,7 +233,6 @@ class LoginSecurityConfiguration {
                 .authorizeHttpRequests(auth -> auth.anyRequest().fullyAuthenticated())
                 .authenticationManager(loginAuthenticationManager)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.ALWAYS))
-                .addFilterBefore(new BackwardsCompatibleScopeParsingFilter(), DisableEncodeUrlFilter.class)
                 .addFilterBefore(loginAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(oauth2ResourceFilter("oauth"), AbstractPreAuthenticatedProcessingFilter.class)
                 .csrf(CsrfConfigurer::disable)
