@@ -14,6 +14,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AnonymousConfigurer;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.saml2.provider.service.web.authentication.logout.Saml2LogoutRequestFilter;
 import org.springframework.security.saml2.provider.service.web.authentication.logout.Saml2LogoutResponseFilter;
 import org.springframework.security.web.SecurityFilterChain;
@@ -48,6 +49,9 @@ public class SpringServletXmlSecurityConfiguration implements WebMvcConfigurer {
                 .authorizeHttpRequests().anyRequest().permitAll().and()
                 .anonymous(AnonymousConfigurer::disable)
                 .csrf(CsrfConfigurer::disable)
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
                 .build();
 
         return new UaaFilterChain(chain, "secFilterOpen05Healthz");
@@ -62,6 +66,9 @@ public class SpringServletXmlSecurityConfiguration implements WebMvcConfigurer {
                 .authorizeHttpRequests().anyRequest().permitAll().and()
                 .anonymous(AnonymousConfigurer::disable)
                 .csrf(CsrfConfigurer::disable)
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
                 .build();
 
         return new UaaFilterChain(chain, "secFilterOpen06SAMLMetadata");
@@ -93,6 +100,9 @@ public class SpringServletXmlSecurityConfiguration implements WebMvcConfigurer {
                 .authorizeHttpRequests().anyRequest().permitAll().and()
                 .anonymous(AnonymousConfigurer::disable)
                 .csrf(CsrfConfigurer::disable)
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
                 .build();
 
         return new UaaFilterChain(chain, "noSecurityFilters");
