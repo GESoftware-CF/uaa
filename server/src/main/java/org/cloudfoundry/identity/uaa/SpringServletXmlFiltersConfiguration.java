@@ -63,10 +63,6 @@ public class SpringServletXmlFiltersConfiguration {
     IdentityZoneManager identityZoneManager;
 
     @Bean
-    BackwardsCompatibleScopeParsingFilter backwardsCompatibleScopeParameter() {
-        return new BackwardsCompatibleScopeParsingFilter();
-    }
-    @Bean
     DisableIdTokenResponseTypeFilter disableIdTokenResponseFilter(
             @Value("${oauth.id_token.disable:false}") boolean disable
     ) {

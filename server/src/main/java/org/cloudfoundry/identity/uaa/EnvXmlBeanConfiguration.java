@@ -26,11 +26,12 @@ public class EnvXmlBeanConfiguration {
 
     @Bean
     // <bean id="applicationProperties" class="org.springframework.beans.factory.config.PropertiesFactoryBean">
-    PropertiesFactoryBean applicationProperties(Environment environment) {
+    PropertiesFactoryBean applicationProperties(Environment environment) throws IOException {
         PropertiesFactoryBean bean = new PropertiesFactoryBean();
         EnvironmentPropertiesFactoryBean envFactoryBean = new EnvironmentPropertiesFactoryBean();
         envFactoryBean.setEnvironment(environment);
         bean.setPropertiesArray(envFactoryBean.getObject());
+        bean.afterPropertiesSet();
         return bean;
     }
 
@@ -45,12 +46,13 @@ public class EnvXmlBeanConfiguration {
         return bean;
     }
 
-    @Bean
+    @Bean(name = "mbeanServer")
     @Role(2) //ROLE_INFRASTRUCTURE
     // <context:mbean-server id="mbeanServer"/>
     MBeanServer mbeanServer() {
         MBeanServerFactoryBean bean = new MBeanServerFactoryBean();
         bean.setLocateExistingServerIfPossible(true);
+        bean.afterPropertiesSet();
         return bean.getObject();
     }
 
@@ -61,6 +63,7 @@ public class EnvXmlBeanConfiguration {
         bean.setDefaultDomain("spring.application");
         bean.setRegistrationPolicy(RegistrationPolicy.REPLACE_EXISTING);
         bean.setServer(mbeanServer);
+        bean.afterPropertiesSet();
         return bean;
     }
 
@@ -86,6 +89,7 @@ public class EnvXmlBeanConfiguration {
         Properties mappings = new Properties();
         mappings.put("spring.application:type=Config,name=uaa", "getObject");
         bean.setAssembler(assembler);
+        bean.afterPropertiesSet();
         return bean;
     }
 }

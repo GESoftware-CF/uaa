@@ -409,7 +409,6 @@ public final class MockMvcUtils {
                     .contentType(APPLICATION_JSON)
                     .accept(APPLICATION_JSON)
                     .content(JsonUtils.writeValueAsString(identityZone)))
-                    .andDo(print())
                     .andExpect(status().isCreated());
         } else {
             webApplicationContext.getBean(IdentityZoneProvisioning.class).create(identityZone);

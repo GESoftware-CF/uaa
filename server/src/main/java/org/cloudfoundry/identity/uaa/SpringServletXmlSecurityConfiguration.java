@@ -3,6 +3,7 @@ package org.cloudfoundry.identity.uaa;
 import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationProcessingFilter;
 import org.cloudfoundry.identity.uaa.scim.DisableUserManagementSecurityFilter;
 import org.cloudfoundry.identity.uaa.security.web.SecurityFilterChainPostProcessor;
+import org.cloudfoundry.identity.uaa.web.BackwardsCompatibleScopeParsingFilter;
 import org.cloudfoundry.identity.uaa.web.FilterChainOrder;
 import org.cloudfoundry.identity.uaa.web.UaaFilterChain;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter;
@@ -18,7 +19,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.saml2.provider.service.web.authentication.logout.Saml2LogoutRequestFilter;
 import org.springframework.security.saml2.provider.service.web.authentication.logout.Saml2LogoutResponseFilter;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.servlet.config.annotation.DefaultServletHandlerConfigurer;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -43,8 +43,6 @@ public class SpringServletXmlSecurityConfiguration implements WebMvcConfigurer {
     @Order(FilterChainOrder.NO_SECURITY)
     UaaFilterChain secFilterOpen05Healthz(HttpSecurity http) throws Exception {
         SecurityFilterChain chain = http
-                .securityMatcher(new AntPathRequestMatcher("/healthz**"))
-                .securityMatcher(new AntPathRequestMatcher("/healthz/**"))
                 .securityMatcher("/healthz/**")
                 .authorizeHttpRequests().anyRequest().permitAll().and()
                 .anonymous(AnonymousConfigurer::disable)
@@ -62,7 +60,6 @@ public class SpringServletXmlSecurityConfiguration implements WebMvcConfigurer {
     UaaFilterChain secFilterOpen06SAMLMetadata(HttpSecurity http) throws Exception {
         SecurityFilterChain chain = http
                 .securityMatcher("/saml/metadata/**")
-                .securityMatcher(new AntPathRequestMatcher("/saml/metadata/**"))
                 .authorizeHttpRequests().anyRequest().permitAll().and()
                 .anonymous(AnonymousConfigurer::disable)
                 .csrf(CsrfConfigurer::disable)
@@ -78,8 +75,9 @@ public class SpringServletXmlSecurityConfiguration implements WebMvcConfigurer {
     @Order(FilterChainOrder.NO_SECURITY)
     UaaFilterChain noSecurityFilters(HttpSecurity http) throws Exception {
         SecurityFilterChain chain = http
-                .securityMatcher(new AntPathRequestMatcher("/error**"))
                 .securityMatcher(
+                        "/error**",
+                        "/error/**",
                         "/resources/**",
                         "/square-logo.png",
                         "/info",
@@ -114,7 +112,6 @@ public class SpringServletXmlSecurityConfiguration implements WebMvcConfigurer {
             @Qualifier("tracingFilter") Filter tracingFilter,
             @Qualifier("metricsFilter") Filter metricsFilter,
             @Qualifier("headerFilter") Filter headerFilter,
-            @Qualifier("backwardsCompatibleScopeParameter") Filter backwardsCompatibleScopeParameter,
             @Qualifier("contentSecurityPolicyFilter") Filter contentSecurityPolicyFilter,
             @Qualifier("utf8ConversionFilter") Filter utf8ConversionFilter,
             @Qualifier("limitedModeUaaFilter") Filter limitedModeUaaFilter,
@@ -147,7 +144,7 @@ public class SpringServletXmlSecurityConfiguration implements WebMvcConfigurer {
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(0), tracingFilter);
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(1), metricsFilter);
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(2), headerFilter);
-        additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(3), backwardsCompatibleScopeParameter);
+        additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(3), new BackwardsCompatibleScopeParsingFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(4), contentSecurityPolicyFilter);
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(5), utf8ConversionFilter);
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(6), limitedModeUaaFilter);

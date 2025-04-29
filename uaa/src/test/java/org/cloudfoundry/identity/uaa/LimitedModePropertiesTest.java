@@ -11,13 +11,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class LimitedModePropertiesTest {
 
     @EnableConfigurationProperties({LimitedModeProperties.class, LimitedModeProperties.Permitted.class})
-    static class TestCorsConfig {}
+    static class TestLimitedModeConfig {}
 
     private ApplicationContextRunner applicationContextRunner;
 
     @BeforeEach
     void setup() {
-        applicationContextRunner = new ApplicationContextRunner().withUserConfiguration(TestCorsConfig.class);
+        applicationContextRunner = new ApplicationContextRunner().withUserConfiguration(TestLimitedModeConfig.class);
     }
 
     @Test
