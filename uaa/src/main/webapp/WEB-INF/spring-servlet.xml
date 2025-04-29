@@ -7,6 +7,5 @@
 
 
     <context:component-scan base-package="org.cloudfoundry.identity.uaa"/>
-    <import resource="classpath:spring/env.xml"/>
 
 </beans>
