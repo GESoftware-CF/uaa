@@ -16,16 +16,6 @@
         </init-param>
     </filter>
 
-    <!--
-      @Configuration
-      @EnableSpringHttpSession
-      public class SpringHttpSessionConfig {
-          @Bean
-          public MapSessionRepository sessionRepository() {
-              return new MapSessionRepository(new ConcurrentHashMap<>());
-          }
-      }
-    -->
     <filter>
         <filter-name>springSessionRepositoryFilter</filter-name>
         <filter-class>org.springframework.web.filter.DelegatingFilterProxy</filter-class>
