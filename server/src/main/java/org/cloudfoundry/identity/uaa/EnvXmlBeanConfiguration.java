@@ -5,9 +5,12 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.config.PropertiesFactoryBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Role;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.core.env.Environment;
+import org.springframework.jmx.support.MBeanServerFactoryBean;
 
+import javax.management.MBeanServer;
 import java.io.IOException;
 
 @Configuration
@@ -33,21 +36,16 @@ public class EnvXmlBeanConfiguration {
         bean.setProperties(applicationProperties.getObject());
         return bean;
     }
-//
-//    @Bean
-//    EnvironmentMapFactoryBean config() {
-//        return new EnvironmentMapFactoryBean();
-//    }
-//
-//    @Bean
-//    @Role(2) //ROLE_INFRASTRUCTURE
-//    // <context:mbean-server id="mbeanServer"/>
-//    MBeanServerFactoryBean mbeanServer() {
-//        MBeanServerFactoryBean bean = new MBeanServerFactoryBean();
-//        bean.setLocateExistingServerIfPossible(true);
-//        return bean;
-//    }
-//
+
+    @Bean
+    @Role(2) //ROLE_INFRASTRUCTURE
+    // <context:mbean-server id="mbeanServer"/>
+    MBeanServer mbeanServer() {
+        MBeanServerFactoryBean bean = new MBeanServerFactoryBean();
+        bean.setLocateExistingServerIfPossible(true);
+        return bean.getObject();
+    }
+
 //    @Bean
 //    // <context:mbean-export server="mbeanServer" default-domain="spring.application" registration="replaceExisting"/>
 //    AnnotationMBeanExporter mBeanExporter1(MBeanServerFactoryBean mbeanServer) {
