@@ -71,6 +71,7 @@ public class DefaultIntegrationTestConfig {
         ChromeOptions options = new ChromeOptions();
         options.addArguments(
                 "--verbose",
+                "--guest",
                 // Comment the following line to run selenium test browser in Headed Mode
                 "--headless",
                 "--disable-web-security",
