@@ -26,6 +26,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.beans.factory.xml.ResourceEntityResolver;
+import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.Resource;
@@ -38,7 +40,6 @@ import org.springframework.mock.web.MockServletContext;
 import org.springframework.util.FileCopyUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.context.support.AbstractRefreshableWebApplicationContext;
-import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
 import org.springframework.web.servlet.ViewResolver;
 
 import javax.servlet.RequestDispatcher;
@@ -89,12 +90,19 @@ class BootstrapTests {
         }
     };
 
-    private static final AbstractRefreshableWebApplicationContext abstractRefreshableWebApplicationContext = new AnnotationConfigWebApplicationContext() {
+    private static final AbstractRefreshableWebApplicationContext abstractRefreshableWebApplicationContext = new AbstractRefreshableWebApplicationContext() {
 
         @Override
         protected void loadBeanDefinitions(@NonNull DefaultListableBeanFactory beanFactory) throws BeansException {
-            this.scan("org.cloudfoundry.identity.uaa");
-            super.loadBeanDefinitions(beanFactory);
+            XmlBeanDefinitionReader beanDefinitionReader = new XmlBeanDefinitionReader(beanFactory);
+
+            // Configure the bean definition reader with this context's
+            // resource loading environment.
+            beanDefinitionReader.setEnvironment(this.getEnvironment());
+            beanDefinitionReader.setResourceLoader(this);
+            beanDefinitionReader.setEntityResolver(new ResourceEntityResolver(this));
+
+            beanDefinitionReader.loadBeanDefinitions("file:./src/main/webapp/WEB-INF/spring-servlet.xml");
         }
     };
 
