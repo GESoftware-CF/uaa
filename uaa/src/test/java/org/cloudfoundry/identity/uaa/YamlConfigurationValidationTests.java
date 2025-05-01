@@ -6,11 +6,13 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.beans.factory.xml.ResourceEntityResolver;
+import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
 import org.springframework.mock.web.MockServletConfig;
 import org.springframework.mock.web.MockServletContext;
-import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
+import org.springframework.web.context.support.AbstractRefreshableWebApplicationContext;
 
 import javax.validation.ConstraintViolationException;
 import java.util.EventListener;
@@ -61,12 +63,19 @@ class YamlConfigurationValidationTests {
     }
 
 
-    static class TestApplicationContext extends AnnotationConfigWebApplicationContext {
+    static class TestApplicationContext extends AbstractRefreshableWebApplicationContext {
 
         @Override
         protected void loadBeanDefinitions(@NonNull DefaultListableBeanFactory beanFactory) throws BeansException {
-            this.scan("org.cloudfoundry.identity.uaa");
-            super.loadBeanDefinitions(beanFactory);
+            XmlBeanDefinitionReader beanDefinitionReader = new XmlBeanDefinitionReader(beanFactory);
+
+            // Configure the bean definition reader with this context's
+            // resource loading environment.
+            beanDefinitionReader.setEnvironment(this.getEnvironment());
+            beanDefinitionReader.setResourceLoader(this);
+            beanDefinitionReader.setEntityResolver(new ResourceEntityResolver(this));
+
+            beanDefinitionReader.loadBeanDefinitions("file:./src/main/webapp/WEB-INF/spring-servlet.xml");
         }
     }
 

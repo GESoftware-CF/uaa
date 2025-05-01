@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 import org.springframework.core.env.AbstractEnvironment;
@@ -19,6 +20,7 @@ import org.springframework.core.env.StandardEnvironment;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.mock.env.MockEnvironment;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.util.ResourceUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.context.ConfigurableWebApplicationContext;
@@ -38,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.impl.config.YamlServletProfileInitializer.YML_ENV_VAR_NAME;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.description;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -94,6 +97,18 @@ class YamlServletProfileInitializerTest {
 
         assertThat(environment.getProperty("foo")).isEqualTo("bar");
         assertThat(environment.getProperty("spam.foo")).isEqualTo("baz");
+    }
+
+    @Test
+    void loadSessionEventPublisher() {
+        when(context.getResource(contains("${CLOUDFOUNDRY_CONFIG_PATH}"))).thenReturn(
+                new ByteArrayResource("foo: bar\nspam:\n  foo: baz".getBytes()));
+
+        initializer.initialize(context);
+
+        ArgumentCaptor<HttpSessionEventPublisher> httpSessionEventPublisherArgumentCaptor = ArgumentCaptor.forClass(HttpSessionEventPublisher.class);
+        verify(servletContext, atLeastOnce()).addListener(httpSessionEventPublisherArgumentCaptor.capture());
+        assertThat(httpSessionEventPublisherArgumentCaptor.getValue()).isNotNull();
     }
 
     @Test
