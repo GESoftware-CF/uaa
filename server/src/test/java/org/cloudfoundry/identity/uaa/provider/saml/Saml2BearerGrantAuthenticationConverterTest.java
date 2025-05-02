@@ -2,6 +2,7 @@ package org.cloudfoundry.identity.uaa.provider.saml;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import net.shibboleth.utilities.java.support.xml.SerializeSupport;
+import org.cloudfoundry.identity.uaa.impl.config.RestTemplateConfig;
 import org.cloudfoundry.identity.uaa.provider.JdbcIdentityProviderProvisioning;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManagerImpl;
@@ -42,7 +43,6 @@ import org.springframework.security.saml2.provider.service.registration.RelyingP
 import org.springframework.security.saml2.provider.service.registration.Saml2MessageBinding;
 import org.springframework.security.saml2.provider.service.web.RelyingPartyRegistrationResolver;
 import org.springframework.util.StringUtils;
-import org.springframework.web.client.RestTemplate;
 import org.w3c.dom.Element;
 
 import javax.xml.namespace.QName;
@@ -77,12 +77,11 @@ class Saml2BearerGrantAuthenticationConverterTest {
     @BeforeEach
     void beforeEach() {
         IdentityZoneManager identityZoneManager = new IdentityZoneManagerImpl();
-        RestTemplate restTemplate = new RestTemplate();
         SamlConfiguration samlConfiguration = new SamlConfiguration();
         JdbcIdentityProviderProvisioning providerProvisioning = mock(JdbcIdentityProviderProvisioning.class);
 
         SamlIdentityProviderConfigurator identityProviderConfigurator = new SamlIdentityProviderConfigurator(
-                providerProvisioning, identityZoneManager, samlConfiguration.fixedHttpMetaDataProvider(restTemplate, restTemplate, null)
+                providerProvisioning, identityZoneManager, samlConfiguration.fixedHttpMetaDataProvider(RestTemplateConfig.createDefaults(), null)
         );
         SamlRelyingPartyRegistrationRepositoryConfig samlRelyingPartyRegistrationRepositoryConfig =
                 new SamlRelyingPartyRegistrationRepositoryConfig(
