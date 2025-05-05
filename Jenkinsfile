@@ -597,6 +597,49 @@ pipeline
                 }
             }
         }
+        stage('SonarQube Analysis')
+        {
+                agent {
+                    docker {
+                        image "${NODE['IMAGE']}"
+                        label "${NODE['LABEL']}"
+                        args "${NODE['ARGS']}"
+                        registryUrl "${NODE['REGISTRY_URL']}"
+                        registryCredentialsId "${NODE['REGISTRY_CREDENTIALS_ID']}"
+                    }
+                }
+                stages
+                {
+                    stage('SonarQube Scanning') {
+                        environment {
+                            SONAR_HOST_URL = credentials("SONAR_HOST_URL")
+                            SONAR_LOGIN_KEY = credentials("SONAR_LOGIN_KEY")
+                        }
+                        steps {
+                            dir('uaa') {
+                                checkout scm
+                            }
+                            dir('uaa/iam-k8s-utils') {
+                                git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                                url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
+                            }
+                            withSonarQubeEnv('SONAR_INSTANCE') {
+                                sh """
+                                    cd uaa
+                                    ./gradlew clean test jacocoRootReport sonar
+                                """
+                            } // Submitted: SonarQube taskId is automatically attached to the pipeline context
+                        }
+                    }
+                    stage('Quality Gate') {
+                        steps {
+                            timeout(time: 5, unit: 'MINUTES') {
+                                waitForQualityGate abortPipeline: false
+                            } // abortPipeline is set to false else all builds will fail due to less coverage percentage
+                        }
+                    }
+                }
+        }
     }
     post 
     {
