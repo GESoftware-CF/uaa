@@ -6,7 +6,6 @@ import org.opensaml.core.xml.schema.XSURI;
 import org.opensaml.saml.saml2.core.Assertion;
 import org.opensaml.saml.saml2.core.AuthnContext;
 import org.opensaml.saml.saml2.core.AuthnStatement;
-import org.opensaml.saml.saml2.core.Response;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.ObjectUtils;
@@ -16,7 +15,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.USER_ATTRIBUTE_PREFIX;
-import static org.cloudfoundry.identity.uaa.provider.saml.SamlUaaResponseAuthenticationConverter.AUTHENTICATION_CONTEXT_CLASS_REFERENCE;
+import static org.cloudfoundry.identity.uaa.provider.saml.SamlUaaAuthenticationUserManager.AUTHENTICATION_CONTEXT_CLASS_REFERENCE;
 
 /**
  * Part of the AuthenticationConverter used during SAML login flow.
@@ -25,10 +24,9 @@ import static org.cloudfoundry.identity.uaa.provider.saml.SamlUaaResponseAuthent
 @Slf4j
 public class SamlUaaAuthenticationAttributesConverter {
 
-    public MultiValueMap<String, String> retrieveUserAttributes(SamlIdentityProviderDefinition definition, Response response) {
+    public MultiValueMap<String, String> retrieveUserAttributes(SamlIdentityProviderDefinition definition, List<Assertion> assertions) {
         log.debug("Retrieving SAML user attributes [zone:{}, origin:{}}]", definition.getZoneId(), definition.getIdpEntityAlias());
         MultiValueMap<String, String> userAttributes = new LinkedMultiValueMap<>();
-        List<Assertion> assertions = response.getAssertions();
         if (assertions.isEmpty()) {
             return userAttributes;
         }
