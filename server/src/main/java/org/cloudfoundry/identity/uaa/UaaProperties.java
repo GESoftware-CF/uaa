@@ -13,6 +13,8 @@ import java.util.Set;
 /**
  * Future replacement of {@link org.cloudfoundry.identity.uaa.impl.config.UaaConfiguration}
  * for binding properties and validating them.
+ *
+ * MAKE SURE TO EnableConfigurationProperties in {@link UaaConfig}
  */
 public class UaaProperties {
 
