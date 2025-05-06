@@ -5,6 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.lang.Nullable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -76,20 +77,15 @@ public class UaaProperties {
                 parameter = new LogoutRedirectParameter(false, null);
             }
         }
-
-        public LogoutRedirect() {
-            this("/login", null);
-        }
     }
 
     @ConfigurationProperties(prefix = "logout")
     public record Logout(LogoutRedirect redirect) {
         public Logout {
             if (redirect == null) {
-                redirect = new LogoutRedirect();
+                redirect = new LogoutRedirect("/login", new LogoutRedirectParameter(false, Collections.emptyList()));
             }
         }
-
     }
 
 

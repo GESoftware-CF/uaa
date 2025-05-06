@@ -11,6 +11,7 @@ class UaaPropertiesTest {
 
     @EnableConfigurationProperties({
             UaaProperties.DefaultClientSecretPolicy.class,
+            UaaProperties.Logout.class,
             UaaProperties.Servlet.class,
             UaaProperties.Csp.class,
             UaaProperties.Metrics.class
@@ -22,6 +23,41 @@ class UaaPropertiesTest {
     @BeforeEach
     void setup() {
         applicationContextRunner = new ApplicationContextRunner().withUserConfiguration(TestUaaServletConfig.class);
+    }
+
+    @Test
+    void whenNoLogoutPropertiesAreSet() {
+        applicationContextRunner
+                .run(context -> {
+                    UaaProperties.Logout properties = context.getBean(UaaProperties.Logout.class);
+
+                    assertThat(properties).isNotNull();
+                    assertThat(properties.redirect()).isNotNull();
+                    assertThat(properties.redirect().url()).isEqualTo("/login");
+                    assertThat(properties.redirect().parameter()).isNotNull();
+                    assertThat(properties.redirect().parameter().whitelist()).isNotNull();
+                    assertThat(properties.redirect().parameter().whitelist()).isEmpty();
+                    assertThat(properties.redirect().parameter().disable()).isFalse();
+                });
+    }
+
+    @Test
+    void whenLogoutPropertiesAreSet() {
+        applicationContextRunner
+                .withPropertyValues("logout.redirect.url=/login2")
+                .withPropertyValues("logout.redirect.parameter.disable=true")
+                .withPropertyValues("logout.redirect.parameter.whitelist=http://url1,http://url2")
+                .run(context -> {
+                    UaaProperties.Logout properties = context.getBean(UaaProperties.Logout.class);
+
+                    assertThat(properties).isNotNull();
+                    assertThat(properties.redirect()).isNotNull();
+                    assertThat(properties.redirect().url()).isEqualTo("/login2");
+                    assertThat(properties.redirect().parameter()).isNotNull();
+                    assertThat(properties.redirect().parameter().whitelist()).isNotNull();
+                    assertThat(properties.redirect().parameter().whitelist()).containsExactly("http://url1", "http://url2");
+                    assertThat(properties.redirect().parameter().disable()).isTrue();
+                });
     }
 
     @Test
