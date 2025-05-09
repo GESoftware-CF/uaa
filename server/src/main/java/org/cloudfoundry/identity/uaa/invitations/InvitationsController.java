@@ -42,6 +42,8 @@ import org.springframework.security.web.savedrequest.DefaultSavedRequest;
 import org.springframework.security.web.savedrequest.SavedRequest;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.client.HttpClientErrorException;
@@ -52,6 +54,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletRequestWrapper;
 import javax.servlet.http.HttpServletResponse;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.Collections;
@@ -68,8 +71,6 @@ import static org.cloudfoundry.identity.uaa.constants.OriginKeys.UAA;
 import static org.cloudfoundry.identity.uaa.util.SessionUtils.SAVED_REQUEST_SESSION_ATTRIBUTE;
 import static org.cloudfoundry.identity.uaa.web.UaaSavedRequestAwareAuthenticationSuccessHandler.FORM_REDIRECT_PARAMETER;
 import static org.springframework.util.StringUtils.hasText;
-import static org.springframework.web.bind.annotation.RequestMethod.GET;
-import static org.springframework.web.bind.annotation.RequestMethod.POST;
 
 @Slf4j
 @Controller
@@ -113,7 +114,7 @@ public class InvitationsController {
         response.setStatus(404);
     }
 
-    @RequestMapping(value = "/accept", method = GET, params = {"code"})
+    @GetMapping(value = "/accept", params = {"code"})
     public String acceptInvitePage(@RequestParam String code, Model model, HttpServletRequest request, HttpServletResponse response) {
 
         ExpiringCode expiringCode = expiringCodeStore.peekCode(code, identityZoneManager.getCurrentIdentityZoneId());
@@ -237,7 +238,7 @@ public class InvitationsController {
         };
     }
 
-    @RequestMapping(value = "/accept.do", method = POST)
+    @PostMapping("/accept.do")
     public String acceptInvitation(@RequestParam("password") String password,
             @RequestParam("password_confirmation") String passwordConfirmation,
             @RequestParam("code") String code,
@@ -306,7 +307,7 @@ public class InvitationsController {
         }
     }
 
-    @RequestMapping(value = "/accept_enterprise.do", method = POST)
+    @PostMapping("/accept_enterprise.do")
     public String acceptLdapInvitation(@RequestParam("enterprise_username") String username,
             @RequestParam("enterprise_password") String password,
             @RequestParam("enterprise_email") String email,
@@ -353,7 +354,7 @@ public class InvitationsController {
                 userProvisioning.update(user.getId(), user, identityZoneManager.getCurrentIdentityZoneId());
                 zoneAwareAuthenticationManager.getLdapAuthenticationManager(identityZoneManager.getCurrentIdentityZone(), ldapProvider).authenticate(token);
                 AcceptedInvitation accept = invitationsService.acceptInvitation(newCode, "");
-                return "redirect:" + "/login?success=invite_accepted&form_redirect_uri=" + URLEncoder.encode(accept.getRedirectUri());
+                return "redirect:" + "/login?success=invite_accepted&form_redirect_uri=" + URLEncoder.encode(accept.getRedirectUri(), StandardCharsets.UTF_8);
             } else {
                 return handleUnprocessableEntity(model, response, "error_message", "not authenticated", "invitations/accept_invite");
             }

@@ -9,22 +9,19 @@ import org.cloudfoundry.identity.uaa.util.SessionUtils;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.support.ResourcePropertySource;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-
-import static org.springframework.web.bind.annotation.RequestMethod.GET;
-import static org.springframework.web.bind.annotation.RequestMethod.POST;
 
 @Controller
 public class ForcePasswordChangeController {
@@ -40,14 +37,14 @@ public class ForcePasswordChangeController {
         this.resetPasswordService = resetPasswordService;
     }
 
-    @RequestMapping(value = "/force_password_change", method = GET)
+    @GetMapping("/force_password_change")
     public String forcePasswordChangePage(Model model) {
         String email = ((UaaAuthentication) SecurityContextHolder.getContext().getAuthentication()).getPrincipal().getEmail();
         model.addAttribute("email", email);
         return "force_password_change";
     }
 
-    @RequestMapping(value = "/force_password_change", method = POST)
+    @PostMapping("/force_password_change")
     public String handleForcePasswordChange(Model model,
             @RequestParam("password") String password,
             @RequestParam("password_confirmation") String passwordConfirmation,

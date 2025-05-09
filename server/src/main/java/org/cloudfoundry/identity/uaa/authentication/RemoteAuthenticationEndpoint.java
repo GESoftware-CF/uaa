@@ -18,8 +18,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
@@ -45,7 +44,7 @@ public class RemoteAuthenticationEndpoint {
         this.loginAuthenticationManager = loginAuthenticationManager;
     }
 
-    @RequestMapping(value = {"/authenticate"}, method = RequestMethod.POST)
+    @PostMapping({"/authenticate"})
     @ResponseBody
     public HttpEntity<AuthenticationResponse> authenticate(HttpServletRequest request,
             @RequestParam(value = "username") String username,
@@ -78,7 +77,7 @@ public class RemoteAuthenticationEndpoint {
         return new ResponseEntity<>(response, status);
     }
 
-    @RequestMapping(value = {"/authenticate"}, method = RequestMethod.POST, params = {"source", "origin", UaaAuthenticationDetails.ADD_NEW})
+    @PostMapping(value = {"/authenticate"}, params = {"source", "origin", UaaAuthenticationDetails.ADD_NEW})
     @ResponseBody
     public HttpEntity<AuthenticationResponse> authenticate(HttpServletRequest request,
             @RequestParam(value = "username") String username,
