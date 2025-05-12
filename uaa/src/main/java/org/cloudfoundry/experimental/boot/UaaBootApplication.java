@@ -35,6 +35,8 @@ public class UaaBootApplication {
         System.setProperty("spring.main.allow-bean-definition-overriding", "true");
         System.setProperty("spring.main.allow-circular-references", "true");
         System.setProperty("server.servlet.context-path", "/uaa");
+        System.setProperty("server.servlet.context-path", "/uaa");
+        System.setProperty("logging.level.org.springframework.security", "TRACE");
         SpringApplication application = new SpringApplication(UaaBootApplication.class);
         application.addInitializers(new YamlServletProfileInitializer());
         application.run(args);

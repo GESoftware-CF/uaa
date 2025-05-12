@@ -156,7 +156,7 @@ class ScimSecurityConfiguration {
         filter.setAuthenticationManager(getoAuth2AuthenticationManager(tokenServices, "password"));
         filter.setAuthenticationEntryPoint(oauthAuthenticationEntryPoint);
         FilterRegistrationBean<OAuth2AuthenticationProcessingFilter> bean = new FilterRegistrationBean<>(filter);
-        bean. setEnabled(false);
+        bean.setEnabled(false);
         return bean;
     }
 
@@ -166,7 +166,7 @@ class ScimSecurityConfiguration {
         filter.setAuthenticationManager(getoAuth2AuthenticationManager(tokenServices, "scim"));
         filter.setAuthenticationEntryPoint(oauthAuthenticationEntryPoint);
         FilterRegistrationBean<OAuth2AuthenticationProcessingFilter> bean = new FilterRegistrationBean<>(filter);
-        bean. setEnabled(false);
+        bean.setEnabled(false);
         return bean;
     }
 
@@ -176,7 +176,7 @@ class ScimSecurityConfiguration {
         filter.setAuthenticationManager(getoAuth2AuthenticationManager(tokenServices, null));
         filter.setAuthenticationEntryPoint(oauthAuthenticationEntryPoint);
         FilterRegistrationBean<OAuth2AuthenticationProcessingFilter> bean = new FilterRegistrationBean<>(filter);
-        bean. setEnabled(false);
+        bean.setEnabled(false);
         return bean;
     }
 

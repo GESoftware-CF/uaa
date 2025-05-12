@@ -414,7 +414,7 @@ public class OauthEndpointBeanConfiguration {
         );
         filter.setAuthenticationDetailsSource(authenticationDetailsSource);
         FilterRegistrationBean<ClientBasicAuthenticationFilter> bean = new FilterRegistrationBean<>(filter);
-        bean. setEnabled(false);
+        bean.setEnabled(false);
         return bean;
     }
 
@@ -502,7 +502,7 @@ public class OauthEndpointBeanConfiguration {
         );
         return bean;
     }
-    
+
     @Bean("authzAuthenticationFilter")
     FilterRegistrationBean<AuthzAuthenticationFilter> authzAuthenticationFilter(
             @Autowired DynamicZoneAwareAuthenticationManager zoneAwareAuthzAuthenticationManager
@@ -857,7 +857,7 @@ public class OauthEndpointBeanConfiguration {
         filter.setAuthenticationManager(authenticationManager);
         filter.setAuthenticationEntryPoint(oauthAuthenticationEntryPoint);
         FilterRegistrationBean<OAuth2AuthenticationProcessingFilter> bean = new FilterRegistrationBean<>(filter);
-        bean. setEnabled(false);
+        bean.setEnabled(false);
         return bean;
     }
 

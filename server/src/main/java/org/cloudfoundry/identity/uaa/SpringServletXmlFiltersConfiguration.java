@@ -97,6 +97,8 @@ public class SpringServletXmlFiltersConfiguration {
         filter.setCorsXhrMaxAge(corsProperties.xhrMaxAge);
         FilterRegistrationBean<CorsFilter> bean = new FilterRegistrationBean<>(filter);
         bean.setEnabled(false);
+
+        filter.initialize();
         return bean;
     }
 

@@ -47,6 +47,7 @@ public class ApprovalsSecurityConfiguration {
         authenticationManager.setTokenServices(tokenServices);
         filter.setAuthenticationManager(authenticationManager);
         FilterRegistrationBean<OAuth2AuthenticationProcessingFilter> bean = new FilterRegistrationBean<>(filter);
+        bean.setEnabled(false);
         return bean;
     }
     @Bean
