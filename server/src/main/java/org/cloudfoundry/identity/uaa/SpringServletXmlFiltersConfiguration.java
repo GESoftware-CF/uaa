@@ -131,12 +131,21 @@ public class SpringServletXmlFiltersConfiguration {
         return bean;
     }
 
+
+
+//    @Bean
+//    FilterRegistrationBean<UaaMetricsFilter> metricsFilter(TimeService timeService) throws IOException {
+//        UaaMetricsFilter filter = new UaaMetricsFilter(metricsProps.enabled(), metricsProps.perRequestMetrics(), timeService);
+//        FilterRegistrationBean<UaaMetricsFilter> bean = new FilterRegistrationBean<>(filter);
+//        bean.setEnabled(false);
+//        return bean;
+//    }
     @Bean
-    FilterRegistrationBean<UaaMetricsFilter> metricsFilter(TimeService timeService) throws IOException {
+    UaaMetricsFilter metricsFilter(TimeService timeService) throws IOException {
         UaaMetricsFilter filter = new UaaMetricsFilter(metricsProps.enabled(), metricsProps.perRequestMetrics(), timeService);
         FilterRegistrationBean<UaaMetricsFilter> bean = new FilterRegistrationBean<>(filter);
         bean.setEnabled(false);
-        return bean;
+        return filter;
     }
 
     @Bean
