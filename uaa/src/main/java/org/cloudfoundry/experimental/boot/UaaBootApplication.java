@@ -28,15 +28,20 @@ import static org.springframework.util.ReflectionUtils.getField;
 @Import({UaaBootConfiguration.class, UaaApplicationConfiguration.class})
 public class UaaBootApplication {
     public static void main(String... args) {
+        String configPath = System.getProperty("user.dir") + "/scripts/cargo";
         System.setProperty(
-                "UAA_CONFIG_URL",
-                "file:"+System.getProperty("user.dir")+"/uaa/build/resources/test/integration_test_properties.yml"
+                "CLOUDFOUNDRY_CONFIG_PATH",
+                configPath
         );
         System.setProperty("spring.main.allow-bean-definition-overriding", "true");
         System.setProperty("spring.main.allow-circular-references", "true");
         System.setProperty("server.servlet.context-path", "/uaa");
         System.setProperty("server.servlet.context-path", "/uaa");
-        System.setProperty("logging.level.org.springframework.security", "TRACE");
+        System.setProperty("smtp.host", "localhost");
+        System.setProperty("smtp.port", "2525");
+        System.setProperty("java.security.egd", "file:/dev/./urandom");
+        System.setProperty("spring.profiles.active", "hsqldb");
+        //System.setProperty("logging.level.org.springframework.security", "TRACE");
         SpringApplication application = new SpringApplication(UaaBootApplication.class);
         application.addInitializers(new YamlServletProfileInitializer());
         application.run(args);
