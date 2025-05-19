@@ -65,7 +65,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationListener;
-import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
@@ -78,7 +77,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.util.StringUtils;
-import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.context.support.GenericWebApplicationContext;
 
 import java.security.MessageDigest;
 import java.util.Arrays;
@@ -117,6 +116,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuditCheckMockMvcTests {
 
     @Autowired
+    @Qualifier("jdbcClientDetailsService")
     private MultitenantClientServices clientRegistrationService;
     private UaaTestAccounts testAccounts;
     private TestApplicationEventListener<AbstractUaaEvent> testListener;
@@ -133,7 +133,7 @@ class AuditCheckMockMvcTests {
     private ClientDetails originalLoginClient;
 
     @Autowired
-    private ConfigurableApplicationContext configurableApplicationContext;
+    private GenericWebApplicationContext configurableApplicationContext;
     @Autowired
     private MockMvc mockMvc;
     private TestClient testClient;
@@ -184,11 +184,11 @@ class AuditCheckMockMvcTests {
     }
 
     @AfterEach
-    void resetLoginClient(@Autowired WebApplicationContext webApplicationContext) {
+    void resetLoginClient() {
         clientRegistrationService.updateClientDetails(originalLoginClient);
-        MockMvcUtils.removeEventListener(webApplicationContext, testListener);
-        MockMvcUtils.removeEventListener(webApplicationContext, authSuccessListener);
-        MockMvcUtils.removeEventListener(webApplicationContext, auditListener);
+        MockMvcUtils.removeEventListener(configurableApplicationContext, testListener);
+        MockMvcUtils.removeEventListener(configurableApplicationContext, authSuccessListener);
+        MockMvcUtils.removeEventListener(configurableApplicationContext, auditListener);
         SecurityContextHolder.clearContext();
         mgr.setAllowUnverifiedUsers(allowUnverifiedUsers);
     }
