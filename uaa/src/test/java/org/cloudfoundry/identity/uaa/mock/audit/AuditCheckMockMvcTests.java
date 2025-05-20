@@ -72,6 +72,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.codec.Utf8;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
@@ -113,6 +114,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @DefaultTestContext
+@DirtiesContext
 class AuditCheckMockMvcTests {
 
     @Autowired
@@ -826,7 +828,6 @@ class AuditCheckMockMvcTests {
     }
 
     @Nested
-    @DefaultTestContext
     @ExtendWith(ZoneSeederExtension.class)
     class AsUserWithScimWrite {
 
@@ -986,7 +987,6 @@ class AuditCheckMockMvcTests {
     }
 
     @Nested
-    @DefaultTestContext
     class AsClientWithScimWrite {
 
         private String scimWriteClientToken;

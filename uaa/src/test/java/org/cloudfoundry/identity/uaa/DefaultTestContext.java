@@ -48,22 +48,12 @@ import static org.springframework.security.config.BeanIds.SPRING_SECURITY_FILTER
         classes = {
                 UaaBootConfiguration.class,
                 UaaApplicationConfiguration.class,
-                SpringServletTestConfig.class,
                 TestClientAndMockMvcTestConfig.class,
                 DatabasePropertiesOverrideConfiguration.class
         },
         webEnvironment = SpringBootTest.WebEnvironment.MOCK
 )
 @ContextConfiguration(initializers = {TestPropertyInitializer.class, YamlServletProfileInitializer.class})
-//@SpringJUnitWebConfig(
-//        classes = {
-//                UaaApplicationConfiguration.class,
-//                SpringServletTestConfig.class,
-//                TestClientAndMockMvcTestConfig.class,
-//                DatabasePropertiesOverrideConfiguration.class
-//        },
-//        initializers = {TestPropertyInitializer.class, YamlServletProfileInitializer.class}
-//)
 @EnableAutoConfiguration(exclude = {
         // Conflicts with UaaJdbcSessionConfig
         SessionAutoConfiguration.class,
@@ -79,9 +69,6 @@ class TestPropertyInitializer implements ApplicationContextInitializer<Configura
     public void initialize(ConfigurableWebApplicationContext applicationContext) {
         System.setProperty("UAA_CONFIG_URL","classpath:integration_test_properties.yml");
     }
-}
-class SpringServletTestConfig {
-
 }
 
 class TestClientAndMockMvcTestConfig {
