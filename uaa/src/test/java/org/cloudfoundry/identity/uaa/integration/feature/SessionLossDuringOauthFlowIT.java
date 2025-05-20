@@ -68,9 +68,6 @@ class SessionLossDuringOauthFlowIT {
     @Value("${integration.test.base_url}")
     String baseUrl;
 
-    @Value("${integration.test.app_url}")
-    String appUrl;
-
     @BeforeEach
     @AfterEach
     void logout_and_clear_cookies() {
@@ -82,7 +79,6 @@ class SessionLossDuringOauthFlowIT {
             //try again - this should not be happening - 20 second timeouts
             webDriver.get(baseUrl + "/logout.do");
         }
-        webDriver.get(appUrl + "/j_spring_security_logout");
         webDriver.manage().deleteAllCookies();
     }
 
@@ -104,7 +100,8 @@ class SessionLossDuringOauthFlowIT {
         ScimUser user = createUnapprovedUser(serverRunning);
 
         // Visit app
-        webDriver.get(appUrl);
+        //simulate app redirect
+        webDriver.get(baseUrl + "/oauth/authorize?client_id=app&redirect_uri=http://localhost:8080/app/&response_type=code&state=a4QXYw");
 
         // Sign in to login server
         webDriver.findElement(By.name("username")).sendKeys(user.getUserName());
@@ -138,6 +135,6 @@ class SessionLossDuringOauthFlowIT {
         webDriver.findElement(By.xpath("//label[text()='Read about your clouds.']/preceding-sibling::input"));
         webDriver.clickAndWait(By.xpath("//button[text()='Authorize']"));
 
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).isEqualTo("Sample Home Page");
+        assertThat(webDriver.getCurrentUrl()).startsWith("http://localhost:8080/app/?code=");
     }
 }
