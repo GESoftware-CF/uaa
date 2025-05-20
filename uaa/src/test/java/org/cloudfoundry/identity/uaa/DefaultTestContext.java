@@ -1,5 +1,6 @@
 package org.cloudfoundry.identity.uaa;
 
+import org.cloudfoundry.experimental.boot.UaaBootConfiguration;
 import org.cloudfoundry.identity.uaa.db.beans.JdbcUrlCustomizer;
 import org.cloudfoundry.identity.uaa.extensions.PollutionPreventionExtension;
 import org.cloudfoundry.identity.uaa.impl.config.YamlServletProfileInitializer;
@@ -9,6 +10,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.ldap.LdapAutoConfiguration;
 import org.springframework.boot.autoconfigure.session.SessionAutoConfiguration;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.lang.NonNull;
@@ -16,12 +18,13 @@ import org.springframework.lang.Nullable;
 import org.springframework.mock.web.MockRequestDispatcher;
 import org.springframework.mock.web.MockServletContext;
 import org.springframework.security.web.FilterChainProxy;
-import org.springframework.test.context.junit.jupiter.web.SpringJUnitWebConfig;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.ConfigurableWebApplicationContext;
 import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import javax.servlet.RequestDispatcher;
 import java.lang.annotation.ElementType;
@@ -36,15 +39,21 @@ import static org.springframework.security.config.BeanIds.SPRING_SECURITY_FILTER
 @Retention(RetentionPolicy.RUNTIME)
 @ExtendWith(PollutionPreventionExtension.class)
 @WebAppConfiguration
-@SpringJUnitWebConfig(
+@EnableWebMvc
+@SpringBootTest(
+        properties = {
+                "spring.main.allow-bean-definition-overriding=true",
+                "spring.main.allow-circular-references=true"
+        },
         classes = {
+                UaaBootConfiguration.class,
                 UaaApplicationConfiguration.class,
-                SpringServletTestConfig.class,
                 TestClientAndMockMvcTestConfig.class,
                 DatabasePropertiesOverrideConfiguration.class
         },
-        initializers = {TestPropertyInitializer.class, YamlServletProfileInitializer.class}
+        webEnvironment = SpringBootTest.WebEnvironment.MOCK
 )
+@ContextConfiguration(initializers = {TestPropertyInitializer.class, YamlServletProfileInitializer.class})
 @EnableAutoConfiguration(exclude = {
         // Conflicts with UaaJdbcSessionConfig
         SessionAutoConfiguration.class,
@@ -60,9 +69,6 @@ class TestPropertyInitializer implements ApplicationContextInitializer<Configura
     public void initialize(ConfigurableWebApplicationContext applicationContext) {
         System.setProperty("UAA_CONFIG_URL","classpath:integration_test_properties.yml");
     }
-}
-class SpringServletTestConfig {
-
 }
 
 class TestClientAndMockMvcTestConfig {
