@@ -141,7 +141,7 @@ class CreateAccountIT {
         // Authorize the app for some scopes
         assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).isEqualTo("Application Authorization");
         webDriver.clickAndWait(By.xpath("//button[text()='Authorize']"));
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).isEqualTo("Sample Home Page");
+        assertThat(webDriver.getCurrentUrl()).startsWith("http://localhost:8080/app/?code=");
     }
 
     @Test
