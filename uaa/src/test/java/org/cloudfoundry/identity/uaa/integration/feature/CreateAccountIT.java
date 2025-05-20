@@ -62,9 +62,6 @@ class CreateAccountIT {
     @Value("${integration.test.base_url}")
     String baseUrl;
 
-    @Value("${integration.test.app_url}")
-    String appUrl;
-
     @BeforeEach
     @AfterEach
     void logout_and_clear_cookies() {
@@ -74,7 +71,6 @@ class CreateAccountIT {
             //try again - this should not be happening - 20 second timeouts
             webDriver.get(baseUrl + "/logout.do");
         }
-        webDriver.get(appUrl + "/j_spring_security_logout");
         webDriver.manage().deleteAllCookies();
     }
 
