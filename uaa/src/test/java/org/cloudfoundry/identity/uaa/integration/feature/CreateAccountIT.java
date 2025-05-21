@@ -139,6 +139,7 @@ class CreateAccountIT {
         webDriver.clickAndWait(By.xpath("//input[@value='Sign in']"));
 
         // Authorize the app for some scopes
+        webDriver.get(baseUrl + "/oauth/authorize?client_id=app&redirect_uri=http://localhost:8080/app/&response_type=code&state=3e5u7U");
         assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).isEqualTo("Application Authorization");
         webDriver.clickAndWait(By.xpath("//button[text()='Authorize']"));
         assertThat(webDriver.getCurrentUrl()).startsWith("http://localhost:8080/app/?code=");

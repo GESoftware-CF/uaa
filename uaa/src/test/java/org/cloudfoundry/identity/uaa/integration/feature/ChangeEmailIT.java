@@ -139,8 +139,10 @@ class ChangeEmailIT {
         String link = testClient.extractLink(message.getBody());
 
         webDriver.get(link);
+        //simulate redirect to app and back
+        webDriver.get(baseUrl + "/oauth/authorize?client_id=app&redirect_uri=http://localhost:8080/app/&response_type=code&state=3e5u7U");
         webDriver.clickAndWait(By.id("authorize"));
-        assertThat(webDriver.getCurrentUrl()).startsWith("http://localhost:8080/app/");
+        assertThat(webDriver.getCurrentUrl()).startsWith("http://localhost:8080/app/?code=");
     }
 
     private void signIn(String userName, String password) {
