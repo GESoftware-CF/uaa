@@ -198,3 +198,8 @@ war {
     //workaround for maven <scope>optional</scope>
     rootSpec.exclude("**/spring-security-oauth-*.jar")
 }
+
+bootRun {
+    mainClass = "org.cloudfoundry.experimental.boot.UaaBootApplication"
+    systemProperty "uaa.root.dir", project.buildscript.sourceFile.getParentFile().getParentFile().getAbsolutePath()
+}

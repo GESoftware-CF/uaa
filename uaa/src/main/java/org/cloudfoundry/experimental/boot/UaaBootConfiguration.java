@@ -26,7 +26,10 @@ public class UaaBootConfiguration implements ServletContextInitializer, WebMvcCo
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        String base = System.getProperty("user.dir");
+        String base = System.getProperty(
+                "uaa.root.dir",
+                System.getProperty("user.dir")
+        );
         registry.addResourceHandler("/**")
                 .addResourceLocations("file:"+base+"/uaa/src/main/webapp/");
     }

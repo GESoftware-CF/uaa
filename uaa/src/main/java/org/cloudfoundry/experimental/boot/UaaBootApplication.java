@@ -12,7 +12,10 @@ import java.io.File;
 @Import({UaaBootConfiguration.class, UaaApplicationConfiguration.class})
 public class UaaBootApplication {
     public static void main(String... args) {
-        String base = System.getProperty("user.dir");
+        String base = System.getProperty(
+                "uaa.root.dir",
+                System.getProperty("user.dir")
+        );
 
         //set up tomcat base directory
         String tomcatBase = base + "/scripts/boot/tomcat/";
