@@ -24,14 +24,12 @@ import static org.springframework.util.ReflectionUtils.getField;
 @Configuration
 public class UaaBootConfiguration implements ServletContextInitializer, WebMvcConfigurer {
 
+    //TODO - This is currently a workaround to find static content
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        String base = System.getProperty(
-                "uaa.root.dir",
-                System.getProperty("user.dir")
-        );
+        String base = System.getProperty("uaa.boot.webapp.dir");
         registry.addResourceHandler("/**")
-                .addResourceLocations("file:"+base+"/uaa/src/main/webapp/");
+                .addResourceLocations("file://"+base+"/");
     }
 
     @Bean

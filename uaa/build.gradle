@@ -199,7 +199,26 @@ war {
     rootSpec.exclude("**/spring-security-oauth-*.jar")
 }
 
-bootRun {
-    mainClass = "org.cloudfoundry.experimental.boot.UaaBootApplication"
-    systemProperty "uaa.root.dir", project.buildscript.sourceFile.getParentFile().getParentFile().getAbsolutePath()
+tasks.register('cleanBootTomcatDir') {
+    String tomcatBase = file("../scripts/boot/tomcat/").getAbsolutePath()
+    delete(java.nio.file.Path.of(tomcatBase))
+    new File(tomcatBase+"/work").mkdirs()
+    new File(tomcatBase+"/webapps").mkdirs()
 }
+
+bootRun {
+    dependsOn cleanBootTomcatDir
+    mainClass = "org.cloudfoundry.experimental.boot.UaaBootApplication"
+    systemProperty("uaa.boot.webapp.dir", file("src/main/webapp/").getAbsolutePath())
+    systemProperty("server.tomcat.basedir", file("../scripts/boot/tomcat/").getAbsolutePath())
+    systemProperty("SECRETS_DIR", System.getProperty("SECRETS_DIR", file("../scripts/cargo").getAbsolutePath()))
+    systemProperty("spring.profiles.active", System.getProperty("spring.profiles.active", "hsqldb"))
+    systemProperty("metrics.perRequestMetrics", System.getProperty("metrics.perRequestMetrics", "true"))
+    systemProperty("smtp.host", "localhost")
+    systemProperty("smtp.port", 2525)
+    systemProperty("java.security.egd", "file:/dev/./urandom")
+    systemProperty("CLOUDFOUNDRY_CONFIG_PATH", file("../scripts/cargo").getAbsolutePath())
+}
+
+
+
