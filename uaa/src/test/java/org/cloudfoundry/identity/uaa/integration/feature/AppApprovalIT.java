@@ -67,9 +67,6 @@ class AppApprovalIT {
     @Value("${integration.test.base_url}")
     String baseUrl;
 
-    @Value("${integration.test.app_url}")
-    String appUrl;
-
     @BeforeEach
     @AfterEach
     void logout_and_clear_cookies() {
@@ -81,7 +78,6 @@ class AppApprovalIT {
             //try again - this should not be happening - 20 second timeouts
             webDriver.get(baseUrl + "/logout.do");
         }
-        webDriver.get(appUrl + "/j_spring_security_logout");
         webDriver.manage().deleteAllCookies();
     }
 
@@ -104,8 +100,8 @@ class AppApprovalIT {
         ScimUser user = createUnapprovedUser(serverRunning);
 
         // Visit app
-        webDriver.get(appUrl);
-
+        //simulate app redirect
+        webDriver.get(baseUrl + "/oauth/authorize?client_id=app&redirect_uri=http://localhost:8080/app/&response_type=code&state=OcUiHB");
         // Sign in to login server
         webDriver.findElement(By.name("username")).sendKeys(user.getUserName());
         webDriver.findElement(By.name("password")).sendKeys(user.getPassword());
@@ -120,7 +116,8 @@ class AppApprovalIT {
 
         webDriver.clickAndWait(By.xpath("//button[text()='Authorize']"));
 
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).isEqualTo("Sample Home Page");
+        //validate that we were redirected to the app
+        assertThat(webDriver.getCurrentUrl()).startsWith("http://localhost:8080/app/?code=");
 
         // View profile on the login server
         webDriver.get(baseUrl + "/profile");
@@ -176,7 +173,8 @@ class AppApprovalIT {
         ScimUser user = createUnapprovedUser(serverRunning);
 
         // Visit app
-        webDriver.get(appUrl);
+        //simulate app redirect
+        webDriver.get(baseUrl + "/oauth/authorize?client_id=app&redirect_uri=http://localhost:8080/app/&response_type=code&state=OcUiHB");
 
         // Sign in to login server
         webDriver.findElement(By.name("username")).sendKeys(user.getUserName());
@@ -194,8 +192,8 @@ class AppApprovalIT {
         ScimUser user = createUnapprovedUser(serverRunning);
 
         // given we vist the app (specifying an invalid redirect - incorrect protocol https)
-        webDriver.get(appUrl + "?redirect_uri=https://localhost:8080/app/");
-
+        //simulate app redirect
+        webDriver.get(baseUrl + "/oauth/authorize?client_id=app&redirect_uri=https://localhost:8080/app/&response_type=code&state=a4QXYw");
         // Sign in to login server
         webDriver.findElement(By.name("username")).sendKeys(user.getUserName());
         webDriver.findElement(By.name("password")).sendKeys(user.getPassword());

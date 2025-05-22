@@ -63,9 +63,6 @@ class AutologinIT {
     @Value("${integration.test.base_url}")
     String baseUrl;
 
-    @Value("${integration.test.app_url}")
-    String appUrl;
-
     @Autowired
     RestOperations restOperations;
 
@@ -87,8 +84,6 @@ class AutologinIT {
             //try again - this should not be happening - 20 second timeouts
             webDriver.get(baseUrl + "/logout.do");
         }
-        webDriver.manage().deleteAllCookies();
-        webDriver.get(appUrl + "/j_spring_security_logout");
         webDriver.manage().deleteAllCookies();
     }
 
@@ -116,7 +111,7 @@ class AutologinIT {
 
         String authorizeUrl = UriComponentsBuilder.fromHttpUrl(baseUrl)
                 .path("/oauth/authorize")
-                .queryParam("redirect_uri", appUrl)
+                .queryParam("redirect_uri", "http://localhost:8080/app")
                 .queryParam("response_type", "code")
                 .queryParam("scope", "openid")
                 .queryParam("client_id", "app")
@@ -150,7 +145,7 @@ class AutologinIT {
         //by using the autologin code
         String authorizeUrl = UriComponentsBuilder.fromHttpUrl(baseUrl)
                 .path("/oauth/authorize")
-                .queryParam("redirect_uri", appUrl)
+                .queryParam("redirect_uri", "http://localhost:8080/app")
                 .queryParam("response_type", "code")
                 .queryParam("client_id", "app")
                 .queryParam("code", autologinCode)
@@ -207,7 +202,7 @@ class AutologinIT {
         tokenParams.add("response_type", "token");
         tokenParams.add("grant_type", GRANT_TYPE_AUTHORIZATION_CODE);
         tokenParams.add("code", newCode);
-        tokenParams.add("redirect_uri", appUrl);
+        tokenParams.add("redirect_uri", "http://localhost:8080/app");
         headers.set(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE);
         headers.set(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
 
@@ -337,7 +332,7 @@ class AutologinIT {
 
         String authorizeUrl = UriComponentsBuilder.fromHttpUrl(baseUrl)
                 .path("/oauth/authorize")
-                .queryParam("redirect_uri", appUrl)
+                .queryParam("redirect_uri", "http://localhost:8080/app")
                 .queryParam("response_type", "code")
                 .queryParam("scope", "openid")
                 .queryParam("client_id", "stealer_of_codes")

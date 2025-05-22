@@ -71,9 +71,6 @@ public class InvitationsIT {
     @Value("${integration.test.base_url}")
     String baseUrl;
 
-    @Value("${integration.test.app_url}")
-    String appUrl;
-
     @Autowired
     SamlServerConfig samlServerConfig;
 
@@ -161,11 +158,7 @@ public class InvitationsIT {
             //try again - this should not be happening - 20 second timeouts
             webDriver.get(baseUrl + "/logout.do");
         }
-        webDriver.get(appUrl + "/j_spring_security_logout");
         SamlLogoutAuthSourceEndpoint.assertThatLogoutAuthSource_goesToSamlWelcomePage(webDriver, samlServerConfig);
-        webDriver.manage().deleteAllCookies();
-
-        webDriver.get("http://localhost:8080/app/");
         webDriver.manage().deleteAllCookies();
     }
 
@@ -258,7 +251,9 @@ public class InvitationsIT {
         webDriver.findElement(By.name("username")).sendKeys("user_only_for_invitations_test");
         webDriver.findElement(By.name("password")).sendKeys("saml");
         webDriver.clickAndWait(By.id("submit_button"));
-
+        //now we land on the /app
+        //simulate a redirect from /app to /uaa
+        webDriver.get(baseUrl + "/oauth/authorize?client_id=app&redirect_uri=http://localhost:8080/app/&response_type=code&state=iknaID");
         //wait until UAA page has loaded
         webDriver.findElement(By.id("application_authorization"));
         String acceptedUsername = IntegrationTestUtils.getUsernameById(scimToken, baseUrl, invitedUserId);
@@ -303,7 +298,7 @@ public class InvitationsIT {
         String[] emailList = new String[]{"marissa@test.org"};
         body.setEmails(emailList);
         HttpEntity<InvitationsRequest> request = new HttpEntity<>(body, headers);
-        ResponseEntity<InvitationsResponse> response = uaaTemplate.exchange(baseUrl + "/invite_users?client_id=app&redirect_uri=" + appUrl, POST, request, InvitationsResponse.class);
+        ResponseEntity<InvitationsResponse> response = uaaTemplate.exchange(baseUrl + "/invite_users?client_id=app&redirect_uri=http://localhost:8080/app", POST, request, InvitationsResponse.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
         String userId = response.getBody().getNewInvites().get(0).getUserId();
