@@ -1,16 +1,28 @@
 package org.cloudfoundry.identity.uaa.util;
 
+import com.fasterxml.jackson.core.JacksonException;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import org.cloudfoundry.identity.uaa.metrics.UrlGroup;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class JsonUtilsTest {
     private static final String JSON_TEST_OBJECT_STRING = "{\"pattern\":\"/pattern\",\"group\":\"group\",\"limit\":1000,\"category\":\"category\"}";
@@ -111,7 +123,145 @@ class JsonUtilsTest {
         assertThat(JsonUtils.hasText(" ")).isFalse();
     }
 
+    @Test
+    void cannotInstantiate() {
+        Constructor<?>[] constructors = JsonUtils.class.getDeclaredConstructors();
+        for (Constructor c : constructors) {
+            c.setAccessible(true);
+            try {
+                c.newInstance();
+                fail("JSonUtils should not be instantiable");
+            } catch (InvocationTargetException e) {
+                assertThat(e).isInstanceOf(InvocationTargetException.class);
+                assertThat(e.getCause().getMessage()).isEqualTo("This is a utility class and cannot be instantiated");
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    @Test
+
+    void throwsException_writeValueAsString() throws JsonProcessingException {
+        JsonUtils.JsonUtilException exception = assertThrows(JsonUtils.JsonUtilException.class,
+                () -> JsonUtils.writeValueAsString(new Object())
+        );
+        assertThat(exception.getMessage()).startsWith("com.fasterxml.jackson.databind.exc.InvalidDefinitionException: No serializer found for class java.lang.Object");
+    }
+
+    @Test
+    void throwsException_writeValueAsBytes() throws JsonProcessingException {
+        JsonUtils.JsonUtilException exception = assertThrows(JsonUtils.JsonUtilException.class,
+                () -> JsonUtils.writeValueAsBytes(new Object())
+        );
+        assertThat(exception.getMessage()).startsWith("com.fasterxml.jackson.databind.exc.InvalidDefinitionException: No serializer found for class java.lang.Object");
+    }
+
+    @Test
+    void throwsException_readValue() throws JsonProcessingException {
+        JsonUtils.JsonUtilException exception = assertThrows(JsonUtils.JsonUtilException.class,
+                () -> JsonUtils.readValue("invalid json", String.class)
+        );
+        assertThat(exception.getMessage()).startsWith("com.fasterxml.jackson.core.JsonParseException: Unrecognized token 'invalid'");
+
+        exception = assertThrows(JsonUtils.JsonUtilException.class,
+                () -> JsonUtils.readValue("invalid json".getBytes(), String.class)
+        );
+        assertThat(exception.getMessage()).startsWith("com.fasterxml.jackson.core.JsonParseException: Unrecognized token 'invalid'");
+
+        exception = assertThrows(JsonUtils.JsonUtilException.class,
+                () -> JsonUtils.readValue("invalid json", new TypeReference<String>() {})
+        );
+        assertThat(exception.getMessage()).startsWith("com.fasterxml.jackson.core.JsonParseException: Unrecognized token 'invalid'");
+
+        exception = assertThrows(JsonUtils.JsonUtilException.class,
+                () -> JsonUtils.readValue("invalid json".getBytes(), new TypeReference<String>() {})
+        );
+        assertThat(exception.getMessage()).startsWith("com.fasterxml.jackson.core.JsonParseException: Unrecognized token 'invalid'");
+    }
+
+    @Test
+    void throwsException_readValueAsMap() throws JsonProcessingException {
+        JsonUtils.JsonUtilException exception = assertThrows(JsonUtils.JsonUtilException.class,
+                () -> JsonUtils.readValueAsMap("invalid json")
+        );
+        assertThat(exception.getMessage()).startsWith("com.fasterxml.jackson.core.JsonParseException: Unrecognized token 'invalid'");
+    }
+
+    @Test
+    void throwsException_convertValue() throws JsonProcessingException {
+        JsonUtils.JsonUtilException exception = assertThrows(JsonUtils.JsonUtilException.class,
+                () -> JsonUtils.convertValue(Boolean.TRUE, Integer.class)
+        );
+        assertThat(exception.getMessage()).startsWith("java.lang.IllegalArgumentException: Cannot deserialize value of type `java.lang.Integer` from Boolean value");
+    }
+
+    @Test
+    void throwsException_readTree() throws JsonProcessingException {
+        assertThat(JsonUtils.readTree((String)null)).isNull();
+
+        JsonUtils.JsonUtilException exception = assertThrows(JsonUtils.JsonUtilException.class,
+                () -> JsonUtils.readTree("invalid json")
+        );
+        assertThat(exception.getMessage()).startsWith("com.fasterxml.jackson.core.JsonParseException: Unrecognized token 'invalid'");
+    }
+
+    @Test
+    void throwsException_readTreeWithParserArg() throws JsonProcessingException {
+
+
+        JsonUtils.JsonUtilException exception = assertThrows(JsonUtils.JsonUtilException.class,
+                () -> JsonUtils.readValue("{'valid':'json'}", SerializerTestObject.class)
+        );
+        assertThat(exception.getMessage()).startsWith("com.fasterxml.jackson.core.JsonParseException: Unexpected character");
+    }
+
+    @Test
+    void readNodes() throws JsonProcessingException {
+        JsonUtils.readValue("{\n" +
+                        "    \"date\": \"1320105600000\",\n" +
+                        "    \"glossary\": {\n" +
+                        "        \"title\": \"example glossary\",\n" +
+                        "\t\t\"GlossDiv\": {\n" +
+                        "            \"title\": \"S\",\n" +
+                        "\t\t\t\"GlossList\": {\n" +
+                        "                \"GlossEntry\": {\n" +
+                        "                    \"ID\": \"SGML\",\n" +
+                        "\t\t\t\t\t\"SortAs\": \"SGML\",\n" +
+                        "\t\t\t\t\t\"GlossTerm\": \"Standard Generalized Markup Language\",\n" +
+                        "\t\t\t\t\t\"Acronym\": \"SGML\",\n" +
+                        "\t\t\t\t\t\"Abbrev\": \"ISO 8879:1986\",\n" +
+                        "\t\t\t\t\t\"GlossDef\": {\n" +
+                        "                        \"para\": \"A meta-markup language, used to create markup languages such as DocBook.\",\n" +
+                        "\t\t\t\t\t\t\"GlossSeeAlso\": [\"GML\", \"XML\"]\n" +
+                        "                    },\n" +
+                        "\t\t\t\t\t\"GlossSee\": \"markup\"\n" +
+                        "                }\n" +
+                        "            }\n" +
+                        "        }\n" +
+                        "    }\n" +
+                        "}", SerializerTestObject.class);
+    }
+
     private Object getTestObject() {
         return new UrlGroup().setCategory("category").setGroup("group").setPattern("/pattern").setLimit(1_000L);
+    }
+
+    @JsonDeserialize(using = TestDeserializer.class)
+    private static class SerializerTestObject {
+
+    }
+    private static class TestDeserializer extends JsonDeserializer<SerializerTestObject> {
+
+        @Override
+        public SerializerTestObject deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JacksonException {
+            JsonNode node = JsonUtils.readTree(p);
+            JsonUtils.getNodeAsBoolean(node, "invalid", true);
+            JsonUtils.getNodeAsInt(node, "invalid", 0);
+            JsonUtils.getNodeAsString(node, "valid", "");
+            JsonUtils.getNodeAsDate(node, "invalid");
+            JsonUtils.getNodeAsDate(node, "date");
+            return null;
+        }
     }
 }
