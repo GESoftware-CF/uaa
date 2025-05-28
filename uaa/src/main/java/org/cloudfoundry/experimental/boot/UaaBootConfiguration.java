@@ -11,7 +11,6 @@ import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerF
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
-import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import javax.servlet.DispatcherType;
@@ -24,14 +23,6 @@ import static org.springframework.util.ReflectionUtils.getField;
 
 @Configuration
 public class UaaBootConfiguration implements ServletContextInitializer, WebMvcConfigurer {
-
-    //TODO - This is currently a workaround to find static content
-    @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        String base = System.getProperty("uaa.boot.webapp.dir");
-        registry.addResourceHandler("/**")
-                .addResourceLocations(base);
-    }
 
     @Bean
     WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> enableDefaultServlet() {
