@@ -117,7 +117,7 @@ subprojects {
     }
 
     task integrationTest(type: Test) {
-        dependsOn rootProject.cargoStartLocal
+        //dependsOn rootProject.cargoStartLocal
         useJUnitPlatform()
 
         testLogging {
@@ -287,6 +287,7 @@ tasks.register('cleanCargoConfDir') {
 
 tasks.register('integrationTest', Test) {
     dependsOn killUaa
+    dependsOn cargoStartLocal
     dependsOn subprojects.integrationTest
     finalizedBy cargoStopLocal
 }
@@ -323,3 +324,26 @@ test.dependsOn(subprojects.test)
 test.mustRunAfter(integrationTest)
 cargoStartLocal.dependsOn(assemble)
 cargoRunLocal.dependsOn(cleanCargoConfDir, assemble)
+
+tasks.register('cleanBootTomcatDir') {
+    String tomcatBase = file("scripts/boot/tomcat/").getAbsolutePath()
+    delete(java.nio.file.Path.of(tomcatBase))
+    new File(tomcatBase+"/work").mkdirs()
+    new File(tomcatBase+"/webapps").mkdirs()
+}
+
+tasks.register('bootWarRun', JavaExec) {
+    dependsOn cleanBootTomcatDir
+    dependsOn assemble
+    classpath = files(file("uaa/build/libs/cloudfoundry-identity-uaa-0.0.0-boot.war"))
+    systemProperty("uaa.boot.webapp.dir", file("uaa/src/main/webapp/").getAbsolutePath())
+    systemProperty("server.tomcat.basedir", file("scripts/boot/tomcat/").getAbsolutePath())
+    systemProperty("SECRETS_DIR", System.getProperty("SECRETS_DIR", file("scripts/cargo").getAbsolutePath()))
+    systemProperty("spring.profiles.active", System.getProperty("spring.profiles.active", "hsqldb"))
+    systemProperty("metrics.perRequestMetrics", System.getProperty("metrics.perRequestMetrics", "true"))
+    systemProperty("smtp.host", "localhost")
+    systemProperty("smtp.port", 2525)
+    systemProperty("java.security.egd", "file:/dev/./urandom")
+    systemProperty("CLOUDFOUNDRY_CONFIG_PATH", file("scripts/cargo").getAbsolutePath())
+    systemProperty("server.servlet.context-path", "/uaa")
+}
