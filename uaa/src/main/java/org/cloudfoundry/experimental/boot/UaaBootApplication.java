@@ -1,14 +1,14 @@
 package org.cloudfoundry.experimental.boot;
 
-import org.cloudfoundry.identity.statsd.StatsdConfiguration;
 import org.cloudfoundry.identity.uaa.UaaApplicationConfiguration;
+import org.cloudfoundry.identity.uaa.UaaStatsdConfiguration;
 import org.cloudfoundry.identity.uaa.impl.config.YamlServletProfileInitializer;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Import;
 
 @SpringBootApplication
-@Import({UaaBootConfiguration.class, UaaApplicationConfiguration.class, StatsdConfiguration.class})
+@Import({UaaBootConfiguration.class, UaaApplicationConfiguration.class, UaaStatsdConfiguration.class})
 public class UaaBootApplication {
     public static void main(String... args) {
         //make spring boot work with UAA beans
