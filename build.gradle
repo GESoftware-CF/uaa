@@ -48,6 +48,10 @@ allprojects {
         }
         maven { url("https://repository.mulesoft.org/releases/") }
     }
+
+    //set this property to false to run integration tests against an already
+    //running server on http://localhost:8080/uaa
+    ext.runCargoTests = Boolean.valueOf(System.getProperty("cargo.tests.run", "true"))
 }
 
 subprojects {
@@ -117,7 +121,9 @@ subprojects {
     }
 
     task integrationTest(type: Test) {
-        //dependsOn rootProject.cargoStartLocal
+        if (runCargoTests) {
+            dependsOn rootProject.cargoStartLocal
+        }
         useJUnitPlatform()
 
         testLogging {
@@ -287,7 +293,6 @@ tasks.register('cleanCargoConfDir') {
 
 tasks.register('integrationTest', Test) {
     dependsOn killUaa
-    dependsOn cargoStartLocal
     dependsOn subprojects.integrationTest
     finalizedBy cargoStopLocal
 }
@@ -346,4 +351,5 @@ tasks.register('bootWarRun', JavaExec) {
     systemProperty("java.security.egd", "file:/dev/./urandom")
     systemProperty("CLOUDFOUNDRY_CONFIG_PATH", file("scripts/cargo").getAbsolutePath())
     systemProperty("server.servlet.context-path", "/uaa")
+    systemProperty("statsd.enabled", "true")
 }

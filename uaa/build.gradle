@@ -11,12 +11,17 @@ processResources {
 
 apply(plugin: "org.springframework.boot")
 bootWar {
-    archiveClassifier = 'boot'
+    archiveClassifier = ''
+    //archiveClassifier = 'boot'
     enabled = true
 }
 jar { enabled = false }
-war { archiveClassifier = '' }
-war { enabled = true }
+war {
+    archiveClassifier = ''
+    enabled = false
+    //workaround for maven <scope>optional</scope>
+    rootSpec.exclude("**/spring-security-oauth-*.jar")
+}
 
 repositories {
     maven { url("https://repo.spring.io/libs-milestone") }
@@ -197,11 +202,6 @@ integrationTest {
 
 }
 
-war {
-    //workaround for maven <scope>optional</scope>
-    rootSpec.exclude("**/spring-security-oauth-*.jar")
-}
-
 bootRun {
     dependsOn rootProject.cleanBootTomcatDir
     mainClass = "org.cloudfoundry.experimental.boot.UaaBootApplication"
@@ -215,6 +215,7 @@ bootRun {
     systemProperty("java.security.egd", "file:/dev/./urandom")
     systemProperty("CLOUDFOUNDRY_CONFIG_PATH", file("../scripts/cargo").getAbsolutePath())
     systemProperty("server.servlet.context-path", "/uaa")
+    systemProperty("statsd.enabled", "true")
 }
 
 
