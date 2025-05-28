@@ -6,8 +6,6 @@ import org.cloudfoundry.identity.uaa.util.UaaYamlUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.jmx.export.annotation.ManagedMetric;
-import org.springframework.jmx.export.annotation.ManagedResource;
 import org.springframework.jmx.export.notification.NotificationPublisher;
 import org.springframework.jmx.export.notification.NotificationPublisherAware;
 import org.springframework.lang.NonNull;
@@ -29,10 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-@ManagedResource(
-        objectName = "cloudfoundry.identity:name=ServerRequests",
-        description = "UAA Performance Metrics"
-)
+
 public class UaaMetricsFilter extends OncePerRequestFilter implements UaaMetrics, NotificationPublisherAware {
     private static final int MAX_TIME = 3000;
     static final UrlGroup FALLBACK = new UrlGroup()
@@ -136,25 +131,21 @@ public class UaaMetricsFilter extends OncePerRequestFilter implements UaaMetrics
     }
 
     @Override
-    @ManagedMetric(category = "performance", displayName = "Inflight Requests")
     public long getInflightCount() {
         return inflight.getInflightRequests();
     }
 
     @Override
-    @ManagedMetric(category = "performance", displayName = "Idle time (ms)")
     public long getIdleTime() {
         return inflight.getIdleTime();
     }
 
     @Override
-    @ManagedMetric(category = "performance", displayName = "Total server run time (ms)")
     public long getUpTime() {
         return inflight.getRunTime();
     }
 
     @Override
-    @ManagedMetric(category = "performance", displayName = "Server Requests for all URI Groups")
     public Map<String, String> getSummary() {
         Map<String, String> data = new HashMap<>();
         perUriMetrics.entrySet().forEach(entry -> data.put(entry.getKey(), JsonUtils.writeValueAsString(entry.getValue())));
@@ -162,7 +153,6 @@ public class UaaMetricsFilter extends OncePerRequestFilter implements UaaMetrics
     }
 
     @Override
-    @ManagedMetric(category = "performance", displayName = "Global Server Request Summary")
     public String getGlobals() {
         return JsonUtils.writeValueAsString(perUriMetrics.get(MetricsUtil.GLOBAL_GROUP));
     }
