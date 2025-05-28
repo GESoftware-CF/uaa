@@ -14,6 +14,7 @@ import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import javax.servlet.DispatcherType;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 import java.lang.reflect.Field;
@@ -39,9 +40,12 @@ public class UaaBootConfiguration implements ServletContextInitializer, WebMvcCo
 
     @Bean
     DelegatingFilterProxyRegistrationBean springSessionRepositoryFilterRegistration() {
-        return new DelegatingFilterProxyRegistrationBean(
+        DelegatingFilterProxyRegistrationBean filter = new DelegatingFilterProxyRegistrationBean(
                 "springSessionRepositoryFilter"
         );
+        filter.setDispatcherTypes(DispatcherType.REQUEST, DispatcherType.ERROR);
+        filter.addUrlPatterns("/*");
+        return filter;
     }
 
     @Bean
