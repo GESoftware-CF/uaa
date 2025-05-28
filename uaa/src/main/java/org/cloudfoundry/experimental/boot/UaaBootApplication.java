@@ -14,7 +14,7 @@ public class UaaBootApplication {
         //make spring boot work with UAA beans
         System.setProperty("spring.main.allow-bean-definition-overriding", "true");
         System.setProperty("spring.main.allow-circular-references", "true");
-        System.setProperty("server.servlet.context-path", "/uaa");
+        //System.setProperty("server.servlet.context-path", "/uaa");
 
         //debug spring filters
         //System.setProperty("logging.level.org.springframework.security", "TRACE");

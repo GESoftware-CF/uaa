@@ -221,6 +221,7 @@ bootRun {
     systemProperty("smtp.port", 2525)
     systemProperty("java.security.egd", "file:/dev/./urandom")
     systemProperty("CLOUDFOUNDRY_CONFIG_PATH", file("../scripts/cargo").getAbsolutePath())
+    systemProperty("server.servlet.context-path", "/uaa")
 }
 
 tasks.register('bootWarRun', JavaExec) {
@@ -235,6 +236,7 @@ tasks.register('bootWarRun', JavaExec) {
     systemProperty("smtp.port", 2525)
     systemProperty("java.security.egd", "file:/dev/./urandom")
     systemProperty("CLOUDFOUNDRY_CONFIG_PATH", file("../scripts/cargo").getAbsolutePath())
+    systemProperty("server.servlet.context-path", "/uaa")
 }
 
 
