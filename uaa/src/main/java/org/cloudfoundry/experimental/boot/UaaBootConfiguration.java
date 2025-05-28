@@ -70,13 +70,13 @@ public class UaaBootConfiguration implements ServletContextInitializer, WebMvcCo
             standardContext.addErrorPage(error500);
 
             ErrorPage error404 = new ErrorPage();
-            error500.setErrorCode(404);
-            error500.setLocation("/error404");
+            error404.setErrorCode(404);
+            error404.setLocation("/error404");
             standardContext.addErrorPage(error404);
 
             ErrorPage error429 = new ErrorPage();
-            error500.setErrorCode(429);
-            error500.setLocation("/error429");
+            error429.setErrorCode(429);
+            error429.setLocation("/error429");
             standardContext.addErrorPage(error429);
 
             ErrorPage error = new ErrorPage();
