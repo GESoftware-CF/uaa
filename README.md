@@ -109,6 +109,34 @@ requesting system information:
 For complex requests it is more convenient to interact with UAA using
 `uaac`, the [UAA Command Line Client](https://github.com/cloudfoundry/cf-uaac).
 
+### Running as a Spring Boot Application
+
+Two separate gradle tasks can be used to run the Spring Boot application
+
+- `./gradlew bootRun` - the built in Spring Boot gradle task
+- `./gradlew bootWarRun` - use a `JavaExec` gradle task to launch the runnable .war file
+- Manual run, as show below, to be run after `./gradlew assemble`
+
+```text
+java -DCLOUDFOUNDRY_CONFIG_PATH=`pwd`/scripts/cargo \
+    -DSECRETS_DIR=`pwd`/scripts/cargo \
+    -Djava.security.egd=file:/dev/./urandom \
+    -Dmetrics.perRequestMetrics=true \
+    -Dserver.servlet.context-path=/uaa \
+    -Dserver.tomcat.basedir=`pwd`/scripts/boot/tomcat \
+    -Dsmtp.host=localhost \
+    -Dsmtp.port=2525 \
+    -Dspring.profiles.active=hsqldb \
+    -Dstatsd.enabled=true \
+    -Dfile.encoding=UTF-8 \
+    -Duser.country=US \
+    -Duser.language=en \
+    -Duser.variant -jar `pwd`/uaa/build/libs/cloudfoundry-identity-uaa-0.0.0.war
+```
+
+Running Spring Boot standalone allows us to run the integration tests against it using the
+`./gradlew -Dcargo.tests.run=false integrationTest` with the system property preventing gradle from starting up Apache Tomcat.
+
 ### Debugging local server
 
 To load JDWP agent for UAA jvm debugging, start the server as follows:
