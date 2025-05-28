@@ -10,10 +10,18 @@ processResources {
 }
 
 apply(plugin: "org.springframework.boot")
-bootWar { enabled = false }
+bootWar {
+    archiveClassifier = ''
+    //archiveClassifier = 'boot'
+    enabled = true
+}
 jar { enabled = false }
-war { archiveClassifier = '' }
-war { enabled = true }
+war {
+    archiveClassifier = ''
+    enabled = false
+    //workaround for maven <scope>optional</scope>
+    rootSpec.exclude("**/spring-security-oauth-*.jar")
+}
 
 repositories {
     maven { url("https://repo.spring.io/libs-milestone") }
@@ -185,7 +193,7 @@ tasks.register('killUaa', Exec) {
 }
 
 integrationTest {
-    dependsOn killUaa
+    //dependsOn killUaa
 
     filter {
         includeTestsMatching("org.cloudfoundry.identity.uaa.integration.*")
@@ -200,7 +208,21 @@ integrationTest {
 
 }
 
-war {
-    //workaround for maven <scope>optional</scope>
-    rootSpec.exclude("**/spring-security-oauth-*.jar")
+bootRun {
+    dependsOn rootProject.cleanBootTomcatDir
+    mainClass = "org.cloudfoundry.experimental.boot.UaaBootApplication"
+    systemProperty("server.tomcat.basedir", file("../scripts/boot/tomcat/").getAbsolutePath())
+    systemProperty("SECRETS_DIR", System.getProperty("SECRETS_DIR", file("../scripts/cargo").getAbsolutePath()))
+    systemProperty("spring.profiles.active", System.getProperty("spring.profiles.active", "hsqldb"))
+    systemProperty("metrics.perRequestMetrics", System.getProperty("metrics.perRequestMetrics", "true"))
+    systemProperty("smtp.host", "localhost")
+    systemProperty("smtp.port", 2525)
+    systemProperty("java.security.egd", "file:/dev/./urandom")
+    systemProperty("CLOUDFOUNDRY_CONFIG_PATH", file("../scripts/cargo").getAbsolutePath())
+    systemProperty("server.servlet.context-path", "/uaa")
+    systemProperty("statsd.enabled", "true")
 }
+
+
+
+

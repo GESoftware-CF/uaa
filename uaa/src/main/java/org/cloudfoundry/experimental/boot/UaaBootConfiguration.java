@@ -11,9 +11,9 @@ import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerF
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
-import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import javax.servlet.DispatcherType;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 import java.lang.reflect.Field;
@@ -24,13 +24,6 @@ import static org.springframework.util.ReflectionUtils.getField;
 @Configuration
 public class UaaBootConfiguration implements ServletContextInitializer, WebMvcConfigurer {
 
-    @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        String base = System.getProperty("user.dir");
-        registry.addResourceHandler("/**")
-                .addResourceLocations("file:"+base+"/uaa/src/main/webapp/");
-    }
-
     @Bean
     WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> enableDefaultServlet() {
         return (factory) -> factory.setRegisterDefaultServlet(true);
@@ -38,9 +31,12 @@ public class UaaBootConfiguration implements ServletContextInitializer, WebMvcCo
 
     @Bean
     DelegatingFilterProxyRegistrationBean springSessionRepositoryFilterRegistration() {
-        return new DelegatingFilterProxyRegistrationBean(
+        DelegatingFilterProxyRegistrationBean filter = new DelegatingFilterProxyRegistrationBean(
                 "springSessionRepositoryFilter"
         );
+        filter.setDispatcherTypes(DispatcherType.REQUEST, DispatcherType.ERROR);
+        filter.addUrlPatterns("/*");
+        return filter;
     }
 
     @Bean
@@ -69,13 +65,13 @@ public class UaaBootConfiguration implements ServletContextInitializer, WebMvcCo
             standardContext.addErrorPage(error500);
 
             ErrorPage error404 = new ErrorPage();
-            error500.setErrorCode(404);
-            error500.setLocation("/error404");
+            error404.setErrorCode(404);
+            error404.setLocation("/error404");
             standardContext.addErrorPage(error404);
 
             ErrorPage error429 = new ErrorPage();
-            error500.setErrorCode(429);
-            error500.setLocation("/error429");
+            error429.setErrorCode(429);
+            error429.setLocation("/error429");
             standardContext.addErrorPage(error429);
 
             ErrorPage error = new ErrorPage();

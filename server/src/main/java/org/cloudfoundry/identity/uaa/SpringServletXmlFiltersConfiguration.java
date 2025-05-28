@@ -2,7 +2,9 @@ package org.cloudfoundry.identity.uaa;
 
 import org.apache.catalina.filters.HttpHeaderSecurityFilter;
 import org.cloudfoundry.identity.uaa.authentication.SessionResetFilter;
+import org.cloudfoundry.identity.uaa.metrics.UaaMetrics;
 import org.cloudfoundry.identity.uaa.metrics.UaaMetricsFilter;
+import org.cloudfoundry.identity.uaa.metrics.UaaMetricsManagedBean;
 import org.cloudfoundry.identity.uaa.oauth.DisableIdTokenResponseTypeFilter;
 import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
 import org.cloudfoundry.identity.uaa.ratelimiting.RateLimitingFilter;
@@ -133,19 +135,17 @@ public class SpringServletXmlFiltersConfiguration {
 
 
 
-//    @Bean
-//    FilterRegistrationBean<UaaMetricsFilter> metricsFilter(TimeService timeService) throws IOException {
-//        UaaMetricsFilter filter = new UaaMetricsFilter(metricsProps.enabled(), metricsProps.perRequestMetrics(), timeService);
-//        FilterRegistrationBean<UaaMetricsFilter> bean = new FilterRegistrationBean<>(filter);
-//        bean.setEnabled(false);
-//        return bean;
-//    }
     @Bean
-    UaaMetricsFilter metricsFilter(TimeService timeService) throws IOException {
+    FilterRegistrationBean<UaaMetricsFilter> metricsFilter(TimeService timeService) throws IOException {
         UaaMetricsFilter filter = new UaaMetricsFilter(metricsProps.enabled(), metricsProps.perRequestMetrics(), timeService);
         FilterRegistrationBean<UaaMetricsFilter> bean = new FilterRegistrationBean<>(filter);
         bean.setEnabled(false);
-        return filter;
+        return bean;
+    }
+
+    @Bean
+    UaaMetrics uaaMetrics(FilterRegistrationBean<UaaMetricsFilter> metricsFilter) {
+        return new UaaMetricsManagedBean(metricsFilter.getFilter());
     }
 
     @Bean

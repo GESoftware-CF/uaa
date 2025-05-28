@@ -117,8 +117,7 @@ public class SpringServletXmlSecurityConfiguration {
     SecurityFilterChainPostProcessor securityFilterChainPostProcessor(
             UaaProperties.RootLevel rootLevel,
             @Qualifier("tracingFilter") FilterRegistrationBean<Filter> tracingFilter,
-            //@Qualifier("metricsFilter") FilterRegistrationBean<UaaMetricsFilter> metricsFilter,
-            @Qualifier("metricsFilter") UaaMetricsFilter metricsFilter,
+            @Qualifier("metricsFilter") FilterRegistrationBean<UaaMetricsFilter> metricsFilter,
             @Qualifier("headerFilter") FilterRegistrationBean<HeaderFilter> headerFilter,
             @Qualifier("contentSecurityPolicyFilter") FilterRegistrationBean<ContentSecurityPolicyFilter> contentSecurityPolicyFilter,
             @Qualifier("limitedModeUaaFilter") FilterRegistrationBean<LimitedModeUaaFilter> limitedModeUaaFilter,
@@ -157,8 +156,7 @@ public class SpringServletXmlSecurityConfiguration {
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), springRequestContextFilter.getFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), httpHeaderSecurityFilter.getFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), tracingFilter.getFilter());
-        //additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), metricsFilter.getFilter());
-        additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), metricsFilter);
+        additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), metricsFilter.getFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), headerFilter.getFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), new BackwardsCompatibleScopeParsingFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), contentSecurityPolicyFilter.getFilter());
