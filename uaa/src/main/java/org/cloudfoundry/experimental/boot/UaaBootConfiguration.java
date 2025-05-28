@@ -30,7 +30,7 @@ public class UaaBootConfiguration implements ServletContextInitializer, WebMvcCo
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         String base = System.getProperty("uaa.boot.webapp.dir");
         registry.addResourceHandler("/**")
-                .addResourceLocations("file://"+base+"/");
+                .addResourceLocations(base);
     }
 
     @Bean
