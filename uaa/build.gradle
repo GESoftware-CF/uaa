@@ -102,6 +102,8 @@ dependencies {
     testImplementation(libraries.springSecurityTest)
     testImplementation(libraries.springBootStarterMail)
     testImplementation(libraries.mockito)
+    testImplementation(libraries.bytebuddy)
+    testImplementation(libraries.bytebuddyagent)
     testImplementation(libraries.tomcatJdbc)
     testImplementation(libraries.springRestdocs)
     testImplementation(libraries.greenmail)
