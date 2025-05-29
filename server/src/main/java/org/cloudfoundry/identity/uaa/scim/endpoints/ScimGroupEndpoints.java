@@ -18,6 +18,7 @@ import org.cloudfoundry.identity.uaa.scim.exception.ScimException;
 import org.cloudfoundry.identity.uaa.scim.exception.ScimResourceNotFoundException;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimGroupExternalMembershipManager;
 import org.cloudfoundry.identity.uaa.util.UaaPagingUtils;
+import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
 import org.cloudfoundry.identity.uaa.web.ConvertingExceptionView;
 import org.cloudfoundry.identity.uaa.web.ExceptionReport;
 import org.cloudfoundry.identity.uaa.web.ExceptionReportHttpMessageConverter;
@@ -342,7 +343,7 @@ public class ScimGroupEndpoints {
     }
 
     private String getGroupId(String displayName) {
-        if (displayName == null || displayName.trim().length() == 0) {
+        if (displayName == null || displayName.trim().isEmpty()) {
             throw new ScimException("Group not found, not name provided", HttpStatus.NOT_FOUND);
         }
 
@@ -357,9 +358,10 @@ public class ScimGroupEndpoints {
     @GetMapping({"/Groups/{groupId}"})
     @ResponseBody
     public ScimGroup getGroup(@PathVariable String groupId, HttpServletResponse httpServletResponse) {
-        logger.debug("retrieving group with id: " + groupId);
-        ScimGroup group = dao.retrieve(groupId, identityZoneManager.getCurrentIdentityZoneId());
-        group.setMembers(membershipManager.getMembers(groupId, false, identityZoneManager.getCurrentIdentityZoneId()));
+        String groupIdRequest = UaaStringUtils.getCleanedUserControlString(groupId);
+        logger.debug("retrieving group with id: {}", groupIdRequest);
+        ScimGroup group = dao.retrieve(groupIdRequest, identityZoneManager.getCurrentIdentityZoneId());
+        group.setMembers(membershipManager.getMembers(groupIdRequest, false, identityZoneManager.getCurrentIdentityZoneId()));
         addETagHeader(httpServletResponse, group);
         return group;
     }
@@ -377,8 +379,7 @@ public class ScimGroupEndpoints {
                             member,
                             identityZoneManager.getCurrentIdentityZoneId());
                 } catch (ScimException ex) {
-                    logger.warn("Attempt to add invalid member: " + member.getMemberId() + " to group: " + created.getId(),
-                            ex);
+                    logger.warn("Attempt to add invalid member: {} to group: {}", member.getMemberId(), created.getId(), ex);
                     dao.delete(created.getId(), created.getVersion(), identityZoneManager.getCurrentIdentityZoneId());
                     throw new InvalidScimResourceException("Invalid group member: " + member.getMemberId());
                 }
@@ -399,13 +400,14 @@ public class ScimGroupEndpoints {
         if (etag == null) {
             throw new ScimException("Missing If-Match for PUT", HttpStatus.BAD_REQUEST);
         }
-        logger.debug("updating group: " + groupId);
-        int version = getVersion(groupId, etag);
+        String groupIdRequest = UaaStringUtils.getCleanedUserControlString(groupId);
+        logger.debug("updating group: {}", groupIdRequest);
+        int version = getVersion(groupIdRequest, etag);
         group.setVersion(version);
-        ScimGroup existing = getGroup(groupId, httpServletResponse);
+        ScimGroup existing = getGroup(groupIdRequest, httpServletResponse);
         try {
             group.setZoneId(identityZoneManager.getCurrentIdentityZoneId());
-            ScimGroup updated = dao.update(groupId, group, identityZoneManager.getCurrentIdentityZoneId());
+            ScimGroup updated = dao.update(groupIdRequest, group, identityZoneManager.getCurrentIdentityZoneId());
             if (group.getMembers() != null && !group.getMembers().isEmpty()) {
                 membershipManager.updateOrAddMembers(updated.getId(),
                         group.getMembers(),
@@ -422,14 +424,14 @@ public class ScimGroupEndpoints {
         } catch (IncorrectResultSizeDataAccessException ex) {
             logger.error("Error updating group, restoring to previous state");
             // restore to correct state before reporting error
-            existing.setVersion(getVersion(groupId, "*"));
-            dao.update(groupId, existing, identityZoneManager.getCurrentIdentityZoneId());
+            existing.setVersion(getVersion(groupIdRequest, "*"));
+            dao.update(groupIdRequest, existing, identityZoneManager.getCurrentIdentityZoneId());
             throw new ScimException(ex.getMessage(), ex, HttpStatus.CONFLICT);
         } catch (ScimResourceNotFoundException ex) {
-            logger.error("Error updating group, restoring to previous state: " + existing);
+            logger.error("Error updating group, restoring to previous state: {}", existing);
             // restore to correct state before reporting error
-            existing.setVersion(getVersion(groupId, "*"));
-            dao.update(groupId, existing, identityZoneManager.getCurrentIdentityZoneId());
+            existing.setVersion(getVersion(groupIdRequest, "*"));
+            dao.update(groupIdRequest, existing, identityZoneManager.getCurrentIdentityZoneId());
             throw new ScimException(ex.getMessage(), ex, HttpStatus.BAD_REQUEST);
         }
     }
@@ -443,8 +445,9 @@ public class ScimGroupEndpoints {
         if (etag == null) {
             throw new ScimException("Missing If-Match for PATCH", HttpStatus.BAD_REQUEST);
         }
-        logger.debug("patching group: " + groupId);
-        int version = getVersion(groupId, etag);
+        String groupIdRequest = UaaStringUtils.getCleanedUserControlString(groupId);
+        logger.debug("patching group: {}", groupIdRequest);
+        int version = getVersion(groupIdRequest, etag);
         patch.setVersion(version);
         ScimGroup current = getGroup(groupId, httpServletResponse);
         current.patch(patch);
@@ -457,14 +460,14 @@ public class ScimGroupEndpoints {
             @RequestHeader(value = "If-Match", required = false, defaultValue = "*") String etag,
             HttpServletResponse httpServletResponse) {
         ScimGroup group = getGroup(groupId, httpServletResponse);
-        logger.debug("deleting group: " + group);
+        logger.debug("deleting group: {}", group);
         try {
-            membershipManager.removeMembersByGroupId(groupId, identityZoneManager.getCurrentIdentityZoneId());
-            membershipManager.removeMembersByMemberId(groupId, identityZoneManager.getCurrentIdentityZoneId());
-            dao.delete(groupId, getVersion(groupId, etag), identityZoneManager.getCurrentIdentityZoneId());
+            membershipManager.removeMembersByGroupId(group.getId(), identityZoneManager.getCurrentIdentityZoneId());
+            membershipManager.removeMembersByMemberId(group.getId(), identityZoneManager.getCurrentIdentityZoneId());
+            dao.delete(group.getId(), getVersion(group.getId(), etag), identityZoneManager.getCurrentIdentityZoneId());
         } catch (IncorrectResultSizeDataAccessException ex) {
             logger.debug("error deleting group", ex);
-            throw new ScimException("error deleting group: " + groupId, ex, HttpStatus.CONFLICT);
+            throw new ScimException("error deleting group: %s".formatted(groupId), ex, HttpStatus.CONFLICT);
         }
         return group;
     }
@@ -586,9 +589,9 @@ public class ScimGroupEndpoints {
             if (status != null) {
                 e = new ScimException(t.getMessage(), t, status);
             } else {
-                for (Class<?> key : statuses.keySet()) {
-                    if (key.isAssignableFrom(clazz)) {
-                        e = new ScimException(t.getMessage(), t, statuses.get(key));
+                for (Map.Entry<Class<? extends Exception>, HttpStatus> entry : statuses.entrySet()) {
+                    if (entry.getKey().isAssignableFrom(clazz)) {
+                        e = new ScimException(t.getMessage(), t, entry.getValue());
                         break;
                     }
                 }
