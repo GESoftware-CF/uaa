@@ -11,6 +11,8 @@ dependencies {
     implementation(libraries.springBootStarterLog4j2)
     implementation(libraries.statsdClient)
     testImplementation(libraries.mockito)
+    testImplementation(libraries.bytebuddy)
+    testImplementation(libraries.bytebuddyagent)
     testImplementation(libraries.springBootStarterTest)
 
     implementation(libraries.jacksonDataformatYaml)
