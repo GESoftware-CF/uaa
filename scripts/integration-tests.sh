@@ -31,7 +31,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/start_db_helper.sh
 
 TESTENV="$1"
-BOOT="$3"
+BOOT="${3:-false}"
 
 
 SKIP_BOOT_RUN="-Dcargo.tests.run=true"
