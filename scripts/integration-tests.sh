@@ -100,6 +100,7 @@ pushd $(dirname $DIR)
       fi
     fi
     eval "$integrationTestCode"
+    kill -9 `cat boot.pid` || true
   else
     echo "$assembleCode"
     echo "$integrationTestCode"
