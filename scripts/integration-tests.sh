@@ -31,11 +31,11 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/start_db_helper.sh
 
 TESTENV="$1"
-BOOT="${3:-false}"
+BOOT="${2:-false}"
 
 
 SKIP_BOOT_RUN="-Dcargo.tests.run=true"
-if [[ "${BOOT:-false}" = 'true' ]]; then
+if [[ "${BOOT:-false}" = 'boot' ]]; then
   SKIP_BOOT_RUN="-Dcargo.tests.run=false"
 fi
 
@@ -89,7 +89,7 @@ pushd $(dirname $DIR)
   if [[ "${RUN_TESTS:-true}" = 'true' ]]; then
     eval "$assembleCode"
 
-    if [[ "${BOOT:-false}" = 'true' ]]; then
+    if [[ "${BOOT:-false}" = 'boot' ]]; then
       eval "$launchBoot"
       echo $! > boot.pid
       if isBootRunning ; then
