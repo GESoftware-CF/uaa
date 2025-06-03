@@ -113,6 +113,7 @@ public class SpringServletXmlSecurityConfiguration {
     @Order(FilterChainOrder.NO_SECURITY)
     UaaFilterChain noSecurityFilters(HttpSecurity http) throws Exception {
         SecurityFilterChain chain = http
+                .headers(headers -> headers.frameOptions().disable())
                 .securityMatcher(noSecurityEndpoints)
                 .authorizeHttpRequests(requests -> requests.anyRequest().permitAll())
                 .anonymous(AnonymousConfigurer::disable)
