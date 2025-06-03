@@ -61,9 +61,7 @@ public class SpringServletXmlSecurityConfiguration {
             "/favicon.ico",
             "/oauth_error",
             "/session",
-            "/session/**",
             "/session_management",
-            "/session_management/**",
             "/oauth/token/.well-known/openid-configuration",
             "/.well-known/openid-configuration"
     };
@@ -113,6 +111,7 @@ public class SpringServletXmlSecurityConfiguration {
     @Order(FilterChainOrder.NO_SECURITY)
     UaaFilterChain noSecurityFilters(HttpSecurity http) throws Exception {
         SecurityFilterChain chain = http
+                .headers(headers -> headers.frameOptions().disable())
                 .securityMatcher(noSecurityEndpoints)
                 .authorizeHttpRequests(requests -> requests.anyRequest().permitAll())
                 .anonymous(AnonymousConfigurer::disable)
