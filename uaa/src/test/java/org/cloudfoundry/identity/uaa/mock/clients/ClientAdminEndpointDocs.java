@@ -36,7 +36,7 @@ import static org.springframework.restdocs.payload.JsonFieldType.*;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
 import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
-import static org.springframework.restdocs.request.RequestDocumentation.requestParameters;
+import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class ClientAdminEndpointDocs extends AdminClientCreator {
@@ -139,7 +139,7 @@ class ClientAdminEndpointDocs extends AdminClientCreator {
                 .param("count", "10")
                 .accept(APPLICATION_JSON));
 
-        Snippet requestParameters = requestParameters(
+        Snippet queryParameters = queryParameters(
                 parameterWithName("filter").optional("client_id pr").type(STRING).description("SCIM filter for querying clients"),
                 parameterWithName("sortBy").optional("client_id").type(STRING).description("Field to sort results by"),
                 parameterWithName("sortOrder").optional("ascending").type(STRING).description("Sort results in `ascending` or `descending` order"),
@@ -166,7 +166,7 @@ class ClientAdminEndpointDocs extends AdminClientCreator {
                         IDENTITY_ZONE_ID_HEADER,
                         IDENTITY_ZONE_SUBDOMAIN_HEADER
                 ),
-                requestParameters,
+                queryParameters,
                 responseFields
         ));
     }

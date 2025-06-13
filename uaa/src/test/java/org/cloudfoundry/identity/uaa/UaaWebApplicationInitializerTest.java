@@ -12,10 +12,10 @@ import org.springframework.web.context.ConfigurableWebApplicationContext;
 import org.springframework.web.context.ContextLoaderListener;
 import org.springframework.web.context.support.StandardServletEnvironment;
 
-import javax.servlet.FilterRegistration;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRegistration;
+import jakarta.servlet.FilterRegistration;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRegistration;
 import java.util.EventListener;
 import java.util.List;
 
@@ -54,11 +54,11 @@ class UaaWebApplicationInitializerTest {
         when(servletContext.getContextPath()).thenReturn("/context");
 
         filterRegistration = mock(FilterRegistration.Dynamic.class);
-        when(servletContext.addFilter(anyString(), ArgumentMatchers.any(javax.servlet.Filter.class)))
+        when(servletContext.addFilter(anyString(), ArgumentMatchers.any(jakarta.servlet.Filter.class)))
                 .thenReturn(filterRegistration);
 
         servletRegistration = mock(ServletRegistration.Dynamic.class);
-        when(servletContext.addServlet(anyString(), ArgumentMatchers.any(javax.servlet.Servlet.class)))
+        when(servletContext.addServlet(anyString(), ArgumentMatchers.any(jakarta.servlet.Servlet.class)))
                 .thenReturn(servletRegistration);
 
     }

@@ -36,7 +36,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.web.context.WebApplicationContext;
 
-import javax.servlet.http.Cookie;
+import jakarta.servlet.http.Cookie;
 import java.sql.Timestamp;
 import java.util.Collection;
 import java.util.List;
@@ -231,7 +231,7 @@ public class ResetPasswordControllerMockMvcTests {
                         .param("username", user.getUserName()))
                 .andExpect(redirectedUrl("email_sent?code=reset_password"));
 
-        assertThat((int) template.queryForObject("select count(*) from expiring_code_store where intent=?", new Object[]{intent}, Integer.class)).isOne();
+        assertThat((int) template.queryForObject("select count(*) from expiring_code_store where intent=?", Integer.class, new Object[]{intent})).isOne();
 
     }
 

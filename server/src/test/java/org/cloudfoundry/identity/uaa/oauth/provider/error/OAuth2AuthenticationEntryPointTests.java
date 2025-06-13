@@ -1,13 +1,14 @@
 package org.cloudfoundry.identity.uaa.oauth.provider.error;
 
 import org.cloudfoundry.identity.uaa.oauth.common.exceptions.InvalidClientException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.BadCredentialsException;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -17,13 +18,18 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class OAuth2AuthenticationEntryPointTests {
 
-    private final OAuth2AuthenticationEntryPoint entryPoint = new OAuth2AuthenticationEntryPoint();
+    private OAuth2AuthenticationEntryPoint entryPoint;
 
-    private final MockHttpServletRequest request = new MockHttpServletRequest();
+    private MockHttpServletRequest request;
 
-    private final MockHttpServletResponse response = new MockHttpServletResponse();
+    private MockHttpServletResponse response;
 
-    {
+
+    @BeforeEach
+    void setUp() {
+        entryPoint = new OAuth2AuthenticationEntryPoint();
+        request = new MockHttpServletRequest();
+        response = new MockHttpServletResponse();
         entryPoint.setRealmName("foo");
     }
 
@@ -52,7 +58,8 @@ class OAuth2AuthenticationEntryPointTests {
     void commenceWithXml() throws Exception {
         request.addHeader("Accept", MediaType.APPLICATION_XML_VALUE);
         entryPoint.commence(request, response, new BadCredentialsException("Bad"));
-        assertThat(response.getErrorMessage()).isNull();
+        //changed with Spring Boot (spring-web)Upgrade
+        assertThat(response.getErrorMessage()).isNotNull();
     }
 
     @Test
@@ -78,7 +85,8 @@ class OAuth2AuthenticationEntryPointTests {
         // TODO: maybe use forward / redirect for HTML content?
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_ACCEPTABLE);
         assertThat(response.getContentAsString()).isEmpty();
-        assertThat(response.getErrorMessage()).isNull();
+        //changed with Spring Boot (spring-web)Upgrade
+        assertThat(response.getErrorMessage()).isNotNull();
     }
 
     @Test

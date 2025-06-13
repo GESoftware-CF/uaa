@@ -11,12 +11,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.AbstractClientHttpRequest;
-import org.springframework.http.client.AbstractClientHttpResponse;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.client.ClientHttpRequest;
 import org.springframework.http.client.ClientHttpRequestFactory;
-import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
@@ -158,7 +158,7 @@ class OAuth2AccessTokenSupportTests {
         assertThat(retrieveToken).isEqualTo(accessToken);
     }
 
-    private final class StubHttpClientResponse extends AbstractClientHttpResponse {
+    private final class StubHttpClientResponse implements ClientHttpResponse {
         private HttpStatus status = HttpStatus.OK;
 
         private String body;
@@ -168,6 +168,7 @@ class OAuth2AccessTokenSupportTests {
         {
             headers.setContentType(MediaType.APPLICATION_JSON);
         }
+
 
         public void setBody(String body) {
             this.body = body;
@@ -179,6 +180,11 @@ class OAuth2AccessTokenSupportTests {
 
         public void setStatus(HttpStatus status) {
             this.status = status;
+        }
+
+        @Override
+        public HttpStatusCode getStatusCode() throws IOException {
+            return HttpStatusCode.valueOf(status.value());
         }
 
         public int getRawStatusCode() throws IOException {

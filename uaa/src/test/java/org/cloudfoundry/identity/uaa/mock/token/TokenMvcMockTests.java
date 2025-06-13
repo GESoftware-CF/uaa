@@ -1,6 +1,7 @@
 package org.cloudfoundry.identity.uaa.mock.token;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import jakarta.servlet.http.HttpSession;
 import org.apache.commons.collections4.map.HashedMap;
 import org.cloudfoundry.identity.uaa.DefaultTestContext;
 import org.cloudfoundry.identity.uaa.account.UserInfoResponse;
@@ -85,7 +86,6 @@ import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
-import javax.servlet.http.HttpSession;
 import java.io.Serial;
 import java.net.URI;
 import java.net.URL;
@@ -138,7 +138,6 @@ import static org.springframework.http.HttpHeaders.ACCEPT;
 import static org.springframework.http.HttpHeaders.CONTENT_TYPE;
 import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
-import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -220,7 +219,7 @@ public class TokenMvcMockTests extends AbstractTokenMockMvcTests {
                     .andExpect(status().isMethodNotAllowed())
                     .andExpect(header().string(CONTENT_TYPE, APPLICATION_JSON_VALUE))
                     .andExpect(jsonPath("$.error").value("method_not_allowed"))
-                    .andExpect(jsonPath("$.error_description").value("Request method 'GET' not supported"));
+                    .andExpect(jsonPath("$.error_description").value("Request method 'GET' is not supported"));
         }
 
         @Test
@@ -240,7 +239,7 @@ public class TokenMvcMockTests extends AbstractTokenMockMvcTests {
     void token_endpoint_put() throws Exception {
         try_token_with_non_post(put("/oauth/token"), status().isMethodNotAllowed(), APPLICATION_JSON_VALUE)
                 .andExpect(jsonPath("$.error").value("method_not_allowed"))
-                .andExpect(jsonPath("$.error_description").value("Request method 'PUT' not supported"));
+                .andExpect(jsonPath("$.error_description").value("Request method 'PUT' is not supported"));
 
     }
 
@@ -248,7 +247,7 @@ public class TokenMvcMockTests extends AbstractTokenMockMvcTests {
     void token_endpoint_delete() throws Exception {
         try_token_with_non_post(delete("/oauth/token"), status().isMethodNotAllowed(), APPLICATION_JSON_VALUE)
                 .andExpect(jsonPath("$.error").value("method_not_allowed"))
-                .andExpect(jsonPath("$.error_description").value("Request method 'DELETE' not supported"));
+                .andExpect(jsonPath("$.error_description").value("Request method 'DELETE' is not supported"));
 
     }
 

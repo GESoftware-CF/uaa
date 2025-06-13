@@ -64,7 +64,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import org.springframework.util.StringUtils;
 import org.springframework.web.context.WebApplicationContext;
 
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpSession;
 import java.io.File;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -271,38 +271,46 @@ public abstract class AbstractLdapMockMvcTest {
 
         MockHttpSession session = (MockHttpSession) result.getRequest().getSession(false);
         String expectRedirectToLogin = "/login?success=invite_accepted&form_redirect_uri=" + URLEncoder.encode(redirectUri, Charset.defaultCharset());
-        getMockMvc().perform(post("/invitations/accept_enterprise.do")
-                        .session(session)
-                        .param("enterprise_username", "marissa2")
-                        .param("enterprise_password", LDAP)
-                        .param("enterprise_email", "email")
-                        .param("code", code)
-                        .header(HOST, host)
-                        .with(cookieCsrf())
-                )
+        MockHttpServletRequestBuilder post = post("/invitations/accept_enterprise.do")
+                .param("enterprise_username", "marissa2")
+                .param("enterprise_password", LDAP)
+                .param("enterprise_email", "email")
+                .param("code", code)
+                .header(HOST, host)
+                .with(cookieCsrf());
+        if (session!=null) {
+            post = post.session(session);
+        }
+        getMockMvc().perform(post)
+                .andDo(print())
                 .andExpect(status().isFound())
                 .andExpect(redirectedUrl(expectRedirectToLogin))
                 .andExpect(unauthenticated())
                 .andReturn();
 
+        MockHttpServletRequestBuilder get = get(expectRedirectToLogin)
+                .with(cookieCsrf())
+                .header(HOST, host);
+        if (session!=null) {
+            get = get.session(session);
+        }
         getMockMvc().perform(
-                        get(expectRedirectToLogin)
-                                .with(cookieCsrf())
-                                .session(session)
-                                .header(HOST, host)
+                        get
                 )
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("form_redirect_uri")))
                 .andExpect(content().string(containsString(URLEncoder.encode(redirectUri, StandardCharsets.UTF_8))));
-
+        post = post("/login.do")
+                .with(cookieCsrf())
+                .param("username", "marissa2")
+                .param("password", LDAP)
+                .header(HOST, host)
+                .param("form_redirect_uri", redirectUri);
+        if (session!=null) {
+            post = post.session(session);
+        }
         getMockMvc().perform(
-                        post("/login.do")
-                                .with(cookieCsrf())
-                                .param("username", "marissa2")
-                                .param("password", LDAP)
-                                .session(session)
-                                .header(HOST, host)
-                                .param("form_redirect_uri", redirectUri)
+                        post
                 )
                 .andExpect(authenticated())
                 .andExpect(status().isFound())
@@ -336,15 +344,18 @@ public abstract class AbstractLdapMockMvcTest {
         code = getWebApplicationContext().getBean(JdbcTemplate.class).queryForObject("select code from expiring_code_store", String.class);
 
         session = (MockHttpSession) result.getRequest().getSession(false);
+        post = post("/invitations/accept_enterprise.do")
+                .param("enterprise_username", "marissa2")
+                .param("enterprise_password", LDAP)
+                .param("enterprise_email", "email")
+                .param("code", code)
+                .header(HOST, host)
+                .with(cookieCsrf());
+        if (session!=null) {
+            post = post.session(session);
+        }
         getMockMvc().perform(
-                        post("/invitations/accept_enterprise.do")
-                                .session(session)
-                                .param("enterprise_username", "marissa2")
-                                .param("enterprise_password", LDAP)
-                                .param("enterprise_email", "email")
-                                .param("code", code)
-                                .header(HOST, host)
-                                .with(cookieCsrf())
+                        post
                 )
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(content().string(containsString("The authenticated email does not match the invited email. Please log in using a different account.")))
@@ -693,11 +704,14 @@ public abstract class AbstractLdapMockMvcTest {
                 .andReturn().getRequest().getSession(false);
 
         // Using the user's session cookie, get a one-time passcode
+        MockHttpServletRequestBuilder get = get("/passcode")
+                .header(HOST, host)
+                .accept(APPLICATION_JSON);
+        if (session!=null) {
+            get = get.session(session);
+        }
         String content = mockMvc.perform(
-                        get("/passcode")
-                                .session(session)
-                                .header(HOST, host)
-                                .accept(APPLICATION_JSON)
+                        get
                 )
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();

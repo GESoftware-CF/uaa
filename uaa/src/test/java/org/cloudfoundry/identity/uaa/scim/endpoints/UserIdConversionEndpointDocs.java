@@ -25,7 +25,7 @@ import static org.springframework.restdocs.payload.JsonFieldType.BOOLEAN;
 import static org.springframework.restdocs.payload.JsonFieldType.NUMBER;
 import static org.springframework.restdocs.payload.JsonFieldType.STRING;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
-import static org.springframework.restdocs.request.RequestDocumentation.requestParameters;
+import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
 import static org.springframework.restdocs.snippet.Attributes.key;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -87,7 +87,7 @@ class UserIdConversionEndpointDocs extends EndpointDocs {
                 headerWithName("Authorization").description("Bearer token with authorization for `scim.userids` scope")
         );
 
-        Snippet requestParams = requestParameters(
+        Snippet requestParams = queryParameters(
                 parameterWithName("filter").required().description("SCIM filter for users over `userName`, `id`, and `origin`, using only the `eq` comparison operator").attributes(key("type").value(STRING)),
                 parameterWithName("sortOrder").optional("ascending").description("sort by username in `ascending` or `descending` order").attributes(key("type").value(STRING)),
                 parameterWithName("startIndex").optional("1").description("display paged results beginning at specified index").attributes(key("type").value(NUMBER)),

@@ -232,7 +232,6 @@ public abstract class EntityAliasHandlerValidationTest<T extends EntityWithAlias
             assertThat(aliasHandler.aliasPropertiesAreValid(requestBody, existingEntity)).isTrue();
         }
     }
-
     protected abstract class NoExistingAlias_AliasFeatureEnabled extends NoExistingAliasBase {
         @Override
         protected final boolean isAliasFeatureEnabled() {

@@ -3,11 +3,11 @@ package org.cloudfoundry.identity.uaa.integration.util;
 import com.dumbster.smtp.SimpleSmtpServer;
 import com.dumbster.smtp.SmtpMessage;
 import com.fasterxml.jackson.core.type.TypeReference;
-import org.apache.http.client.CookieStore;
-import org.apache.http.client.HttpClient;
-import org.apache.http.impl.client.BasicCookieStore;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.impl.cookie.BasicClientCookie;
+import org.apache.hc.client5.http.classic.HttpClient;
+import org.apache.hc.client5.http.cookie.BasicCookieStore;
+import org.apache.hc.client5.http.cookie.CookieStore;
+import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
+import org.apache.hc.client5.http.impl.cookie.BasicClientCookie;
 import org.cloudfoundry.identity.uaa.ServerRunningExtension;
 import org.cloudfoundry.identity.uaa.account.UserAccountStatus;
 import org.cloudfoundry.identity.uaa.account.UserInfoResponse;
@@ -51,6 +51,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
@@ -137,7 +138,7 @@ public class IntegrationTestUtils {
 
     private static final DefaultResponseErrorHandler fiveHundredErrorHandler = new DefaultResponseErrorHandler() {
         @Override
-        protected boolean hasError(HttpStatus statusCode) {
+        protected boolean hasError(HttpStatusCode statusCode) {
             return statusCode.is5xxServerError();
         }
     };
@@ -783,7 +784,7 @@ public class IntegrationTestUtils {
         RestTemplate template = new RestTemplate();
         template.setErrorHandler(new DefaultResponseErrorHandler() {
             @Override
-            protected boolean hasError(HttpStatus statusCode) {
+            protected boolean hasError(HttpStatusCode statusCode) {
                 return statusCode.is5xxServerError();
             }
         });
@@ -1243,7 +1244,7 @@ public class IntegrationTestUtils {
 
         headers.setAccept(Arrays.asList(MediaType.TEXT_HTML, MediaType.ALL));
 
-        for (org.apache.http.cookie.Cookie cookie : cookies.getCookies()) {
+        for (org.apache.hc.client5.http.cookie.Cookie cookie : cookies.getCookies()) {
             headers.add("Cookie", cookie.getName() + "=" + cookie.getValue());
         }
         return headers;

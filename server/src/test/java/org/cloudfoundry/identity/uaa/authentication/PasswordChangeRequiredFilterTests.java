@@ -26,7 +26,7 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 
-import javax.servlet.FilterChain;
+import jakarta.servlet.FilterChain;
 import java.util.HashSet;
 
 import static java.util.Collections.emptyList;

@@ -1,5 +1,7 @@
 package org.cloudfoundry.identity.uaa.scim.services;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
 import org.cloudfoundry.identity.uaa.alias.AliasPropertiesInvalidException;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.scim.ScimUserAliasHandler;
@@ -17,8 +19,6 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
 
 import static java.util.Collections.singletonList;

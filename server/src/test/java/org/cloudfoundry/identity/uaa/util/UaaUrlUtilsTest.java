@@ -13,9 +13,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.util.InvalidUrlException;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -663,6 +664,17 @@ class UaaUrlUtilsTest {
         assertThat(UaaUrlUtils.isValidRegisteredRedirectUrl(UaaStringUtils.EMPTY_STRING)).isFalse();
         assertThat(UaaUrlUtils.isValidRegisteredRedirectUrl("http://localhost:80*/callback")).isFalse();
         assertThat(UaaUrlUtils.isValidRegisteredRedirectUrl("http://localhost:*8/callback")).isFalse();
+    }
+
+    @Test
+    void invalidUrlExceptionIsThrown() {
+        assertThatExceptionOfType(InvalidUrlException.class).isThrownBy(
+                () -> UaaUrlUtils.fromHttpUrl("invalid-url")
+        );
+
+        assertThatExceptionOfType(InvalidUrlException.class).isThrownBy(
+                () -> UaaUrlUtils.fromUriString("invalid-url")
+        );
     }
 
     private static void validateRedirectUri(List<String> urls, boolean result) {

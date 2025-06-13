@@ -75,8 +75,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpSession;
 import java.io.File;
 import java.net.URL;
 import java.net.URLDecoder;
@@ -1121,7 +1121,7 @@ public class LoginMockMvcTests {
         MockHttpSession session = new MockHttpSession();
         SecurityContext securityContext = new SecurityContextImpl();
         securityContext.setAuthentication(principal);
-        session.putValue("SPRING_SECURITY_CONTEXT", securityContext);
+        session.setAttribute("SPRING_SECURITY_CONTEXT", securityContext);
         MockHttpServletRequestBuilder get = get("/oauth/authorize")
                 .accept(TEXT_HTML)
                 .param("response_type", "code")

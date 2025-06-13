@@ -88,6 +88,6 @@ class IntrospectEndpointMockMvcTest extends AbstractTokenMockMvcTests {
                 .andDo(print())
                 .andExpect(status().isMethodNotAllowed())
                 .andExpect(jsonPath("$.error").value("method_not_allowed"))
-                .andExpect(jsonPath("$.error_description").value("Request method 'DELETE' not supported"));
+                .andExpect(jsonPath("$.error_description").value("Request method 'DELETE' is not supported"));
     }
 }

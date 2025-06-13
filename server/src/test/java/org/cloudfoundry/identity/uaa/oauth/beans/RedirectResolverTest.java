@@ -56,7 +56,8 @@ class RedirectResolverTest {
 
         assertResolveRedirect("http://example.com",
                 is("http://example.com"),
-                is("HTTP://example.com"));
+                //Spring Upgrade 6.x changes scheme to lowercase UriComponentsBuilder
+                is("http://example.com"));
     }
 
     @Test

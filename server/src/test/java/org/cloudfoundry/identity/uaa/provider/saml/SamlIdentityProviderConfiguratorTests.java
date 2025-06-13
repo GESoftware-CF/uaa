@@ -15,7 +15,7 @@
 
 package org.cloudfoundry.identity.uaa.provider.saml;
 
-import org.apache.http.conn.ConnectTimeoutException;
+import org.apache.hc.client5.http.ConnectTimeoutException;
 import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 import org.cloudfoundry.identity.uaa.cache.UrlContentCache;
 import org.cloudfoundry.identity.uaa.impl.config.RestTemplateConfig;
@@ -254,16 +254,21 @@ public class SamlIdentityProviderConfiguratorTests {
         slowHttpServer.run();
         // Set connection timeout to very low value to cause connect timeout
         samlConfiguration.setSocketConnectionTimeout(1);
-        FixedHttpMetaDataProvider realFixedHttpMetaDataProvider = createNonMockFixedHttpMetaDataProvider(samlConfiguration);
-        configurator = new SamlIdentityProviderConfigurator(provisioning, new IdentityZoneManagerImpl(), realFixedHttpMetaDataProvider);
+        fixedHttpMetaDataProvider = createNonMockFixedHttpMetaDataProvider(samlConfiguration);
+        configurator = new SamlIdentityProviderConfigurator(provisioning, new IdentityZoneManagerImpl(), fixedHttpMetaDataProvider);
 
         SamlIdentityProviderDefinition def = new SamlIdentityProviderDefinition();
-        def.setMetaDataLocation(slowHttpServer.getUrl());
+        //we have to change this to something that does not connect
+        //def.setMetaDataLocation(slowHttpServer.getUrl());
+        def.setMetaDataLocation("http://10.255.255.1/something");
         def.setSkipSslValidation(true);
 
-        assertTimeoutPreemptively(ofSeconds(1), () -> assertThatThrownBy(() -> configurator.configureURLMetadata(def))
-                .isInstanceOf(ResourceAccessException.class)
-                .hasCauseInstanceOf(ConnectTimeoutException.class));
+        assertTimeoutPreemptively(
+                ofSeconds(1),
+                () -> assertThatThrownBy(() -> configurator.configureURLMetadata(def))
+                    .isInstanceOf(ResourceAccessException.class)
+                    .hasCauseInstanceOf(ConnectTimeoutException.class)
+        );
     }
 
     private String getSimpleSamlPhpMetadata(String domain) {

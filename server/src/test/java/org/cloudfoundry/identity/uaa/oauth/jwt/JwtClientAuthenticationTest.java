@@ -530,7 +530,7 @@ class JwtClientAuthenticationTest {
     }
 
     @Test
-    void clientJwtFederatedCreateAndValidateWrongIdPAndWrongIssuer() throws MalformedURLException, JOSEException {
+    void clientJwtFederatedCreateAndValidateWrongIdPAndWrongIssuer() throws MalformedURLException, JOSEException, ParseException {
         // Given
         IdentityProvider idp = new IdentityProvider();
         SamlIdentityProviderDefinition idpConfig = new SamlIdentityProviderDefinition();
@@ -542,9 +542,15 @@ class JwtClientAuthenticationTest {
         String clientAssertion = jwtClientAuthentication.getClientAssertion(config);
         when(externalOAuthAuthenticationManager.idTokenWasIssuedByTheUaa("external-issuer")).thenReturn(false);
         when(externalOAuthAuthenticationManager.retrieveRegisteredIdentityProviderByIssuer("external-issuer")).thenReturn(idp);
+        //when(externalOAuthAuthenticationManager.getTokenKeyFromOAuth(config)).thenReturn(JsonWebKeyHelper.deserialize(new JWKSet(JWK.parse(mockJWKMap(KEY_ID, JwtHelperX5tTest.SIGNING_KEY_1))).toString()));
         // Then
-        assertThat(jwtClientAuthentication.validateClientJwt(getMockedRequestParameter(null, clientAssertion),
-                getMockedClientJwtConfiguration(clientJwtCredential), "extern_client_id")).isFalse();
+        assertThat(
+                jwtClientAuthentication.validateClientJwt(
+                        getMockedRequestParameter(null, clientAssertion),
+                        getMockedClientJwtConfiguration(clientJwtCredential),
+                        "extern_client_id"
+                )
+        ).isFalse();
     }
 
     private void mockKeyInfoService(String keyId, String x509Certificate) throws JOSEException {

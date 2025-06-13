@@ -26,7 +26,9 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
+import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -82,6 +84,11 @@ class AuthorizationCodeAccessTokenProviderWithConversionTests {
             } catch (URISyntaxException e) {
                 throw new IllegalStateException(e);
             }
+        }
+
+
+        public Map<String, Object> getAttributes() {
+            return emptyMap();
         }
 
         @Override

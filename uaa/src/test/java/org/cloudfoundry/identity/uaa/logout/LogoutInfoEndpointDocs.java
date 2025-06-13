@@ -11,7 +11,7 @@ import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.docu
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
 import static org.springframework.restdocs.payload.JsonFieldType.STRING;
-import static org.springframework.restdocs.request.RequestDocumentation.requestParameters;
+import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -20,7 +20,7 @@ class LogoutInfoEndpointDocs extends EndpointDocs {
 
     @Test
     void logout() throws Exception {
-        Snippet requestParameters = requestParameters(
+        Snippet queryParameters = queryParameters(
                 parameterWithName("redirect").optional("Identity Zone redirect uri").type(STRING).description("On a successful logout redirect the user to here, provided the URL is whitelisted"),
                 parameterWithName("client_id").optional(null).type(STRING).description("On a successful logout the client's redirect_uri configuration is used as the redirect uri whitelist. If this value is not provided, the identity zone whitelist will be used instead."),
                 parameterWithName("post_logout_redirect_uri").optional("Same as redirect uri, supports OIDC logout").type(STRING).description("Support the parameter for OIDC applications based on [OpenID Connect Session Management](https://openid.net/specs/openid-connect-session-1_0.html)."),
@@ -39,7 +39,7 @@ class LogoutInfoEndpointDocs extends EndpointDocs {
                 document("{ClassName}/{methodName}",
                         preprocessResponse(prettyPrint()),
                         responseHeaders,
-                        requestParameters))
+                        queryParameters))
                 .andExpect(status().isFound())
                 .andExpect(redirectedUrl("http://redirect.localhost"));
     }

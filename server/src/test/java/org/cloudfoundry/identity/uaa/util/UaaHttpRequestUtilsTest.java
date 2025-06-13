@@ -2,13 +2,13 @@ package org.cloudfoundry.identity.uaa.util;
 
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsServer;
-import org.apache.http.HttpException;
-import org.apache.http.HttpHost;
-import org.apache.http.HttpRequest;
-import org.apache.http.conn.routing.HttpRoute;
-import org.apache.http.conn.routing.HttpRoutePlanner;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.protocol.HttpContext;
+import org.apache.hc.core5.http.HttpException;
+import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.HttpRequest;
+import org.apache.hc.client5.http.HttpRoute;
+import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
+import org.apache.hc.client5.http.routing.HttpRoutePlanner;
+import org.apache.hc.core5.http.protocol.HttpContext;
 import org.cloudfoundry.identity.uaa.test.network.NetworkTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -167,6 +167,13 @@ class UaaHttpRequestUtilsTest {
 
         public SystemProxyRoutePlanner(HttpRoutePlanner delegate) {
             this.delegate = delegate;
+        }
+
+        @Override
+        public HttpRoute determineRoute(HttpHost target, HttpContext context) throws HttpException {
+            HttpRoute route = delegate.determineRoute(target, context);
+            routes.add(route);
+            return route;
         }
 
         @Override

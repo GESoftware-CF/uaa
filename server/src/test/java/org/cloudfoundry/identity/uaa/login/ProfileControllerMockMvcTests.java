@@ -1,5 +1,6 @@
 package org.cloudfoundry.identity.uaa.login;
 
+import jakarta.annotation.PostConstruct;
 import org.cloudfoundry.identity.uaa.account.ProfileController;
 import org.cloudfoundry.identity.uaa.approval.Approval;
 import org.cloudfoundry.identity.uaa.approval.ApprovalStore;
@@ -33,7 +34,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.servlet.config.annotation.DefaultServletHandlerConfigurer;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -70,7 +72,15 @@ class ProfileControllerMockMvcTests {
 
     @EnableWebMvc
     @Import(ThymeleafConfig.class)
-    static class ContextConfiguration extends WebMvcConfigurerAdapter {
+    static class ContextConfiguration implements WebMvcConfigurer {
+
+        @Autowired
+        private RequestMappingHandlerAdapter requestMappingHandlerAdapter;
+
+        @PostConstruct
+        public void init() {
+            requestMappingHandlerAdapter.setIgnoreDefaultModelOnRedirect(false);
+        }
 
         @Override
         public void configureDefaultServletHandling(DefaultServletHandlerConfigurer configurer) {

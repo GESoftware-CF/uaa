@@ -20,7 +20,7 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.pr
 import static org.springframework.restdocs.payload.JsonFieldType.STRING;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
-import static org.springframework.restdocs.request.RequestDocumentation.requestParameters;
+import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 class PasswordEndpointDocs extends EndpointDocs {
@@ -48,7 +48,7 @@ class PasswordEndpointDocs extends EndpointDocs {
                 fieldWithPath("user_id").type(STRING).description("The UUID identifying the user.")
         );
 
-        Snippet requestParameters = requestParameters(
+        Snippet queryParameters = queryParameters(
                 parameterWithName("client_id").optional(null).type(STRING).description("Optional client_id "),
                 parameterWithName("redirect_uri").optional(null).type(STRING).description("Optional redirect_uri to be used if the `/reset_password` flow is completed.")
         );
@@ -68,7 +68,7 @@ class PasswordEndpointDocs extends EndpointDocs {
                 .accept(APPLICATION_JSON);
 
         mockMvc.perform(post)
-                .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), requestHeaders, requestParameters, responseFields));
+                .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), requestHeaders, queryParameters, responseFields));
 
     }
 }

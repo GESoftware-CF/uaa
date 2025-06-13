@@ -2,6 +2,7 @@ package org.cloudfoundry.identity.uaa.scim.endpoints;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.cloudfoundry.identity.uaa.DefaultTestContext;
+import org.cloudfoundry.identity.uaa.HttpMethodEnum;
 import org.cloudfoundry.identity.uaa.alias.AliasMockMvcTestBase;
 import org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
@@ -27,7 +28,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -495,19 +495,19 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
             }
 
             @ParameterizedTest
-            @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-            final void shouldReject_NoExistingAlias_AliasIdSet_UaaToCustomZone(final HttpMethod method) throws Throwable {
+            @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+            final void shouldReject_NoExistingAlias_AliasIdSet_UaaToCustomZone(final HttpMethodEnum method) throws Throwable {
                 shouldReject_NoExistingAlias_AliasIdSet(method, uaaZone, customZone);
             }
 
             @ParameterizedTest
-            @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-            final void shouldReject_NoExistingAlias_AliasIdSet_CustomToUaaZone(final HttpMethod method) throws Throwable {
+            @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+            final void shouldReject_NoExistingAlias_AliasIdSet_CustomToUaaZone(final HttpMethodEnum method) throws Throwable {
                 shouldReject_NoExistingAlias_AliasIdSet(method, customZone, uaaZone);
             }
 
             private void shouldReject_NoExistingAlias_AliasIdSet(
-                    final HttpMethod method,
+                    final HttpMethodEnum method,
                     final IdentityZone zone1,
                     final IdentityZone zone2
             ) throws Throwable {
@@ -538,19 +538,19 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
             @Nested
             class ExistingAlias {
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldAccept_AliasPropsNotChanged_ShouldPropagateChangesToAliasUser_UaaToCustomZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldAccept_AliasPropsNotChanged_ShouldPropagateChangesToAliasUser_UaaToCustomZone(final HttpMethodEnum method) throws Throwable {
                     shouldAccept_AliasPropsNotChanged_ShouldPropagateChangesToAliasUser(method, uaaZone, customZone);
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldAccept_AliasPropsNotChanged_ShouldPropagateChangesToAliasUser_CustomToUaaZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldAccept_AliasPropsNotChanged_ShouldPropagateChangesToAliasUser_CustomToUaaZone(final HttpMethodEnum method) throws Throwable {
                     shouldAccept_AliasPropsNotChanged_ShouldPropagateChangesToAliasUser(method, customZone, uaaZone);
                 }
 
                 private void shouldAccept_AliasPropsNotChanged_ShouldPropagateChangesToAliasUser(
-                        final HttpMethod method,
+                        final HttpMethodEnum method,
                         final IdentityZone zone1,
                         final IdentityZone zone2
                 ) throws Throwable {
@@ -574,19 +574,19 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldAccept_ShouldFixDanglingReference_UaaToCustomZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldAccept_ShouldFixDanglingReference_UaaToCustomZone(final HttpMethodEnum method) throws Throwable {
                     shouldAccept_ShouldFixDanglingReference(method, uaaZone, customZone);
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldAccept_ShouldFixDanglingReference_CustomToUaaZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldAccept_ShouldFixDanglingReference_CustomToUaaZone(final HttpMethodEnum method) throws Throwable {
                     shouldAccept_ShouldFixDanglingReference(method, customZone, uaaZone);
                 }
 
                 private void shouldAccept_ShouldFixDanglingReference(
-                        final HttpMethod method,
+                        final HttpMethodEnum method,
                         final IdentityZone zone1,
                         final IdentityZone zone2
                 ) throws Throwable {
@@ -618,19 +618,19 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_DanglingReferenceButConflictingUserAlreadyExistsInAliasZone_UaaToCustomZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_DanglingReferenceButConflictingUserAlreadyExistsInAliasZone_UaaToCustomZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_DanglingReferenceButConflictingUserAlreadyExistsInAliasZone(method, uaaZone, customZone);
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_DanglingReferenceButConflictingUserAlreadyExistsInAliasZone_CustomToUaaZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_DanglingReferenceButConflictingUserAlreadyExistsInAliasZone_CustomToUaaZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_DanglingReferenceButConflictingUserAlreadyExistsInAliasZone(method, customZone, uaaZone);
                 }
 
                 private void shouldReject_DanglingReferenceButConflictingUserAlreadyExistsInAliasZone(
-                        final HttpMethod method,
+                        final HttpMethodEnum method,
                         final IdentityZone zone1,
                         final IdentityZone zone2
                 ) throws Throwable {
@@ -659,19 +659,19 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_AliasIdSetInExistingButAliasZidNot_UaaToCustomZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_AliasIdSetInExistingButAliasZidNot_UaaToCustomZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_AliasIdSetInExistingButAliasZidNot(method, uaaZone, customZone);
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_AliasIdSetInExistingButAliasZidNot_CustomToUaaZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_AliasIdSetInExistingButAliasZidNot_CustomToUaaZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_AliasIdSetInExistingButAliasZidNot(method, customZone, uaaZone);
                 }
 
                 private void shouldReject_AliasIdSetInExistingButAliasZidNot(
-                        final HttpMethod method,
+                        final HttpMethodEnum method,
                         final IdentityZone zone1,
                         final IdentityZone zone2
                 ) throws Throwable {
@@ -693,19 +693,19 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_AliasPropertiesChanged_UaaToCustomZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_AliasPropertiesChanged_UaaToCustomZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_AliasPropertiesChanged(method, uaaZone, customZone);
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_AliasPropertiesChanged_CustomToUaaZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_AliasPropertiesChanged_CustomToUaaZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_AliasPropertiesChanged(method, customZone, uaaZone);
                 }
 
                 private void shouldReject_AliasPropertiesChanged(
-                        final HttpMethod method,
+                        final HttpMethodEnum method,
                         final IdentityZone zone1,
                         final IdentityZone zone2
                 ) throws Throwable {
@@ -719,19 +719,19 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_DanglingReferenceAndZoneNotExisting_UaaToCustomZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_DanglingReferenceAndZoneNotExisting_UaaToCustomZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_DanglingReferenceAndZoneNotExisting(method, uaaZone, customZone);
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_DanglingReferenceAndZoneNotExisting_CustomToUaaZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_DanglingReferenceAndZoneNotExisting_CustomToUaaZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_DanglingReferenceAndZoneNotExisting(method, customZone, uaaZone);
                 }
 
                 private void shouldReject_DanglingReferenceAndZoneNotExisting(
-                        final HttpMethod method,
+                        final HttpMethodEnum method,
                         final IdentityZone zone1,
                         final IdentityZone zone2
                 ) throws Throwable {
@@ -753,19 +753,19 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
             @Nested
             class NoExistingAlias {
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldAccept_ShouldCreateNewAliasIfOnlyAliasZidSet_UaaToCustomZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldAccept_ShouldCreateNewAliasIfOnlyAliasZidSet_UaaToCustomZone(final HttpMethodEnum method) throws Throwable {
                     shouldAccept_ShouldCreateNewAliasIfOnlyAliasZidSet(method, uaaZone, customZone);
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldAccept_ShouldCreateNewAliasIfOnlyAliasZidSet_CustomToUaaZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldAccept_ShouldCreateNewAliasIfOnlyAliasZidSet_CustomToUaaZone(final HttpMethodEnum method) throws Throwable {
                     shouldAccept_ShouldCreateNewAliasIfOnlyAliasZidSet(method, customZone, uaaZone);
                 }
 
                 private void shouldAccept_ShouldCreateNewAliasIfOnlyAliasZidSet(
-                        final HttpMethod method,
+                        final HttpMethodEnum method,
                         final IdentityZone zone1,
                         final IdentityZone zone2
                 ) throws Throwable {
@@ -789,19 +789,19 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void versionHandlingUaaToCustomZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void versionHandlingUaaToCustomZone(final HttpMethodEnum method) throws Throwable {
                     testVersionHandling(method, uaaZone, customZone);
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void versionHandlingCustomToUaaZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void versionHandlingCustomToUaaZone(final HttpMethodEnum method) throws Throwable {
                     testVersionHandling(method, customZone, uaaZone);
                 }
 
                 private void testVersionHandling(
-                        final HttpMethod method,
+                        final HttpMethodEnum method,
                         final IdentityZone zone1,
                         final IdentityZone zone2
                 ) throws Throwable {
@@ -848,19 +848,19 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_ConflictingUserAlreadyExistsInAliasZone_UaaToCustomZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_ConflictingUserAlreadyExistsInAliasZone_UaaToCustomZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_ConflictingUserAlreadyExistsInAliasZone(method, uaaZone, customZone);
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_ConflictingUserAlreadyExistsInAliasZone_CustomToUaaZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_ConflictingUserAlreadyExistsInAliasZone_CustomToUaaZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_ConflictingUserAlreadyExistsInAliasZone(method, customZone, uaaZone);
                 }
 
                 private void shouldReject_ConflictingUserAlreadyExistsInAliasZone(
-                        final HttpMethod method,
+                        final HttpMethodEnum method,
                         final IdentityZone zone1,
                         final IdentityZone zone2
                 ) throws Throwable {
@@ -885,19 +885,19 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_OriginIdpHasNoAlias_UaaToCustomZone(final HttpMethod method) throws Exception {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_OriginIdpHasNoAlias_UaaToCustomZone(final HttpMethodEnum method) throws Exception {
                     shouldReject_OriginIdpHasNoAlias(method, uaaZone, customZone);
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_OriginIdpHasNoAlias_CustomToUaaZone(final HttpMethod method) throws Exception {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_OriginIdpHasNoAlias_CustomToUaaZone(final HttpMethodEnum method) throws Exception {
                     shouldReject_OriginIdpHasNoAlias(method, customZone, uaaZone);
                 }
 
                 private void shouldReject_OriginIdpHasNoAlias(
-                        final HttpMethod method,
+                        final HttpMethodEnum method,
                         final IdentityZone zone1,
                         final IdentityZone zone2
                 ) throws Exception {
@@ -926,8 +926,8 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_OriginIdpHasAliasToDifferentZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_OriginIdpHasAliasToDifferentZone(final HttpMethodEnum method) throws Throwable {
                     final IdentityZone zone1 = uaaZone;
                     final IdentityZone zone2 = customZone;
                     final IdentityZone zone3 = MockMvcUtils.createZoneUsingWebRequest(mockMvc, identityToken);
@@ -944,8 +944,8 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_ReferencedAliasZoneDesNotExist(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_ReferencedAliasZoneDesNotExist(final HttpMethodEnum method) throws Throwable {
                     final IdentityZone zone1 = uaaZone;
 
                     final ScimUser createdScimUser = executeWithTemporarilyEnabledAliasFeature(
@@ -959,19 +959,19 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_AliasZidSetToSameZone_UaaToCustomZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_AliasZidSetToSameZone_UaaToCustomZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_AliasZidSetToSameZone(method, uaaZone, customZone);
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_AliasZidSetToSameZone_CustomToUaaZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_AliasZidSetToSameZone_CustomToUaaZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_AliasZidSetToSameZone(method, customZone, uaaZone);
                 }
 
                 private void shouldReject_AliasZidSetToSameZone(
-                        final HttpMethod method,
+                        final HttpMethodEnum method,
                         final IdentityZone zone1,
                         final IdentityZone zone2
                 ) throws Throwable {
@@ -986,8 +986,8 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_AliasZidSetToDifferentCustomZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_AliasZidSetToDifferentCustomZone(final HttpMethodEnum method) throws Throwable {
                     final IdentityZone zone1 = customZone;
                     final IdentityZone zone2 = uaaZone;
 
@@ -1031,7 +1031,7 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
                     createdScimUser.setAliasZid(zone2.getId());
                     createdScimUser.setName(new ScimUser.Name("John", "Doe Jr."));
 
-                    updateUser(HttpMethod.PUT, zone1, createdScimUser);
+                    updateUser(HttpMethodEnum.PUT, zone1, createdScimUser);
                 }
             }
         }
@@ -1045,19 +1045,19 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
             @Nested
             class ExistingAlias {
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_OnlyAliasPropsSetToNull_UaaToCustomZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_OnlyAliasPropsSetToNull_UaaToCustomZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_OnlyAliasPropsSetToNull(method, uaaZone, customZone);
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_OnlyAliasPropsSetToNull_CustomToUaaZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_OnlyAliasPropsSetToNull_CustomToUaaZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_OnlyAliasPropsSetToNull(method, customZone, uaaZone);
                 }
 
                 private void shouldReject_OnlyAliasPropsSetToNull(
-                        final HttpMethod method,
+                        final HttpMethodEnum method,
                         final IdentityZone zone1,
                         final IdentityZone zone2
                 ) throws Throwable {
@@ -1073,19 +1073,19 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_AliasPropsSetToNullAndOtherPropsChanged_UaaToCustomZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_AliasPropsSetToNullAndOtherPropsChanged_UaaToCustomZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_AliasPropsSetToNullAndOtherPropsChanged(method, uaaZone, customZone);
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_AliasPropsSetToNullAndOtherPropsChanged_CustomToUaaZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_AliasPropsSetToNullAndOtherPropsChanged_CustomToUaaZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_AliasPropsSetToNullAndOtherPropsChanged(method, customZone, uaaZone);
                 }
 
                 private void shouldReject_AliasPropsSetToNullAndOtherPropsChanged(
-                        final HttpMethod method,
+                        final HttpMethodEnum method,
                         final IdentityZone zone1,
                         final IdentityZone zone2
                 ) throws Throwable {
@@ -1103,19 +1103,19 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_EvenIfAliasIdMissingInExistingUser_UaaToCustomZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_EvenIfAliasIdMissingInExistingUser_UaaToCustomZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_EvenIfAliasIdMissingInExistingUser(method, uaaZone, customZone);
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_EvenIfAliasIdMissingInExistingUser_CustomToUaaZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_EvenIfAliasIdMissingInExistingUser_CustomToUaaZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_EvenIfAliasIdMissingInExistingUser(method, customZone, uaaZone);
                 }
 
                 private void shouldReject_EvenIfAliasIdMissingInExistingUser(
-                        final HttpMethod method,
+                        final HttpMethodEnum method,
                         final IdentityZone zone1,
                         final IdentityZone zone2
                 ) throws Throwable {
@@ -1133,19 +1133,19 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_DanglingRef_UaaToCustomZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_DanglingRef_UaaToCustomZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_DanglingRef(method, uaaZone, customZone);
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_DanglingRef_CustomToUaaZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_DanglingRef_CustomToUaaZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_DanglingRef(method, customZone, uaaZone);
                 }
 
                 private void shouldReject_DanglingRef(
-                        final HttpMethod method,
+                        final HttpMethodEnum method,
                         final IdentityZone zone1,
                         final IdentityZone zone2
                 ) throws Throwable {
@@ -1166,19 +1166,19 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_OnlyNonAliasPropertiesChanged_UaaToCustomZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_OnlyNonAliasPropertiesChanged_UaaToCustomZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_OnlyNonAliasPropertiesChanged(method, uaaZone, customZone);
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_OnlyNonAliasPropertiesChanged_CustomToUaaZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_OnlyNonAliasPropertiesChanged_CustomToUaaZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_OnlyNonAliasPropertiesChanged(method, customZone, uaaZone);
                 }
 
                 private void shouldReject_OnlyNonAliasPropertiesChanged(
-                        final HttpMethod method,
+                        final HttpMethodEnum method,
                         final IdentityZone zone1,
                         final IdentityZone zone2
                 ) throws Throwable {
@@ -1192,19 +1192,19 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_OnlyAliasIdSetToNull_UaaToCustomZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_OnlyAliasIdSetToNull_UaaToCustomZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_OnlyAliasIdSetToNull(method, uaaZone, customZone);
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_OnlyAliasIdSetToNull_CustomToUaaZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_OnlyAliasIdSetToNull_CustomToUaaZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_OnlyAliasIdSetToNull(method, customZone, uaaZone);
                 }
 
                 private void shouldReject_OnlyAliasIdSetToNull(
-                        final HttpMethod method,
+                        final HttpMethodEnum method,
                         final IdentityZone zone1,
                         final IdentityZone zone2
                 ) throws Throwable {
@@ -1218,19 +1218,19 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_OnlyAliasZidSetToNull_UaaToCustomZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_OnlyAliasZidSetToNull_UaaToCustomZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_OnlyAliasZidSetToNull(method, uaaZone, customZone);
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_OnlyAliasZidSetToNull_CustomToUaaZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_OnlyAliasZidSetToNull_CustomToUaaZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_OnlyAliasZidSetToNull(method, customZone, uaaZone);
                 }
 
                 private void shouldReject_OnlyAliasZidSetToNull(
-                        final HttpMethod method,
+                        final HttpMethodEnum method,
                         final IdentityZone zone1,
                         final IdentityZone zone2
                 ) throws Throwable {
@@ -1247,19 +1247,19 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
             @Nested
             class NoExistingAlias {
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_OnlyAliasZidSet_UaaToCustomZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_OnlyAliasZidSet_UaaToCustomZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_OnlyAliasZidSet(method, uaaZone, customZone);
                 }
 
                 @ParameterizedTest
-                @EnumSource(value = HttpMethod.class, names = {"PUT", "PATCH"})
-                void shouldReject_OnlyAliasZidSet_CustomToUaaZone(final HttpMethod method) throws Throwable {
+                @EnumSource(value = HttpMethodEnum.class, names = {"PUT", "PATCH"})
+                void shouldReject_OnlyAliasZidSet_CustomToUaaZone(final HttpMethodEnum method) throws Throwable {
                     shouldReject_OnlyAliasZidSet(method, customZone, uaaZone);
                 }
 
                 private void shouldReject_OnlyAliasZidSet(
-                        final HttpMethod method,
+                        final HttpMethodEnum method,
                         final IdentityZone zone1,
                         final IdentityZone zone2
                 ) throws Throwable {
@@ -1275,7 +1275,7 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
         }
 
         private ScimUser updateUser(
-                final HttpMethod method,
+                final HttpMethodEnum method,
                 final IdentityZone zone,
                 final ScimUser scimUser
         ) throws Exception {
@@ -1291,7 +1291,7 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
         }
 
         private MvcResult updateUserAndReturnResult(
-                final HttpMethod method,
+                final HttpMethodEnum method,
                 final IdentityZone zone,
                 final ScimUser scimUser
         ) throws Exception {
@@ -1321,7 +1321,7 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
         }
 
         private void shouldRejectUpdate(
-                final HttpMethod method,
+                final HttpMethodEnum method,
                 final IdentityZone zone,
                 final ScimUser scimUser,
                 final HttpStatus expectedStatusCode

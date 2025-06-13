@@ -19,10 +19,10 @@ package org.cloudfoundry.identity.uaa.provider.saml;
 import java.util.Collections;
 import java.util.List;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.xml.namespace.QName;
 
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
 import net.shibboleth.utilities.java.support.xml.ElementSupport;
 import org.opensaml.core.xml.AbstractXMLObject;
 import org.opensaml.core.xml.AbstractXMLObjectBuilder;
