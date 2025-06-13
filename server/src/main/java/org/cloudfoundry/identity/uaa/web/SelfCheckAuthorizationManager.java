@@ -1,7 +1,7 @@
 package org.cloudfoundry.identity.uaa.web;
 
 import java.util.function.Supplier;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.cloudfoundry.identity.uaa.security.IsSelfCheck;
 import org.springframework.security.authorization.AuthorizationDecision;

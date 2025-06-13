@@ -3,6 +3,7 @@ apply(plugin: "war")
 description = "CloudFoundry Identity Server JAR"
 
 dependencies {
+
     implementation(project(":cloudfoundry-identity-metrics-data"))
     implementation(project(":cloudfoundry-identity-model"))
 
@@ -80,8 +81,8 @@ dependencies {
     implementation(libraries.slf4jImpl)
     implementation(libraries.log4jCore)
 
-    implementation(libraries.javaxXmlBindApi)
-    implementation(libraries.glassfishJaxb)
+//    implementation(libraries.javaxXmlBindApi)
+//    implementation(libraries.glassfishJaxb)
 
     implementation(libraries.nimbusJwt)
     implementation(libraries.orgJson)
@@ -109,6 +110,10 @@ dependencies {
     testImplementation(libraries.awaitility)
 
     implementation(libraries.commonsIo)
+    implementation "commons-codec:commons-codec:1.17.2"
+    implementation "jakarta.validation:jakarta.validation-api:3.0.2"
+    implementation "org.apache.httpcomponents.client5:httpclient5:5.4.4"
+    implementation "org.springframework.boot:spring-boot-starter-validation:${versions.springBootVersion}"
 }
 
 configurations.all {

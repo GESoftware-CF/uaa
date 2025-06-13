@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
-import org.springframework.jca.cci.InvalidResultSetAccessException;
+import org.springframework.jdbc.InvalidResultSetAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.util.StringUtils;
@@ -158,7 +158,7 @@ public class JdbcScimGroupExternalMembershipManager
             } else if (count == 0) {
                 throw new ScimResourceNotFoundException("No group mappings deleted.");
             } else {
-                throw new InvalidResultSetAccessException("More than one mapping deleted count=" + count, new SQLException());
+                throw new InvalidResultSetAccessException("More than one mapping deleted count=" + count, DELETE_EXTERNAL_GROUP_MAPPING_SQL, new SQLException());
             }
         } else {
             return null;

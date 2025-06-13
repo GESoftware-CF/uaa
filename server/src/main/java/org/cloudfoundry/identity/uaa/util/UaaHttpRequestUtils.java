@@ -14,32 +14,33 @@
 package org.cloudfoundry.identity.uaa.util;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import org.apache.http.HeaderElement;
-import org.apache.http.HeaderElementIterator;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpRequestRetryHandler;
-import org.apache.http.config.Registry;
-import org.apache.http.config.RegistryBuilder;
-import org.apache.http.conn.ConnectionKeepAliveStrategy;
-import org.apache.http.conn.socket.ConnectionSocketFactory;
-import org.apache.http.conn.socket.PlainConnectionSocketFactory;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.impl.client.NoopUserTokenHandler;
-import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
-import org.apache.http.message.BasicHeaderElementIterator;
+import jakarta.servlet.http.HttpServletRequest;
+import org.apache.hc.client5.http.ConnectionKeepAliveStrategy;
+import org.apache.hc.client5.http.HttpRequestRetryStrategy;
+import org.apache.hc.client5.http.impl.DefaultRedirectStrategy;
+import org.apache.hc.client5.http.impl.NoopUserTokenHandler;
+import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.client5.http.socket.ConnectionSocketFactory;
+import org.apache.hc.client5.http.socket.PlainConnectionSocketFactory;
+import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
+import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
+import org.apache.hc.client5.http.ssl.TrustSelfSignedStrategy;
+import org.apache.hc.core5.http.HeaderElement;
+import org.apache.hc.core5.http.HttpRequest;
+import org.apache.hc.core5.http.HttpResponse;
+import org.apache.hc.core5.http.config.Registry;
+import org.apache.hc.core5.http.config.RegistryBuilder;
+import org.apache.hc.core5.http.message.BasicHeaderElementIterator;
+import org.apache.hc.core5.http.protocol.HttpContext;
+import org.apache.hc.core5.ssl.SSLContextBuilder;
+import org.apache.hc.core5.util.TextUtils;
+import org.apache.hc.core5.util.TimeValue;
 import org.apache.http.protocol.HTTP;
-import org.apache.http.protocol.HttpContext;
-import org.apache.http.util.TextUtils;
 import org.cloudfoundry.identity.uaa.impl.config.RestTemplateConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
-import org.apache.http.conn.ssl.SSLContextBuilder;
-import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
-import org.apache.http.impl.NoConnectionReuseStrategy;
-import org.apache.http.impl.client.DefaultRedirectStrategy;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.impl.client.HttpClients;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.web.context.request.RequestAttributes;
@@ -47,7 +48,6 @@ import org.springframework.web.context.request.RequestContextHolder;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
-import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -81,6 +81,7 @@ public abstract class UaaHttpRequestUtils {
     protected static ClientHttpRequestFactory createRequestFactory(HttpClientBuilder builder, int timeoutInMs, int readTimeoutInMs) {
         HttpComponentsClientHttpRequestFactory httpComponentsClientHttpRequestFactory = new HttpComponentsClientHttpRequestFactory(builder.build());
 
+        // Manual migration to `SocketConfig.Builder.setSoTimeout(Timeout)` necessary; see: https://docs.spring.io/spring-framework/docs/6.0.0/javadoc-api/org/springframework/http/client/HttpComponentsClientHttpRequestFactory.html#setReadTimeout(int)
         httpComponentsClientHttpRequestFactory.setReadTimeout(readTimeoutInMs);
         httpComponentsClientHttpRequestFactory.setConnectionRequestTimeout(timeoutInMs);
         httpComponentsClientHttpRequestFactory.setConnectTimeout(timeoutInMs);
@@ -109,17 +110,17 @@ public abstract class UaaHttpRequestUtils {
         }
         cm.setMaxTotal(poolSize);
         cm.setDefaultMaxPerRoute(defaultMaxPerRoute);
-        cm.setValidateAfterInactivity(validateAfterInactivity);
+        cm.setValidateAfterInactivity(TimeValue.of(validateAfterInactivity, TimeUnit.MILLISECONDS));
         builder.setConnectionManager(cm);
 
         if (maxKeepAlive <= 0) {
-            builder.setConnectionReuseStrategy(NoConnectionReuseStrategy.INSTANCE);
+            builder.setConnectionReuseStrategy((request, response, context) -> false);
         } else {
             builder.setKeepAliveStrategy(new UaaConnectionKeepAliveStrategy(maxKeepAlive));
         }
 
         if (retryCount > 0) {
-            builder.setRetryHandler(new UaaHttpRequestRetryHandler(retryCount));
+            builder.setRetryStrategy(new UaaHttpRequestRetryHandler(retryCount));
         }
 
         return builder;
@@ -171,12 +172,12 @@ public abstract class UaaHttpRequestUtils {
         }
 
         @Override
-        public long getKeepAliveDuration(HttpResponse httpResponse, HttpContext httpContext) {
-            HeaderElementIterator elementIterator = new BasicHeaderElementIterator(httpResponse.headerIterator(HTTP.CONN_KEEP_ALIVE));
+        public TimeValue getKeepAliveDuration(HttpResponse httpResponse, HttpContext httpContext) {
+            BasicHeaderElementIterator elementIterator = new BasicHeaderElementIterator(httpResponse.headerIterator(HTTP.CONN_KEEP_ALIVE));
             long result = connectionKeepAliveMax;
 
             while (elementIterator.hasNext()) {
-                HeaderElement element = elementIterator.nextElement();
+                HeaderElement element = elementIterator.next();
                 String elementName = element.getName();
                 String elementValue = element.getValue();
                 if (elementValue != null && elementName != null && elementName.equalsIgnoreCase(TIMEOUT)) {
@@ -188,11 +189,11 @@ public abstract class UaaHttpRequestUtils {
                     break;
                 }
             }
-            return result;
+            return TimeValue.of(result, TimeUnit.MILLISECONDS);
         }
     }
 
-    private static class UaaHttpRequestRetryHandler implements HttpRequestRetryHandler {
+    private static class UaaHttpRequestRetryHandler implements HttpRequestRetryStrategy {
 
         private final int executionCount;
 
@@ -201,14 +202,27 @@ public abstract class UaaHttpRequestUtils {
         }
 
         @Override
-        public boolean retryRequest(IOException exception, int executionCount, HttpContext context) {
-            if (executionCount > this.executionCount) {
+        public boolean retryRequest(HttpRequest request, IOException exception, int execCount, HttpContext context) {
+            if (execCount > this.executionCount) {
                 return false;
             }
-            if (exception instanceof org.apache.http.NoHttpResponseException) {
+            if (exception instanceof org.apache.hc.core5.http.NoHttpResponseException) {
                 return true;
             }
             return false;
+        }
+
+        @Override
+        public boolean retryRequest(HttpResponse response, int execCount, HttpContext context) {
+            if (executionCount > this.executionCount) {
+                return false;
+            }
+            return false;
+        }
+
+        @Override
+        public TimeValue getRetryInterval(HttpResponse response, int execCount, HttpContext context) {
+            return TimeValue.of(1, TimeUnit.SECONDS);
         }
     }
 

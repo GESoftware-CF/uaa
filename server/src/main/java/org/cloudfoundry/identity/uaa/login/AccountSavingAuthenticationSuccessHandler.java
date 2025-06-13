@@ -19,16 +19,15 @@ import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
@@ -43,7 +42,6 @@ public class AccountSavingAuthenticationSuccessHandler implements Authentication
     private final CurrentUserCookieFactory currentUserCookieFactory;
     private final Logger logger = LoggerFactory.getLogger(AccountSavingAuthenticationSuccessHandler.class);
 
-    @Autowired
     public AccountSavingAuthenticationSuccessHandler(SavedRequestAwareAuthenticationSuccessHandler redirectingHandler, CurrentUserCookieFactory currentUserCookieFactory) {
         this.redirectingHandler = redirectingHandler;
         this.currentUserCookieFactory = currentUserCookieFactory;
@@ -87,7 +85,7 @@ public class AccountSavingAuthenticationSuccessHandler implements Authentication
         } catch (CurrentUserCookieFactory.CurrentUserCookieEncodingException e) {
             logger.error("There was an error while creating the Current-Account cookie for user {}", uaaPrincipal.getId(), e);
         }
-        String headerValue = rfc6265CookieProcessor.generateHeader(currentUserCookie);
+        String headerValue = rfc6265CookieProcessor.generateHeader(currentUserCookie, request);
         response.addHeader(SET_COOKIE, headerValue);
     }
 

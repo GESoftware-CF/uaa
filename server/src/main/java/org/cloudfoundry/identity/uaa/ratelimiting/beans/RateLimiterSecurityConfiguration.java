@@ -66,6 +66,7 @@ class RateLimiterSecurityConfiguration {
                         exception.authenticationEntryPoint(basicAuthenticationEntryPoint)
                                 .accessDeniedHandler(oauthAccessDeniedHandler)
                 )
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(chain, "ratelimitSecurity");

@@ -1,7 +1,5 @@
 package org.cloudfoundry.identity.uaa.codestore;
 
-import static org.cloudfoundry.identity.uaa.web.AuthorizationManagersUtils.anyOf;
-
 import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationProcessingFilter;
 import org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AccessDeniedHandler;
 import org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AuthenticationEntryPoint;
@@ -17,6 +15,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AnonymousConfigurer;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter;
+
+import static org.cloudfoundry.identity.uaa.web.AuthorizationManagersUtils.anyOf;
 
 @Configuration
 @EnableWebSecurity
@@ -46,6 +46,7 @@ class CodeStoreSecurityConfiguration {
                     exception.authenticationEntryPoint(authenticationEntryPoint);
                     exception.accessDeniedHandler(new OAuth2AccessDeniedHandler());
                 })
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
         return new UaaFilterChain(originalFilterChain, "codestore");
     }

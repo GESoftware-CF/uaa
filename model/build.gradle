@@ -27,6 +27,10 @@ dependencies {
     testImplementation(libraries.jsonAssert)
 
     implementation(libraries.nimbusJwt)
+    implementation "org.springframework.boot:spring-boot-starter-validation:${versions.springBootVersion}"
+
+    implementation(libraries.springWeb)
+    implementation(libraries.springWebMvc)
 }
 
 apply(from: file("build_properties.gradle"))

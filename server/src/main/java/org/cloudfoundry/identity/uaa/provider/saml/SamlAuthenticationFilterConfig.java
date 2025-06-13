@@ -36,7 +36,7 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CsrfLogoutHandler;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
-import javax.servlet.Filter;
+import jakarta.servlet.Filter;
 
 /**
  * Configuration for SAML Filters and Authentication Providers for SAML Authentication.

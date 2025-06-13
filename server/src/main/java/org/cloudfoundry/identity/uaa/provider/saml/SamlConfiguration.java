@@ -8,7 +8,6 @@ import org.cloudfoundry.identity.uaa.impl.config.RestTemplateConfig;
 import org.cloudfoundry.identity.uaa.util.TimeService;
 import org.cloudfoundry.identity.uaa.util.TimeServiceImpl;
 import org.cloudfoundry.identity.uaa.util.UaaHttpRequestUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -60,7 +59,6 @@ public class SamlConfiguration {
         return samlEntityID;
     }
 
-    @Autowired
     @Bean
     public BootstrapSamlIdentityProviderData bootstrapMetaDataProviders(SamlConfigProps samlConfigProps,
             final @Qualifier("metaDataProviders") SamlIdentityProviderConfigurator metaDataProviders) {
@@ -86,7 +84,6 @@ public class SamlConfiguration {
         return !value.isEmpty() && !"null".equals(value);
     }
 
-    @Autowired
     @Bean
     public SignatureAlgorithm getSignatureAlgorithm(SamlConfigProps samlConfigProps) {
         try {
@@ -99,7 +96,6 @@ public class SamlConfiguration {
         }
     }
 
-    @Autowired
     @Bean
     public boolean signSamlMetaData(SamlConfigProps samlConfigProps) {
         return samlConfigProps.getSignMetaData();
@@ -110,13 +106,11 @@ public class SamlConfiguration {
         return new TimeServiceImpl();
     }
 
-    @Autowired
     @Bean
     public UrlContentCache urlContentCache(TimeService timeService) {
         return new StaleUrlCache(timeService);
     }
 
-    @Autowired
     @Bean
     public FixedHttpMetaDataProvider fixedHttpMetaDataProvider(
             @Qualifier("restTemplateConfig") RestTemplateConfig restTemplateConfig,

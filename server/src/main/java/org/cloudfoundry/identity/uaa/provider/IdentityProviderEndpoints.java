@@ -121,7 +121,7 @@ public class IdentityProviderEndpoints implements ApplicationEventPublisherAware
         this.aliasEntitiesEnabled = aliasEntitiesEnabled;
     }
 
-    @PostMapping()
+    @PostMapping({"/", ""})
     public ResponseEntity<IdentityProvider> createIdentityProvider(@RequestBody IdentityProvider body, @RequestParam(required = false, defaultValue = "false") boolean rawConfig) {
         body.setSerializeConfigRaw(rawConfig);
         String zoneId = identityZoneManager.getCurrentIdentityZoneId();
@@ -291,7 +291,7 @@ public class IdentityProviderEndpoints implements ApplicationEventPublisherAware
         return new ResponseEntity<>(body, OK);
     }
 
-    @GetMapping()
+    @GetMapping({"/", ""})
     public ResponseEntity<List<IdentityProvider>> retrieveIdentityProviders(
             @RequestParam(value = "active_only", required = false) String activeOnly,
             @RequestParam(required = false, defaultValue = "false") boolean rawConfig,

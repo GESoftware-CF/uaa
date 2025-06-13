@@ -106,7 +106,7 @@ public class OidcMetadataFetcher {
             return responseEntity.getBody();
         } else {
             throw new IllegalArgumentException(
-                    "Unable to fetch content, status:" + responseEntity.getStatusCode().getReasonPhrase());
+                    "Unable to fetch content, status:" + HttpStatus.resolve(responseEntity.getStatusCode().value()).getReasonPhrase());
         }
     }
 

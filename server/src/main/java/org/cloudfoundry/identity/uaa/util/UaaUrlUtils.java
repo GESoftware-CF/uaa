@@ -7,11 +7,12 @@ import org.springframework.util.AntPathMatcher;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import org.springframework.web.util.InvalidUrlException;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -169,7 +170,26 @@ public abstract class UaaUrlUtils {
     }
 
     public static String getHostForURI(String uri) {
-        return UriComponentsBuilder.fromHttpUrl(uri).build().getHost();
+        if (isUrl(uri)) {
+            return UriComponentsBuilder.fromHttpUrl(uri).build().getHost();
+        } else {
+            //spring-web 5.3 used to throw a IllegalArgumentException if the URL wasn't valid.
+            throw new IllegalArgumentException("[" + uri + "] is not a valid HTTP URL");
+        }
+    }
+
+    public static UriComponentsBuilder fromHttpUrl(String url) {
+        if (!isUrl(url)) {
+            throw new InvalidUrlException(url + " is not a valid URL");
+        }
+        return UriComponentsBuilder.fromHttpUrl(url);
+    }
+
+    public static UriComponentsBuilder fromUriString(String uri) {
+        if (!isUrl(uri)) {
+            throw new InvalidUrlException(uri + " is not a valid URL");
+        }
+        return UriComponentsBuilder.fromUriString(uri);
     }
 
     public static String getBaseURL(HttpServletRequest request) {
@@ -210,9 +230,9 @@ public abstract class UaaUrlUtils {
             return false;
         }
         try {
-            new URL(url);
+            new URL(url).toURI();
             return true;
-        } catch (MalformedURLException e) {
+        } catch (MalformedURLException | URISyntaxException e) {
             return false;
         }
     }

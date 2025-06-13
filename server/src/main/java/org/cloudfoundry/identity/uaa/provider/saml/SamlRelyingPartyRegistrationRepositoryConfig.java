@@ -3,7 +3,6 @@ package org.cloudfoundry.identity.uaa.provider.saml;
 import lombok.extern.slf4j.Slf4j;
 import org.cloudfoundry.identity.uaa.provider.SamlIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.util.KeyWithCert;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -43,7 +42,6 @@ public class SamlRelyingPartyRegistrationRepositoryConfig {
         this.signatureAlgorithms = signatureAlgorithms;
     }
 
-    @Autowired
     @DependsOn({"setUpBouncyCastle"})
     @Bean
     RelyingPartyRegistrationRepository relyingPartyRegistrationRepository(SamlIdentityProviderConfigurator samlIdentityProviderConfigurator) {
@@ -105,7 +103,6 @@ public class SamlRelyingPartyRegistrationRepositoryConfig {
         return new DelegatingRelyingPartyRegistrationRepository(bootstrapRepo, configuratorRepo, defaultRepo);
     }
 
-    @Autowired
     @Bean
     UaaRelyingPartyRegistrationResolver relyingPartyRegistrationResolver(RelyingPartyRegistrationRepository relyingPartyRegistrationRepository,
             @Qualifier("samlEntityID") String samlEntityID) {

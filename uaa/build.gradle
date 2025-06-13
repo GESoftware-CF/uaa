@@ -30,6 +30,7 @@ repositories {
 
 description = "UAA"
 dependencies {
+    providedCompile(libraries.tomcatEmbed)
     implementation(project(":cloudfoundry-identity-server")) {
         exclude(module: "jna")
     }
@@ -56,14 +57,24 @@ dependencies {
     runtimeOnly(libraries.aspectJWeaver)
     runtimeOnly(libraries.postgresql)
 
-    implementation(libraries.javaxXmlBindApi)
-    implementation(libraries.glassfishJaxb)
+//    implementation(libraries.javaxXmlBindApi)
+//    implementation(libraries.glassfishJaxb)
 
-    implementation(libraries.braveInstrumentationSpringWebmvc)
+    //TODO this library has javax.servlet references
+    //implementation(libraries.braveInstrumentationSpringWebmvc)
+    implementation(libraries.braveInstrumentation)
     implementation(libraries.braveContextSlf4j)
+
+    implementation(libraries.springWeb)
+    implementation(libraries.springWebMvc)
 
     providedCompile(libraries.tomcatEmbed)
     implementation(libraries.bouncyCastleFipsProv)
+
+    implementation "commons-codec:commons-codec:1.17.2"
+    implementation "jakarta.validation:jakarta.validation-api:3.0.2"
+    implementation "org.apache.httpcomponents.client5:httpclient5:5.4.4"
+    implementation "org.springframework.boot:spring-boot-starter-validation:${versions.springBootVersion}"
 
     testImplementation(identityServer.sourceSets.test.output)
 

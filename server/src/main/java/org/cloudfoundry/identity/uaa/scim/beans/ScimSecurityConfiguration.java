@@ -63,6 +63,7 @@ class ScimSecurityConfiguration {
                         exception.authenticationEntryPoint(oauthAuthenticationEntryPoint)
                                 .accessDeniedHandler(oauthAccessDeniedHandler)
                 )
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(chain, "scimUserPassword");
@@ -85,6 +86,7 @@ class ScimSecurityConfiguration {
                         exception.authenticationEntryPoint(oauthAuthenticationEntryPoint)
                                 .accessDeniedHandler(oauthAccessDeniedHandler)
                 )
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(chain, "scimUserIds");
@@ -116,6 +118,7 @@ class ScimSecurityConfiguration {
                         exception.authenticationEntryPoint(oauthAuthenticationEntryPoint)
                                 .accessDeniedHandler(oauthAccessDeniedHandler)
                 )
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(chain, "groupEndpointSecurity");
@@ -145,6 +148,7 @@ class ScimSecurityConfiguration {
                         exception.authenticationEntryPoint(oauthAuthenticationEntryPoint)
                                 .accessDeniedHandler(oauthAccessDeniedHandler)
                 )
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(chain, "scimUsers");

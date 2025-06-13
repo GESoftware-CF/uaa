@@ -66,6 +66,7 @@ public class ApprovalsSecurityConfiguration {
                         exception.authenticationEntryPoint(oauthAuthenticationEntryPoint)
                                 .accessDeniedHandler(oauthAccessDeniedHandler)
                 )
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(chain, "approvalsSecurity");

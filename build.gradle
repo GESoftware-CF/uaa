@@ -23,6 +23,28 @@ buildscript {
     }
 }
 
+plugins {
+    id 'org.openrewrite.rewrite' version '7.8.0'
+    id 'maven-publish'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+dependencies {
+    rewrite platform("org.openrewrite.recipe:rewrite-recipe-bom:latest.release")
+    rewrite("org.openrewrite.recipe:rewrite-spring")
+}
+
+rewrite {
+    //activeRecipe("com.vmware.tanzu.spring.recipes.boot34.BootReleaseTrain_3_4")
+    activeRecipe("org.openrewrite.java.spring.boot3.UpgradeSpringBoot_3_0")
+    activeRecipe("org.openrewrite.java.spring.boot3.UpgradeSpringBoot_3_1")
+    activeRecipe("org.openrewrite.java.spring.boot3.UpgradeSpringBoot_3_2")
+    activeRecipe("org.openrewrite.java.spring.boot3.UpgradeSpringBoot_3_3")
+    activeRecipe("org.openrewrite.java.spring.boot3.UpgradeSpringBoot_3_4")
+    activeRecipe("org.openrewrite.apache.httpclient5.UpgradeApacheHttpClient_5")
+    activeRecipe("org.openrewrite.java.spring.boot3.MigrateThymeleafDependencies")
+}
+
 apply(from: "dependencies.gradle")
 
 def applicationPort = project.hasProperty('port') ? project.getProperty('port').toInteger() : 8080
@@ -103,7 +125,7 @@ subprojects {
         annotationProcessor("org.projectlombok:lombok")
     }
 
-    [compileJava, compileTestJava]*.options*.compilerArgs = ["-Xlint:none", "-nowarn"]
+    [compileJava, compileTestJava]*.options*.compilerArgs = ["-Xlint:none", "-nowarn", "-parameters"]
 
     test {
         // when failFast = true AND retry is on, there is a serious issue:

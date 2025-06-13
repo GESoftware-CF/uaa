@@ -1,11 +1,6 @@
 package org.cloudfoundry.identity.uaa.health;
 
-import javax.servlet.http.HttpServletResponse;
-import javax.sql.DataSource;
-
-import java.sql.Connection;
-import java.sql.Statement;
-
+import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,6 +8,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
+
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.Statement;
 
 /**
  * Simple controller that just returns "ok" in a request body for the purposes
@@ -23,7 +22,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 public class HealthzEndpoint {
     private static Logger logger = LoggerFactory.getLogger(HealthzEndpoint.class);
     private volatile boolean stopping;
-    private volatile Boolean wasLastConnectionSuccessful;
+    private volatile Boolean wasLastConnectionSuccessful = null;
     private DataSource dataSource;
 
     public HealthzEndpoint(
@@ -55,7 +54,10 @@ public class HealthzEndpoint {
             return "stopping\n";
         } else {
             if (wasLastConnectionSuccessful == null) {
-                return "UAA running. Database status unknown.\n";
+                isDataSourceConnectionAvailable();
+                if (wasLastConnectionSuccessful == false) {
+                    return "UAA running. Database failed to start.\n";
+                }
             }
 
             if (wasLastConnectionSuccessful) {

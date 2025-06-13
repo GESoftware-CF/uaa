@@ -2,6 +2,7 @@ package org.cloudfoundry.identity.uaa.zone;
 
 import org.cloudfoundry.identity.uaa.provider.saml.SamlKeyManager;
 import org.cloudfoundry.identity.uaa.provider.saml.SamlKeyManagerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.util.Optional;
 
@@ -105,7 +106,7 @@ public final class IdentityZoneHolder {
      * Work around for the fact that IdentityZoneHolder is a static utility class and cannot be instantiated.
      */
     public static class Initializer {
-        public Initializer(IdentityZoneProvisioning provisioning, SamlKeyManagerFactory samlKeyManagerFactory) {
+        public Initializer(@Qualifier("identityZoneProvisioning") IdentityZoneProvisioning provisioning, SamlKeyManagerFactory samlKeyManagerFactory) {
             IdentityZoneHolder.setProvisioning(provisioning);
             IdentityZoneHolder.setSamlKeyManagerFactory(samlKeyManagerFactory);
         }

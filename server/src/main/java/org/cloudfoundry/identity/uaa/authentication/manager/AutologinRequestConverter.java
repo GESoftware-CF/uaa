@@ -13,12 +13,6 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.authentication.manager;
 
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.function.UnaryOperator;
-
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.cloudfoundry.identity.uaa.login.AutologinRequest;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
@@ -32,7 +26,18 @@ import org.springframework.http.converter.FormHttpMessageConverter;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.http.converter.StringHttpMessageConverter;
+import org.springframework.lang.Nullable;
+import org.springframework.util.Assert;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.StreamUtils;
+
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.function.UnaryOperator;
 
 public class AutologinRequestConverter extends AbstractHttpMessageConverter<AutologinRequest> {
     private static final String USERNAME = "username";
@@ -74,7 +79,10 @@ public class AutologinRequestConverter extends AbstractHttpMessageConverter<Auto
 
         UnaryOperator<String> getValue;
         if (isJsonContent(inputMessage.getHeaders().get(HttpHeaders.CONTENT_TYPE))) {
-            Map<String, String> map = JsonUtils.readValue(stringConverter.read(String.class, inputMessage),
+            //spring-web 6.2 throws a nullpointer if inputMessage.getBody returns null
+            Charset charset = getContentTypeCharset(inputMessage.getHeaders().getContentType());
+            String data = StreamUtils.copyToString(inputMessage.getBody(), charset);
+            Map<String, String> map = JsonUtils.readValue(data,
                     new TypeReference<Map<String, String>>() {
                     });
             if (map == null) {
@@ -102,5 +110,25 @@ public class AutologinRequestConverter extends AbstractHttpMessageConverter<Auto
             map.set(PASSWORD, t.getPassword());
         }
         formConverter.write(map, MediaType.APPLICATION_FORM_URLENCODED, outputMessage);
+    }
+
+
+    private static final MediaType APPLICATION_PLUS_JSON = new MediaType("application", "*+json");
+
+    private Charset getContentTypeCharset(@Nullable MediaType contentType) {
+        if (contentType != null) {
+            Charset charset = contentType.getCharset();
+            if (charset != null) {
+                return charset;
+            }
+            else if (contentType.isCompatibleWith(MediaType.APPLICATION_JSON) ||
+                    contentType.isCompatibleWith(APPLICATION_PLUS_JSON)) {
+                // Matching to AbstractJackson2HttpMessageConverter#DEFAULT_CHARSET
+                return StandardCharsets.UTF_8;
+            }
+        }
+        Charset charset = stringConverter.getDefaultCharset();
+        Assert.state(charset != null, "No default charset");
+        return charset;
     }
 }

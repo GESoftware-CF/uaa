@@ -26,14 +26,18 @@ import org.cloudfoundry.identity.uaa.oauth.KeyInfoService;
 import org.cloudfoundry.identity.uaa.oauth.beans.ApplicationContextProvider;
 import org.cloudfoundry.identity.uaa.oauth.client.ClientJwtCredential;
 import org.cloudfoundry.identity.uaa.oauth.common.exceptions.InvalidTokenException;
+import org.cloudfoundry.identity.uaa.oauth.jwk.JsonWebKey;
+import org.cloudfoundry.identity.uaa.oauth.jwk.JsonWebKeySet;
 import org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants;
 import org.cloudfoundry.identity.uaa.oauth.token.Claims;
+import org.cloudfoundry.identity.uaa.provider.AbstractExternalOAuthIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.OIDCIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.provider.oauth.ExternalOAuthAuthenticationManager;
 import org.cloudfoundry.identity.uaa.provider.oauth.OidcMetadataFetcher;
 import org.cloudfoundry.identity.uaa.provider.oauth.OidcMetadataFetchingException;
 import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
+import org.cloudfoundry.identity.uaa.util.UaaUrlUtils;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManagerImpl;
 import org.springframework.context.ApplicationContext;
 import org.springframework.dao.DataRetrievalFailureException;
@@ -248,11 +252,15 @@ public class JwtClientAuthentication {
             def.setIssuer(issuer);
             def.setSkipSslValidation(false);
             // Allow only OIDC compliant issuer and create from it the so-called discovery URL, e.g. https://openid.net/specs/openid-connect-discovery-1_0.html
+            if (!UaaUrlUtils.isUrl(issuer)) {
+                throw new MalformedURLException(issuer + " is not a valid HTTP URL");
+            }
             def.setDiscoveryUrl(UriComponentsBuilder.fromHttpUrl(issuer).scheme("https").path("/.well-known/openid-configuration").build().toUri().toURL());
             oidcMetadataFetcher.fetchMetadataAndUpdateDefinition(def);
         }
         // fetch Json Web Key Set now from trusted OIDCIdentityProviderDefinition or online
-        return JWKSet.parse(externalOAuthAuthenticationManager.getTokenKeyFromOAuth(def).getKeySetMap());
+        JsonWebKeySet<JsonWebKey> tokenKeyFromOAuth = externalOAuthAuthenticationManager.getTokenKeyFromOAuth((AbstractExternalOAuthIdentityProviderDefinition)def);
+        return JWKSet.parse(tokenKeyFromOAuth.getKeySetMap());
     }
 
     private JWKSet retrieveJwkSet(JWTClaimsSet clientClaims) throws MalformedURLException, OidcMetadataFetchingException, ParseException {

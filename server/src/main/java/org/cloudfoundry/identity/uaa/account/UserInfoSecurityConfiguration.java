@@ -1,7 +1,5 @@
 package org.cloudfoundry.identity.uaa.account;
 
-import static org.cloudfoundry.identity.uaa.web.AuthorizationManagersUtils.anyOf;
-
 import org.cloudfoundry.identity.uaa.oauth.UaaTokenServices;
 import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationManager;
 import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationProcessingFilter;
@@ -18,6 +16,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter;
+
+import static org.cloudfoundry.identity.uaa.web.AuthorizationManagersUtils.anyOf;
 
 @Configuration
 @EnableWebSecurity
@@ -51,6 +51,7 @@ class UserInfoSecurityConfiguration {
                     exception.authenticationEntryPoint(oauthAuthenticationEntryPoint);
                     exception.accessDeniedHandler(oauthAccessDeniedHandler);
                 })
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
         return new UaaFilterChain(originalChain, "userinfo");
     }

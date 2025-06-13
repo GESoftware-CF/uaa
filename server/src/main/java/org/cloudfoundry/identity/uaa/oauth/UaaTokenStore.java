@@ -28,6 +28,7 @@ import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.sql.init.dependency.DependsOnDatabaseInitialization;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DeadlockLoserDataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -58,6 +59,7 @@ import java.util.Optional;
 import java.util.concurrent.Semaphore;
 
 @Component("authorizationCodeServices")
+@DependsOnDatabaseInitialization
 public class UaaTokenStore implements AuthorizationCodeServices {
     public static final Duration DEFAULT_EXPIRATION_TIME = Duration.ofMinutes(5);
     public static final Duration LEGACY_CODE_EXPIRATION_TIME = Duration.ofDays(3);

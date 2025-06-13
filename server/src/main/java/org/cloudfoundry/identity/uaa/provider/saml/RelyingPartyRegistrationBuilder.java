@@ -89,7 +89,11 @@ public final class RelyingPartyRegistrationBuilder {
                 // to reflect the UAA configured desire to always sign/or-not the AuthnRequest
                 .assertingPartyDetails(details -> {
                     details.wantAuthnRequestsSigned(params.requestSigned);
-                    details.signingAlgorithms(alg -> alg.addAll(params.signatureAlgorithms.stream().map(SignatureAlgorithm::getSignatureAlgorithmURI).toList()));
+                    details.signingAlgorithms(alg -> {
+                        alg.clear();
+                        alg.addAll(params.signatureAlgorithms.stream().map(SignatureAlgorithm::getSignatureAlgorithmURI).toList());
+
+                    });
                 }).build();
     }
 

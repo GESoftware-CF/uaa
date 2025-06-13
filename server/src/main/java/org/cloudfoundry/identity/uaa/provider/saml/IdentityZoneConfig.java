@@ -4,7 +4,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneProvisioning;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
@@ -37,13 +36,11 @@ public class IdentityZoneConfig {
         return new ZoneAwareKeyManager();
     }
 
-    @Autowired
     @Bean
     SamlKeyManagerFactory samlKeyManagerFactory(SamlConfigProps samlConfigProps) {
         return new SamlKeyManagerFactory(samlConfigProps);
     }
 
-    @Autowired
     @DependsOn({"identityZoneConfigurationBootstrap", "setUpBouncyCastle"})
     @Bean(destroyMethod = "reset")
     public IdentityZoneHolder.Initializer identityZoneHolderInitializer(IdentityZoneProvisioning provisioning,
