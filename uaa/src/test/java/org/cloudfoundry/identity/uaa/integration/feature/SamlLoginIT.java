@@ -345,7 +345,7 @@ public class SamlLoginIT {
                 .assertThatLogin_goesToCustomErrorPage(
                         testAccounts.getUserName(),
                         testAccounts.getPassword(),
-                        "%s?error=access_denied&error_description=SAML+user+does+not+exist.+You+can+correct+this+by+creating+a+shadow+user+for+the+SAML+user.".formatted(redirectUri));
+                        "%s?error=access_denied&error_description=SAML%%20user%%20does%%20not%%20exist.%%20You%%20can%%20correct%%20this%%20by%%20creating%%20a%%20shadow%%20user%%20for%%20the%%20SAML%%20user.".formatted(redirectUri));
     }
 
     @Test

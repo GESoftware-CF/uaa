@@ -486,6 +486,7 @@ class LoginSecurityConfiguration {
                 .addFilterBefore(disableUserManagementSecurityFilter.getFilter(), AnonymousAuthenticationFilter.class)
                 .addFilterAfter(resetPasswordAuthenticationFilter.getFilter(), AuthorizationFilter.class)
                 .exceptionHandling(EXCEPTION_HANDLING)
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
         return new UaaFilterChain(originalChain,"loginPublicOperations");
     }

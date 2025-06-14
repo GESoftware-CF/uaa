@@ -51,6 +51,9 @@ import static org.springframework.util.StringUtils.hasText;
 
 public class UaaSavedRequestCache extends HttpSessionRequestCache implements Filter {
 
+    public UaaSavedRequestCache() {
+        setMatchingRequestParameterName(null);
+    }
 
     @Override
     public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain) throws IOException, ServletException {

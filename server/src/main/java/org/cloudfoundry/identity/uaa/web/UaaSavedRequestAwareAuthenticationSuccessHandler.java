@@ -15,6 +15,9 @@
 
 package org.cloudfoundry.identity.uaa.web;
 
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
 import org.cloudfoundry.identity.uaa.util.UaaUrlUtils;
@@ -22,12 +25,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.saml2.core.Saml2ParameterNames;
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
-import org.springframework.security.web.savedrequest.RequestCache;
 import org.springframework.security.web.savedrequest.SavedRequest;
 
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 @Slf4j
@@ -35,7 +34,11 @@ public class UaaSavedRequestAwareAuthenticationSuccessHandler extends SavedReque
     public static final String URI_OVERRIDE_ATTRIBUTE = "override.redirect_uri";
     public static final String FORM_REDIRECT_PARAMETER = "form_redirect_uri";
 
-    private final RequestCache requestCache = new HttpSessionRequestCache();
+    private final HttpSessionRequestCache requestCache = new HttpSessionRequestCache();
+
+    public UaaSavedRequestAwareAuthenticationSuccessHandler() {
+        requestCache.setMatchingRequestParameterName(null);
+    }
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws ServletException, IOException {

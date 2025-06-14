@@ -67,6 +67,7 @@ class FormLoginIntegrationTests {
                 .setDefaultRequestConfig(RequestConfig.custom().setCookieSpec(StandardCookieSpec.RELAXED).build())
                 .setDefaultHeaders(headers)
                 .setDefaultCookieStore(cookieStore)
+                .disableRedirectHandling()
                 .build();
     }
 
@@ -93,7 +94,7 @@ class FormLoginIntegrationTests {
     @Test
     void successfulAuthenticationFlow() throws Exception {
         //request home page /
-        String location = serverRunning.getBaseUrl() + "/";
+        String location = serverRunning.getBaseUrl() + "/login";
         HttpGet httpget = new HttpGet(location);
         CloseableHttpResponse response = httpclient.execute(httpget);
 
