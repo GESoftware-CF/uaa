@@ -43,13 +43,13 @@ dependencies {
     implementation(libraries.thymeLeaf) {
         exclude(module: "ognl")
     }
-    implementation(libraries.thymeleafSpring5) {
+    implementation(libraries.thymeleafSpring) {
         exclude(module: "ognl")
     }
     implementation(libraries.thymeleafDialect) {
         exclude(module: "ognl")
     }
-    implementation(libraries.thymeleafExtrasSpringSecurity5) {
+    implementation(libraries.thymeleafExtrasSpringSecurity) {
         exclude(module: "ognl")
     }
     runtimeOnly(libraries.springSecurityConfig)
@@ -57,11 +57,6 @@ dependencies {
     runtimeOnly(libraries.aspectJWeaver)
     runtimeOnly(libraries.postgresql)
 
-//    implementation(libraries.javaxXmlBindApi)
-//    implementation(libraries.glassfishJaxb)
-
-    //TODO this library has javax.servlet references
-    //implementation(libraries.braveInstrumentationSpringWebmvc)
     implementation(libraries.braveInstrumentation)
     implementation(libraries.braveContextSlf4j)
 
@@ -71,10 +66,10 @@ dependencies {
     providedCompile(libraries.tomcatEmbed)
     implementation(libraries.bouncyCastleFipsProv)
 
-    implementation "commons-codec:commons-codec:1.17.2"
-    implementation "jakarta.validation:jakarta.validation-api:3.0.2"
-    implementation "org.apache.httpcomponents.client5:httpclient5:5.4.4"
-    implementation "org.springframework.boot:spring-boot-starter-validation:${versions.springBootVersion}"
+    implementation(libraries.commonsCodec)
+    implementation(libraries.javaxValidationApi)
+    implementation(libraries.apacheHttpClient)
+    implementation(libraries.springBootStarterValidation)
 
     testImplementation(identityServer.sourceSets.test.output)
 
