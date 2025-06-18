@@ -8,6 +8,7 @@ import org.openqa.selenium.WebDriver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+import org.xmlunit.assertj.XmlAssert;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -45,26 +46,31 @@ class ErrorRoutingIT {
         CallErrorPageAndCheckHttpStatusCode("/error429", "GET", 200);
         CallErrorPageAndCheckHttpStatusCode("/error500", "GET", 200);
         CallErrorPageAndCheckHttpStatusCode("/errorAny", "GET", 200);
-        CallErrorPageAndCheckHttpStatusCode("/rejected", "GET", 200);
+        CallErrorPageAndCheckHttpStatusCode("/rejected", "GET", 400);
         CallErrorPageAndCheckHttpStatusCode("/saml_error", "GET", 200);
         CallErrorPageAndCheckHttpStatusCode("/error", "GET", 200);
     }
 
     @Test
-    void responseToErrorPage() throws IOException {
-        String body = CallErrorPageAndCheckHttpStatusCode("/info", "TRACE", 405);
-        //DISABLE SINCE BOOT THIS GETS CAUGHT IN StrictHttpFirewall and rejected for all endpoints
-        //assertThat(body).as("Expected no response HTML body, but received: " + body).doesNotContain("<html");
+    void traceRequestsRejected() throws IOException {
+        // org.springframework.security.web.firewall.StrictHttpFirewall rejects TRACE method
+        HttpURLConnection cn = (HttpURLConnection) new URL(baseUrl + "/info").openConnection();
+        cn.setRequestMethod("TRACE");
+
+        cn.connect();
+        assertThat(cn.getResponseCode())
+                .as("Check status code from TRACE method is 405")
+                .isEqualTo(405);
     }
 
     @Test
     void requestRejectedExceptionErrorPage() throws IOException {
-        final String rejectedEndpoint = "/login;endpoint=x"; // spring securiy throws RequestRejectedException and by default status 500, but now 400
-        webDriver.get(baseUrl + rejectedEndpoint);
-
-        assertThat(webDriver.findElement(By.tagName("h2")).getText()).as("Check if on the error page").contains("The request was rejected because it contained a potentially malicious character.");
-
-        CallErrorPageAndCheckHttpStatusCode(rejectedEndpoint, "GET", 400);
+        // spring security throws RequestRejectedException with status code 400
+        String body = CallErrorPageAndCheckHttpStatusCode("/login;endpoint=x", "GET", 400);
+        XmlAssert.assertThat(body)
+                .hasXPath("//h2")
+                .extractingText()
+                .contains("The request was rejected because it contained a potentially malicious character.");
     }
 
     private String CallErrorPageAndCheckHttpStatusCode(String errorPath, String method, int codeExpected) throws IOException {

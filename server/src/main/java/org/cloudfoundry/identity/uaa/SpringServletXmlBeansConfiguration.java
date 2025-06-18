@@ -31,6 +31,7 @@ import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimUserProvisioning;
 import org.cloudfoundry.identity.uaa.security.ContextSensitiveOAuth2WebSecurityExpressionHandler;
 import org.cloudfoundry.identity.uaa.security.beans.SecurityContextAccessor;
 import org.cloudfoundry.identity.uaa.user.JdbcUaaUserDatabase;
+import org.cloudfoundry.identity.uaa.web.beans.UaaRequestRejectedHandler;
 import org.cloudfoundry.identity.uaa.zone.ClientSecretPolicy;
 import org.cloudfoundry.identity.uaa.zone.ClientSecretValidator;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneProvisioning;
@@ -56,6 +57,7 @@ import org.springframework.security.access.vote.RoleVoter;
 import org.springframework.security.access.vote.UnanimousBased;
 import org.springframework.security.web.authentication.Http403ForbiddenEntryPoint;
 import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
+import org.springframework.security.web.firewall.RequestRejectedHandler;
 import org.springframework.web.accept.ContentNegotiationManagerFactoryBean;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
@@ -237,14 +239,14 @@ public class SpringServletXmlBeansConfiguration {
                 new Prompt("username", "text", username),
                 new Prompt("password", "password", password),
                 new Prompt("passcode", "password",
-                        "Temporary Authentication Code ( Get one at "+passcode+"/passcode )")
+                        "Temporary Authentication Code ( Get one at " + passcode + "/passcode )")
         );
     }
 
     @Bean
     OidcMetadataFetcher oidcMetadataFetcher(
             UrlContentCache contentCache,
-            @Qualifier("trustingRestTemplate")RestTemplate trustingRestTemplate,
+            @Qualifier("trustingRestTemplate") RestTemplate trustingRestTemplate,
             @Qualifier("nonTrustingRestTemplate") RestTemplate nonTrustingRestTemplate
     ) {
         return new OidcMetadataFetcher(contentCache, trustingRestTemplate, nonTrustingRestTemplate);
@@ -334,7 +336,7 @@ public class SpringServletXmlBeansConfiguration {
     @Bean
     LdapLoginAuthenticationManager ldapLoginAuthenticationMgr(
             @Qualifier("identityProviderProvisioning") IdentityProviderProvisioning provisioning,
-            @Qualifier("userDatabase")JdbcUaaUserDatabase userDatabase
+            @Qualifier("userDatabase") JdbcUaaUserDatabase userDatabase
     ) {
         LdapLoginAuthenticationManager bean = new LdapLoginAuthenticationManager(provisioning);
         bean.setUserDatabase(userDatabase);
@@ -344,7 +346,7 @@ public class SpringServletXmlBeansConfiguration {
 
     @Bean
     AuthenticationSuccessListener authenticationSuccessListener(
-            @Qualifier("scimUserProvisioning")JdbcScimUserProvisioning scimUserProvisioning
+            @Qualifier("scimUserProvisioning") JdbcScimUserProvisioning scimUserProvisioning
     ) {
         return new AuthenticationSuccessListener(scimUserProvisioning);
     }
@@ -353,7 +355,7 @@ public class SpringServletXmlBeansConfiguration {
     AutologinAuthenticationManager autologinAuthenticationManager(
             @Qualifier("codeStore") ExpiringCodeStore codeStore,
             @Qualifier("jdbcClientDetailsService") MultitenantClientServices jdbcClientDetailsService,
-            @Qualifier("userDatabase")JdbcUaaUserDatabase userDatabase
+            @Qualifier("userDatabase") JdbcUaaUserDatabase userDatabase
     ) {
         AutologinAuthenticationManager bean = new AutologinAuthenticationManager();
         bean.setExpiringCodeStore(codeStore);
@@ -397,7 +399,7 @@ public class SpringServletXmlBeansConfiguration {
             @Qualifier("links") HashMap<String, Object> links,
             @Qualifier("prompts") List<Prompt> prompts,
             @Qualifier("defaultUserConfig") UserConfig defaultUserConfig
-            ) {
+    ) {
         IdentityZoneConfigurationBootstrap bean = new IdentityZoneConfigurationBootstrap(provisioning);
         bean.setValidator(identityZoneValidator);
         bean.setClientSecretPolicy(defaultUaaClientSecretPolicy);
@@ -430,4 +432,8 @@ public class SpringServletXmlBeansConfiguration {
         return bean;
     }
 
+    @Bean
+    public RequestRejectedHandler requestRejectedHandler() {
+        return new UaaRequestRejectedHandler();
+    }
 }
