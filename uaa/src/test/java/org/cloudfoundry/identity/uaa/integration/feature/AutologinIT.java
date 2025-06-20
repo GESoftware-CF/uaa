@@ -164,18 +164,18 @@ class AutologinIT {
                         new HttpEntity<>(new HashMap<String, String>(), headers),
                         String.class);
 
-
-        //we are now logged in. retrieve the JSESSIONID
+        //we are now logged in. check that we have the correct cookies set
         List<String> cookies = authorizeResponse.getHeaders().get("Set-Cookie");
-        int cookiesAdded = 0;
+        assertThat(cookies).as("Expected both JSESSIONID and X-Uaa-Csrf cookies to be set")
+                .anySatisfy(s -> assertThat(s).startsWith("JSESSIONID="))
+                .anySatisfy(s -> assertThat(s).startsWith("X-Uaa-Csrf="));
+
         headers = getAppBasicAuthHttpHeaders();
         for (String cookie : cookies) {
             if (cookie.startsWith("X-Uaa-Csrf=") || cookie.startsWith("JSESSIONID=")) {
                 headers.add("Cookie", cookie);
-                cookiesAdded++;
             }
         }
-        assertThat(cookiesAdded).describedAs("Expected 2 cookies, but found: " + cookiesAdded).isEqualTo(2);
 
         //if we receive a 200, then we must approve our scopes
         if (HttpStatus.OK == authorizeResponse.getStatusCode()) {
@@ -355,7 +355,7 @@ class AutologinIT {
         return headers;
     }
 
-    private String createNewUser(String secretPassword) throws Exception {
+    private String createNewUser(String secretPassword) {
         int randomInt = new SecureRandom().nextInt();
         String adminAccessToken = testClient.getOAuthAccessToken("admin", "adminsecret", "client_credentials", "clients.admin");
         String scimClientId = "app" + randomInt;
