@@ -41,6 +41,7 @@ import static org.springframework.restdocs.payload.JsonFieldType.STRING;
 import static org.springframework.restdocs.payload.JsonFieldType.VARIES;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
+import static org.springframework.restdocs.request.RequestDocumentation.formParameters;
 import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
@@ -94,7 +95,7 @@ class LoginInfoEndpointDocs extends EndpointDocs {
 
     @Test
     void user_ui_login() throws Exception {
-        Snippet queryParameters = queryParameters(
+        Snippet formParameters = formParameters(
                 parameterWithName("username").required().type(STRING).description("The username of the user, sometimes the email address."),
                 parameterWithName("password").required().type(STRING).description("The user's password"),
                 parameterWithName("X-Uaa-Csrf").required().type(STRING).description("Automatically configured by the server upon /login. Must match the value of the X-Uaa-Csrf cookie.")
@@ -114,7 +115,7 @@ class LoginInfoEndpointDocs extends EndpointDocs {
                         document("{ClassName}/{methodName}",
                                 preprocessResponse(prettyPrint()),
                                 requestHeaders,
-                                queryParameters))
+                                formParameters))
                 .andExpect(status().isFound())
                 .andExpect(redirectedUrl("/"));
     }

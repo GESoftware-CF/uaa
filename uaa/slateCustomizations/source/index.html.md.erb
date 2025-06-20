@@ -39,7 +39,7 @@ The User Account and Authentication Service (UAA):
 
 _Request Parameters_
 
-<%= render('AuthorizeEndpointDocs/browserCodeRequest/request-parameters.md') %>
+<%= render('AuthorizeEndpointDocs/browserCodeRequest/query-parameters.md') %>
 
 ### Api flow
 
@@ -49,7 +49,7 @@ _Request Parameters_
 
 _Request Parameters_
 
-<%= render('AuthorizeEndpointDocs/apiCodeRequest/request-parameters.md') %>
+<%= render('AuthorizeEndpointDocs/apiCodeRequest/query-parameters.md') %>
 
 _Request Headers_
 
@@ -69,7 +69,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('AuthorizeEndpointDocs/implicitGrant_browserRequest/request-parameters.md') %>
+<%= render('AuthorizeEndpointDocs/implicitGrant_browserRequest/query-parameters.md') %>
 
 _Response Headers_
 
@@ -83,7 +83,7 @@ _Response Headers_
 
 _Request Parameters_
 
-<%= render('AuthorizeEndpointDocs/implicitGrantWithPromptParameter_browserRequest/request-parameters.md') %>
+<%= render('AuthorizeEndpointDocs/implicitGrantWithPromptParameter_browserRequest/query-parameters.md') %>
 
 _Response Headers_
 
@@ -114,7 +114,7 @@ _Response Fields_
 
 _Request Parameters_
 
-<%= render('AuthorizeEndpointDocs/getIdToken/request-parameters.md') %>
+<%= render('AuthorizeEndpointDocs/getIdToken/query-parameters.md') %>
 
 _Response Headers_
 
@@ -131,7 +131,7 @@ _Response Headers_
 
 _Request Parameters_
 
-<%= render('AuthorizeEndpointDocs/getIdTokenAndAccessToken/request-parameters.md') %>
+<%= render('AuthorizeEndpointDocs/getIdTokenAndAccessToken/query-parameters.md') %>
 
 _Response Headers_
 
@@ -148,7 +148,7 @@ _Response Headers_
 
 _Request Parameters_
 
-<%= render('AuthorizeEndpointDocs/getIdTokenAndCode/request-parameters.md') %>
+<%= render('AuthorizeEndpointDocs/getIdTokenAndCode/query-parameters.md') %>
 
 _Response Headers_
 
@@ -175,7 +175,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrant/request-parameters.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrant/form-parameters.md') %>
 
 _Response Fields_
 
@@ -191,7 +191,7 @@ _Response Fields_
 
 _Request Parameters_
 
-<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrant/request-parameters.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrant/form-parameters.md') %>
 
 _Response Fields_
 
@@ -209,7 +209,7 @@ _Request Header_
 
 _Request Parameters_
 
-<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithAuthorizationHeader/request-parameters.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithAuthorizationHeader/form-parameters.md') %>
 
 _Response Fields_
 
@@ -224,7 +224,7 @@ _Response Fields_
 
 _Request Parameters_
 
-<%= render('TokenEndpointDocs/getTokenUsingPasswordGrant/request-parameters.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingPasswordGrant/form-parameters.md') %>
 
 _Response Fields_
 
@@ -243,7 +243,7 @@ _Request Header_
 
 _Request Parameters_
 
-<%= render('TokenEndpointDocs/getTokenUsingPasscode/request-parameters.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingPasscode/form-parameters.md') %>
 
 _Response Fields_
 
@@ -274,7 +274,7 @@ The `refresh_token` that results from this grant, is opaque, and can only be exc
 
 _Request Parameters_
 
-<%= render('TokenEndpointDocs/getTokenUsingUserTokenGrant/request-parameters.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingUserTokenGrant/form-parameters.md') %>
 
 _Response Fields_
 
@@ -307,7 +307,7 @@ the bearer assertion must point to the corresponding URI, e.g. http://localhost:
 
 _Request Parameters_
 
-<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrant/request-parameters.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrant/form-parameters.md') %>
 
 _Response Fields_
 
@@ -336,7 +336,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant/request-parameters.md') %>
+<%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant/form-parameters.md') %>
 
 _Response Fields_
 
@@ -350,7 +350,7 @@ _Response Fields_
 
 _Request Parameters_
 
-<%= render('TokenEndpointDocs/refreshToken/request-parameters.md') %>
+<%= render('TokenEndpointDocs/refreshToken/form-parameters.md') %>
 
 _Response Fields_
 
@@ -366,7 +366,7 @@ The token endpoint can provide an ID token as defined by OpenID Connect.
 
 _Request Parameters_
 
-<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrant/request-parameters.md') %>
+<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrant/form-parameters.md') %>
 
 _Response Fields_
 
@@ -536,7 +536,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('IntrospectTokenEndpointDocs/introspectToken/request-parameters.md') %>
+<%= render('IntrospectTokenEndpointDocs/introspectToken/form-parameters.md') %>
 
 _Response Fields_
 
@@ -558,7 +558,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('CheckTokenEndpointDocs/checkToken/request-parameters.md') %>
+<%= render('CheckTokenEndpointDocs/checkToken/form-parameters.md') %>
 
 _Response Fields_
 
@@ -666,7 +666,7 @@ If the chosen redirect URI is not whitelisted, users will land on the UAA login 
 
 _Request Parameters_
 
-<%= render('LogoutInfoEndpointDocs/logout/request-parameters.md') %>
+<%= render('LogoutInfoEndpointDocs/logout/query-parameters.md') %>
 
 _Response Headers_
 
@@ -894,7 +894,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('IdentityProviderEndpointDocs/createSAMLIdentityProvider/request-parameters.md') %>
+<%= render('IdentityProviderEndpointDocs/createSAMLIdentityProvider/query-parameters.md') %>
 
 _Request Fields_
 
@@ -939,7 +939,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('IdentityProviderEndpointDocs/create_Simple_Bind_LDAPIdentityProvider/request-parameters.md') %>
+<%= render('IdentityProviderEndpointDocs/create_Simple_Bind_LDAPIdentityProvider/query-parameters.md') %>
 
 _Request Fields_
 
@@ -971,7 +971,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('IdentityProviderEndpointDocs/create_SearchAndBind_Groups_Map_ToScopes_LDAPIdentityProvider/request-parameters.md') %>
+<%= render('IdentityProviderEndpointDocs/create_SearchAndBind_Groups_Map_ToScopes_LDAPIdentityProvider/query-parameters.md') %>
 
 _Request Fields_
 
@@ -1003,7 +1003,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('IdentityProviderEndpointDocs/create_SearchAndCompare_Groups_As_Scopes_LDAPIdentityProvider/request-parameters.md') %>
+<%= render('IdentityProviderEndpointDocs/create_SearchAndCompare_Groups_As_Scopes_LDAPIdentityProvider/query-parameters.md') %>
 
 _Request Fields_
 
@@ -1039,7 +1039,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('IdentityProviderEndpointDocs/createOAuthIdentityProvider/request-parameters.md') %>
+<%= render('IdentityProviderEndpointDocs/createOAuthIdentityProvider/query-parameters.md') %>
 
 _Request Fields_
 
@@ -1073,7 +1073,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('IdentityProviderEndpointDocs/createOidcIdentityProvider/request-parameters.md') %>
+<%= render('IdentityProviderEndpointDocs/createOidcIdentityProvider/query-parameters.md') %>
 
 _Request Fields_
 
@@ -1104,7 +1104,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('IdentityProviderEndpointDocs/getAllIdentityProviders/request-parameters.md') %>
+<%= render('IdentityProviderEndpointDocs/getAllIdentityProviders/query-parameters.md') %>
 
 _Response Fields_
 
@@ -1128,7 +1128,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('IdentityProviderEndpointDocs/getFilteredIdentityProviders/request-parameters.md') %>
+<%= render('IdentityProviderEndpointDocs/getFilteredIdentityProviders/query-parameters.md') %>
 
 _Response Fields_
 
@@ -1157,7 +1157,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('IdentityProviderEndpointDocs/getIdentityProvider/request-parameters.md') %>
+<%= render('IdentityProviderEndpointDocs/getIdentityProvider/query-parameters.md') %>
 
 _Response Fields_
 
@@ -1185,7 +1185,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('IdentityProviderEndpointDocs/updateIdentityProvider/request-parameters.md') %>
+<%= render('IdentityProviderEndpointDocs/updateIdentityProvider/query-parameters.md') %>
 
 <aside class="notice">
   This example is for updating the internal (uaa) identity provider. <br/>
@@ -1217,10 +1217,6 @@ _Path Parameters_
 _Request Headers_
 
 <%= render('IdentityProviderEndpointDocs/deleteIdentityProvider/request-headers.md') %>
-
-_Request Parameters_
-
-<%= render('IdentityProviderEndpointDocs/deleteIdentityProvider/request-parameters.md') %>
 
 _Response Fields_
 
@@ -1316,7 +1312,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('ScimUserEndpointDocs/find_users/request-parameters.md') %>
+<%= render('ScimUserEndpointDocs/find_users/query-parameters.md') %>
 
 _Response Fields_
 
@@ -1357,7 +1353,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('ScimUserEndpointDocs/find_with_attributes_users/request-parameters.md') %>
+<%= render('ScimUserEndpointDocs/find_with_attributes_users/query-parameters.md') %>
 
 _Response Fields_
 
@@ -1675,7 +1671,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('ScimUserEndpointDocs/getUserVerificationLink/request-parameters.md') %>
+<%= render('ScimUserEndpointDocs/getUserVerificationLink/query-parameters.md') %>
 
 _Response Fields_
 
@@ -1722,7 +1718,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('UserIdConversionEndpointDocs/lookUpIds/request-parameters.md') %>
+<%= render('UserIdConversionEndpointDocs/lookUpIds/query-parameters.md') %>
 
 _Response Fields_
 
@@ -1751,7 +1747,7 @@ _Request Fields_
 
 _Request Parameters_
 
-<%= render('InvitationsEndpointDocs/inviteUsers/request-parameters.md') %>
+<%= render('InvitationsEndpointDocs/inviteUsers/query-parameters.md') %>
 
 _Response Fields_
 
@@ -1904,7 +1900,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('ScimGroupEndpointDocs/listScimGroups/request-parameters.md') %>
+<%= render('ScimGroupEndpointDocs/listScimGroups/query-parameters.md') %>
 
 _Response Fields_
 
@@ -2008,7 +2004,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('ScimGroupEndpointDocs/listMembersOfGroup/request-parameters.md') %>
+<%= render('ScimGroupEndpointDocs/listMembersOfGroup/query-parameters.md') %>
 
 _Response Fields_
 
@@ -2268,7 +2264,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('ClientAdminEndpointDocs/listClients/request-parameters.md') %>
+<%= render('ClientAdminEndpointDocs/listClients/query-parameters.md') %>
 
 _Response Fields_
 
@@ -2445,7 +2441,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('LoginInfoEndpointDocs/info_endpoint_for_json/request-parameters.md') %>
+<%= render('LoginInfoEndpointDocs/info_endpoint_for_json/query-parameters.md') %>
 
 _Response Fields_
 
@@ -2518,7 +2514,7 @@ and the UAA remembers the URL that was accessed.
 
 _Request Parameters_
 
-<%= render('LoginInfoEndpointDocs/perform_auto_login/request-parameters.md') %>
+<%= render('LoginInfoEndpointDocs/perform_auto_login/query-parameters.md') %>
 
 # External Login Server
 
@@ -2543,7 +2539,7 @@ _Request Headers_
 
 _Request Parameters_
 
-<%= render('PasswordEndpointDocs/document_password_reset/request-parameters.md') %>
+<%= render('PasswordEndpointDocs/document_password_reset/query-parameters.md') %>
 
 _Request Body_
 

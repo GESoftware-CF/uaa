@@ -1158,7 +1158,6 @@ class IdentityProviderEndpointDocs extends EndpointDocs {
                                 IDENTITY_ZONE_ID_HEADER,
                                 IDENTITY_ZONE_SUBDOMAIN_HEADER
                         ),
-                        commonRequestParams,
                         responseFields(getCommonProviderFieldsAnyType())));
     }
 
