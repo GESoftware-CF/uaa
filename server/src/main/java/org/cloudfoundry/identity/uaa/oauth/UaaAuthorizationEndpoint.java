@@ -46,6 +46,7 @@ import org.cloudfoundry.identity.uaa.oauth.common.exceptions.UserDeniedAuthoriza
 import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetails;
 import org.cloudfoundry.identity.uaa.oauth.provider.endpoint.RedirectResolver;
 import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.util.UrlUtils;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.ObjectUtils;
@@ -253,7 +254,10 @@ public class UaaAuthorizationEndpoint extends AbstractEndpoint implements Authen
                 model.put(AUTHORIZATION_REQUEST, authorizationRequest);
                 model.put("original_uri", UrlUtils.buildFullRequestUrl(request));
                 model.put(ORIGINAL_AUTHORIZATION_REQUEST, unmodifiableMap(authorizationRequest));
-
+                // skip CSRF check for the authorize endpoint and internal forward to the user approval page
+                if (request.getServletPath().endsWith("/oauth/authorize")) {
+                    CsrfFilter.skipRequest(request);
+                }
                 return getUserApprovalPageResponse(model, authorizationRequest, (Authentication) principal);
             }
         } catch (RedirectMismatchException e) {
