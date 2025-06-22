@@ -149,15 +149,14 @@ class ScimGroupEndpointsIntegrationTests {
     }
 
     private ScimUser createUser(String username, String password) {
+        String adminClientCredentialsToken = IntegrationTestUtils.getClientCredentialsToken(serverRunning, "admin", "adminsecret");
         ScimUser user = new ScimUser();
         user.setUserName(username);
         user.setName(new ScimUser.Name(username, username));
         user.addEmail(username);
         user.setVerified(true);
         user.setPassword(password);
-        ResponseEntity<ScimUser> result = client.postForEntity(serverRunning.getUrl(userEndpoint), user, ScimUser.class);
-        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        return result.getBody();
+        return IntegrationTestUtils.createUser(adminClientCredentialsToken, serverRunning.getUrl("/"), user, null);
     }
 
     private ScimGroup createGroup(String name, ScimGroupMember... members) {
