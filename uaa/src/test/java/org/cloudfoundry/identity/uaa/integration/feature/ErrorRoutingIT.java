@@ -3,6 +3,8 @@ package org.cloudfoundry.identity.uaa.integration.feature;
 import org.apache.commons.io.IOUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,10 +65,21 @@ class ErrorRoutingIT {
                 .isEqualTo(405);
     }
 
-    @Test
-    void requestRejectedExceptionErrorPage() throws IOException {
+    @ParameterizedTest
+    @ValueSource(strings = { "/login?param=%00", "/login?param=val%00ue" } )
+    void requestInvalidParameterErrorPage(String invalidParameter) throws IOException {
+        String body = CallErrorPageAndCheckHttpStatusCode(invalidParameter, "GET", 400);
+        XmlAssert.assertThat(body)
+                .hasXPath("//p")
+                .extractingText()
+                .contains("The request contains an invalid parameter that can not be processed.");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "/login;endpoint=x", "/login;?endpoint=x", "/login?%00param=%00value" } )
+    void requestRejectedExceptionErrorPage(String rejectedEndpoint) throws IOException {
         // spring security throws RequestRejectedException with status code 400
-        String body = CallErrorPageAndCheckHttpStatusCode("/login;endpoint=x", "GET", 400);
+        String body = CallErrorPageAndCheckHttpStatusCode(rejectedEndpoint, "GET", 400);
         XmlAssert.assertThat(body)
                 .hasXPath("//h2")
                 .extractingText()

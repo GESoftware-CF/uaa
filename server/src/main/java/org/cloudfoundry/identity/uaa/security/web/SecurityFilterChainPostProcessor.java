@@ -14,6 +14,7 @@
 
 package org.cloudfoundry.identity.uaa.security.web;
 
+import jakarta.servlet.RequestDispatcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
@@ -23,6 +24,7 @@ import org.springframework.http.MediaType;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedResource;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.firewall.RequestRejectedException;
 import org.springframework.security.web.util.RedirectUrlBuilder;
 import org.springframework.util.Assert;
 
@@ -257,8 +259,13 @@ public class SecurityFilterChainPostProcessor implements BeanPostProcessor {
                 chain.doFilter(request, response);
             } catch (Exception x) {
                 logger.error("Uncaught Exception:", x);
-                if (req.getAttribute("javax.servlet.error.exception") == null) {
-                    req.setAttribute("javax.servlet.error.exception", x);
+                if (req.getAttribute(RequestDispatcher.ERROR_EXCEPTION) == null) {
+                    req.setAttribute(RequestDispatcher.ERROR_EXCEPTION, x);
+                }
+                if (x instanceof RequestRejectedException) {
+                    request.setAttribute(RequestDispatcher.ERROR_REQUEST_URI, request.getRequestURI());
+                    request.getRequestDispatcher("/rejected").forward(request, response);
+                    return;
                 }
                 ReasonPhrase reasonPhrase = getErrorMap().get(x.getClass());
                 if (null == reasonPhrase) {
