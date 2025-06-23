@@ -1,5 +1,6 @@
 package org.cloudfoundry.identity.uaa.util;
 
+import jakarta.servlet.http.Cookie;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,10 +14,13 @@ import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
+
+import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.HashMap;
@@ -26,6 +30,7 @@ import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.regex.Pattern;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptyList;
 import static java.util.Optional.ofNullable;
 import static org.springframework.util.StringUtils.hasText;
@@ -328,6 +333,21 @@ public abstract class UaaUrlUtils {
         uriComponentsBuilder.replacePath(decodeUriPath(nonNormalizedUri.getPath()));
 
         return uriComponentsBuilder.build().toString();
+    }
+
+    public static String urlEncode(String inValue) throws IllegalArgumentException {
+        String out;
+        try {
+            out = URLEncoder.encode(inValue, UTF_8.name());
+        } catch (UnsupportedEncodingException e) {
+            throw new IllegalArgumentException(e);
+        }
+        return out;
+    }
+
+    public static Cookie createSavedCookie(String userId, Object value) {
+        String cookieValue = ObjectUtils.isEmpty(value) ? UaaStringUtils.EMPTY_STRING : urlEncode(JsonUtils.writeValueAsString(value));
+        return new Cookie("Saved-Account-%s".formatted(urlEncode(userId)), cookieValue);
     }
 
     private static String decodeUriPath(final String path) {

@@ -15,7 +15,7 @@ package org.cloudfoundry.identity.uaa.login;
 
 import org.apache.tomcat.util.http.Rfc6265CookieProcessor;
 import org.cloudfoundry.identity.uaa.authentication.UaaPrincipal;
-import org.cloudfoundry.identity.uaa.util.JsonUtils;
+import org.cloudfoundry.identity.uaa.util.UaaUrlUtils;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,10 +29,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.springframework.http.HttpHeaders.SET_COOKIE;
 
 @Component
@@ -69,7 +66,7 @@ public class AccountSavingAuthenticationSuccessHandler implements Authentication
             savedAccountOption.setOrigin(uaaPrincipal.getOrigin());
             savedAccountOption.setUserId(uaaPrincipal.getId());
             savedAccountOption.setUsername(uaaPrincipal.getName());
-            Cookie savedAccountCookie = new Cookie("Saved-Account-" + uaaPrincipal.getId(), encodeCookieValue(JsonUtils.writeValueAsString(savedAccountOption)));
+            Cookie savedAccountCookie = UaaUrlUtils.createSavedCookie(uaaPrincipal.getId(), savedAccountOption);
             savedAccountCookie.setPath(request.getContextPath() + "/login");
             savedAccountCookie.setHttpOnly(true);
             savedAccountCookie.setSecure(request.isSecure());
@@ -87,15 +84,5 @@ public class AccountSavingAuthenticationSuccessHandler implements Authentication
         }
         String headerValue = rfc6265CookieProcessor.generateHeader(currentUserCookie, request);
         response.addHeader(SET_COOKIE, headerValue);
-    }
-
-    public static String encodeCookieValue(String inValue) throws IllegalArgumentException {
-        String out = null;
-        try {
-            out = URLEncoder.encode(inValue, UTF_8.name());
-        } catch (UnsupportedEncodingException e) {
-            throw new IllegalArgumentException(e);
-        }
-        return out;
     }
 }
