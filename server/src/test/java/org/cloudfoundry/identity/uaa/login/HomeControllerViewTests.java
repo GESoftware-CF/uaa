@@ -1,6 +1,7 @@
 package org.cloudfoundry.identity.uaa.login;
 
 import jakarta.annotation.PostConstruct;
+import jakarta.servlet.RequestDispatcher;
 import org.cloudfoundry.identity.uaa.TestClassNullifier;
 import org.cloudfoundry.identity.uaa.client.ClientMetadata;
 import org.cloudfoundry.identity.uaa.client.JdbcClientMetadataProvisioning;
@@ -42,7 +43,6 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter;
 
-import javax.servlet.RequestDispatcher;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
