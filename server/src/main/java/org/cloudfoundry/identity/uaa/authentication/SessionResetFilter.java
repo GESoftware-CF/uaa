@@ -101,10 +101,9 @@ public class SessionResetFilter extends OncePerRequestFilter {
         return passwordModTime > lastAuthTime;
     }
 
-    protected void handleRedirect(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+    protected void handleRedirect(HttpServletRequest request, HttpServletResponse response) throws IOException {
         HttpSession session = request.getSession(false);
         if (session != null) {
-            //request.logout();
             session.invalidate();
         }
         strategy.sendRedirect(request, response, getRedirectUrl());

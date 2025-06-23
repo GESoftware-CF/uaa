@@ -90,11 +90,6 @@ public class UaaWebApplicationInitializer implements WebApplicationInitializer {
             ErrorPage error = new ErrorPage();
             error.setLocation("/error");
             standardContext.addErrorPage(error);
-
-            ErrorPage errorEx = new ErrorPage();
-            errorEx.setLocation("/rejected");
-            errorEx.setExceptionType("org.springframework.security.web.firewall.RequestRejectedException");
-            standardContext.addErrorPage(errorEx);
         }
     }
 }

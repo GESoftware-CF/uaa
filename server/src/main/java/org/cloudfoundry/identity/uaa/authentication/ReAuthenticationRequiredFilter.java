@@ -40,7 +40,6 @@ public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
         }
         if (reAuthenticationRequired) {
             request.getSession().invalidate();
-            //request.logout();
             sendRedirect(request.getRequestURL().toString(), requestParams, response);
         } else {
             if (request.getServletPath().startsWith("/saml/SingleLogout/alias/" + samlEntityID)) {

@@ -258,8 +258,6 @@ public class SamlIdentityProviderConfiguratorTests {
         configurator = new SamlIdentityProviderConfigurator(provisioning, new IdentityZoneManagerImpl(), fixedHttpMetaDataProvider);
 
         SamlIdentityProviderDefinition def = new SamlIdentityProviderDefinition();
-        //we have to change this to something that does not connect
-        //def.setMetaDataLocation(slowHttpServer.getUrl());
         def.setMetaDataLocation("http://10.255.255.1/something");
         def.setSkipSslValidation(true);
 

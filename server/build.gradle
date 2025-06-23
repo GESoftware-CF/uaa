@@ -106,10 +106,6 @@ dependencies {
     testImplementation(libraries.awaitility)
 
     implementation(libraries.commonsIo)
-    implementation(libraries.commonsCodec)
-    implementation(libraries.javaxValidationApi)
-    implementation(libraries.apacheHttpClient)
-    implementation(libraries.springBootStarterValidation)
 }
 
 configurations.all {

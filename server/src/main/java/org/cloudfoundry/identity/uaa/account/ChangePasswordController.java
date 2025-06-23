@@ -65,9 +65,6 @@ public class ChangePasswordController {
             model.addAttribute("message_code", "unauthorized");
         } catch (InvalidPasswordException e) {
             model.addAttribute("message", e.getMessagesAsOneString());
-//        } catch (ServletException e) {
-//            //should never happen
-//            model.addAttribute("message", "Unable to remove existing authentication");
         }
         response.setStatus(HttpStatus.UNPROCESSABLE_ENTITY.value());
         return "change_password";

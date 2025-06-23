@@ -30,7 +30,6 @@ repositories {
 
 description = "UAA"
 dependencies {
-    providedCompile(libraries.tomcatEmbed)
     implementation(project(":cloudfoundry-identity-server")) {
         exclude(module: "jna")
     }
@@ -58,6 +57,7 @@ dependencies {
     runtimeOnly(libraries.postgresql)
 
     implementation(libraries.braveInstrumentation)
+    implementation(libraries.braveInstrumentation)
     implementation(libraries.braveContextSlf4j)
 
     implementation(libraries.springWeb)
@@ -65,11 +65,6 @@ dependencies {
 
     providedCompile(libraries.tomcatEmbed)
     implementation(libraries.bouncyCastleFipsProv)
-
-    implementation(libraries.commonsCodec)
-    implementation(libraries.javaxValidationApi)
-    implementation(libraries.apacheHttpClient)
-    implementation(libraries.springBootStarterValidation)
 
     testImplementation(identityServer.sourceSets.test.output)
 
