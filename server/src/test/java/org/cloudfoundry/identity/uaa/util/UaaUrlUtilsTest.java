@@ -669,10 +669,6 @@ class UaaUrlUtilsTest {
     @Test
     void invalidUrlExceptionIsThrown() {
         assertThatExceptionOfType(InvalidUrlException.class).isThrownBy(
-                () -> UaaUrlUtils.fromHttpUrl("invalid-url")
-        );
-
-        assertThatExceptionOfType(InvalidUrlException.class).isThrownBy(
                 () -> UaaUrlUtils.fromUriString("invalid-url")
         );
     }

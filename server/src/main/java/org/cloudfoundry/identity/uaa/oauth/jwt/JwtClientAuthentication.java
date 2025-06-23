@@ -255,11 +255,11 @@ public class JwtClientAuthentication {
             if (!UaaUrlUtils.isUrl(issuer)) {
                 throw new MalformedURLException(issuer + " is not a valid HTTP URL");
             }
-            def.setDiscoveryUrl(UriComponentsBuilder.fromHttpUrl(issuer).scheme("https").path("/.well-known/openid-configuration").build().toUri().toURL());
+            def.setDiscoveryUrl(UriComponentsBuilder.fromUriString(issuer).scheme("https").path("/.well-known/openid-configuration").build().toUri().toURL());
             oidcMetadataFetcher.fetchMetadataAndUpdateDefinition(def);
         }
-        // fetch Json Web Key Set now from trusted OIDCIdentityProviderDefinition or online
-        JsonWebKeySet<JsonWebKey> tokenKeyFromOAuth = externalOAuthAuthenticationManager.getTokenKeyFromOAuth((AbstractExternalOAuthIdentityProviderDefinition)def);
+        // fetch JSON Web Key Set now from trusted OIDCIdentityProviderDefinition or online
+        JsonWebKeySet<JsonWebKey> tokenKeyFromOAuth = externalOAuthAuthenticationManager.getTokenKeyFromOAuth(def);
         return JWKSet.parse(tokenKeyFromOAuth.getKeySetMap());
     }
 

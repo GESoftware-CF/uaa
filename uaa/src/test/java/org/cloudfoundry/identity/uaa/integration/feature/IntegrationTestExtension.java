@@ -67,7 +67,7 @@ public class IntegrationTestExtension implements BeforeEachCallback {
     }
 
     private boolean connectionAvailable() {
-        UriComponents components = UriComponentsBuilder.fromHttpUrl(baseUrl).build();
+        UriComponents components = UriComponentsBuilder.fromUriString(baseUrl).build();
         String host = components.getHost();
         int port = components.getPort();
 

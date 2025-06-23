@@ -130,7 +130,7 @@ public final class UaaRelyingPartyRegistrationResolver implements Converter<Http
         String entityId = relyingParty.getAssertingPartyDetails().getEntityId();
         String registrationId = relyingParty.getRegistrationId();
         Map<String, String> uriVariables = new HashMap<>();
-        UriComponents uriComponents = UriComponentsBuilder.fromHttpUrl(baseUrl).replaceQuery(null).fragment(null).build();
+        UriComponents uriComponents = UriComponentsBuilder.fromUriString(baseUrl).replaceQuery(null).fragment(null).build();
         String scheme = uriComponents.getScheme();
         uriVariables.put("baseScheme", scheme != null ? scheme : "");
         String host = uriComponents.getHost();
@@ -150,7 +150,7 @@ public final class UaaRelyingPartyRegistrationResolver implements Converter<Http
     }
 
     private static String getApplicationUri(HttpServletRequest request) {
-        UriComponents uriComponents = UriComponentsBuilder.fromHttpUrl(UrlUtils.buildFullRequestUrl(request)).replacePath(request.getContextPath()).replaceQuery(null).fragment(null).build();
+        UriComponents uriComponents = UriComponentsBuilder.fromUriString(UrlUtils.buildFullRequestUrl(request)).replacePath(request.getContextPath()).replaceQuery(null).fragment(null).build();
         return uriComponents.toUriString();
     }
 }
