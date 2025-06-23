@@ -1,5 +1,6 @@
 package org.cloudfoundry.identity.uaa.oauth.provider.config.xml;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.cloudfoundry.identity.uaa.authentication.BackwardsCompatibleTokenEndpointAuthenticationFilter;
 import org.cloudfoundry.identity.uaa.authentication.manager.PasswordGrantAuthenticationManager;
 import org.cloudfoundry.identity.uaa.oauth.UaaAuthorizationRequestManager;
@@ -17,19 +18,16 @@ import org.cloudfoundry.identity.uaa.provider.oauth.ExternalOAuthAuthenticationM
 import org.cloudfoundry.identity.uaa.provider.saml.Saml2BearerGrantAuthenticationConverter;
 import org.cloudfoundry.identity.uaa.security.beans.SecurityContextAccessor;
 import org.cloudfoundry.identity.uaa.zone.MultitenantClientServices;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationDetailsSource;
 import org.springframework.security.web.AuthenticationEntryPoint;
-import javax.servlet.http.HttpServletRequest;
 
 @Configuration
 public class OAuth2FilterConfig {
 
-    @Autowired
     @Bean
     FilterRegistrationBean<BackwardsCompatibleTokenEndpointAuthenticationFilter> tokenEndpointAuthenticationFilter(
             PasswordGrantAuthenticationManager passwordGrantAuthenticationManager,
@@ -51,7 +49,6 @@ public class OAuth2FilterConfig {
         return bean;
     }
 
-    @Autowired
     @Bean
     public PkceEnhancedAuthorizationCodeTokenGranter pkceEnhancedAuthorizationCodeTokenGranter(@Qualifier("oauth2TokenGranter") CompositeTokenGranter compositeTokenGranter,
             @Qualifier("tokenServices") AuthorizationServerTokenServices tokenServices,
@@ -66,7 +63,6 @@ public class OAuth2FilterConfig {
         return tokenGranter;
     }
 
-    @Autowired
     @Bean
     public UserTokenGranter userTokenGranter(@Qualifier("oauth2TokenGranter") CompositeTokenGranter compositeTokenGranter,
             @Qualifier("tokenServices") AuthorizationServerTokenServices tokenServices,
@@ -79,7 +75,6 @@ public class OAuth2FilterConfig {
         return tokenGranter;
     }
 
-    @Autowired
     @Bean
     public JwtTokenGranter jwtTokenGranter(@Qualifier("oauth2TokenGranter") CompositeTokenGranter compositeTokenGranter,
             @Qualifier("tokenServices") AuthorizationServerTokenServices tokenServices,
@@ -91,7 +86,6 @@ public class OAuth2FilterConfig {
         return tokenGranter;
     }
 
-    @Autowired
     @Bean
     public Saml2TokenGranter samlTokenGranter(@Qualifier("oauth2TokenGranter") CompositeTokenGranter compositeTokenGranter,
             @Qualifier("tokenServices") AuthorizationServerTokenServices tokenServices,

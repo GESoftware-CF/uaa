@@ -57,7 +57,7 @@ public class OAuth2ErrorHandler implements ResponseErrorHandler {
 
     /**
      * Construct an error handler that can deal with OAuth2 concerns before delegating to acustom handler.
-     * 
+     *
      * @param errorHandler a delegate handler
      */
     public OAuth2ErrorHandler(ResponseErrorHandler errorHandler, OAuth2ProtectedResourceDetails resource) {
@@ -66,12 +66,12 @@ public class OAuth2ErrorHandler implements ResponseErrorHandler {
     }
 
     public boolean hasError(ClientHttpResponse response) throws IOException {
-        return HttpStatus.Series.CLIENT_ERROR.equals(response.getStatusCode().series())
+        return HttpStatus.Series.CLIENT_ERROR.equals(HttpStatus.resolve(response.getStatusCode().value()).series())
                 || this.errorHandler.hasError(response);
     }
 
     public void handleError(final ClientHttpResponse response) throws IOException {
-        if (!HttpStatus.Series.CLIENT_ERROR.equals(response.getStatusCode().series())) {
+        if (!HttpStatus.Series.CLIENT_ERROR.equals(HttpStatus.resolve(response.getStatusCode().value()).series())) {
             // We should only care about 400 level errors. Ex: A 500 server error shouldn't
             // be an oauth related error.
             errorHandler.handleError(response);
@@ -81,7 +81,7 @@ public class OAuth2ErrorHandler implements ResponseErrorHandler {
                 private byte[] lazyBody;
 
                 public HttpStatus getStatusCode() throws IOException {
-                    return response.getStatusCode();
+                    return HttpStatus.resolve(response.getStatusCode().value());
                 }
 
                 public synchronized InputStream getBody() throws IOException {

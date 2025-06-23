@@ -1,6 +1,9 @@
 package org.cloudfoundry.identity.uaa.invitations;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.cloudfoundry.identity.uaa.account.PasswordConfirmationValidation;
 import org.cloudfoundry.identity.uaa.authentication.UaaPrincipal;
@@ -50,9 +53,6 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletRequestWrapper;
-import javax.servlet.http.HttpServletResponse;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
@@ -92,7 +92,7 @@ public class InvitationsController {
             final InvitationsService invitationsService,
             final ExpiringCodeStore expiringCodeStore,
             final PasswordValidator passwordValidator,
-            final IdentityProviderProvisioning identityProviderProvisioning,
+            final @Qualifier("identityProviderProvisioning") IdentityProviderProvisioning identityProviderProvisioning,
             final DynamicZoneAwareAuthenticationManager zoneAwareAuthenticationManager,
             final UaaUserDatabase userDatabase,
             final ScimUserProvisioning userProvisioning,
@@ -311,7 +311,7 @@ public class InvitationsController {
     public String acceptLdapInvitation(@RequestParam("enterprise_username") String username,
             @RequestParam("enterprise_password") String password,
             @RequestParam("enterprise_email") String email,
-            @RequestParam("code") String code,
+            @RequestParam String code,
             Model model, HttpServletResponse response) {
 
         ExpiringCode expiringCode = expiringCodeStore.retrieveCode(code, identityZoneManager.getCurrentIdentityZoneId());

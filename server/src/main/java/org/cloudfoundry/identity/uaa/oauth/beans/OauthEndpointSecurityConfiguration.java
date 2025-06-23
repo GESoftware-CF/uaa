@@ -261,6 +261,7 @@ class OauthEndpointSecurityConfiguration {
                         exception.authenticationEntryPoint(oauthAuthenticationEntryPoint)
                                 .accessDeniedHandler(oauthAccessDeniedHandler)
                 )
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(chain, "tokenRevocationFilter");
@@ -284,6 +285,7 @@ class OauthEndpointSecurityConfiguration {
                         exception.authenticationEntryPoint(oauthAuthenticationEntryPoint)
                                 .accessDeniedHandler(oauthAccessDeniedHandler)
                 )
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(chain, "tokenListFilter");
@@ -313,6 +315,7 @@ class OauthEndpointSecurityConfiguration {
                         exception.authenticationEntryPoint(basicAuthenticationEntryPoint)
                                 .accessDeniedHandler(oauthAccessDeniedHandler)
                 )
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(chain, "tokenEndpointSecurityForPasscodes");
@@ -335,6 +338,7 @@ class OauthEndpointSecurityConfiguration {
                         exception.authenticationEntryPoint(oauthAuthenticationEntryPoint)
                                 .accessDeniedHandler(oauthAccessDeniedHandler)
                 )
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(chain, "statelessTokenApiSecurity");
@@ -360,6 +364,7 @@ class OauthEndpointSecurityConfiguration {
                         exception.authenticationEntryPoint(basicAuthenticationEntryPoint)
                                 .accessDeniedHandler(oauthAccessDeniedHandler)
                 )
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(chain, "tokenEndpointSecurity");
@@ -383,6 +388,7 @@ class OauthEndpointSecurityConfiguration {
                         exception.authenticationEntryPoint(oauthAuthenticationEntryPoint)
                                 .accessDeniedHandler(oauthAccessDeniedHandler)
                 )
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(chain, "statelessAuthzEndpointSecurity");
@@ -405,6 +411,7 @@ class OauthEndpointSecurityConfiguration {
                         exception.authenticationEntryPoint(oauthAuthenticationEntryPoint)
                                 .accessDeniedHandler(oauthAccessDeniedHandler)
                 )
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(chain, "statelessAuthorizeApiSecurity");
@@ -428,6 +435,7 @@ class OauthEndpointSecurityConfiguration {
                         exception.authenticationEntryPoint(uaaAuthorizationEndpoint)
                                 .accessDeniedHandler(oauthAccessDeniedHandler)
                 )
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(chain, "promptStatelessTokenApiSecurity");
@@ -450,6 +458,7 @@ class OauthEndpointSecurityConfiguration {
                 .exceptionHandling(exception ->
                         exception.authenticationEntryPoint(loginEntryPoint)
                 )
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(chain, "externalOAuthCallbackEndpointSecurity");
@@ -473,6 +482,7 @@ class OauthEndpointSecurityConfiguration {
                         exception.authenticationEntryPoint(oauthAuthenticationEntryPoint)
                                 .accessDeniedHandler(oauthAccessDeniedHandler)
                 )
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(chain, "oldAuthzEndpointSecurity");

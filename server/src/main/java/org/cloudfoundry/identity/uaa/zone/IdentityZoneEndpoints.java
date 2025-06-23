@@ -42,7 +42,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -60,7 +60,7 @@ import static org.springframework.http.HttpStatus.OK;
 import static org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY;
 
 @RestController("identityZoneEndpoints")
-@RequestMapping("/identity-zones")
+@RequestMapping({"/identity-zones", "/identity-zones/"})
 public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
 
     private static final SanitizedLogFactory.SanitizedLog logger = SanitizedLogFactory.getLog(IdentityZoneEndpoints.class);

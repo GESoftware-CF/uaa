@@ -14,16 +14,19 @@
 
 package org.cloudfoundry.identity.uaa.authentication;
 
+import jakarta.servlet.RequestDispatcher;
 import org.springframework.http.MediaType;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletRequestWrapper;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.web.firewall.RequestRejectedException;
+
 import java.io.IOException;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -54,14 +57,18 @@ public class UTF8ConversionFilter implements Filter {
     }
 
     protected void validateParamsAndContinue(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws IOException, ServletException {
-        for (Map.Entry<String, String[]> entry : request.getParameterMap().entrySet()) {
-            if (entry.getValue() != null && entry.getValue().length > 0) {
-                for (String s : entry.getValue()) {
-                    if (hasText(s) && s.contains(NULL_STRING)) {
-                        response.setStatus(400);
-                        request.setAttribute("error_message_code", "request.invalid_parameter");
-                        request.getRequestDispatcher("/error").forward(request, response);
-                        return;
+        if (request.getAttribute(RequestDispatcher.ERROR_EXCEPTION) == null) {
+            for (Map.Entry<String, String[]> entry : request.getParameterMap().entrySet()) {
+                if (entry.getValue() != null && entry.getValue().length > 0) {
+                    for (String s : entry.getValue()) {
+                        if (hasText(s) && s.contains(NULL_STRING)) {
+                            response.setStatus(400);
+                            request.setAttribute("error_message_code", "request.invalid_parameter");
+                            request.setAttribute(RequestDispatcher.ERROR_EXCEPTION, new RequestRejectedException("kkk"));
+                            request.setAttribute(RequestDispatcher.ERROR_REQUEST_URI, request.getRequestURI());
+                            request.getRequestDispatcher("/error").forward(request, response);
+                            return;
+                        }
                     }
                 }
             }

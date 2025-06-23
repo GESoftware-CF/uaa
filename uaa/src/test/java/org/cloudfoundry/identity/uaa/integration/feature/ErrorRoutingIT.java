@@ -48,7 +48,7 @@ class ErrorRoutingIT {
         CallErrorPageAndCheckHttpStatusCode("/error429", "GET", 200);
         CallErrorPageAndCheckHttpStatusCode("/error500", "GET", 200);
         CallErrorPageAndCheckHttpStatusCode("/errorAny", "GET", 200);
-        CallErrorPageAndCheckHttpStatusCode("/rejected", "GET", 200);
+        CallErrorPageAndCheckHttpStatusCode("/rejected", "GET", 400);
         CallErrorPageAndCheckHttpStatusCode("/saml_error", "GET", 200);
         CallErrorPageAndCheckHttpStatusCode("/error", "GET", 200);
     }

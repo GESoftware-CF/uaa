@@ -65,7 +65,9 @@ class SmtpConfigurationTest {
             assertThatThrownBy(() -> emailService.sendMessage("asdf@example.com", MessageType.INVITATION,
                     "email subject", "email html Content"))
                     .isInstanceOf(MailAuthenticationException.class)
-                    .hasMessage("Authentication failed; nested exception is javax.mail.AuthenticationFailedException: 535 5.7.8  Authentication credentials invalid\n");
+                    .rootCause()
+                    .isInstanceOf(jakarta.mail.AuthenticationFailedException.class)
+                    .hasMessage("535 5.7.8  Authentication credentials invalid\n");
         }
     }
 

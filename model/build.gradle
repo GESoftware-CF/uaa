@@ -6,7 +6,7 @@ dependencies {
     implementation(libraries.jacksonDatabind)
     implementation(libraries.jacksonAnnotations)
 
-    implementation(libraries.javaxValidationApi)
+    implementation(libraries.jakartaValidationApi)
 
     implementation(libraries.commonsCodec)
     implementation(libraries.commonsIo)

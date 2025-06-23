@@ -415,6 +415,7 @@ class IdentityZoneEndpointsMockMvcTests {
         MvcResult result = mockMvc.perform(
                         get("/identity-zones/")
                                 .header("Authorization", "Bearer " + identityClientToken))
+                .andDo(print())
                 .andExpect(status().isOk())
                 .andReturn();
 

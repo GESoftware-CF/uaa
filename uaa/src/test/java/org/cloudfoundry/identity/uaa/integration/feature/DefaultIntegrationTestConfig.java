@@ -24,6 +24,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
@@ -31,6 +32,7 @@ import java.net.HttpURLConnection;
 import java.time.Duration;
 
 @PropertySource("classpath:integration.test.properties")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD, hierarchyMode = DirtiesContext.HierarchyMode.EXHAUSTIVE)
 public class DefaultIntegrationTestConfig {
     static final Duration IMPLICIT_WAIT_TIME = Duration.ofSeconds(30L);
     static final Duration PAGE_LOAD_TIMEOUT = Duration.ofSeconds(40L);

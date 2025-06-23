@@ -58,6 +58,7 @@ public class ClientInfoSecurityConfiguration {
                         exception.authenticationEntryPoint(basicAuthenticationEntryPoint)
                                 .accessDeniedHandler(oauthAccessDeniedHandler)
                 )
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(chain, "clientInfoSecurity");

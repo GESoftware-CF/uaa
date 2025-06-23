@@ -73,7 +73,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.context.request.ServletWebRequest;
 
-import javax.servlet.ServletContext;
+import jakarta.servlet.ServletContext;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;

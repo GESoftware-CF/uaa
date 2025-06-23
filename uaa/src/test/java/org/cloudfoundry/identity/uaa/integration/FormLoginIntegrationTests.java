@@ -13,20 +13,20 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.integration;
 
-import org.apache.http.Header;
-import org.apache.http.HttpHeaders;
-import org.apache.http.client.config.CookieSpecs;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.client.methods.RequestBuilder;
-import org.apache.http.cookie.Cookie;
-import org.apache.http.impl.client.BasicCookieStore;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.message.BasicHeader;
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.cookie.BasicCookieStore;
+import org.apache.hc.client5.http.cookie.Cookie;
+import org.apache.hc.client5.http.cookie.StandardCookieSpec;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.core5.http.ClassicHttpRequest;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.HttpHeaders;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.http.io.support.ClassicRequestBuilder;
+import org.apache.hc.core5.http.message.BasicHeader;
 import org.cloudfoundry.identity.uaa.ServerRunningExtension;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
 import org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository;
@@ -64,9 +64,10 @@ class FormLoginIntegrationTests {
     @BeforeEach
     void createHttpClient() {
         httpclient = HttpClients.custom()
-                .setDefaultRequestConfig(RequestConfig.custom().setCookieSpec(CookieSpecs.STANDARD).build())
+                .setDefaultRequestConfig(RequestConfig.custom().setCookieSpec(StandardCookieSpec.RELAXED).build())
                 .setDefaultHeaders(headers)
                 .setDefaultCookieStore(cookieStore)
+                .disableRedirectHandling()
                 .build();
     }
 
@@ -83,26 +84,26 @@ class FormLoginIntegrationTests {
                 RequestConfig.custom().setRedirectsEnabled(false).build()
         );
         CloseableHttpResponse response = httpclient.execute(httpget);
-        assertThat(response.getStatusLine().getStatusCode()).isEqualTo(FOUND.value());
+        assertThat(response.getCode()).isEqualTo(FOUND.value());
         location = response.getFirstHeader("Location").getValue();
         response.close();
-        httpget.completed();
+        httpget.reset();
         assertThat(location).contains("/login");
     }
 
     @Test
     void successfulAuthenticationFlow() throws Exception {
         //request home page /
-        String location = serverRunning.getBaseUrl() + "/";
+        String location = serverRunning.getBaseUrl() + "/login";
         HttpGet httpget = new HttpGet(location);
         CloseableHttpResponse response = httpclient.execute(httpget);
 
-        assertThat(response.getStatusLine().getStatusCode()).isEqualTo(OK.value());
+        assertThat(response.getCode()).isEqualTo(OK.value());
 
         String body = EntityUtils.toString(response.getEntity());
         EntityUtils.consume(response.getEntity());
         response.close();
-        httpget.completed();
+        httpget.reset();
 
         assertThat(body).contains("/login.do")
                 .contains("username")
@@ -110,7 +111,7 @@ class FormLoginIntegrationTests {
 
         String csrf = IntegrationTestUtils.extractCookieCsrf(body);
 
-        HttpUriRequest loginPost = RequestBuilder.post()
+        ClassicHttpRequest loginPost = ClassicRequestBuilder.post()
                 .setUri(serverRunning.getBaseUrl() + "/login.do")
                 .addParameter("username", testAccounts.getUserName())
                 .addParameter("password", testAccounts.getPassword())
@@ -118,7 +119,7 @@ class FormLoginIntegrationTests {
                 .build();
 
         response = httpclient.execute(loginPost);
-        assertThat(response.getStatusLine().getStatusCode()).isEqualTo(FOUND.value());
+        assertThat(response.getCode()).isEqualTo(FOUND.value());
         location = response.getFirstHeader("Location").getValue();
         response.close();
 
@@ -130,13 +131,13 @@ class FormLoginIntegrationTests {
                 .filter(cookie -> "JSESSIONID".equals(cookie.getName()))
                 .findAny().orElse(null);
         assertThat(jsessionidCookie).isNotNull();
-        HttpUriRequest getRequestAfterLogin = RequestBuilder.get()
+        ClassicHttpRequest getRequestAfterLogin = ClassicRequestBuilder.get()
                 .setUri(location)
                 .addHeader("Cookie", "JSESSIONID=" + jsessionidCookie.getValue())
                 .build();
 
         response = httpclient.execute(getRequestAfterLogin);
-        assertThat(response.getStatusLine().getStatusCode()).isEqualTo(OK.value());
+        assertThat(response.getCode()).isEqualTo(OK.value());
 
         body = EntityUtils.toString(response.getEntity());
         response.close();

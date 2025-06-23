@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -84,7 +84,7 @@ public class CheckTokenEndpoint implements InitializingBean {
     @ResponseBody
     @Deprecated
     public Claims checkToken(@RequestParam(name = "token", required = false, defaultValue = "") String value,
-                             @RequestParam(name = "scopes", required = false, defaultValue = "") List<String> scopes,
+                             @RequestParam(required = false, defaultValue = "") List<String> scopes,
                              HttpServletRequest request) throws HttpRequestMethodNotSupportedException {
 
         if (!hadParsedAllArgs(request)) {

@@ -15,6 +15,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.session.MapSessionRepository;
 import org.springframework.session.config.annotation.web.http.EnableSpringHttpSession;
 
+import java.time.Duration;
+
 @Configuration
 @Conditional(UaaMemorySessionConfig.MemoryConfigured.class)
 @EnableSpringHttpSession
@@ -38,7 +40,7 @@ public class UaaMemorySessionConfig extends UaaSessionConfig {
             @Autowired PurgeableSessionMap purgeableSessionMap
     ) {
         MapSessionRepository sessionRepository = new MapSessionRepository(purgeableSessionMap);
-        sessionRepository.setDefaultMaxInactiveInterval(servletProperties.idleTimeout());
+        sessionRepository.setDefaultMaxInactiveInterval(Duration.ofSeconds(servletProperties.idleTimeout()));
         return sessionRepository;
     }
 

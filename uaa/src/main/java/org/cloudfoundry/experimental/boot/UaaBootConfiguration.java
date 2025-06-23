@@ -1,5 +1,8 @@
 package org.cloudfoundry.experimental.boot;
 
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletException;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
@@ -11,10 +14,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-
-import javax.servlet.DispatcherType;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
 
 @Configuration
 @EnableConfigurationProperties({UaaBootConfiguration.ServerHttp.class})
@@ -40,6 +39,7 @@ public class UaaBootConfiguration implements ServletContextInitializer, WebMvcCo
         DelegatingFilterProxyRegistrationBean filter = new DelegatingFilterProxyRegistrationBean(
                 "springSessionRepositoryFilter"
         );
+        filter.setIgnoreRegistrationFailure(true);
         filter.setDispatcherTypes(DispatcherType.REQUEST, DispatcherType.ERROR);
         filter.addUrlPatterns("/*");
         return filter;

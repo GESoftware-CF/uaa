@@ -3,18 +3,17 @@ package org.cloudfoundry.identity.uaa;
 import brave.Tracing;
 import brave.context.slf4j.MDCScopeDecorator;
 import brave.http.HttpTracing;
+import brave.jakarta.servlet.TracingFilter;
 import brave.propagation.CurrentTraceContext;
 import brave.propagation.CurrentTraceContext.ScopeDecorator;
 import brave.propagation.ThreadLocalCurrentTraceContext;
-import brave.servlet.TracingFilter;
-import brave.spring.webmvc.SpanCustomizingAsyncHandlerInterceptor;
+import jakarta.servlet.Filter;
+import org.cloudfoundry.identity.uaa.brave.SpanCustomizingAsyncHandlerInterceptor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-
-import javax.servlet.Filter;
 
 /**
  * This adds tracing configuration to any web mvc controllers or rest template clients.

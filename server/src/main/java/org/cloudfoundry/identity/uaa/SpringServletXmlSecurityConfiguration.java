@@ -1,5 +1,6 @@
 package org.cloudfoundry.identity.uaa;
 
+import jakarta.servlet.Filter;
 import org.apache.catalina.filters.HttpHeaderSecurityFilter;
 import org.cloudfoundry.identity.uaa.authentication.SessionResetFilter;
 import org.cloudfoundry.identity.uaa.authentication.UTF8ConversionFilter;
@@ -32,22 +33,22 @@ import org.springframework.security.saml2.provider.service.web.authentication.lo
 import org.springframework.security.saml2.provider.service.web.authentication.logout.Saml2LogoutResponseFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.filter.RequestContextFilter;
-import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
-import javax.servlet.Filter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import static org.springframework.security.config.Customizer.withDefaults;
+
 @Configuration
 @EnableWebSecurity
-@EnableWebMvc
 public class SpringServletXmlSecurityConfiguration {
 
     private final String[] noSecurityEndpoints = {
             "/error**",
             "/error/**",
+            "/rejected",
             "/resources/**",
             "/square-logo.png",
             "/info",
@@ -84,7 +85,7 @@ public class SpringServletXmlSecurityConfiguration {
                 .anonymous(AnonymousConfigurer::disable)
                 .csrf(csrf -> csrf.ignoringRequestMatchers(secFilterOpenHealthzEndPoints))
                 .sessionManagement(session -> session
-                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .build();
 
@@ -100,8 +101,9 @@ public class SpringServletXmlSecurityConfiguration {
                 .anonymous(AnonymousConfigurer::disable)
                 .csrf(csrf -> csrf.ignoringRequestMatchers(secFilterOpenSamlEndPoints))
                 .sessionManagement(session -> session
-                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(chain, "secFilterOpen06SAMLMetadata");
@@ -111,14 +113,15 @@ public class SpringServletXmlSecurityConfiguration {
     @Order(FilterChainOrder.NO_SECURITY)
     UaaFilterChain noSecurityFilters(HttpSecurity http) throws Exception {
         SecurityFilterChain chain = http
-                .headers(headers -> headers.frameOptions().disable())
+                .headers(headers -> headers.frameOptions(withDefaults()))
                 .securityMatcher(noSecurityEndpoints)
                 .authorizeHttpRequests(requests -> requests.anyRequest().permitAll())
                 .anonymous(AnonymousConfigurer::disable)
                 .csrf(csrf -> csrf.ignoringRequestMatchers(noSecurityEndpoints))
                 .sessionManagement(session -> session
-                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(chain, "noSecurityFilters");
@@ -155,7 +158,7 @@ public class SpringServletXmlSecurityConfiguration {
         bean.setHttpsPort(rootLevel.https_port());
 
         Map<Class<? extends Exception>, SecurityFilterChainPostProcessor.ReasonPhrase> errorMap = new HashMap<>();
-        errorMap.put(org.springframework.dao.NonTransientDataAccessException .class, new SecurityFilterChainPostProcessor.ReasonPhrase(503, "Database unavailable. Retry later."));
+        errorMap.put(org.springframework.dao.NonTransientDataAccessException.class, new SecurityFilterChainPostProcessor.ReasonPhrase(503, "Database unavailable. Retry later."));
         bean.setErrorMap(errorMap);
 
         //TODO

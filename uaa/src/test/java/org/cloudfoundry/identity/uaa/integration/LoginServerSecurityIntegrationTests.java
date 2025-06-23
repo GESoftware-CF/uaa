@@ -14,6 +14,7 @@
 package org.cloudfoundry.identity.uaa.integration;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
 import org.cloudfoundry.identity.uaa.ServerRunningExtension;
 import org.cloudfoundry.identity.uaa.account.PasswordChangeRequest;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthenticationDetails;
@@ -37,6 +38,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.ClientHttpResponse;
@@ -292,8 +294,9 @@ class LoginServerSecurityIntegrationTests {
     @OAuth2ContextConfiguration(LoginClient.class)
     void wrongUsernameIsErrorAddNewEnabled() {
 
-        ((RestTemplate) serverRunning.getRestTemplate())
-                .setRequestFactory(new HttpComponentsClientHttpRequestFactory());
+        HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory();
+        requestFactory.setHttpClient(HttpClientBuilder.create().disableRedirectHandling().build());
+        ((RestTemplate) serverRunning.getRestTemplate()).setRequestFactory(requestFactory);
         ImplicitResourceDetails resource = testAccounts.getDefaultImplicitResource();
 
         params.set("client_id", resource.getClientId());
@@ -337,8 +340,9 @@ class LoginServerSecurityIntegrationTests {
     @Test
     @OAuth2ContextConfiguration(LoginClient.class)
     void addNewUserWithWrongEmailFormat() {
-        ((RestTemplate) serverRunning.getRestTemplate())
-                .setRequestFactory(new HttpComponentsClientHttpRequestFactory());
+        HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory();
+        requestFactory.setHttpClient(HttpClientBuilder.create().disableRedirectHandling().build());
+        ((RestTemplate) serverRunning.getRestTemplate()).setRequestFactory(requestFactory);
         params.set("client_id", testAccounts.getDefaultImplicitResource().getClientId());
         params.set("source", "login");
         params.set("username", "newuser");
@@ -423,7 +427,7 @@ class LoginServerSecurityIntegrationTests {
         }
         @SuppressWarnings("rawtypes")
         ResponseEntity<Map> response = serverRunning.postForMap(serverRunning.getAccessTokenUri(), params, headers);
-        HttpStatus statusCode = response.getStatusCode();
+        HttpStatusCode statusCode = response.getStatusCode();
         assertThat(statusCode == HttpStatus.FORBIDDEN || statusCode == HttpStatus.UNAUTHORIZED).as("Status code should be 401 or 403.").isTrue();
     }
 

@@ -13,7 +13,7 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.integration.feature;
 
-import org.apache.http.impl.client.BasicCookieStore;
+import org.apache.hc.client5.http.cookie.BasicCookieStore;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
 import org.cloudfoundry.identity.uaa.test.UaaTestAccounts;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;

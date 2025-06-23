@@ -49,6 +49,6 @@ public class SlowHttpServer {
     }
 
     public String getUrl() {
-        return "https://localhost:" + httpServer.getAddress().getPort();
+        return "https://127.0.0.1:" + httpServer.getAddress().getPort();
     }
 }

@@ -1,7 +1,6 @@
 package org.cloudfoundry.identity.uaa.oauth;
-
-import org.apache.http.HttpHost;
-import org.apache.http.client.utils.URIUtils;
+import org.apache.hc.client5.http.utils.URIUtils;
+import org.apache.hc.core5.http.HttpHost;
 import org.cloudfoundry.identity.uaa.authentication.UaaPrincipal;
 import org.cloudfoundry.identity.uaa.provider.ClientRegistrationException;
 import org.cloudfoundry.identity.uaa.provider.NoSuchClientException;
@@ -47,6 +46,7 @@ import org.cloudfoundry.identity.uaa.oauth.common.exceptions.UserDeniedAuthoriza
 import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetails;
 import org.cloudfoundry.identity.uaa.oauth.provider.endpoint.RedirectResolver;
 import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.util.UrlUtils;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.ObjectUtils;
@@ -67,8 +67,8 @@ import org.springframework.web.servlet.view.RedirectView;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.URI;
 import java.security.Principal;
@@ -254,7 +254,10 @@ public class UaaAuthorizationEndpoint extends AbstractEndpoint implements Authen
                 model.put(AUTHORIZATION_REQUEST, authorizationRequest);
                 model.put("original_uri", UrlUtils.buildFullRequestUrl(request));
                 model.put(ORIGINAL_AUTHORIZATION_REQUEST, unmodifiableMap(authorizationRequest));
-
+                // skip CSRF check for the authorize endpoint and internal forward to the user approval page
+                if (request.getServletPath().endsWith("/oauth/authorize")) {
+                    CsrfFilter.skipRequest(request);
+                }
                 return getUserApprovalPageResponse(model, authorizationRequest, (Authentication) principal);
             }
         } catch (RedirectMismatchException e) {

@@ -53,7 +53,7 @@ import static org.springframework.restdocs.payload.JsonFieldType.STRING;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
 import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
-import static org.springframework.restdocs.request.RequestDocumentation.requestParameters;
+import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
 import static org.springframework.restdocs.snippet.Attributes.key;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
@@ -157,7 +157,7 @@ class IdentityProviderEndpointDocs extends EndpointDocs {
     private static final FieldDescriptor IDENTITY_ZONE_ID = fieldWithPath(FIELD_IDENTITY_ZONE_ID).type(STRING).description(IDENTITY_ZONE_ID_DESC);
     private static final FieldDescriptor ADDITIONAL_CONFIGURATION = fieldWithPath("config.additionalConfiguration").optional(null).type(OBJECT).description("(Unused.)");
     private static final SnippetUtils.ConstrainableField VERSION = (SnippetUtils.ConstrainableField) fieldWithPath("version").type(NUMBER).description(VERSION_DESC);
-    private static final Snippet commonRequestParams = requestParameters(parameterWithName("rawConfig").optional("false").type(BOOLEAN).description("<small><mark>UAA 3.4.0</mark></small> Flag indicating whether the response should use raw, unescaped JSON for the `config` field of the IDP, rather than the default behavior of encoding the JSON as a string."));
+    private static final Snippet commonRequestParams = queryParameters(parameterWithName("rawConfig").optional("false").type(BOOLEAN).description("<small><mark>UAA 3.4.0</mark></small> Flag indicating whether the response should use raw, unescaped JSON for the `config` field of the IDP, rather than the default behavior of encoding the JSON as a string."));
 
     private String adminToken;
     private IdentityProviderProvisioning identityProviderProvisioning;
@@ -998,7 +998,7 @@ class IdentityProviderEndpointDocs extends EndpointDocs {
                                 headerWithName("X-Identity-Zone-Id").description("May include this header to administer another zone if using `zones.<zoneId>.admin` or `zones.<zone id>.idps.read` or `uaa.admin` scope against the default UAA zone.").optional(),
                                 IDENTITY_ZONE_SUBDOMAIN_HEADER
                         ),
-                        requestParameters(
+                        queryParameters(
                                 parameterWithName("rawConfig").optional("false").type(BOOLEAN).description("Flag indicating whether the response should use raw, unescaped JSON for the `config` field of the IDP, rather than the default behavior of encoding the JSON as a string."),
                                 parameterWithName("active_only").optional("false").type(BOOLEAN).description("Flag indicating whether only active IdPs should be returned or all."),
                                 parameterWithName("originKey").optional(null).type(STRING).description("<small><mark>UAA 77.10.0</mark></small> Return only IdPs with specific origin.")
@@ -1158,7 +1158,6 @@ class IdentityProviderEndpointDocs extends EndpointDocs {
                                 IDENTITY_ZONE_ID_HEADER,
                                 IDENTITY_ZONE_SUBDOMAIN_HEADER
                         ),
-                        commonRequestParams,
                         responseFields(getCommonProviderFieldsAnyType())));
     }
 

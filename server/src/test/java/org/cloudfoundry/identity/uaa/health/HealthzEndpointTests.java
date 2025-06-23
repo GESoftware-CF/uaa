@@ -45,8 +45,9 @@ class HealthzEndpointTests {
     }
 
     @Test
-    void getHealthz() {
-        assertThat(endpoint.getHealthz(response)).isEqualTo("UAA running. Database status unknown.\n");
+    void getHealthz() throws SQLException {
+        when(dataSource.getConnection()).thenThrow(new SQLException("DB is Down"));
+        assertThat(endpoint.getHealthz(response)).isEqualTo("UAA running. Database failed to start.\n");
     }
 
     @Test

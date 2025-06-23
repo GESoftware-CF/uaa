@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 public class RateLimitStatusController {
     private final LimiterManager status = LimiterManagerImpl.SINGLETON.getInstance();
 
-    @GetMapping(value = RateLimiter.STATUS_PATH, produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = {RateLimiter.STATUS_PATH, RateLimiter.STATUS_PATH+"/"}, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public String rateLimitStatus() {
         return status.rateLimitingStatus();

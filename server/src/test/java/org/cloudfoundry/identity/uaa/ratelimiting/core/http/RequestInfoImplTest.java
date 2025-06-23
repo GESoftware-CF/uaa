@@ -2,7 +2,7 @@ package org.cloudfoundry.identity.uaa.ratelimiting.core.http;
 
 import org.junit.jupiter.api.Test;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.security.Principal;
 import java.util.Collections;
 import java.util.List;

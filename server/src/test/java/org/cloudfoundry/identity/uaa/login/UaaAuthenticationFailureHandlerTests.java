@@ -15,8 +15,8 @@
 
 package org.cloudfoundry.identity.uaa.login;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.Cookie;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;

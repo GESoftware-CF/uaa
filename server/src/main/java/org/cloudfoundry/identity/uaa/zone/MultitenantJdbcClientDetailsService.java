@@ -442,6 +442,6 @@ public class MultitenantJdbcClientDetailsService extends MultitenantClientServic
     }
 
     String getCreatedByForClientAndZone(String clientId, String zoneId) {
-        return jdbcTemplate.queryForObject(GET_CREATED_BY_SQL, new Object[]{clientId, zoneId}, String.class);
+        return jdbcTemplate.queryForObject(GET_CREATED_BY_SQL, String.class, new Object[]{clientId, zoneId});
     }
 }

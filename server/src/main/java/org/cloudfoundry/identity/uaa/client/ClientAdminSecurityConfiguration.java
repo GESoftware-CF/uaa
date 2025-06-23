@@ -64,6 +64,7 @@ class ClientAdminSecurityConfiguration {
                     exception.authenticationEntryPoint(oauthAuthenticationEntryPoint);
                     exception.accessDeniedHandler(oauthAccessDeniedHandler);
                 })
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
         return new UaaFilterChain(originalChain, "clientAdminCatchAll");
     }

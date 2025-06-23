@@ -99,11 +99,11 @@ subprojects {
         testImplementation(libraries.unboundIdLdapSdk)
         testRuntimeOnly(libraries.jacocoAgent)
 
-        compileOnly("org.projectlombok:lombok")
-        annotationProcessor("org.projectlombok:lombok")
+        compileOnly(libraries.lombok)
+        annotationProcessor(libraries.lombok)
     }
 
-    [compileJava, compileTestJava]*.options*.compilerArgs = ["-Xlint:none", "-nowarn"]
+    [compileJava, compileTestJava]*.options*.compilerArgs = ["-Xlint:none", "-nowarn", "-parameters"]
 
     test {
         // when failFast = true AND retry is on, there is a serious issue:
@@ -166,7 +166,7 @@ subprojects {
 }
 
 cargo {
-    containerId = "tomcat9x"
+    containerId = "tomcat10x"
     port = applicationPort
 
     if (JavaVersion.current() < JavaVersion.VERSION_17) {
@@ -292,7 +292,9 @@ tasks.register('cleanCargoConfDir') {
 }
 
 tasks.register('integrationTest', Test) {
-    dependsOn killUaa
+    if (runCargoTests) {
+        dependsOn killUaa
+    }
     dependsOn subprojects.integrationTest
     if (runCargoTests) {
         finalizedBy cargoStopLocal

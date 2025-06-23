@@ -41,7 +41,7 @@ import org.springframework.web.context.support.AbstractRefreshableWebApplication
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
 import org.springframework.web.servlet.ViewResolver;
 
-import javax.servlet.RequestDispatcher;
+import jakarta.servlet.RequestDispatcher;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;

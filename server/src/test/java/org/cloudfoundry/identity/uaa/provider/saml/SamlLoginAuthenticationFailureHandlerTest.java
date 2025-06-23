@@ -1,6 +1,6 @@
 package org.cloudfoundry.identity.uaa.provider.saml;
 
-import org.apache.http.HttpStatus;
+import org.apache.hc.core5.http.HttpStatus;
 import org.cloudfoundry.identity.uaa.util.SessionUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -9,7 +9,7 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.savedrequest.DefaultSavedRequest;
 
-import javax.servlet.ServletException;
+import jakarta.servlet.ServletException;
 import java.io.IOException;
 import java.io.Serial;
 import java.util.HashMap;

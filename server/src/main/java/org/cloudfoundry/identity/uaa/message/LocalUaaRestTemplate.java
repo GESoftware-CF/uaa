@@ -1,10 +1,13 @@
 package org.cloudfoundry.identity.uaa.message;
 
 import com.google.common.collect.Sets;
-import org.apache.http.conn.ssl.SSLContextBuilder;
-import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
+import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder;
+import org.apache.hc.client5.http.ssl.TrustAllStrategy;
+import org.apache.hc.core5.ssl.SSLContextBuilder;
 import org.cloudfoundry.identity.uaa.UaaProperties;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.login.NotificationsProperties;
@@ -24,7 +27,6 @@ import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.security.core.GrantedAuthority;
 
-import javax.net.ssl.SSLContext;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -104,8 +106,16 @@ public class LocalUaaRestTemplate extends OAuth2RestTemplate {
     }
 
     private void skipSslValidation() throws KeyStoreException, NoSuchAlgorithmException, KeyManagementException {
-        SSLContext sslContext = new SSLContextBuilder().loadTrustMaterial(null, new TrustSelfSignedStrategy()).build();
-        CloseableHttpClient httpClient = HttpClients.custom().setSslcontext(sslContext).build();
+        CloseableHttpClient httpClient = HttpClients.custom()
+                .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
+                        .setSSLSocketFactory(SSLConnectionSocketFactoryBuilder.create()
+                                .setSslContext(SSLContextBuilder.create()
+                                        .loadTrustMaterial(TrustAllStrategy.INSTANCE)
+                                        .build())
+                                .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+                                .build())
+                        .build())
+                .build();
         ClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory(httpClient);
         this.setRequestFactory(requestFactory);
     }

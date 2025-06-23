@@ -1,11 +1,11 @@
 package org.cloudfoundry.identity.uaa.oauth;
 
-import java.io.IOException;
-
 import org.cloudfoundry.identity.uaa.oauth.client.http.OAuth2ErrorHandler;
 import org.cloudfoundry.identity.uaa.oauth.client.resource.OAuth2ProtectedResourceDetails;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.client.ClientHttpResponse;
+
+import java.io.IOException;
 
 
 public class UaaOauth2ErrorHandler extends OAuth2ErrorHandler {
@@ -31,6 +31,6 @@ public class UaaOauth2ErrorHandler extends OAuth2ErrorHandler {
 
     @Override
     public boolean hasError(ClientHttpResponse response) throws IOException {
-        return errorAtLevel.value() - response.getStatusCode().series().value() <= 0;
+        return errorAtLevel.value() - HttpStatus.resolve(response.getStatusCode().value()).series().value() <= 0;
     }
 }

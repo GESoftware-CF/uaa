@@ -35,7 +35,7 @@ import static org.springframework.restdocs.payload.JsonFieldType.STRING;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
 import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
-import static org.springframework.restdocs.request.RequestDocumentation.requestParameters;
+import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class ScimExternalGroupMappingsEndpointDocs extends EndpointDocs {
@@ -180,7 +180,7 @@ class ScimExternalGroupMappingsEndpointDocs extends EndpointDocs {
 
         createExternalGroupMappingHelper(group);
 
-        Snippet requestParameters = requestParameters(
+        Snippet queryParameters = queryParameters(
                 parameterWithName("startIndex").optional("1").type(NUMBER).description("Display paged results beginning at specified index"),
                 parameterWithName("count").optional("100").type(NUMBER).description("Number of results to return per page"),
                 parameterWithName("origin").optional(null).type(STRING).description("Filters results based on supplied origin. default is to return all"),
@@ -217,7 +217,7 @@ class ScimExternalGroupMappingsEndpointDocs extends EndpointDocs {
         mockMvc.perform(get)
                 .andExpect(status().isOk())
                 .andDo(document("{ClassName}/{methodName}", preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
-                        requestParameters, requestHeaders, responseFields));
+                        queryParameters, requestHeaders, responseFields));
     }
 
     private ResultActions createExternalGroupMappingHelper(ScimGroup group) throws Exception {

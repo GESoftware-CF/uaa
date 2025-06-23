@@ -1,5 +1,6 @@
 package org.cloudfoundry.identity.uaa;
 
+import jakarta.servlet.RequestDispatcher;
 import org.cloudfoundry.experimental.boot.UaaBootConfiguration;
 import org.cloudfoundry.identity.uaa.db.beans.JdbcUrlCustomizer;
 import org.cloudfoundry.identity.uaa.extensions.PollutionPreventionExtension;
@@ -18,7 +19,7 @@ import org.springframework.lang.Nullable;
 import org.springframework.mock.web.MockRequestDispatcher;
 import org.springframework.mock.web.MockServletContext;
 import org.springframework.security.web.FilterChainProxy;
-import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -26,7 +27,6 @@ import org.springframework.web.context.ConfigurableWebApplicationContext;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
-import javax.servlet.RequestDispatcher;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -43,7 +43,8 @@ import static org.springframework.security.config.BeanIds.SPRING_SECURITY_FILTER
 @SpringBootTest(
         properties = {
                 "spring.main.allow-bean-definition-overriding=true",
-                "spring.main.allow-circular-references=true"
+                "spring.main.allow-circular-references=true",
+                "logging.level.org.springframework.security=TRACE"
         },
         classes = {
                 UaaBootConfiguration.class,
@@ -53,7 +54,7 @@ import static org.springframework.security.config.BeanIds.SPRING_SECURITY_FILTER
         },
         webEnvironment = SpringBootTest.WebEnvironment.MOCK
 )
-@ContextConfiguration(initializers = {TestPropertyInitializer.class, YamlServletProfileInitializer.class})
+@SpringJUnitConfig(initializers = {TestPropertyInitializer.class, YamlServletProfileInitializer.class})
 @EnableAutoConfiguration(exclude = {
         // Conflicts with UaaJdbcSessionConfig
         SessionAutoConfiguration.class,

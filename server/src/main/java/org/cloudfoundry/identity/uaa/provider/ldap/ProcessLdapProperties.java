@@ -14,7 +14,7 @@
 
 package org.cloudfoundry.identity.uaa.provider.ldap;
 
-import org.apache.http.conn.ssl.AllowAllHostnameVerifier;
+import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
 import org.cloudfoundry.identity.uaa.provider.ldap.extension.DefaultTlsDirContextAuthenticationStrategy;
 import org.cloudfoundry.identity.uaa.provider.ldap.extension.ExternalTlsDirContextAuthenticationStrategy;
 import org.cloudfoundry.identity.uaa.security.LdapSocketFactory;
@@ -30,7 +30,9 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static org.cloudfoundry.identity.uaa.provider.LdapIdentityProviderDefinition.*;
+import static org.cloudfoundry.identity.uaa.provider.LdapIdentityProviderDefinition.LDAP_TLS_EXTERNAL;
+import static org.cloudfoundry.identity.uaa.provider.LdapIdentityProviderDefinition.LDAP_TLS_NONE;
+import static org.cloudfoundry.identity.uaa.provider.LdapIdentityProviderDefinition.LDAP_TLS_SIMPLE;
 import static org.springframework.util.StringUtils.hasText;
 
 public class ProcessLdapProperties {
@@ -105,7 +107,7 @@ public class ProcessLdapProperties {
             default:
                 throw new IllegalArgumentException(tlsConfig);
         }
-        tlsStrategy.setHostnameVerifier(new AllowAllHostnameVerifier());
+        tlsStrategy.setHostnameVerifier(new NoopHostnameVerifier());
         tlsStrategy.setSslSocketFactory(getSSLSocketFactory());
         return tlsStrategy;
     }

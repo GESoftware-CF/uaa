@@ -12,6 +12,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
@@ -148,7 +149,7 @@ class UserTokenGrantIT {
         postBody.add("response_type", "token");
         postBody.add("grant_type", "user_token");
         ResponseEntity<Map> responseEntity = null;
-        HttpStatus responseStatus;
+        HttpStatusCode responseStatus;
 
         try {
             responseEntity = restOperations.exchange(baseUrl + "/oauth/token", HttpMethod.POST, new HttpEntity<>(postBody, headers), Map.class);

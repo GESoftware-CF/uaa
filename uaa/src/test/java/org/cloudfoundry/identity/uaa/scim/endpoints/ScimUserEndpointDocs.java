@@ -33,7 +33,6 @@ import java.util.Date;
 import static org.cloudfoundry.identity.uaa.test.SnippetUtils.fieldWithPath;
 import static org.cloudfoundry.identity.uaa.test.SnippetUtils.parameterWithName;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
-import static org.springframework.http.MediaType.APPLICATION_JSON_UTF8;
 import static org.springframework.restdocs.headers.HeaderDocumentation.headerWithName;
 import static org.springframework.restdocs.headers.HeaderDocumentation.requestHeaders;
 import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
@@ -48,7 +47,7 @@ import static org.springframework.restdocs.payload.JsonFieldType.STRING;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
 import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
-import static org.springframework.restdocs.request.RequestDocumentation.requestParameters;
+import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
 import static org.springframework.restdocs.snippet.Attributes.key;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
@@ -390,7 +389,7 @@ class ScimUserEndpointDocs extends EndpointDocs {
     @Test
     void find_users() throws Exception {
         Snippet responseFields = responseFields(searchResponseFields);
-        Snippet requestParameters = requestParameters(searchUsersParameters);
+        Snippet queryParameters = queryParameters(searchUsersParameters);
 
         webApplicationContext.getBean(UaaUserDatabase.class).updateLastLogonTime(user.getId());
         webApplicationContext.getBean(UaaUserDatabase.class).updateLastLogonTime(user.getId());
@@ -417,7 +416,7 @@ class ScimUserEndpointDocs extends EndpointDocs {
                                         IDENTITY_ZONE_ID_HEADER,
                                         IDENTITY_ZONE_SUBDOMAIN_HEADER
                                 ),
-                                requestParameters,
+                                queryParameters,
                                 responseFields
                         )
                 );
@@ -426,7 +425,7 @@ class ScimUserEndpointDocs extends EndpointDocs {
     @Test
     void find_with_attributes_users() throws Exception {
         Snippet responseFields = responseFields(searchWithAttributesResponseFields);
-        Snippet requestParameters = requestParameters(searchWithAttributes);
+        Snippet queryParameters = queryParameters(searchWithAttributes);
 
         mockMvc.perform(
                         get("/Users")
@@ -450,7 +449,7 @@ class ScimUserEndpointDocs extends EndpointDocs {
                                         IDENTITY_ZONE_ID_HEADER,
                                         IDENTITY_ZONE_SUBDOMAIN_HEADER
                                 ),
-                                requestParameters,
+                                queryParameters,
                                 responseFields
                         )
                 );
@@ -499,7 +498,7 @@ class ScimUserEndpointDocs extends EndpointDocs {
                                 .content(jsonStatus)
                 )
                 .andExpect(status().isOk())
-                .andExpect(content().contentType(APPLICATION_JSON_UTF8))
+                .andExpect(content().contentTypeCompatibleWith(APPLICATION_JSON))
                 .andExpect(content().string(jsonStatus))
                 .andDo(
                         document("{ClassName}/{methodName}",
@@ -532,7 +531,7 @@ class ScimUserEndpointDocs extends EndpointDocs {
                                 .content(jsonStatus)
                 )
                 .andExpect(status().isOk())
-                .andExpect(content().contentType(APPLICATION_JSON_UTF8))
+                .andExpect(content().contentTypeCompatibleWith(APPLICATION_JSON))
                 .andExpect(content().string(jsonStatus))
                 .andDo(
                         document("{ClassName}/{methodName}",
@@ -758,7 +757,7 @@ class ScimUserEndpointDocs extends EndpointDocs {
                 .accept(APPLICATION_JSON);
 
         Snippet requestHeaders = requestHeaders(headerWithName("Authorization").description("The bearer token, with a pre-amble of `Bearer`"), IDENTITY_ZONE_ID_HEADER, IDENTITY_ZONE_SUBDOMAIN_HEADER);
-        Snippet requestParameters = requestParameters(parameterWithName("redirect_uri").required().description("Location where the user will be redirected after verifying by clicking the verification link").attributes(key("type").value(STRING)));
+        Snippet queryParameters = queryParameters(parameterWithName("redirect_uri").required().description("Location where the user will be redirected after verifying by clicking the verification link").attributes(key("type").value(STRING)));
         Snippet responseFields = responseFields(fieldWithPath("verify_link").description("Location the user must visit and authenticate to verify"));
 
         Snippet pathParameters = pathParameters(
@@ -768,7 +767,7 @@ class ScimUserEndpointDocs extends EndpointDocs {
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()),
-                        pathParameters, requestHeaders, requestParameters, responseFields))
+                        pathParameters, requestHeaders, queryParameters, responseFields))
         ;
     }
 

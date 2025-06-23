@@ -1,14 +1,15 @@
 package org.cloudfoundry.identity.uaa.authentication;
 
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.cloudfoundry.identity.uaa.util.UaaUrlUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -49,7 +50,7 @@ public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
     }
 
     private void sendRedirect(String redirectUrl, Map<String, String[]> params, HttpServletResponse response) throws IOException {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(redirectUrl);
+        UriComponentsBuilder builder = UaaUrlUtils.fromUriString(redirectUrl);
         for (String key : params.keySet()) {
             builder.queryParam(key, params.get(key));
         }

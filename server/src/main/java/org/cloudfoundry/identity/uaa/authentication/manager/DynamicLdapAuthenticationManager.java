@@ -118,7 +118,7 @@ public class DynamicLdapAuthenticationManager implements AuthenticationManager {
         ClassPathXmlApplicationContext applicationContext = context;
         if (applicationContext != null) {
             context = null;
-            applicationContext.destroy();
+            applicationContext.close();
         }
     }
 

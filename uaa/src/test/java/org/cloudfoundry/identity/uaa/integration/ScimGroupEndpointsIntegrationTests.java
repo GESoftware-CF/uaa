@@ -13,8 +13,8 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.integration;
 
-import org.apache.http.impl.client.BasicCookieStore;
-import org.apache.http.impl.cookie.BasicClientCookie;
+import org.apache.hc.client5.http.cookie.BasicCookieStore;
+import org.apache.hc.client5.http.impl.cookie.BasicClientCookie;
 import org.cloudfoundry.identity.uaa.ServerRunningExtension;
 import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
@@ -149,15 +149,14 @@ class ScimGroupEndpointsIntegrationTests {
     }
 
     private ScimUser createUser(String username, String password) {
+        String adminClientCredentialsToken = IntegrationTestUtils.getClientCredentialsToken(serverRunning, "admin", "adminsecret");
         ScimUser user = new ScimUser();
         user.setUserName(username);
         user.setName(new ScimUser.Name(username, username));
         user.addEmail(username);
         user.setVerified(true);
         user.setPassword(password);
-        ResponseEntity<ScimUser> result = client.postForEntity(serverRunning.getUrl(userEndpoint), user, ScimUser.class);
-        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        return result.getBody();
+        return IntegrationTestUtils.createUser(adminClientCredentialsToken, serverRunning.getUrl("/"), user, null);
     }
 
     private ScimGroup createGroup(String name, ScimGroupMember... members) {

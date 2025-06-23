@@ -47,7 +47,7 @@ import static org.springframework.restdocs.payload.JsonFieldType.STRING;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
 import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
-import static org.springframework.restdocs.request.RequestDocumentation.requestParameters;
+import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
 import static org.springframework.restdocs.snippet.Attributes.key;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -209,7 +209,7 @@ class ScimGroupEndpointDocs extends EndpointDocs {
         // List
         scimGroup = JsonUtils.readValue(retrieveResult.andReturn().getResponse().getContentAsString(), ScimGroup.class);
 
-        Snippet requestParameters = requestParameters(
+        Snippet queryParameters = queryParameters(
                 parameterWithName("filter").optional("id pr").type(STRING).description("A SCIM filter over groups"),
                 parameterWithName("sortBy").optional("created").type(STRING).description("The field of the SCIM group to sort by"),
                 parameterWithName("sortOrder").optional("ascending").type(NUMBER).description("Sort in `ascending` or `descending` order"),
@@ -244,7 +244,7 @@ class ScimGroupEndpointDocs extends EndpointDocs {
                                 IDENTITY_ZONE_ID_HEADER,
                                 IDENTITY_ZONE_SUBDOMAIN_HEADER
                         ),
-                        requestParameters,
+                        queryParameters,
                         listGroupResponseFields));
 
         // Check Membership
@@ -340,7 +340,7 @@ class ScimGroupEndpointDocs extends EndpointDocs {
                         pathParameters(
                                 parameterWithName("groupId").required().description("The globally unique identifier of the group")
                         ),
-                        requestParameters(
+                        queryParameters(
                                 parameterWithName("returnEntities").type(BOOLEAN).optional("false").description("Set to `true` to return the SCIM entities which have membership in the group")
                         ),
                         requestHeaders(

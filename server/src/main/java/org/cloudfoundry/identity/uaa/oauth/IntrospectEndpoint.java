@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 @Controller
 public class IntrospectEndpoint {
@@ -30,7 +30,7 @@ public class IntrospectEndpoint {
 
     @PostMapping("/introspect")
     @ResponseBody
-    public IntrospectionClaims introspect(@RequestParam("token") String token) {
+    public IntrospectionClaims introspect(@RequestParam String token) {
         IntrospectionClaims introspectionClaims = new IntrospectionClaims();
 
         try {

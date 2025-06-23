@@ -21,10 +21,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.validation.Valid;
-import javax.validation.constraints.Email;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
 import java.util.Map;
 
 @Controller
@@ -51,7 +51,7 @@ public class ChangeEmailController {
     }
 
     @PostMapping("/change_email.do")
-    public String changeEmail(Model model, @Valid @ModelAttribute("newEmail") ValidEmail newEmail, BindingResult result,
+    public String changeEmail(Model model, @Valid @ModelAttribute ValidEmail newEmail, BindingResult result,
             @RequestParam(required = false, value = "client_id") String clientId,
             @RequestParam(required = false, value = "redirect_uri") String redirectUri,
             RedirectAttributes redirectAttributes, HttpServletResponse response) {
@@ -87,7 +87,7 @@ public class ChangeEmailController {
     }
 
     @GetMapping("/verify_email")
-    public String verifyEmail(Model model, @RequestParam("code") String code, RedirectAttributes redirectAttributes,
+    public String verifyEmail(Model model, @RequestParam String code, RedirectAttributes redirectAttributes,
             HttpServletResponse httpServletResponse, HttpServletRequest request) {
         Map<String, String> response;
 

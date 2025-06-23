@@ -293,13 +293,16 @@ public class InvitationsServiceMockMvcTests {
 
         code = jdbcTemplate.queryForObject("SELECT code FROM expiring_code_store", String.class);
         MockHttpSession session = (MockHttpSession) result.getRequest().getSession(false);
+        MockHttpServletRequestBuilder post = post("/invitations/accept.do")
+                .param("password", "s3cret")
+                .param("password_confirmation", "s3cret")
+                .param("code", code)
+                .with(cookieCsrf());
+        if (session!=null) {
+            post = post.session(session);
+        }
         result = mockMvc.perform(
-                        post("/invitations/accept.do")
-                                .session(session)
-                                .param("password", "s3cret")
-                                .param("password_confirmation", "s3cret")
-                                .param("code", code)
-                                .with(cookieCsrf())
+                        post
                 )
                 .andExpect(status().isFound())
                 .andExpect(redirectedUrl("/login?success=invite_accepted&form_redirect_uri=" + REDIRECT_URI))

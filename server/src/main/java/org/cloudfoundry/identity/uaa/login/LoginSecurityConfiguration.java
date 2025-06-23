@@ -60,6 +60,7 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.context.SecurityContextPersistenceFilter;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfLogoutHandler;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.session.DisableEncodeUrlFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -152,6 +153,7 @@ class LoginSecurityConfiguration {
                 })
                 .csrf(CsrfConfigurer::disable)
                 .anonymous(AnonymousConfigurer::disable)
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
         return new UaaFilterChain(originalChain, "authenticateCatchAll");
 
@@ -173,6 +175,7 @@ class LoginSecurityConfiguration {
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .csrf(CsrfConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
         return new UaaFilterChain(originalChain, "authenticateCatchAll");
     }
@@ -199,6 +202,7 @@ class LoginSecurityConfiguration {
                 })
                 .csrf(CsrfConfigurer::disable)
                 .anonymous(AnonymousConfigurer::disable)
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
         return new UaaFilterChain(originalChain, "loginAuthorize");
     }
@@ -240,6 +244,7 @@ class LoginSecurityConfiguration {
                 })
                 .csrf(CsrfConfigurer::disable)
                 .anonymous(AnonymousConfigurer::disable)
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
         return new UaaFilterChain(originalChain, "loginToken");
     }
@@ -264,6 +269,7 @@ class LoginSecurityConfiguration {
                     exception.authenticationEntryPoint(oauthAuthenticationEntryPoint);
                     exception.accessDeniedHandler(oauthAccessDeniedHandler);
                 })
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
         return new UaaFilterChain(originalFilterChain, "loginAuthorizeOld");
     }
@@ -291,6 +297,7 @@ class LoginSecurityConfiguration {
                     exception.authenticationEntryPoint(oauthAuthenticationEntryPoint);
                     exception.accessDeniedHandler(oauthAccessDeniedHandler);
                 })
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(originalFilterChain, "password");
@@ -318,6 +325,7 @@ class LoginSecurityConfiguration {
                     exception.authenticationEntryPoint(oauthAuthenticationEntryPoint);
                     exception.accessDeniedHandler(oauthAccessDeniedHandler);
                 })
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
 
         return new UaaFilterChain(originalFilterChain, "email");
@@ -353,10 +361,12 @@ class LoginSecurityConfiguration {
                 .csrf(csrf -> {
                     csrf.ignoringRequestMatchers("/autologin");
                     csrf.csrfTokenRepository(csrfTokenRepository);
+                    csrf.csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler());
                 })
                 .addFilterAt(autologinFilter, UsernamePasswordAuthenticationFilter.class)
                 .headers(headers -> headers.xssProtection(xss -> xss.disable()))
                 .exceptionHandling(EXCEPTION_HANDLING)
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
         return new UaaFilterChain(originalChain, "autologinCode");
     }
@@ -379,6 +389,7 @@ class LoginSecurityConfiguration {
                 .addFilterBefore(clientBasicAuthenticationFilter.getFilter(), BasicAuthenticationFilter.class)
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(authenticationEntryPoint))
                 .headers(headers -> headers.xssProtection(xss -> xss.disable()))
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
         return new UaaFilterChain(originalChain, "autologin");
     }
@@ -404,8 +415,12 @@ class LoginSecurityConfiguration {
                     var securityContextRepository = new HttpSessionSecurityContextRepository();
                     securityContextRepository.setTrustResolver(new InvitationsAuthenticationTrustResolver());
                     securityContext.securityContextRepository(securityContextRepository);
+                    securityContext.requireExplicitSave(false);
                 })
-                .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository))
+                .csrf(csrf -> {
+                    csrf.csrfTokenRepository(csrfTokenRepository);
+                    csrf.csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler());
+                })
                 .headers(headers -> headers.xssProtection(xss -> xss.disable()))
                 .exceptionHandling(EXCEPTION_HANDLING)
                 .build();
@@ -439,6 +454,7 @@ class LoginSecurityConfiguration {
                     exception.authenticationEntryPoint(authenticationEntryPoint);
                     exception.accessDeniedHandler(new OAuth2AccessDeniedHandler());
                 })
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
         return new UaaFilterChain(originalChain, "inviteUser");
     }
@@ -464,11 +480,13 @@ class LoginSecurityConfiguration {
                 .csrf(csrf -> {
                     csrf.ignoringRequestMatchers("/forgot_password.do");
                     csrf.csrfTokenRepository(csrfTokenRepository);
+                    csrf.csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler());
                 })
                 .headers(headers -> headers.xssProtection(xss -> xss.disable()))
                 .addFilterBefore(disableUserManagementSecurityFilter.getFilter(), AnonymousAuthenticationFilter.class)
                 .addFilterAfter(resetPasswordAuthenticationFilter.getFilter(), AuthorizationFilter.class)
                 .exceptionHandling(EXCEPTION_HANDLING)
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
         return new UaaFilterChain(originalChain,"loginPublicOperations");
     }
@@ -496,7 +514,10 @@ class LoginSecurityConfiguration {
         clientRedirectStateCache.setRequestMatcher(new AntPathRequestMatcher("/oauth/authorize**"));
 
         var originalChain = http
-                .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository))
+                .csrf(csrf -> {
+                    csrf.csrfTokenRepository(csrfTokenRepository);
+                    csrf.csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler());
+                })
                 .authenticationManager(authenticationManager)
                 .authorizeHttpRequests(auth -> {
                     auth.requestMatchers("/force_password_change/**").fullyAuthenticated();
@@ -528,6 +549,7 @@ class LoginSecurityConfiguration {
                 .exceptionHandling(EXCEPTION_HANDLING)
                 .requestCache(cache -> cache.requestCache(clientRedirectStateCache))
                 .headers(headers -> headers.xssProtection(xss -> xss.disable()))
+                .securityContext(sc -> sc.requireExplicitSave(false))
                 .build();
         return new UaaFilterChain(originalChain, "uiSecurity");
     }

@@ -25,6 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @DefaultTestContext
+//@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class HealthzShouldNotBeProtectedMockMvcTests {
 
     private SecurityFilterChainPostProcessor chainPostProcessor;
@@ -35,10 +36,11 @@ class HealthzShouldNotBeProtectedMockMvcTests {
     void beforeEach(
             @Autowired SecurityFilterChainPostProcessor securityFilterChainPostProcessor,
             @Autowired MockMvc mockMvc
-    ) {
+    ) throws Exception {
         this.mockMvc = mockMvc;
         chainPostProcessor = securityFilterChainPostProcessor;
         originalRequireHttps = securityFilterChainPostProcessor.isRequireHttps();
+        mockMvc.perform(get("/login"));
     }
 
     @AfterEach

@@ -12,11 +12,11 @@ import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 import static org.springframework.http.HttpHeaders.SET_COOKIE;
@@ -43,7 +43,7 @@ public class CurrentUserCookieRequestFilter extends OncePerRequestFilter {
             UaaPrincipal principal = (UaaPrincipal) getContext().getAuthentication().getPrincipal();
             try {
                 Cookie currentUserCookie = currentUserCookieFactory.getCookie(principal);
-                String headerValue = rfc6265CookieProcessor.generateHeader(currentUserCookie);
+                String headerValue = rfc6265CookieProcessor.generateHeader(currentUserCookie, request);
                 response.addHeader(SET_COOKIE, headerValue);
             } catch (CurrentUserCookieFactory.CurrentUserCookieEncodingException e) {
                 logger.error(errorMessage(principal), e);

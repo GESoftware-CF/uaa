@@ -4,7 +4,7 @@ import org.cloudfoundry.identity.uaa.UaaProperties;
 import org.cloudfoundry.identity.uaa.authentication.UaaPrincipal;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 
-import javax.servlet.http.Cookie;
+import jakarta.servlet.http.Cookie;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;

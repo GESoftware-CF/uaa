@@ -17,6 +17,7 @@ import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerato
 import org.cloudfoundry.identity.uaa.util.TimeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.sql.init.dependency.DependsOnDatabaseInitialization;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -31,6 +32,7 @@ import java.sql.Timestamp;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Component(value = "codeStore")
+@DependsOnDatabaseInitialization
 public class JdbcExpiringCodeStore implements ExpiringCodeStore {
 
     public static final String tableName = "expiring_code_store";
@@ -158,7 +160,7 @@ public class JdbcExpiringCodeStore implements ExpiringCodeStore {
 
     @Override
     public void expireByIntent(String intent, String zoneId) {
-        Assert.hasText(intent);
+        Assert.hasText(intent, "must have text; it must not be null, empty, or blank");
 
         jdbcTemplate.update(deleteIntent, intent, zoneId);
     }
