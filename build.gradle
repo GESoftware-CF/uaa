@@ -99,8 +99,8 @@ subprojects {
         testImplementation(libraries.unboundIdLdapSdk)
         testRuntimeOnly(libraries.jacocoAgent)
 
-        compileOnly("org.projectlombok:lombok")
-        annotationProcessor("org.projectlombok:lombok")
+        compileOnly(libraries.lombok)
+        annotationProcessor(libraries.lombok)
     }
 
     [compileJava, compileTestJava]*.options*.compilerArgs = ["-Xlint:none", "-nowarn", "-parameters"]

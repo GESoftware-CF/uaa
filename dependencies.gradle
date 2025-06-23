@@ -35,9 +35,6 @@ ext {
 }
 
 // Dependencies (some rely on shared versions, some are shared between projects)
-libraries.apacheCommonsRngCore = "org.apache.commons:commons-rng-core:1.6"
-libraries.apacheCommonsRngSimple = "org.apache.commons:commons-rng-simple:1.6"
-libraries.apacheCommonsText = "org.apache.commons:commons-text:1.13.1"
 libraries.apacheDsProtocolLdap = "org.apache.directory.server:apacheds-protocol-ldap:${versions.apacheDsVersion}"
 libraries.apacheHttpClient = "org.apache.httpcomponents.client5:httpclient5"
 libraries.aspectJRt = "org.aspectj:aspectjrt"
@@ -63,9 +60,7 @@ libraries.hsqldb = "org.hsqldb:hsqldb"
 libraries.jacksonAnnotations = "com.fasterxml.jackson.core:jackson-annotations:${versions.jacksonVersion}"
 libraries.jacksonDatabind = "com.fasterxml.jackson.core:jackson-databind:${versions.jacksonVersion}"
 libraries.jacksonDataformatYaml = "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${versions.jacksonVersion}"
-libraries.javaxServlet = "jakarta.servlet:jakarta.servlet-api"
-libraries.javaxValidationApi = "jakarta.validation:jakarta.validation-api"
-libraries.javaxXmlBindApi = "jakarta.xml.bind:jakarta.xml.bind-api"
+libraries.jakartaValidationApi = "jakarta.validation:jakarta.validation-api"
 libraries.jacocoAgent = "org.jacoco:org.jacoco.agent:0.8.13"
 libraries.jodaTime = "joda-time:joda-time:2.14.0"
 libraries.jsonAssert = "org.skyscreamer:jsonassert"
@@ -108,7 +103,6 @@ libraries.springSecurityConfig = "org.springframework.security:spring-security-c
 libraries.springSecurityCore = "org.springframework.security:spring-security-core"
 libraries.springSecurityLdap = "org.springframework.security:spring-security-ldap"
 libraries.springSecuritySamlServiceProvider = "org.springframework.security:spring-security-saml2-service-provider"
-libraries.springSecurityTaglibs = "org.springframework.security:spring-security-taglibs"
 libraries.springSecurityTest = "org.springframework.security:spring-security-test"
 libraries.springSecurityWeb = "org.springframework.security:spring-security-web"
 libraries.springSessionJdbc = "org.springframework.session:spring-session-jdbc"
