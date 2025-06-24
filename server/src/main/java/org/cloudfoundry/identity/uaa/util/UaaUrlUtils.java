@@ -40,8 +40,8 @@ public abstract class UaaUrlUtils {
     }
 
     /** Pattern that matches valid subdomains.
-    *  According to https://tools.ietf.org/html/rfc3986#section-3.2.2
-    */
+     *  According to <a href="https://tools.ietf.org/html/rfc3986#section-3.2.2">rfc3986 §3.2.2</a>
+     */
     private static final Pattern VALID_SUBDOMAIN_PATTERN = Pattern.compile("([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])");
     private static final Logger s_logger = LoggerFactory.getLogger(
             UaaUrlUtils.class);

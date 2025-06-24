@@ -240,7 +240,7 @@ class UaaUrlUtilsTest {
 
     @Test
     void getHostWithZone() {
-        IdentityZone zone = MultitenancyFixture.identityZone("zone1", "zone1");
+        MultitenancyFixture.identityZone("zone1", "zone1");
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setScheme("http");
@@ -482,12 +482,6 @@ class UaaUrlUtilsTest {
 
     @Test
     void addSubdomainToUrl_givenUaaUrl() {
-        String url = UaaUrlUtils.addSubdomainToUrl("http://localhost:8080", "somezone");
-        assertThat(url).isEqualTo("http://somezone.localhost:8080");
-    }
-
-    @Test
-    void addSubdomainToUrl_givenUaaUrlAndSubdomain() {
         String url = UaaUrlUtils.addSubdomainToUrl("http://localhost:8080", "somezone");
         assertThat(url).isEqualTo("http://somezone.localhost:8080");
     }

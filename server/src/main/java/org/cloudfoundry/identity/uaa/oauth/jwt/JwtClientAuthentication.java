@@ -30,7 +30,6 @@ import org.cloudfoundry.identity.uaa.oauth.jwk.JsonWebKey;
 import org.cloudfoundry.identity.uaa.oauth.jwk.JsonWebKeySet;
 import org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants;
 import org.cloudfoundry.identity.uaa.oauth.token.Claims;
-import org.cloudfoundry.identity.uaa.provider.AbstractExternalOAuthIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.OIDCIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.provider.oauth.ExternalOAuthAuthenticationManager;
@@ -51,7 +50,7 @@ import java.net.URISyntaxException;
 import java.text.ParseException;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -105,7 +104,7 @@ public class JwtClientAuthentication {
         String audience = readJwtClientOption(jwtClientConfiguration.get("aud"), config.getTokenUrl().toString(), allowDynamicValueLookupInCustomZone);
         String kid = readJwtClientOption(jwtClientConfiguration.get("kid"), keyInfoService.getActiveKey().keyId(), allowDynamicValueLookupInCustomZone);
         Claims claims = new Claims();
-        claims.setAud(Arrays.asList(audience));
+        claims.setAud(Collections.singletonList(audience));
         claims.setSub(subject);
         claims.setIss(issuer);
         claims.setJti(UUID.randomUUID().toString().replace("-", ""));
@@ -142,7 +141,7 @@ public class JwtClientAuthentication {
 
     private static HashMap<String, String> getJwtClientConfigurationElements(Object jwtClientAuthentication) {
         HashMap<String, String> jwtClientConfiguration = null;
-        if (jwtClientAuthentication instanceof Boolean boolean1 && boolean1.booleanValue()) {
+        if (jwtClientAuthentication instanceof Boolean boolean1 && boolean1) {
             jwtClientConfiguration = new HashMap<>();
         } else if (jwtClientAuthentication instanceof HashMap) {
             jwtClientConfiguration = (HashMap<String, String>) jwtClientAuthentication;
@@ -251,7 +250,7 @@ public class JwtClientAuthentication {
             def = new OIDCIdentityProviderDefinition();
             def.setIssuer(issuer);
             def.setSkipSslValidation(false);
-            // Allow only OIDC compliant issuer and create from it the so-called discovery URL, e.g. https://openid.net/specs/openid-connect-discovery-1_0.html
+            // Allow only OIDC compliant issuer and create from it the so-called discovery URL, e.g., https://openid.net/specs/openid-connect-discovery-1_0.html
             if (!UaaUrlUtils.isUrl(issuer)) {
                 throw new MalformedURLException(issuer + " is not a valid HTTP URL");
             }
