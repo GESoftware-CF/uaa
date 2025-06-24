@@ -41,13 +41,13 @@ and therefore do not require any adjustments.
 
 ### Example: Cloud Controller
 
-An example for a component that relies on UAA as an authorization server is the CF Cloud Controller.
+An example of a component that relies on UAA as an authorization server is the CF Cloud Controller.
 Among other functionalities, it manages the roles of users on org and space level.
 This is done by internally assigning the roles to the user IDs they receive from UAA.
 
 For example, when logging in via the `cf login` command, a token is fetched from UAA in the context of the "uaa" zone.
 The cloud controller APIs are then called with this token, from which it can read the user's ID.
-However, if the user would be moved to a custom zone without using an alias, the login against UAA would not work, since
+However, if the user was moved to a custom zone without using an alias, the login against UAA would not work, since
 the user is not present in the "uaa" zone.
 
 When using the alias feature, the administrator will only have access to his/her IdZ, but create all users as well as 
@@ -88,7 +88,7 @@ For them, the entity and its alias will have their own values, respectively.
 
 ### Delete an entity with alias
 
-If an entity with alias is deleted, the alias is also deleted.
+If an entity with an alias is deleted, the alias is also deleted.
 
 In the case of IdPs, all users of the alias IdP (regardless of whether they have an alias themselves or not) are also 
 deleted. 
@@ -107,14 +107,14 @@ well.
 ## Enablement
 
 The alias entities feature can be enabled or disabled by setting `login.aliasEntitiesEnabled` to `true` or `false`.
-If the flag is disabled, no new alias can be created and entities with an existing alias cannot be updated or deleted.
+If the flag is disabled, no new alias can be created, and entities with an existing alias cannot be updated or deleted.
 In both cases, a response with status code `422 Unprocessable Entity` is returned. 
 
 Please note that disabling the flag does not lead to existing entities with alias being removed.
 
 In addition to enabling the alias feature, one must ensure that no groups can be created that would give users inside a 
 custom zone any authorizations in other zones (e.g., `zones.<zone ID>.admin`).
-This can be achieved by using the allow list for groups (`userConfig.allowedGroups`) in the configuration of the 
+This can be achieved by using the allowlist for groups (`userConfig.allowedGroups`) in the configuration of the 
 identity zone.
 
 ## User Logon
@@ -125,7 +125,7 @@ During logon, the information of the matching shadow user is updated with the in
 If this shadow user has an alias, ...
 - *alias entities enabled:* the updated properties are propagated to the alias.
 - *alias entities disabled:* only the user itself is updated, the alias user is left unchanged.
-  - the alias properties are not changed - original and alias user still reference each other
+  - the alias properties are not changed — the original and alias user will still reference each other
 
 ### OpenID Connect: Communication to the IdP via Private Key JWT
 

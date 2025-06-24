@@ -30,7 +30,7 @@ ratelimit:
       pathSelectors:
         - "other"
 ```
-The example config above would result in the following:
+The example configuration above would result in the following:
 * Requests to the UAA token endpoint (`/oauth/token`) will be rate-limited to 50 requests per second, 
 per originating IP address.
 * Requests to the UAA SCIM management endpoints (endpoints that start with `/Groups` or `/Users`) will be rate-limited to 2000 requests per 10 seconds; 
@@ -84,39 +84,39 @@ This endpoint cannot be configured with a rate limit. This endpoint displays the
     - `PENDING`: Configuration file could not be read successfully.
 - `current.credentialIdExtractor`: Credential ID configuration that is currently used.
 - `current.loggingLevel`: loggingOption that is currently used.
-- `current.limiterMapping`: Number of limiters from the configuration (aka, size of limiterMappings from config file)
+- `current.limiterMapping`: Number of limiters from the configuration (aka, the size of limiterMappings from the config file)
 - `fromSource`: Location of the config file that is currently applied
 
 ## Error Messages
-A request that is denied because of a rate limit will receive the "429 - Too Many Requests" Http Status Code.
+A request denied because of a rate limit will receive the "429 - Too Many Requests" Http Status Code.
 In addition, an error message is returned. Depending on whether the request Accepts HTML or JSON as a response, 
 the error message is either embedded in an HTML Page or included in a JSON response body as the "error" field.
 
 Beside the static error message: `429 - Too Many Requests - Request limited by Rate Limiter configuration:`
-the error also contains information about the rate limiting setting that limited this request.
+the error also contains information about the rate-limiting setting that limited this request.
 This includes the name of the limiter as well as information about whether they have hit a "global" rate limit 
 or the limit was only applied to their Credential ID or IP address.
 
 ## Misc implementation details
 This section contains miscellaneous info about the implementation details of this feature.
-They are for UAA dev purpose only. 
+They are for UAA dev purposes only. 
 
 ### Selection of Single or Multiple *limiterMapping*(s)
 
-There are five types of *pathSelector*s which fall into two groups:
+There are five types of *pathSelector*s that fall into two groups:
 - *all*
-- non-all (path based)
+- non-all (path-based)
 
 As both the *all* and the non-all *limiterMapping*(s) are checked, there will likely be **One** OR **Two** *limiterMapping*(s)
 selected:
 1. from *all* (selected if there is one in the Configuration file)
 2. from non-all.
 
-The "non-all" *limiterMapping* selection is the first match found in following order:
-1. *equals*     (uses a map to look up the path and is very fast, best option for speed).
-2. *startsWith* (uses an ordered list to find the longest matching path, linear search).
-3. *contains*   (uses an ordered list to find the longest matching path, linear search).
-4. *other*      (obviously if there is no *other*, and none of the above matched, then there will be no "non-all")
+The "non-all" *limiterMapping* selection is the first match found in the following order:
+1. *equals* — uses a map to look up the path and is quick, the best option for speed.
+2. *startsWith* — uses an ordered list to find the longest matching path, linear search.
+3. *contains* — uses an ordered list to find the longest matching path, linear search.
+4. *other* — if there is no *other*, and none of the above matched, then there will be no "non-all"
 
 ### Order of *Window Type* limiter(s) from Multiple *limiterMapping*s
 
@@ -132,11 +132,11 @@ are added for processing (mutual-exclusion locking) in the following order:
 The reason for the order is two-fold:
 1. Since the processing of the *InternalLimiter*(s) stops as soon as one indicates that it is limiting,
    and it was assumed that the "non-global" and/or the "non-all" would have lower limits,
-   they should be checked and (possibly) limit sooner!
+   they should be checked and (possibly) limited sooner!
 2. While "non-global" and/or the "non-all" would probably have lower limits,
    they would also individually participate less frequently in each request;
    as such they are expected to have the least mutual-exclusion (lock) contention
-   (waiting for lock freeing) so they should be checked first
+   (waiting for lock freeing) so they should be checked first, 
    and holding the lock a bit longer is not as detrimental as
    holding the lock longer on the others, especially *all*'s *global*!
 

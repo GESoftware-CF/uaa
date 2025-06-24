@@ -1,5 +1,5 @@
 ##Introduction
-This document outlines a very simple SAML integration between the OpenAM server and the 
+This document outlines a basic SAML integration between the OpenAM server and the 
 Cloud Foundry UAA.
 
 ###Step 1
@@ -41,7 +41,7 @@ Setup OpenAM as an Identity Provider (IDP)
 
   - a) Click "Create Hosted Identity Provider"
   - b) Select 'test' for the signing key
-  - c) Type 'circleoftrust' for "New Circle of Trust" (value is not used by us)
+  - c) Type 'circleoftrust' for "New Circle of Trust" (we do not use this value)
   - d) Add an attribute by name `urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified` and value `mail` (this means the email will become the username)
   - e) Click 'Add' on the attribute
   - f) Click 'Configure'
@@ -76,8 +76,7 @@ Create a SAML user
   - b) Click '/ (Top Level Realm)'
   - c) Click 'Subjects'
   - d) Click 'New'
-    Enter user information - 
-    After the user is created, click on it again, and give the user an email address
+    Enter user information — After the user is created, click on it again and give the user an email address
   - e) Log out of OpenAM
 
 ###Step 8
