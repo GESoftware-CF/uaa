@@ -91,13 +91,18 @@ subprojects {
     }
 
     dependencies {
-        testImplementation(libraries.springBootStarterTest)
+        testImplementation(libraries.springBootStarterTest) {
+            exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+        }
         testImplementation(libraries.hamcrest)
         testImplementation(libraries.junit5JupiterApi)
         testImplementation(libraries.junit5JupiterParams)
-        testRuntimeOnly(libraries.junit5JupiterEngine)
+        testImplementation(libraries.junit5JupiterEngine)
         testImplementation(libraries.unboundIdLdapSdk)
         testRuntimeOnly(libraries.jacocoAgent)
+
+        // Ensure test runtime dependencies are included
+        testRuntimeOnly('org.junit.platform:junit-platform-launcher')
 
         compileOnly(libraries.lombok)
         annotationProcessor(libraries.lombok)
