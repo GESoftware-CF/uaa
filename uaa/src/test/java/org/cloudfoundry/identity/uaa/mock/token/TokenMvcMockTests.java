@@ -3457,7 +3457,7 @@ public class TokenMvcMockTests extends AbstractTokenMockMvcTests {
 
         MvcResult result = mockMvc.perform(authRequest).andExpect(status().is3xxRedirection()).andReturn();
         String location = result.getResponse().getHeader("Location");
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(location);
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(location);
         String code = builder.build().getQueryParams().get("code").get(0);
 
         authRequest = post("/oauth/token")

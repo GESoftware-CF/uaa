@@ -989,7 +989,7 @@ public final class MockMvcUtils {
 
         MvcResult result = mockMvc.perform(authRequest).andDo(print()).andExpect(status().is3xxRedirection()).andReturn();
         String location = result.getResponse().getHeader("Location");
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(location);
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(location);
         String code = builder.build().getQueryParams().get("code").get(0);
 
         authRequest = post("/oauth/token")

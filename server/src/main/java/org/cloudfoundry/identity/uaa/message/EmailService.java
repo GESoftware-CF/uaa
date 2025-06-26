@@ -26,11 +26,11 @@ public class EmailService implements MessageService {
         this.mailSender = mailSender;
         this.identityZoneManager = identityZoneManager;
 
-        // if we are provided a from address use that, if not fallback to default based on loginUrl
+        // if we are provided a from address, use that, if not, fall back to default based on loginUrl
         if (fromAddress != null && !fromAddress.isEmpty()) {
             this.fromAddress = fromAddress;
         } else {
-            String host = UriComponentsBuilder.fromHttpUrl(loginUrl).build().getHost();
+            String host = UriComponentsBuilder.fromUriString(loginUrl).build().getHost();
             this.fromAddress = "admin@" + host;
         }
     }

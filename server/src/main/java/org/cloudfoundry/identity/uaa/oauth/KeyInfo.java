@@ -172,7 +172,7 @@ public class KeyInfo {
             throw new IllegalArgumentException("Invalid Key URL");
         }
 
-        return UriComponentsBuilder.fromHttpUrl(keyUrl).scheme("https").path("/token_keys").build().toUriString();
+        return UriComponentsBuilder.fromUriString(keyUrl).scheme("https").path("/token_keys").build().toUriString();
     }
 
     private static boolean isAsymmetric(String key) {

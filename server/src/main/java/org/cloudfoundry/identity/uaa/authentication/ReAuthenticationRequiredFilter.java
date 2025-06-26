@@ -14,7 +14,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-
 public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
 
     private final String samlEntityID;
@@ -31,12 +30,12 @@ public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
             reAuthenticationRequired = true;
             requestParams.remove("prompt");
         }
-        if (request.getParameter("max_age") != null && SecurityContextHolder.getContext().getAuthentication() instanceof UaaAuthentication) {
-            UaaAuthentication auth = (UaaAuthentication) SecurityContextHolder.getContext().getAuthentication();
-            if ((System.currentTimeMillis() - auth.getAuthenticatedTime()) > (Long.valueOf(request.getParameter("max_age")) * 1000)) {
+        if (request.getParameter("max_age") != null
+            && SecurityContextHolder.getContext().getAuthentication() instanceof UaaAuthentication auth
+            && (System.currentTimeMillis() - auth.getAuthenticatedTime()) > (Long.parseLong(request.getParameter("max_age")) * 1000))
+        {
                 reAuthenticationRequired = true;
                 requestParams.remove("max_age");
-            }
         }
         if (reAuthenticationRequired) {
             request.getSession().invalidate();
@@ -51,9 +50,7 @@ public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
 
     private void sendRedirect(String redirectUrl, Map<String, String[]> params, HttpServletResponse response) throws IOException {
         UriComponentsBuilder builder = UaaUrlUtils.fromUriString(redirectUrl);
-        for (String key : params.keySet()) {
-            builder.queryParam(key, params.get(key));
-        }
+        params.forEach(builder::queryParam);
         response.sendRedirect(builder.build().toUriString());
     }
 }

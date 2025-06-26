@@ -15,7 +15,6 @@ import org.springframework.web.util.UriUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -41,8 +40,8 @@ public abstract class UaaUrlUtils {
     }
 
     /** Pattern that matches valid subdomains.
-    *  According to https://tools.ietf.org/html/rfc3986#section-3.2.2
-    */
+     *  According to <a href="https://tools.ietf.org/html/rfc3986#section-3.2.2">rfc3986 §3.2.2</a>
+     */
     private static final Pattern VALID_SUBDOMAIN_PATTERN = Pattern.compile("([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])");
     private static final Logger s_logger = LoggerFactory.getLogger(
             UaaUrlUtils.class);
@@ -176,18 +175,11 @@ public abstract class UaaUrlUtils {
 
     public static String getHostForURI(String uri) {
         if (isUrl(uri)) {
-            return UriComponentsBuilder.fromHttpUrl(uri).build().getHost();
+            return UriComponentsBuilder.fromUriString(uri).build().getHost();
         } else {
-            //spring-web 5.3 used to throw a IllegalArgumentException if the URL wasn't valid.
+            //spring-web 5.3 used to throw an IllegalArgumentException if the URL wasn't valid.
             throw new IllegalArgumentException("[" + uri + "] is not a valid HTTP URL");
         }
-    }
-
-    public static UriComponentsBuilder fromHttpUrl(String url) {
-        if (!isUrl(url)) {
-            throw new InvalidUrlException(url + " is not a valid URL");
-        }
-        return UriComponentsBuilder.fromHttpUrl(url);
     }
 
     public static UriComponentsBuilder fromUriString(String uri) {
@@ -263,7 +255,7 @@ public abstract class UaaUrlUtils {
         subdomain = subdomain.trim();
         subdomain = subdomain.endsWith(".") ? subdomain : (subdomain + ".");
 
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(url);
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(url);
         builder.host(subdomain + builder.build().getHost());
         return builder.build().toUriString();
     }
@@ -337,11 +329,7 @@ public abstract class UaaUrlUtils {
 
     public static String urlEncode(String inValue) throws IllegalArgumentException {
         String out;
-        try {
-            out = URLEncoder.encode(inValue, UTF_8.name());
-        } catch (UnsupportedEncodingException e) {
-            throw new IllegalArgumentException(e);
-        }
+        out = URLEncoder.encode(inValue, UTF_8);
         return out;
     }
 

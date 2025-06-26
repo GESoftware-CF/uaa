@@ -110,7 +110,7 @@ class AutologinIT {
                 Map.class);
         String autologinCode = (String) autologinResponseEntity.getBody().get("code");
 
-        String authorizeUrl = UriComponentsBuilder.fromHttpUrl(baseUrl)
+        String authorizeUrl = UriComponentsBuilder.fromUriString(baseUrl)
                 .path("/oauth/authorize")
                 .queryParam("redirect_uri", "http://localhost:8080/app")
                 .queryParam("response_type", "code")
@@ -146,7 +146,7 @@ class AutologinIT {
 
         //start the authorization flow - this will issue a login event
         //by using the autologin code
-        String authorizeUrl = UriComponentsBuilder.fromHttpUrl(baseUrl)
+        String authorizeUrl = UriComponentsBuilder.fromUriString(baseUrl)
                 .path("/oauth/authorize")
                 .queryParam("redirect_uri", "http://localhost:8080/app")
                 .queryParam("response_type", "code")
@@ -179,7 +179,7 @@ class AutologinIT {
 
         //if we receive a 200, then we must approve our scopes
         if (HttpStatus.OK == authorizeResponse.getStatusCode()) {
-            authorizeUrl = UriComponentsBuilder.fromHttpUrl(baseUrl)
+            authorizeUrl = UriComponentsBuilder.fromUriString(baseUrl)
                     .path("/oauth/authorize")
                     .queryParam("user_oauth_approval", "true")
                     .queryParam(DEFAULT_CSRF_COOKIE_NAME, IntegrationTestUtils.extractCookieCsrf(authorizeResponse.getBody()))
@@ -197,7 +197,7 @@ class AutologinIT {
         String newCode = location.get(0).substring(location.get(0).indexOf("code=") + 5);
 
         //request a token using our code
-        String tokenUrl = UriComponentsBuilder.fromHttpUrl(baseUrl)
+        String tokenUrl = UriComponentsBuilder.fromUriString(baseUrl)
                 .path("/oauth/token")
                 .build().toUriString();
 
@@ -252,7 +252,7 @@ class AutologinIT {
                         new HttpEntity<>(null, getHeaders(cookieStore)), String.class);
 
         IntegrationTestUtils.extractCookies(profilePage, cookieStore);
-        String revokeApprovalsUrl = UriComponentsBuilder.fromHttpUrl(baseUrl)
+        String revokeApprovalsUrl = UriComponentsBuilder.fromUriString(baseUrl)
                 .path("/profile")
                 .build().toUriString();
         requestBody.clear();
@@ -333,7 +333,7 @@ class AutologinIT {
                 Map.class);
         String autologinCode = (String) autologinResponseEntity.getBody().get("code");
 
-        String authorizeUrl = UriComponentsBuilder.fromHttpUrl(baseUrl)
+        String authorizeUrl = UriComponentsBuilder.fromUriString(baseUrl)
                 .path("/oauth/authorize")
                 .queryParam("redirect_uri", "http://localhost:8080/app")
                 .queryParam("response_type", "code")
