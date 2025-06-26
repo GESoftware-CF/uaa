@@ -1,10 +1,10 @@
 ##Introduction
-This document outlines a very simple SAML integration between Okta and the
+This document outlines a basic SAML integration between Okta and the
 Cloud Foundry UAA.
 It assumes that you have a SAML application setup on Okta Preview with admin rights to it.
 
 ##Pivotal Preview and Standalone Login Server
-The UAA comes with with a `sample-okta-metadata.xml` file
+The UAA comes with a `sample-okta-metadata.xml` file
 that will redirect your SAML request back to http://localhost:8080/uaa
 This configuration requires you to have an account on 
 https://pivotal.oktapreview.com
@@ -42,7 +42,7 @@ Test SAML authentication
 To configure a custom redirect URL on the https://pivotal.oktapreview.com 
 domain, the steps are outlined.
 
-If you have your own Okta domain setup, follow these steps, and 
+If you have your own Okta domain setup, follow these steps and 
 replace the Pivotal values with your own.
 
 ###Step 1

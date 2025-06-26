@@ -14,7 +14,7 @@ There are two types of tests:
 
 There are helper scripts, `run-unit-tests.sh` and `run-integration-tests.sh`, which run the tests inside a docker
 container. The docker container they run in contains the database against which to run the tests, as well as an LDAP
-server. It is self-contained but lacks flexibility. It relies on custom-baked image that may not support arm64, and
+server. It is self-contained but lacks flexibility. It relies on custom-baked image that may not support arm64 and
 can't work with your IDE.
 
 However, since the scripts run a container with all dependencies, you do not need infrastructure to run against a
@@ -25,7 +25,7 @@ specified DB:
 ## Test databases
 
 By default, the tests run against an in-memory DB, `hsqldb`. This DB is also present in the prod artifact, so that
-UAA can also be ran standalone to test tweaks in a live instance.
+UAA can also be run standalone to test tweaks in a live instance.
 
 To run these databases locally, use the docker-compose script:
 
@@ -81,7 +81,7 @@ class SomeTests {
 
 ## Test pollution
 
-There might be test pollution when tests are run in parallel, or even between projects. For example, when you run
+There might be test-pollution when tests are run in parallel or even between projects. For example, when you run
 
     $ ./gradlew test
 
@@ -93,7 +93,7 @@ worker has a numeric `id`, and each time a new task is spun up, the idea of the 
 So there are 24 DBs with names `uaa_1`, `uaa_2`, ... created, and usually the worker ID stays below 24 and there are
 enough databases for each test.
 
-However, if the gradle daemon is kept running in the background and is re-used for subsequent tasks, e.g. by doing:
+However, if the Gradle daemon is kept running in the background and is re-used for later tasks, e.g., by doing:
 
     $ ./gradlew test # first run
     # do some code changes
@@ -103,17 +103,17 @@ You will get new workers with IDs > 24. It is recommended you run your Gradle in
 
     $ ./gradlew test --no-daemon
 
-It will be slightly slower to start up (a few seconds), but the tests take multiple minutes and so the gain of using
+It will be slightly slower to start up (a few seconds), but the tests take multiple minutes, and so the gain of using
 a daemon is not worth the trouble.
 
 ## Timezone issues
 
 The UAA and its DB server _MUST_ have the same timezone, because dates are not uniformly stored in UTC and timezones
-do matter. Specifically for MySQL, there are issues when your local host is ahead of UTC, because:
+do matter. Specifically, for MySQL, there are issues when your local host is ahead of UTC, because:
 
-1. The default containers runs in UTC
+1. The default containers run in UTC
 2. When calling `current_timestamp` the value is in UTC
-3. But when calling a prepared statement from JDBC with a Date/Timestamp/time-based the timezone is sent to the server
+3. But when calling a prepared statement from JDBC, with a Date/Timestamp/time-based, the timezone is sent to the server
 
 So, when running e.g. in `Europe/Paris` (CET):
 
@@ -123,7 +123,7 @@ jdbcTemplate.queryForObject("SELECT CURRENT_TIMESTAMP",String .class);
 // if the TZ is dropped, it is recorded as 15:00
 jdbcTemplate.update("UPDATE foo SET updated=?",new Date(System.currentTimeMillis()));
 // will insert 16:00CET
-// if the TZ is dropped this is recorded as 16:00
+// if the TZ is dropped, this is recorded as 16:00
 ```
 
 For this reason, we update the MySQL container in `docker-compose.yml` to have the same timezone as the host through
@@ -146,23 +146,23 @@ consequences. First, it might bring it test pollution, see [above](#test-polluti
 to handle the incoming connections, but this is handled by setting the number of concurrent connections to 250 on both
 Postgres and MySQL.
 
-Furthermore, too many tests running in parallel has diminishing returns, because the Spring testing support caches
+Furthermore, too many tests running in parallel have diminishing returns because the Spring testing support caches
 ApplicationContext between tests to avoid bootstrapping too many contexts. Having many tests in parallel means there
-will be a lot of cache misses, and every gradle worker handling a test will have to bootstrap multiple
-ApplicationContext, which is usually quite slow. A value that has been previously used is 6 workers in parallel, and,
-for any given project, 4 tests in parallel. Since `cloudfoundry-identity-uaa` is the bottleneck, we make its tests run
+will be a lot of cache misses, and every Gradle worker handling a test will have to bootstrap multiple
+ApplicationContext, which is usually quite slow. A value that has been previously used is six workers in parallel, and,
+for any given project, four tests in parallel. Since `cloudfoundry-identity-uaa` is the bottleneck, we make its tests run
 in parallel, and keep other projects running sequential tests. Empirically, this yields a x2 or more speedup on the test
 suite on a powerful developer machine. Increasing parallelism further yields no benefits (for example, tests are
-slightly slower on a Mac M1 using 6 tests in parallel).
+slightly slower on a Mac M1 using six tests in parallel).
 
 Technically, parallelism is controlled by two parameters:
 
-- `org.gradle.workers.max` in `gradle.properties`, set to 6. This means that there are no more than 6 gradle processes
-  running at any given time. It does not have anything to do with tests directly. This might mean you have a 3 compile
-  processes for 3 different projects, as well as 3 test processes for different projects. Within a given project, by
+- `org.gradle.workers.max` in `gradle.properties`, set to 6. This means that there are no more than six Gradle processes
+  running at any given time. It does not have anything to do with tests directly. This might mean you have three compile
+  processes for three different projects, as well as three test processes for different projects. Within a given project, by
   default, tests are running sequentially and never in parallel. Unless you configure parallelism for tests, see below:
 - `maxParallelForks` in the test task in the project's `build.gradle`, set to 4. This controls how many tests can run in
-  parallel within a given project. It is bounded by the max workers set above - so if there are 5 compile tasks running,
+  parallel within a given project. It is bounded by the max workers set above — so if there are five compile tasks running,
   and one test task, the test task will run tests sequentially as there is a single worker available left.
 
 With this setup, we get 11 test workers total, 4 for `cloudfoundry-identity-uaa`, plus 1 per remaining project:
@@ -178,5 +178,5 @@ tests did not need to be re-run because the code hasn't changed in some projects
 IDs. This means that we need all databases between `uaa_1` and `uaa_11`, included. To make sure we have enough room for
 future changes, we will keep the current setup with 24 databases, see [test pollution](#test-pollution).
 
-In single-CPU scenarios (i.e. in CI), we would only need two databases, `uaa_7` for`cloudfoundry-identity-server` and
+In single-CPU scenarios (i.e., in CI), we would only need two databases, `uaa_7` for`cloudfoundry-identity-server` and
 `uaa_8` for `cloudfoundry-identity-uaa`.
