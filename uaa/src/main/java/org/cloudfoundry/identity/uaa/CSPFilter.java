@@ -22,8 +22,11 @@ public class CSPFilter implements Filter {
 
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
-httpResponse.setHeader("Content-Security-Policy-Report-Only",
-        "default-src 'self'; script-src 'self'; object-src 'none'; style-src 'self'; form-action 'self'; base-uri 'self'; frame-ancestors 'none'; font-src 'self' https://cdn.predix-ui.com; img-src 'self'; frame-src 'self'; report-uri https://example.com/csp-reports");
+//httpResponse.setHeader("Content-Security-Policy-Report-Only",
+     //   "default-src 'self'; script-src 'self'; object-src 'none'; style-src 'self'; form-action 'self'; base-uri 'self'; frame-ancestors 'none'; font-src 'self' https://cdn.predix-ui.com; img-src 'self'; frame-src 'self';");
+        Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self'; object-src 'none'; style-src 'self'; form-action 'self'; report-to csp-endpoint
+        Report-To: { "group":"csp-endpoint", "max_age":10886400, "endpoints":[{ "url":"/api/csp-reports" }] }
+
 //Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none'; style-src 'self'; form-action 'self'; base-uri 'self'; frame-ancestors 'none'; font-src 'self' https://cdn.predix-ui.com; img-src 'self'; frame-src 'self'";
         // Continue with the next filter in the chain
         chain.doFilter(request, response);
