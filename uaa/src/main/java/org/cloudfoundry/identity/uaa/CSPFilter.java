@@ -1,7 +1,7 @@
 package org.cloudfoundry.identity.uaa;
 
-import org.apache.logging.log4j.core.config.Order;
-import org.apache.logging.log4j.core.config.builder.api.Component;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
