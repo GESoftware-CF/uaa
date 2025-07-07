@@ -26,7 +26,15 @@ public class CSPFilter implements Filter {
      //   "default-src 'self'; script-src 'self'; object-src 'none'; style-src 'self'; form-action 'self'; base-uri 'self'; frame-ancestors 'none'; font-src 'self' https://cdn.predix-ui.com; img-src 'self'; frame-src 'self';");
         httpResponse.setHeader(
                 "Content-Security-Policy-Report-Only",
-                "default-src 'self'; script-src 'self'; object-src 'none'; style-src 'self'; form-action 'self'; report-to csp-endpoint"
+                "default-src 'self';" +
+                        "script-src 'self';" +
+                        "style-src 'self';" +
+                        "img-src 'self' data:;" +
+                        "object-src 'none';" +
+                        "form-action 'self';" +
+                        "base-uri 'self';" +
+                        "report-to csp-endpoint;" +
+                        "report-uri /api/csp-reports;"
         );
 
         // Add Report-To header
