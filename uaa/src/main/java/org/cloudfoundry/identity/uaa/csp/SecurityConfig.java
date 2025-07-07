@@ -1,18 +1,27 @@
 package org.cloudfoundry.identity.uaa.csp;
-// src/main/java/org/cloudfoundry/identity/uaa/config/SecurityConfig.java
-import org.springframework.context.annotation.Bean;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
 
-public class SecurityConfig {
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter { // Extend WebSecurityConfigurerAdapter for SB 2.6.x
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
         http
-                .authorizeHttpRequests(authz -> authz
-                        .antMatchers("/api/csp-reports/**").permitAll()
-                        .anyRequest().authenticated()
-                )
-                .csrf(csrf -> csrf.disable());
-        return http.build();
+                .authorizeRequests() // Use authorizeRequests() for Spring Security 5.x
+                // Allow unauthenticated POST requests to both CSP reporting endpoints
+                .antMatchers("/api/csp-reports").permitAll()
+                .antMatchers("/api/csp-report-uri").permitAll()
+                // Allow access to your static HTML page and other static resources
+                .antMatchers("/").permitAll() // For your index.html
+                .antMatchers("/**").permitAll() // General rule for other static assets (CSS, JS)
+                // All other requests require authentication (uncomment and adjust if needed)
+                // .anyRequest().authenticated()
+                .and()
+                .csrf().disable(); // Disable CSRF for API endpoints, adjust as per your application's needs
     }
 }
