@@ -40,7 +40,7 @@ public class CSPFilter implements Filter {
         //    and its URL. This is used by modern browsers for 'report-to' directive.
         httpResponse.setHeader(
                 "Report-To",
-                "{ \"group\":\"csp-endpoint\", \"max_age\":10886400, \"endpoints\":[{ \"url\":\"/api/csp-reports\" }] }"
+                "{ \"group\":\"csp-endpoint\", \"max_age\":300, \"endpoints\":[{ \"url\":\"/api/csp-reports\" }] }"
         );
 
         // 2. The 'Content-Security-Policy-Report-Only' HTTP header:
