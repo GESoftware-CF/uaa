@@ -52,7 +52,7 @@ public class CSPFilter implements Filter {
         //    - 'report-to csp-endpoint;' is for modern browsers (references the group above).
         //    - 'report-uri /api/csp-report-uri;' is for older browsers (points directly to URL).
         httpResponse.setHeader(
-                "Content-Security-Policy", // Changed from Content-Security-Policy-Report-Only
+                "Content-Security-Policy-Report-Only", // Changed from Content-Security-Policy-Report-Only
                 "default-src 'self';" +          // Allow resources from same origin by default
                         "script-src 'self';" +           // Allow scripts only from the same origin
                         "style-src 'self';" +            // Allow styles only from the same origin
