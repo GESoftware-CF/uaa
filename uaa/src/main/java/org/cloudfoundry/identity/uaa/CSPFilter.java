@@ -52,7 +52,7 @@ public class CSPFilter implements Filter {
         //    - 'report-to csp-endpoint;' is for modern browsers (references the group above).
         //    - 'report-uri /api/csp-report-uri;' is for older browsers (points directly to URL).
         httpResponse.setHeader(
-                "Content-Security-Policy",
+                "Content-Security-Policy", // Changed from Content-Security-Policy-Report-Only
                 "default-src 'self';" +          // Allow resources from same origin by default
                         "script-src 'self';" +           // Allow scripts only from the same origin
                         "style-src 'self';" +            // Allow styles only from the same origin
@@ -60,9 +60,9 @@ public class CSPFilter implements Filter {
                         "object-src 'none';" +           // Disallow <object>, <embed>, <applet>
                         "form-action 'self';" +          // Restrict form submissions to same origin
                         "base-uri 'self';" +             // Restrict base tag
-                        "frame-ancestors 'none';" +
-                        "font-src 'self' https://cdn.predix-ui.com;" +
-                        "frame-src 'self';"+
+                        "frame-ancestors 'none';" +      // Prevent embedding in iframes etc.
+                        "font-src 'self' https://cdn.predix-ui.com;" + // Allow fonts from self and Predix CDN
+                        "frame-src 'self';" +            // Allow frames only from same origin
                         "report-to csp-endpoint;" +      // Directive for modern browsers (uses Report-To header)
                         "report-uri /api/csp-report-uri;" // Directive for older browsers (direct URL)
         );
