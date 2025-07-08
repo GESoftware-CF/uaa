@@ -30,7 +30,7 @@ public class CSPFilter implements Filter {
     }
 
     @Override
-    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+    public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain chain)
         throws IOException, ServletException {
 
         HttpServletRequest httpRequest = (HttpServletRequest) servletRequest;
@@ -70,8 +70,8 @@ public class CSPFilter implements Filter {
         logger.debug("Added CSP-Report-Only and Report-To headers for URL: {}", httpRequest.getRequestURI());
 
         // Continue with the next filter in the chain
-        chain.doFilter(request, response);
-        logger.debug("CspReportingFilter finished for URI: {}", ((HttpServletRequest) request).getRequestURI());
+        chain.doFilter(servletRequest, servletResponse);
+        logger.debug("CspReportingFilter finished for URI: {}", ((HttpServletRequest) servletRequest).getRequestURI());
     }
 
     @Override
