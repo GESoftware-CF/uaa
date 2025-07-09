@@ -12,6 +12,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter { // Extend Web
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http
+                .csrf().disable()
                 .authorizeRequests() // Use authorizeRequests() for Spring Security 5.x
                 // Allow unauthenticated POST requests to both CSP reporting endpoints
                 .antMatchers("/api/csp-reports").permitAll()
