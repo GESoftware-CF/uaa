@@ -42,10 +42,10 @@ public class CSPFilter implements Filter {
         //    Defines a named endpoint group ('csp-endpoint') for the Reporting API.
         //    'max_age' indicates how long the browser should cache this configuration.
         //    'url' specifies the endpoint where reports for this group should be sent.
-        httpResponse.setHeader(
-                "Report-To",
-                "{ \"group\":\"csp-endpoint\", \"max_age\":300, \"endpoints\":[{ \"url\":\"/api/csp-reports\" }] }"
-        );
+//        httpResponse.setHeader(
+//                "Report-To",
+//                "{ \"group\":\"csp-endpoint\", \"max_age\":300, \"endpoints\":[{ \"url\":\"/api/csp-reports\" }] }"
+//        );
 
         // 2. The 'Content-Security-Policy-Report-Only' HTTP header:
         //    Defines your CSP directives.
@@ -63,7 +63,6 @@ public class CSPFilter implements Filter {
                         "frame-ancestors 'none';" +      // Prevent embedding in iframes etc.
                         "font-src 'self' https://cdn.predix-ui.com;" + // Allow fonts from self and Predix CDN
                         "frame-src 'self';" +            // Allow frames only from same origin
-                        "report-to csp-endpoint;" +      // Directive for modern browsers (uses Report-To header)
                         "report-uri /api/csp-report-uri;" // Directive for older browsers (direct URL)
         );
 //Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none'; style-src 'self'; form-action 'self'; base-uri 'self'; frame-ancestors 'none'; font-src 'self' https://cdn.predix-ui.com; img-src 'self'; frame-src 'self'";
