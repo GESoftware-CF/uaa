@@ -63,7 +63,7 @@ public class CSPFilter implements Filter {
                         "frame-ancestors 'none';" +
                         "font-src 'self' https://cdn.predix-ui.com;" +
                         "frame-src 'self';" +
-                        "report-uri http://localhost:8080/api/csp-report-uri;"
+                        "report-uri https://utility-dev.pss-shared.dev.usw02.15.energy/api/csp-report-uri;"
         );
 //Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none'; style-src 'self'; form-action 'self'; base-uri 'self'; frame-ancestors 'none'; font-src 'self' https://cdn.predix-ui.com; img-src 'self'; frame-src 'self'";
         logger.debug("Added CSP-Report-Only and Report-To headers for URL: {}", httpRequest.getRequestURI());
