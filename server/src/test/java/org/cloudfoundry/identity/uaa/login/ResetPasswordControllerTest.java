@@ -106,7 +106,7 @@ class ResetPasswordControllerTest extends TestClassNullifier {
     @Test
     void testForgotPasswordWithSelfServiceDisabled() throws Exception {
         IdentityZone zone = MultitenancyFixture.identityZone("test-zone-id", "testsubdomain");
-        zone.getConfig().getLinks().getSelfService().setSelfServiceLinksEnabled(false);
+        zone.getConfig().getLinks().getSelfService().setSelfServiceResetPasswordEnabled(false);
         IdentityZoneHolder.set(zone);
 
         mockMvc.perform(get("/forgot_password")
@@ -114,7 +114,7 @@ class ResetPasswordControllerTest extends TestClassNullifier {
                 .param("redirect_uri", "http://example.com"))
                 .andExpect(status().isNotFound())
                 .andExpect(view().name("error"))
-                .andExpect(model().attribute("error_message_code", "self_service_disabled"));
+                .andExpect(model().attribute("error_message_code", "self_service_reset_password_disabled"));
     }
 
     @Test
@@ -164,7 +164,8 @@ class ResetPasswordControllerTest extends TestClassNullifier {
             String emailContent = captor.getValue();
             assertThat(emailContent, containsString(String.format("A request has been made to reset your %s account password for %s", companyName, "user@example.com")));
             assertThat(emailContent, containsString("Your account credentials for " + domain + " are managed by an external service. Please contact your administrator for password recovery requests."));
-            assertThat(emailContent, containsString("Thank you,<br />\n    " + companyName));
+            assertThat(emailContent, containsString("Thank you"));
+            assertThat(emailContent, containsString(companyName));
         } finally {
             IdentityZoneHolder.get().setConfig(defaultConfig);
         }
@@ -208,7 +209,7 @@ class ResetPasswordControllerTest extends TestClassNullifier {
     @Test
     void forgotPasswordPostWithSelfServiceDisabled() throws Exception {
         IdentityZone zone = MultitenancyFixture.identityZone("test-zone-id", "testsubdomain");
-        zone.getConfig().getLinks().getSelfService().setSelfServiceLinksEnabled(false);
+        zone.getConfig().getLinks().getSelfService().setSelfServiceResetPasswordEnabled(false);
         IdentityZoneHolder.set(zone);
 
         mockMvc.perform(post("/forgot_password.do")
@@ -218,7 +219,7 @@ class ResetPasswordControllerTest extends TestClassNullifier {
                 .param("redirect_uri", "redirect.example.com"))
                 .andExpect(status().isNotFound())
                 .andExpect(view().name("error"))
-                .andExpect(model().attribute("error_message_code", "self_service_disabled"));
+                .andExpect(model().attribute("error_message_code", "self_service_reset_password_disabled"));
     }
 
     private void forgotPasswordSuccessful(String url) throws Exception {

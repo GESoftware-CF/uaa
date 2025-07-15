@@ -4,7 +4,6 @@ import org.cloudfoundry.identity.uaa.DefaultTestContext;
 import org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.web.LimitedModeUaaFilter;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,11 +11,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.context.WebApplicationContext;
 
-import java.io.File;
-
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.getLimitedModeStatusFile;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.resetLimitedModeStatusFile;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.setLimitedModeStatusFile;
+import static org.cloudfoundry.identity.uaa.web.LimitedModeUaaFilter.DEGRADED;
+import static org.junit.Assert.assertTrue;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 import static org.springframework.http.HttpStatus.OK;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -25,10 +21,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+@LimitedMode //note that order of these annotations determines which active profiles will be used 
 @DefaultTestContext
 class LimitedModeNegativeTests {
+    // To set Predix UAA limited/degraded mode, use environment variable instead of StatusFile
+
     private String adminToken;
-    private File existingStatusFile;
 
     @Autowired
     private WebApplicationContext webApplicationContext;
@@ -37,20 +35,12 @@ class LimitedModeNegativeTests {
 
     @BeforeEach
     void setUp() throws Exception {
-        existingStatusFile = getLimitedModeStatusFile(webApplicationContext);
-        setLimitedModeStatusFile(webApplicationContext);
-
         adminToken = MockMvcUtils.getClientCredentialsOAuthAccessToken(mockMvc,
                 "admin",
                 "adminsecret",
                 "uaa.admin",
                 null,
                 true);
-    }
-
-    @AfterEach
-    void tearDown() {
-        resetLimitedModeStatusFile(webApplicationContext, existingStatusFile);
     }
 
     @Test

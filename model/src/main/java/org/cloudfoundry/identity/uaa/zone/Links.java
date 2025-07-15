@@ -16,6 +16,7 @@ package org.cloudfoundry.identity.uaa.zone;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -99,15 +100,40 @@ public class Links {
 
     public static class SelfService {
         private boolean selfServiceLinksEnabled = true;
+        private boolean selfServiceCreateAccountEnabled = true;
+        private boolean selfServiceResetPasswordEnabled = true;
         private String signup = null;
         private String passwd = null;
 
-        public boolean isSelfServiceLinksEnabled() {
-            return selfServiceLinksEnabled;
+        public void setSelfServiceLinksEnabled(boolean selfServiceLinksEnabled) {
+            this.selfServiceLinksEnabled = selfServiceLinksEnabled;
+            if (!selfServiceLinksEnabled) {
+                this.selfServiceCreateAccountEnabled = false;
+                this.selfServiceResetPasswordEnabled = false;
+            }
         }
 
-        public SelfService setSelfServiceLinksEnabled(boolean selfServiceLinksEnabled) {
-            this.selfServiceLinksEnabled = selfServiceLinksEnabled;
+        public SelfService setSelfServiceCreateAccountEnabled(boolean selfServiceCreateAccountEnabled) {
+            if (selfServiceCreateAccountEnabled && !StringUtils.hasText(this.signup)){
+                this.signup = "/create_account";
+            }
+            this.selfServiceCreateAccountEnabled = selfServiceCreateAccountEnabled;
+            return this;
+        }
+
+        public boolean isSelfServiceCreateAccountEnabled() {
+            return selfServiceCreateAccountEnabled;
+        }
+
+        public boolean isSelfServiceResetPasswordEnabled() {
+            return selfServiceResetPasswordEnabled;
+        }
+
+        public SelfService setSelfServiceResetPasswordEnabled(boolean selfServiceResetPasswordEnabled) {
+            if (selfServiceResetPasswordEnabled && !StringUtils.hasText(this.passwd)){
+                this.passwd = "/forgot_password";
+            }
+            this.selfServiceResetPasswordEnabled = selfServiceResetPasswordEnabled;
             return this;
         }
 
@@ -126,8 +152,10 @@ public class Links {
 
         public SelfService setSignup(String signup) {
             this.signup = signup;
+            if (!StringUtils.hasText(signup)) {
+                this.selfServiceCreateAccountEnabled = false;
+            }
             return this;
         }
     }
-
 }

@@ -33,7 +33,7 @@ pushd $(dirname $DIR)
 
   ./gradlew "-Dspring.profiles.active=${TESTENV}" \
             "-Djava.security.egd=file:/dev/./urandom" \
-            integrationTest \
+            jacocoRootReportIntegrationTest \
             --no-daemon \
             --stacktrace \
             --console=plain \

@@ -57,7 +57,6 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -669,7 +668,7 @@ class ScimGroupEndpointsTests {
         validateUserGroups(g.getMembers().get(0).getMemberId(), "clients.read");
 
         g.setDisplayName("someadmin");
-        g.setMembers(null);
+        g.setMembers(Collections.emptyList());
         ScimGroup g1 = scimGroupEndpoints.updateGroup(g, g.getId(), "*", new MockHttpServletResponse());
         validateGroup(g1, "someadmin", 0);
 
@@ -804,8 +803,8 @@ class ScimGroupEndpointsTests {
         g1 = jdbcScimGroupProvisioning.create(g1, identityZoneManager.getCurrentIdentityZoneId());
 
         ScimGroup patch = new ScimGroup();
-        assertNull(g1.getMembers());
-        assertNull(patch.getMembers());
+        assertEquals(Collections.emptyList(), g1.getMembers());
+        assertEquals(Collections.emptyList(), patch.getMembers());
         patch.setMembers(Collections.singletonList(createMember(ScimGroupMember.Type.USER)));
         assertEquals(1, patch.getMembers().size());
 

@@ -17,46 +17,19 @@ package org.cloudfoundry.identity.uaa.mock.limited;
 
 import org.cloudfoundry.identity.uaa.mock.token.TokenMvcMockTests;
 import org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils;
-import org.cloudfoundry.identity.uaa.web.LimitedModeUaaFilter;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.crypto.codec.Base64;
 import org.springframework.security.oauth2.provider.client.BaseClientDetails;
 
-import java.io.File;
-
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.*;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.junit.Assert.assertTrue;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+@LimitedMode
 public class LimitedModeTokenMockMvcTests extends TokenMvcMockTests {
-
-    private File existingStatusFile;
-
-    @BeforeEach
-    @Override
-    public void setUpContext(
-            @Autowired @Qualifier("defaultUserAuthorities") Object defaultAuthorities
-    ) throws Exception {
-        super.setUpContext(defaultAuthorities);
-
-        existingStatusFile = getLimitedModeStatusFile(webApplicationContext);
-        setLimitedModeStatusFile(webApplicationContext);
-
-        assertTrue(isLimitedMode());
-    }
-
-    @AfterEach
-    void tearDown() {
-        resetLimitedModeStatusFile(webApplicationContext, existingStatusFile);
-    }
+    // To set Predix UAA limited/degraded mode, use environment variable instead of StatusFile
 
     @Test
     void check_token_while_limited() throws Exception {
@@ -76,9 +49,5 @@ public class LimitedModeTokenMockMvcTests extends TokenMvcMockTests {
             .andExpect(jsonPath("$.scope").value(containsInAnyOrder("clients.read", "uaa.resource")))
             .andExpect(jsonPath("$.client_id").value(client.getClientId()))
             .andExpect(jsonPath("$.jti").value(token));
-    }
-
-    private boolean isLimitedMode() {
-        return webApplicationContext.getBean(LimitedModeUaaFilter.class).isEnabled();
     }
 }

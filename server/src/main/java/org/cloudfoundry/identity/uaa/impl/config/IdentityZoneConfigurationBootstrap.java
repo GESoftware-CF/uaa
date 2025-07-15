@@ -22,6 +22,7 @@ import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneProvisioning;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneValidator;
 import org.cloudfoundry.identity.uaa.zone.InvalidIdentityZoneDetailsException;
+import static org.cloudfoundry.identity.uaa.zone.SamlConfig.SignatureAlgorithm;
 import org.cloudfoundry.identity.uaa.zone.TokenPolicy;
 import org.springframework.beans.factory.InitializingBean;
 
@@ -40,12 +41,14 @@ public class IdentityZoneConfigurationBootstrap implements InitializingBean {
     private ClientSecretPolicy clientSecretPolicy;
     private TokenPolicy tokenPolicy;
     private IdentityZoneProvisioning provisioning;
-    private boolean selfServiceLinksEnabled = true;
+    private boolean selfServiceCreateAccountEnabled = true;
+    private boolean selfServiceResetPasswordEnabled = true;
     private String homeRedirect = null;
     private Map<String,Object> selfServiceLinks;
     private boolean mfaEnabled;
     private String mfaProviderName;
     private List<String> logoutRedirectWhitelist;
+    private SignatureAlgorithm samlSignatureAlgorithm;
     private String logoutRedirectParameterName;
     private String logoutDefaultRedirectUrl;
     private boolean logoutDisableRedirectParameter = true;
@@ -82,12 +85,14 @@ public class IdentityZoneConfigurationBootstrap implements InitializingBean {
         IdentityZone identityZone = provisioning.retrieve(IdentityZone.getUaaZoneId());
         IdentityZoneConfiguration definition = new IdentityZoneConfiguration(tokenPolicy);
         definition.setClientSecretPolicy(clientSecretPolicy);
-        definition.getLinks().getSelfService().setSelfServiceLinksEnabled(selfServiceLinksEnabled);
+        definition.getLinks().getSelfService().setSelfServiceCreateAccountEnabled(selfServiceCreateAccountEnabled);
+        definition.getLinks().getSelfService().setSelfServiceResetPasswordEnabled(selfServiceResetPasswordEnabled);
         definition.getLinks().setHomeRedirect(homeRedirect);
         definition.getSamlConfig().setCertificate(samlSpCertificate);
         definition.getSamlConfig().setPrivateKey(samlSpPrivateKey);
         definition.getSamlConfig().setPrivateKeyPassword(samlSpPrivateKeyPassphrase);
         definition.getSamlConfig().setDisableInResponseToCheck(disableSamlInResponseToCheck);
+        definition.getSamlConfig().setSignatureAlgorithm(samlSignatureAlgorithm);
         definition.setIdpDiscoveryEnabled(idpDiscoveryEnabled);
         definition.setAccountChooserEnabled(accountChooserEnabled);
         definition.getMfaConfig().setEnabled(mfaEnabled);
@@ -107,7 +112,7 @@ public class IdentityZoneConfigurationBootstrap implements InitializingBean {
             if (hasText(signup)) {
                 definition.getLinks().getSelfService().setSignup(signup);
             }
-            if (hasText(passwd)) {
+            if ((passwd) != null) {
                 definition.getLinks().getSelfService().setPasswd(passwd);
             }
         }
@@ -173,8 +178,12 @@ public class IdentityZoneConfigurationBootstrap implements InitializingBean {
         this.tokenPolicy = tokenPolicy;
     }
 
-    public void setSelfServiceLinksEnabled(boolean selfServiceLinksEnabled) {
-        this.selfServiceLinksEnabled = selfServiceLinksEnabled;
+    public void setSelfServiceCreateAccountEnabled(boolean selfServiceCreateAccountEnabled) {
+        this.selfServiceCreateAccountEnabled = selfServiceCreateAccountEnabled;
+    }
+
+    public void setSelfServiceResetPasswordEnabled(boolean selfServiceResetPasswordEnabled) {
+        this.selfServiceResetPasswordEnabled = selfServiceResetPasswordEnabled;
     }
 
     public void setHomeRedirect(String homeRedirect) {
@@ -253,6 +262,9 @@ public class IdentityZoneConfigurationBootstrap implements InitializingBean {
         this.defaultUserGroups = defaultUserGroups;
     }
 
+    public void setSamlSignatureAlgorithm(SignatureAlgorithm signatureAlgorithm) {
+        this.samlSignatureAlgorithm = signatureAlgorithm;
+    }
     public boolean isDisableSamlInResponseToCheck() {
         return disableSamlInResponseToCheck;
     }

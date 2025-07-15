@@ -1,0 +1,40 @@
+plugins {
+    id 'java'
+}
+
+group 'org.cloudfoundry.identity'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation(libraries.springBootStarter)
+    implementation(libraries.springBootStarterWeb){
+        exclude(group: "org.glassfish", module: "jakarta.el")
+    }
+    implementation(libraries.springSecurityWeb)
+    implementation(libraries.springTx)
+    implementation(project(":cloudfoundry-identity-server"))
+    implementation(project(":cloudfoundry-identity-model"))
+    implementation(project(":cloudfoundry-identity-metrics-data"))
+    implementation(libraries.hibernateValidator)
+    implementation(libraries.slf4jImpl)
+    implementation(libraries.log4jCore)
+    implementation(libraries.bouncyCastleProv)
+    implementation(libraries.bouncyCastlePkix)
+    testImplementation(libraries.springBootStarterTest)
+    implementation(libraries.springSecurityOauth) {
+        exclude(module: "commons-codec")
+        exclude(module: "jackson-mapper-asl")
+        exclude(module: "spring-security-web")
+    }
+}
+
+test {
+    useJUnitPlatform()
+}
+
+integrationTest {}.onlyIf { //disable since we don't have any
+    false
+}

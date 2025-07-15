@@ -29,7 +29,7 @@
           xmlns="http://www.springframework.org/schema/security">
         <anonymous enabled="false"/>
         <custom-filter ref="autologinAuthenticationFilter" position="FORM_LOGIN_FILTER"/>
-        <csrf disabled="false" token-repository-ref="loginCookieCsrfRepository"/>
+        <csrf disabled="false"/>
     </http>
 
     <http name="secFilterCodeLogin" request-matcher-ref="autologinRequestMatcher" entry-point-ref="loginEntryPoint"
@@ -77,8 +77,7 @@
         <intercept-url pattern="/invitations/accept.do" access="hasAuthority('uaa.invited')" method="POST"/>
         <intercept-url pattern="/invitations/accept_enterprise.do" access="hasAuthority('uaa.invited')" method="POST"/>
         <intercept-url pattern="/**" access="denyAll"/>
-        <csrf disabled="false"
-              token-repository-ref="loginCookieCsrfRepository"/>
+        <csrf disabled="false"/>
         <custom-filter ref="acceptInvitationSecurityContextPersistenceFilter" before="FIRST"/>
     </http>
 
@@ -115,8 +114,7 @@
           xmlns="http://www.springframework.org/schema/security">
         <custom-filter ref="userManagementSecurityFilter" before="ANONYMOUS_FILTER"/>
         <custom-filter ref="resetPasswordAuthenticationFilter" position="LAST"/>
-        <csrf disabled="false"
-              token-repository-ref="loginCookieCsrfRepository"/>
+        <csrf disabled="false"/>
         <access-denied-handler ref="loginEntryPoint"/>
     </http>
 
@@ -131,8 +129,17 @@
         <access-denied-handler ref="loginEntryPoint"/>
     </http>
 
-    <bean id="uiLogoutRequestMatcher" class="org.springframework.security.web.util.matcher.AntPathRequestMatcher">
-        <constructor-arg value="/logout.do"/>
+    <bean id="uiLogoutRequestMatcher" class="org.springframework.security.web.util.matcher.OrRequestMatcher">
+        <constructor-arg>
+            <util:list>
+                <bean class="org.springframework.security.web.util.matcher.AntPathRequestMatcher">
+                    <constructor-arg value="/logout"/>
+                </bean>
+                <bean class="org.springframework.security.web.util.matcher.AntPathRequestMatcher">
+                    <constructor-arg value="/logout.do"/>
+                </bean>
+            </util:list>
+        </constructor-arg>
     </bean>
 
     <bean id="uiAuthorizeRequestMatcher" class="org.springframework.security.web.util.matcher.AntPathRequestMatcher">
@@ -146,11 +153,6 @@
                 <ref bean="samlLogoutHandler"/>
             </util:list>
         </constructor-arg>
-    </bean>
-
-    <bean id="loginCookieCsrfRepository"
-          class="org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository">
-        <property name="secure" value="${require_https:false}"/>
     </bean>
 
     <bean id="accountSavingAuthenticationSuccessHandler"
@@ -171,7 +173,13 @@
                 <ref bean="uaaAuthenticationFailureHandler"/>
                 <bean class="org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler"/>
                 <bean class="org.springframework.security.web.csrf.CsrfLogoutHandler">
-                    <constructor-arg ref="loginCookieCsrfRepository"/>
+                    <constructor-arg>
+                        <bean class="org.springframework.security.web.csrf.LazyCsrfTokenRepository">
+                            <constructor-arg>
+                                <bean class="org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository"/>
+                            </constructor-arg>
+                        </bean>
+                    </constructor-arg>
                 </bean>
                 <bean class="org.springframework.security.web.authentication.logout.CookieClearingLogoutHandler">
                     <constructor-arg index="0">
@@ -293,8 +301,7 @@
         <custom-filter ref="passwordChangeUiRequiredFilter" before="FORM_LOGIN_FILTER"/>
         <custom-filter ref="logoutFilter" after="LOGOUT_FILTER"/>
         <custom-filter ref="samlLogoutFilter" before="LOGOUT_FILTER"/>
-        <csrf disabled="false"
-              token-repository-ref="loginCookieCsrfRepository"/>
+        <csrf disabled="false"/>
         <access-denied-handler ref="loginEntryPoint"/>
         <request-cache ref="clientRedirectStateCache"/>
     </http>
@@ -392,8 +399,9 @@
         </entry>
     </util:map>
 
-    <mvc:annotation-driven content-negotiation-manager="contentNegotiationManager">
-        <mvc:message-converters>
+    <!--<mvc:annotation-driven content-negotiation-manager="contentNegotiationManager">-->
+    <mvc:annotation-driven>
+    <mvc:message-converters>
             <bean class="org.cloudfoundry.identity.uaa.authentication.manager.AutologinRequestConverter"/>
         </mvc:message-converters>
         <mvc:path-matching registered-suffixes-only="true"/>

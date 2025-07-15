@@ -3,12 +3,14 @@ package org.cloudfoundry.identity.uaa.audit;
 import org.cloudfoundry.identity.uaa.logging.LogSanitizerUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.export.annotation.ManagedResource;
 import org.springframework.jmx.support.MetricType;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -27,6 +29,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 )
 @Component("loggingAuditService")
 public class LoggingAuditService implements UaaAuditService {
+
+    // NOTE:
+    //   While it's preferable to use the more natural @Value("${AUDIT_EVENT_TYPES_DEBUG:#{null}}") SpEL expression,
+    //   that requires creating a ConversionService bean which unfortunately breaks other functionality. Hence we resort
+    //   to a SpEL expression that explicitly converts the comma-separated string to a Java Collection.
+    @Value("#{'${AUDIT_EVENT_TYPES_DEBUG:}'.split(',')}")
+    private Set<String> debugOnlyAuditEventTypes;
 
     private Logger logger = LoggerFactory.getLogger("UAA.Audit");
 
@@ -114,7 +123,7 @@ public class LoggingAuditService implements UaaAuditService {
             logMessage = String.format("%s, authenticationType=[%s]", logMessage, auditEvent.getAuthenticationType());
         }
 
-        log(logMessage);
+        logAuditMessage(auditEvent, logMessage);
     }
 
     private void updateCounters(AuditEvent auditEvent) {
@@ -151,7 +160,7 @@ public class LoggingAuditService implements UaaAuditService {
         }
     }
 
-    private void log(String msg) {
+    private void logAuditMessage(AuditEvent auditEvent, String msg) {
         String sanitized = LogSanitizerUtil.sanitize(msg);
 
         if (logger.isTraceEnabled()) {
@@ -160,6 +169,10 @@ public class LoggingAuditService implements UaaAuditService {
             output.append(sanitized);
             output.append("\n\n************************************************************\n");
             logger.trace(output.toString());
+        }
+        else if (debugOnlyAuditEventTypes != null &&
+                 debugOnlyAuditEventTypes.stream().anyMatch(auditEvent.getType().name()::equalsIgnoreCase)) {
+            logger.debug(sanitized);
         }
         else {
             logger.info(sanitized);

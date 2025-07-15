@@ -1,5 +1,6 @@
 package org.cloudfoundry.identity.uaa.login;
 
+import lombok.SneakyThrows;
 import org.cloudfoundry.identity.uaa.DefaultTestContext;
 import org.cloudfoundry.identity.uaa.account.UaaResetPasswordService;
 import org.cloudfoundry.identity.uaa.codestore.ExpiringCode;
@@ -17,8 +18,10 @@ import org.cloudfoundry.identity.uaa.scim.ScimUserProvisioning;
 import org.cloudfoundry.identity.uaa.scim.endpoints.PasswordChange;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.util.SessionUtils;
+import org.cloudfoundry.identity.uaa.util.SetServerNameRequestPostProcessor;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
+import org.cloudfoundry.identity.uaa.zone.MultitenancyFixture;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,12 +31,15 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.oauth2.common.util.RandomValueStringGenerator;
+import org.springframework.security.oauth2.provider.client.BaseClientDetails;
 import org.springframework.security.web.PortResolverImpl;
 import org.springframework.security.web.savedrequest.DefaultSavedRequest;
 import org.springframework.security.web.savedrequest.SavedRequest;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.web.context.WebApplicationContext;
+
+import java.util.Collections;
 
 import javax.servlet.http.Cookie;
 import java.sql.Timestamp;
@@ -46,7 +52,8 @@ import java.util.regex.Pattern;
 
 import static org.cloudfoundry.identity.uaa.account.UaaResetPasswordService.FORGOT_PASSWORD_INTENT_PREFIX;
 import static org.cloudfoundry.identity.uaa.constants.OriginKeys.UAA;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.getLoginForm;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.not;
@@ -61,6 +68,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 @DefaultTestContext
 public class ResetPasswordControllerMockMvcTests {
@@ -79,6 +88,43 @@ public class ResetPasswordControllerMockMvcTests {
     void resetGenerator() {
         webApplicationContext.getBean(JdbcExpiringCodeStore.class).setGenerator(new RandomValueStringGenerator(24));
     }
+
+    @Test
+    void testResetPasswordWithDisableSelfService() throws Exception {
+        String subdomain = new RandomValueStringGenerator().generate();
+        IdentityZone zone = MultitenancyFixture.identityZone(subdomain, subdomain);
+        zone.getConfig().getLinks().getSelfService().setSelfServiceResetPasswordEnabled(false);
+
+        MockMvcUtils.createOtherIdentityZoneAndReturnResult(mockMvc, webApplicationContext, getBaseClientDetails(), zone, IdentityZoneHolder.getCurrentZoneId());
+
+        mockMvc.perform(get("/forgot_password")
+                            .with(new SetServerNameRequestPostProcessor(subdomain + ".localhost")))
+               .andExpect(model().attribute("error_message_code", "self_service_reset_password_disabled"))
+               .andExpect(view().name("error"))
+               .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testDisableSelfServiceResetPasswordPost() throws Exception {
+        String subdomain = new RandomValueStringGenerator().generate();
+        IdentityZone zone = MultitenancyFixture.identityZone(subdomain, subdomain);
+        zone.getConfig().getLinks().getSelfService().setSelfServiceResetPasswordEnabled(false);
+
+        MockMvcUtils.createOtherIdentityZoneAndReturnResult(mockMvc, webApplicationContext, getBaseClientDetails(), zone, IdentityZoneHolder.getCurrentZoneId());
+
+        MockHttpSession session = getCreateAccountForm();
+
+        mockMvc.perform(post("/forgot_password.do")
+                            .with(csrf(session))
+                            .with(new SetServerNameRequestPostProcessor(subdomain + ".localhost"))
+                            .param("username", "user@example.com")
+                            .param("client_id", "example")
+                            .param("redirect_uri", "redirect.example.com"))
+               .andExpect(view().name("error"))
+               .andExpect(model().attribute("error_message_code", "self_service_reset_password_disabled"))
+               .andExpect(status().isNotFound());
+    }
+
 
     @Test
     void testResettingAPasswordUsingUsernameToEnsureNoModification() throws Exception {
@@ -277,14 +323,15 @@ public class ResetPasswordControllerMockMvcTests {
                 .param("username", user.getUserName()))
                 .andExpect(redirectedUrl("email_sent?code=reset_password"));
 
-        mockMvc.perform(createChangePasswordRequest(user, "test" + generator.counter.get(), true, "secret1", "secret1")
-                .session(session))
+        getLoginForm(mockMvc, session); // to set the csrf token in this session
+
+        mockMvc.perform(createChangePasswordRequest(user, "test" + generator.counter.get(), false, "secret1", "secret1")
+                .with(csrf(session)))
                 .andExpect(status().isFound())
                 .andExpect(redirectedUrl("/login?success=password_reset"));
 
         mockMvc.perform(post("/login.do")
-            .session(session)
-            .with(cookieCsrf())
+            .with(csrf(session))
             .param("username", user.getUserName())
             .param("password", "secret1"))
             .andExpect(redirectedUrl("http://test/redirect/oauth/authorize"));
@@ -393,10 +440,13 @@ public class ResetPasswordControllerMockMvcTests {
         return createChangePasswordRequest(user,code.getCode(),useCSRF, password,passwordConfirmation);
     }
 
+    @SneakyThrows
     private MockHttpServletRequestBuilder createChangePasswordRequest(ScimUser user, String code, boolean useCSRF, String password, String passwordConfirmation) {
         MockHttpServletRequestBuilder post = post("/reset_password.do");
         if (useCSRF) {
-            post.with(cookieCsrf());
+            MockHttpSession session = new MockHttpSession();
+            getLoginForm(mockMvc, session); // to set the csrf token in this session
+            post.with(csrf(session));
         }
         post.param("code", code)
             .param("email", user.getPrimaryEmail())
@@ -404,4 +454,20 @@ public class ResetPasswordControllerMockMvcTests {
             .param("password_confirmation", passwordConfirmation);
         return post;
     }
+
+    private BaseClientDetails getBaseClientDetails() {
+        BaseClientDetails clientDetails = new BaseClientDetails();
+        clientDetails.setClientId("myzoneclient");
+        clientDetails.setClientSecret("myzoneclientsecret");
+        clientDetails.setAuthorizedGrantTypes(Collections.singletonList("client_credentials"));
+        clientDetails.setRegisteredRedirectUri(Collections.singleton("http://myzoneclient.example.com"));
+        return clientDetails;
+    }
+
+    private MockHttpSession getCreateAccountForm() {
+        MockHttpSession session = new MockHttpSession();
+        MockMvcUtils.getCreateAccountForm(mockMvc, session);
+        return session;
+    }
+
 }

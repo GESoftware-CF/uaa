@@ -104,6 +104,13 @@ class WhitelistLogoutHandlerTest {
     }
 
     @Test
+    void test_client_redirect_with_path() throws Exception {
+        handler.setAlwaysUseDefaultTargetUrl(false);
+        request.setParameter("redirect", "http://testing.com/path");
+        request.setParameter(CLIENT_ID, CLIENT_ID);
+        assertEquals("http://testing.com/path", handler.determineTargetUrl(request, response));
+    }
+
     void test_client_redirect() {
         handler.setWhitelist(Collections.singletonList("http://somethingelse.com"));
         handler.setAlwaysUseDefaultTargetUrl(false);
@@ -111,6 +118,7 @@ class WhitelistLogoutHandlerTest {
         request.setParameter(CLIENT_ID, CLIENT_ID);
         assertEquals("http://testing.com", handler.determineTargetUrl(request, response));
     }
+
 
     @Test
     void client_not_found_exception() {

@@ -1,4 +1,4 @@
-apply plugin: 'java'
+apply plugin: 'war'
 
 description = "CloudFoundry Identity Server JAR"
 
@@ -7,7 +7,7 @@ dependencies {
     implementation(project(":cloudfoundry-identity-model"))
 
     implementation(libraries.tomcatJdbc)
-    provided(libraries.tomcatEmbed)
+    providedCompile(libraries.tomcatEmbed)
     implementation(libraries.javaxMail)
 
     implementation(libraries.jacksonDatabind)
@@ -33,6 +33,9 @@ dependencies {
         exclude(module: "jackson-mapper-asl")
         exclude(module: "spring-security-web")
     }
+
+    implementation(libraries.springCloudServiceConnector)
+    implementation(libraries.springCloudCFConnector)
 
     implementation(libraries.bouncyCastleProv)
     implementation(libraries.bouncyCastlePkix)
@@ -93,6 +96,19 @@ dependencies {
 
     implementation(libraries.nimbusJwt)
     implementation(libraries.orgJson)
+
+    implementation(libraries.predixAudit) {
+        exclude(module: 'httpclient')
+        //excluded to avoid bringing in jackson core < 2.9
+        exclude(module: 'predix-event-hub-sdk')
+        exclude(group: 'org.hibernate')
+    }
+    implementation(libraries.springLogFilter) {
+        exclude(group: 'ch.qos.logback')
+    }
+
+    implementation(libraries.springAwsSecretsManager)
+    implementation(libraries.awsJavaSdkSts)
 
     testImplementation(project(":cloudfoundry-identity-model").sourceSets.test.output)
 

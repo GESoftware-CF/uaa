@@ -10,9 +10,12 @@ import org.cloudfoundry.identity.uaa.provider.UaaIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.saml.SamlKey;
 import org.cloudfoundry.identity.uaa.scim.ScimGroup;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupProvisioning;
+import org.cloudfoundry.identity.uaa.zone.SamlConfig.SignatureAlgorithm;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.context.MessageSource;
@@ -39,13 +42,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 import static java.util.Optional.ofNullable;
 import static org.springframework.http.HttpStatus.CONFLICT;
@@ -73,6 +70,8 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
 
     private ApplicationEventPublisher publisher;
 
+    private SignatureAlgorithm defaultSamlSignatureAlgorithm;
+
     public IdentityZoneEndpoints(final IdentityZoneProvisioning zoneDao,
                                  final @Qualifier("identityProviderProvisioning") IdentityProviderProvisioning idpDao,
                                  final IdentityZoneEndpointClientRegistrationService clientRegistrationService,
@@ -86,6 +85,11 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
         this.groupProvisioning = groupProvisioning;
         this.validator = validator;
         this.messageSource = messageSource;
+    }
+
+    @Autowired
+    public void setDefaultSamlSignatureAlgorithm(@Qualifier("globalSamlSignatureAlgorithm") SignatureAlgorithm samlSignatureAlgorithm) {
+        this.defaultSamlSignatureAlgorithm = samlSignatureAlgorithm;
     }
 
     @Override
@@ -179,6 +183,10 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
             throw new AccessDeniedException("Zones can only be created by being authenticated in the default zone.");
         }
 
+        if(body.getConfig().getSamlConfig() != null && body.getConfig().getSamlConfig().getSignatureAlgorithm() == null) {
+            body.getConfig().getSamlConfig().setSignatureAlgorithm(defaultSamlSignatureAlgorithm);
+        }
+
         try {
             body = validator.validate(body, IdentityZoneValidator.Mode.CREATE);
         } catch (InvalidIdentityZoneDetailsException ex) {
@@ -260,6 +268,9 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
             restoreSecretProperties(existingZone, body);
             //validator require id to be present
             body.setId(id);
+            if(body.getConfig().getSamlConfig() != null && body.getConfig().getSamlConfig().getSignatureAlgorithm() == null) {
+                body.getConfig().getSamlConfig().setSignatureAlgorithm(defaultSamlSignatureAlgorithm);
+            }
             body = validator.validate(body, IdentityZoneValidator.Mode.MODIFY);
 
             logger.debug("Zone - updating id[" + id + "] subdomain[" + body.getSubdomain() + "]");
@@ -316,6 +327,11 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
             logger.debug("Zone - deleting id[" + id + "]");
             // make sure it exists
             IdentityZone zone = zoneDao.retrieveIgnoreActiveFlag(id);
+            //If identity zone exists , check if it is already ported
+            OrchestratorZoneEntity orchestratorZone = zoneDao.retrieveOrchestratorZoneByIdentityZoneId(id);
+            if(Objects.nonNull(orchestratorZone.getOrchestratorZoneName()) && !orchestratorZone.getOrchestratorZoneName().isEmpty()){
+                throw new UnprocessableEntityException("This service instance has been ported to EKS. Deletion of this service instance from CF is not allowed");
+            }
             // ignore the id in the body, the id in the path is the only one that matters
             IdentityZoneHolder.set(zone);
             if (publisher != null && zone != null) {

@@ -15,7 +15,11 @@ LOGIN_SECRET: loginsecret
 
 jwt:
   token:
-    signing-key: tokenKey
+    policy:
+      activeKeyId: key-id-1
+      keys:
+        key-id-1:
+          signingKey: tokenKey
 
 login:
   serviceProviderKey: |
@@ -56,3 +60,5 @@ login:
     KdcZYgl4l/L6PxJ982SRhc83ZW2dkAZI4M0/Ud3oePe84k8jm3A7EvH5wi5hvCkK
     RpuRBwn3Ei+jCRouxTbzKPsuCVB+1sNyxMTXzf0=
     -----END CERTIFICATE-----
+
+NUREGO_API_URL: https://am-staging.nurego.com

@@ -27,6 +27,7 @@ import org.cloudfoundry.identity.uaa.util.RetryRule;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,6 +45,7 @@ import org.springframework.security.oauth2.client.test.TestAccounts;
 import org.springframework.security.oauth2.common.util.RandomValueStringGenerator;
 import org.springframework.security.oauth2.provider.client.BaseClientDetails;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
@@ -64,9 +66,12 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS;
 
+@Ignore // Invitations flow is disabled in Predix.
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = DefaultIntegrationTestConfig.class)
+@TestExecutionListeners(value = { ScreenshotOnFail.class }, mergeMode = MERGE_WITH_DEFAULTS)
 @ExtendWith(PollutionPreventionExtension.class)
 public class InvitationsIT {
 
@@ -77,8 +82,6 @@ public class InvitationsIT {
     @Rule
     public IntegrationTestRule integrationTestRule;
 
-    @Rule
-    public ScreenshotOnFail screenShootRule = new ScreenshotOnFail();
     @Rule
     public RetryRule retryRule = new RetryRule(3);
 
@@ -107,7 +110,6 @@ public class InvitationsIT {
     public void setup() {
         scimToken = testClient.getOAuthAccessToken("admin", "adminsecret", "client_credentials", "scim.read,scim.write,clients.admin");
         loginToken = testClient.getOAuthAccessToken("login", "loginsecret", "client_credentials", "oauth.login");
-        screenShootRule.setWebDriver(webDriver);
 
         testInviteEmail = "testinvite@test.org";
 
@@ -148,6 +150,7 @@ public class InvitationsIT {
     }
 
     @Test
+    @Ignore
     public void invite_fails() {
         RestTemplate uaaTemplate = new RestTemplate();
         uaaTemplate.setErrorHandler(new DefaultResponseErrorHandler() {
@@ -234,7 +237,7 @@ public class InvitationsIT {
         webDriver.findElement(By.name("username")).clear();
         webDriver.findElement(By.name("username")).sendKeys("user_only_for_invitations_test");
         webDriver.findElement(By.name("password")).sendKeys("saml");
-        WebElement loginButton = webDriver.findElement(By.xpath("//input[@value='Login']"));
+        WebElement loginButton = webDriver.findElement(By.id("submit_button"));
 
         loginButton.click();
 
@@ -250,6 +253,7 @@ public class InvitationsIT {
     }
 
     @Test
+    @Ignore
     public void testInsecurePasswordDisplaysErrorMessage() {
         String code = createInvitation();
         webDriver.get(baseUrl + "/invitations/accept?code=" + code);

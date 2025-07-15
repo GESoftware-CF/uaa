@@ -12,6 +12,7 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.codestore;
 
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.springframework.security.oauth2.common.util.RandomValueStringGenerator;
 
 import java.sql.Timestamp;
@@ -67,4 +68,8 @@ public interface ExpiringCodeStore {
      * @param zoneId
      */
     void expireByIntent(String intent, String zoneId);
+
+    default String zonifyCode(String code) {
+        return code + "[zone[" + IdentityZoneHolder.get().getId()+"]]";
+    }
 }

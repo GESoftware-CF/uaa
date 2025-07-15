@@ -18,9 +18,19 @@ public interface IdentityZoneProvisioning {
 
     IdentityZone create(IdentityZone identityZone);
 
+    OrchestratorZoneEntity createOrchestratorZone(String identityZoneId, String orchestratorZoneName);
+
     IdentityZone update(IdentityZone identityZone);
 
     IdentityZone retrieve(String id);
+
+    OrchestratorZoneEntity retrieveOrchestratorZoneByIdentityZoneId(String id);
+
+    OrchestratorZoneEntity retrieveByName(String name);
+
+    OrchestratorZoneEntity retrieveByNameIgnoreActiveFlag(String name);
+
+    int deleteOrchestratorZone(String orchestratorZoneName);
 
     IdentityZone retrieveBySubdomain(String subdomain);
 

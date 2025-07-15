@@ -125,4 +125,8 @@ public abstract class AbstractQueryable<T> implements Queryable<T> {
                     throw new IllegalArgumentException("Invalid sort field: " + s);
                 });
     }
+
+    public SearchQueryConverter getQueryConverter() {
+        return queryConverter;
+    }
 }

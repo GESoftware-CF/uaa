@@ -18,7 +18,6 @@ import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.scim.ScimUserProvisioning;
 import org.cloudfoundry.identity.uaa.scim.exception.InvalidPasswordException;
 import org.cloudfoundry.identity.uaa.scim.validate.PasswordValidator;
-import org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository;
 import org.cloudfoundry.identity.uaa.user.UaaAuthority;
 import org.cloudfoundry.identity.uaa.user.UaaUser;
 import org.cloudfoundry.identity.uaa.user.UaaUserDatabase;
@@ -121,9 +120,6 @@ public class InvitationsControllerTest {
 
     @Autowired
     DynamicZoneAwareAuthenticationManager zoneAwareAuthenticationManager;
-
-    @Autowired
-    CookieBasedCsrfTokenRepository loginCookieCsrfRepository;
 
     @Autowired
     ScimUserProvisioning scimUserProvisioning;
@@ -868,11 +864,6 @@ public class InvitationsControllerTest {
         @Bean
         DynamicZoneAwareAuthenticationManager zoneAwareAuthenticationManager() {
             return mock(DynamicZoneAwareAuthenticationManager.class);
-        }
-
-        @Bean
-        CookieBasedCsrfTokenRepository loginCookieCsrfRepository() {
-            return mock(CookieBasedCsrfTokenRepository.class);
         }
 
         @Bean

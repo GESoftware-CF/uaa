@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.TokenFormat.JWT;
+import static org.cloudfoundry.identity.uaa.zone.SamlConfig.SignatureAlgorithm.SHA512;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -197,12 +198,21 @@ public class IdentityZoneConfigurationBootstrapTests {
     }
 
     @Test
-    public void disable_self_service_links() throws Exception {
-        bootstrap.setSelfServiceLinksEnabled(false);
+    public void disable_self_service_create_account_links() throws Exception {
+        bootstrap.setSelfServiceCreateAccountEnabled(false);
         bootstrap.afterPropertiesSet();
 
         IdentityZone zone = provisioning.retrieve(IdentityZone.getUaaZoneId());
-        assertFalse(zone.getConfig().getLinks().getSelfService().isSelfServiceLinksEnabled());
+        assertFalse(zone.getConfig().getLinks().getSelfService().isSelfServiceCreateAccountEnabled());
+    }
+
+    @Test
+    public void disable_self_service_reset_password_links() throws Exception {
+        bootstrap.setSelfServiceResetPasswordEnabled(false);
+        bootstrap.afterPropertiesSet();
+
+        IdentityZone zone = provisioning.retrieve(IdentityZone.getUaaZoneId());
+        assertFalse(zone.getConfig().getLinks().getSelfService().isSelfServiceResetPasswordEnabled());
     }
 
     @Test
@@ -222,13 +232,14 @@ public class IdentityZoneConfigurationBootstrapTests {
 
         IdentityZone zone = provisioning.retrieve(IdentityZone.getUaaZoneId());
         assertEquals("/configured_signup", zone.getConfig().getLinks().getSelfService().getSignup());
-        assertNull(zone.getConfig().getLinks().getSelfService().getPasswd());
+        assertEquals("/forgot_password", zone.getConfig().getLinks().getSelfService().getPasswd());
     }
 
     @Test
     public void passwd_link_configured() throws Exception {
         links.put("passwd", "/configured_passwd");
         bootstrap.setSelfServiceLinks(links);
+        bootstrap.setSelfServiceCreateAccountEnabled(false);
         bootstrap.afterPropertiesSet();
 
         IdentityZone zone = provisioning.retrieve(IdentityZone.getUaaZoneId());
@@ -250,6 +261,17 @@ public class IdentityZoneConfigurationBootstrapTests {
         assertFalse(config.getLinks().getLogout().isDisableRedirectParameter());
     }
 
+    @Test
+    public void test_default_prompts() throws Exception {
+        List<Prompt> prompts = Arrays.asList(
+                new Prompt("username", "text", "Username"),
+                new Prompt("password", "password", "Password"),
+                new Prompt("passcode", "password", "Temporary Authentication Code (Get on at /passcode)")
+            );
+        bootstrap.afterPropertiesSet();
+        IdentityZoneConfiguration config = provisioning.retrieve(IdentityZone.getUaa().getId()).getConfig();
+        assertEquals(prompts, config.getPrompts());
+    }
 
     @Test
     public void test_prompts() throws Exception {
@@ -297,5 +319,15 @@ public class IdentityZoneConfigurationBootstrapTests {
         bootstrap.setMfaProviderName("InvalidProvider");
         bootstrap.setMfaEnabled(true);
         assertThrows(InvalidIdentityZoneDetailsException.class, () -> bootstrap.afterPropertiesSet());
+    }
+
+    @Test
+    public void testSamlSignatureAlgorithm() throws Exception{
+        bootstrap.setSamlSignatureAlgorithm(SHA512);
+
+        bootstrap.afterPropertiesSet();
+
+        IdentityZoneConfiguration config = provisioning.retrieve(IdentityZone.getUaa().getId()).getConfig();
+        assertEquals(SHA512, config.getSamlConfig().getSignatureAlgorithm());
     }
 }

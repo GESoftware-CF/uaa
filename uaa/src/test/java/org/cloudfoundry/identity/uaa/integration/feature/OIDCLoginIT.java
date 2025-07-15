@@ -51,6 +51,7 @@ import org.springframework.security.oauth2.client.test.TestAccounts;
 import org.springframework.security.oauth2.common.util.RandomValueStringGenerator;
 import org.springframework.security.oauth2.provider.client.BaseClientDetails;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestOperations;
@@ -82,21 +83,19 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = DefaultIntegrationTestConfig.class)
+@TestExecutionListeners(value = { ScreenshotOnFail.class }, mergeMode = MERGE_WITH_DEFAULTS)
 public class OIDCLoginIT {
 
     @Autowired
     @Rule
     public IntegrationTestRule integrationTestRule;
-
-    @Rule
-    public ScreenshotOnFail screenShootRule = new ScreenshotOnFail();
 
     @Autowired
     RestOperations restOperations;
@@ -130,8 +129,6 @@ public class OIDCLoginIT {
     @Before
     public void setUp() throws Exception {
         assertTrue("/etc/hosts should contain the host 'oidcloginit.localhost' for this test to work", doesSupportZoneDNS());
-
-        screenShootRule.setWebDriver(webDriver);
 
         subdomain = "oidcloginit";
         //identity client token
@@ -231,8 +228,9 @@ public class OIDCLoginIT {
     private void validateSuccessfulOIDCLogin(String zoneUrl, String userName, String password) {
         login(zoneUrl, userName, password);
 
-        webDriver.findElement(By.cssSelector(".dropdown-trigger")).click();
-        webDriver.findElement(By.linkText("Sign Out")).click();
+        //Predix version does not have logout link
+        //webDriver.findElement(By.cssSelector(".dropdown-trigger")).click();
+        //webDriver.findElement(By.linkText("Sign Out")).click();
         IntegrationTestUtils.validateAccountChooserCookie(zoneUrl, webDriver, IdentityZoneHolder.get());
     }
 
@@ -248,12 +246,15 @@ public class OIDCLoginIT {
         webDriver.findElement(By.name("username")).sendKeys(userName);
         webDriver.findElement(By.name("password")).sendKeys(password);
         webDriver.findElement(By.xpath("//input[@value='Sign in']")).click();
-        Assert.assertThat(webDriver.getCurrentUrl(), containsString(zoneUrl));
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("Where to?"));
+        assertThat(webDriver.getCurrentUrl(), containsString(zoneUrl));
+        assertThat(webDriver.getCurrentUrl(), containsString("localhost"));
         Cookie afterLogin = webDriver.manage().getCookieNamed("JSESSIONID");
         assertNotNull(afterLogin);
         assertNotNull(afterLogin.getValue());
-        assertNotEquals(beforeLogin.getValue(), afterLogin.getValue());
+
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(),
+                //Predix specific message on landing page.
+                Matchers.containsString("You should not see this page. Set up your redirect URI."));
     }
 
     @Test
@@ -466,10 +467,10 @@ public class OIDCLoginIT {
             webDriver.findElement(By.name("username")).clear();
             webDriver.findElement(By.name("username")).sendKeys("marissa6");
             webDriver.findElement(By.name("password")).sendKeys("saml6");
-            webDriver.findElement(By.xpath("//input[@value='Login']")).click();
+            webDriver.findElement(By.id("submit_button")).click();
 
             assertThat(webDriver.getCurrentUrl(), containsString(zoneUrl));
-            assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("Where to?"));
+            assertThat(webDriver.findElement(By.cssSelector("h1")).getText(), containsString("You should not see this page. Set up your redirect URI."));
 
             Cookie cookie = webDriver.manage().getCookieNamed("JSESSIONID");
 

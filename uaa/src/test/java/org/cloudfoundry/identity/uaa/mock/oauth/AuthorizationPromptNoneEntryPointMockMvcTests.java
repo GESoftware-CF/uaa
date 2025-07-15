@@ -19,7 +19,8 @@ import org.springframework.web.context.WebApplicationContext;
 
 import java.util.Collections;
 
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.getLoginForm;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -236,12 +237,13 @@ class AuthorizationPromptNoneEntryPointMockMvcTests {
 
 
     private void login(MockHttpSession session) throws Exception {
+        getLoginForm(mockMvc, session);
+
         mockMvc.perform(
                 post("/login.do")
-                        .with(cookieCsrf())
+                        .with(csrf(session))
                         .param("username", "marissa")
                         .param("password", "koala")
-                        .session(session)
         ).andExpect(redirectedUrl("/"));
     }
 }

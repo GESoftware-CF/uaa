@@ -38,7 +38,7 @@ public class JdbcExpiringCodeStore implements ExpiringCodeStore {
     protected static final String deleteIntent = "delete from " + tableName + " where intent = ? and identity_zone_id = ?";
     protected static final String deleteExpired = "delete from " + tableName + " where expiresat < ?";
 
-    private static final JdbcExpiringCodeMapper rowMapper = new JdbcExpiringCodeMapper();
+    private final JdbcExpiringCodeMapper rowMapper = new JdbcExpiringCodeMapper();
 
     protected static final String selectAllFields = "select " + fields + " from " + tableName + " where code = ? and identity_zone_id = ?";
 
@@ -111,27 +111,7 @@ public class JdbcExpiringCodeStore implements ExpiringCodeStore {
         return null;
     }
 
-    @Override
-    public ExpiringCode peekCode(String code, String zoneId) {
-        cleanExpiredEntries();
-
-        if (code == null) {
-            throw new NullPointerException();
-        }
-
-        try {
-            ExpiringCode expiringCode = jdbcTemplate.queryForObject(selectAllFields, rowMapper, code, zoneId);
-            if (expiringCode.getExpiresAt().getTime() < timeService.getCurrentTimeMillis()) {
-                expiringCode = null;
-            }
-            return expiringCode;
-        } catch (EmptyResultDataAccessException x) {
-            return null;
-        }
-    }
-
-    @Override
-    public ExpiringCode retrieveCode(String code, String zoneId) {
+    private ExpiringCode getCode(String code, String zoneId, boolean peek) {
         cleanExpiredEntries();
 
         if (code == null) {
@@ -141,15 +121,27 @@ public class JdbcExpiringCodeStore implements ExpiringCodeStore {
         try {
             ExpiringCode expiringCode = jdbcTemplate.queryForObject(selectAllFields, rowMapper, code, zoneId);
             if (expiringCode != null) {
-                jdbcTemplate.update(delete, code, zoneId);
-            }
-            if (expiringCode.getExpiresAt().getTime() < timeService.getCurrentTimeMillis()) {
-                expiringCode = null;
+                if (!peek) {
+                    jdbcTemplate.update(delete, code, zoneId);
+                }
+                if (expiringCode.getExpiresAt().getTime() < timeService.getCurrentTimeMillis()) {
+                    expiringCode = null;
+                }
             }
             return expiringCode;
         } catch (EmptyResultDataAccessException x) {
             return null;
         }
+    }
+
+    @Override
+    public ExpiringCode peekCode(String code, String zoneId) {
+        return getCode(code, zoneId, true);
+    }
+
+    @Override
+    public ExpiringCode retrieveCode(String code, String zoneId) {
+        return getCode(code, zoneId, false);
     }
 
     @Override
@@ -187,7 +179,6 @@ public class JdbcExpiringCodeStore implements ExpiringCodeStore {
             String data = rs.getString("data");
             return new ExpiringCode(code, expiresAt, data, intent);
         }
-
     }
 
 }

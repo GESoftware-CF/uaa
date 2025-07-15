@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.cloudfoundry.identity.uaa.zone.SamlConfig.SignatureAlgorithm.SHA256;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.restdocs.headers.HeaderDocumentation.headerWithName;
 import static org.springframework.restdocs.headers.HeaderDocumentation.requestHeaders;
@@ -57,6 +58,9 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
     private static final String NAME_DESC = "Human-readable zone name";
     private static final String DESCRIPTION_DESC = "Description of the zone";
     private static final String VERSION_DESC = "Reserved for future use of E-Tag versioning";
+    private static final String LOCKOUT_PERIOD_SECONDS_DESC = "Number of seconds to lock out an account when lockoutAfterFailures failures is exceeded (defaults to 300).";
+    private static final String LOCKOUT_AFTER_FAILURES_DESC = "Number of allowed failures before account is locked (defaults to 5).";
+    private static final String LOCKOUT_COUNT_FAILURES_WITHIN_DESC = "Number of seconds in which lockoutAfterFailures failures must occur in order for account to be locked (defaults to 3600).";
     private static final String ACTIVE_DESC = "Indicates whether the identity zone is active. Defaults to true.";
     private static final String TOKEN_POLICY_DESC = "Various fields pertaining to the JWT access and refresh tokens.";
     private static final String ACTIVE_KEY_ID_DESC = "The ID for the key that is being used to sign tokens";
@@ -69,6 +73,7 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
     private static final String JWT_REVOCABLE_DESC = "Set to true if JWT tokens should be stored in the token store, and thus made individually revocable. Opaque tokens are always stored and revocable.";
     private static final String ENTITY_ID_DESC = "Unique ID of the SAML2 entity";
     private static final String ASSERTION_SIGNED_DESC = "If `true`, the SAML provider will sign all assertions";
+    private static final String SAML_SIGNATURE_ALGORITHM_DESC = "Exposed SAML metadata property. The signature algorithm that will be used to sign the authentication request and SAML assertion. Defaults to `SHA256`.";
     private static final String WANT_ASSERTION_SIGNED_DESC = "Exposed SAML metadata property. If `true`, all assertions received by the SAML provider must be signed. Defaults to `true`.";
     private static final String REQUEST_SIGNED_DESC = "Exposed SAML metadata property. If `true`, the service provider will sign all outgoing authentication requests. Defaults to `true`.";
     private static final String WANT_AUTHN_REQUEST_SIGNED_DESC = "If `true`, the authentication request from the partner service provider must be signed.";
@@ -82,6 +87,7 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
     private static final String REDIRECT_PARAMETER_NAME_DESC = "Changes the name of the redirect parameter";
     private static final String DISABLE_REDIRECT_PARAMETER_DESC = "Deprecated, no longer affects zone behavior. Whether or not to allow the redirect parameter on logout";
     private static final String WHITELIST_DESC = "List of allowed whitelist redirects";
+    private static final String ENABLE_REDIRECT_URI_CHECK_DESC = "Zone-level flag that will enforce client redirect uri rules as deployed in 4.4.0. If `true`, check will perform at authorization. Defaults to `true`";
     private static final String SELF_SERVICE_LINKS_ENABLED_DESC = "Whether or not users are allowed to sign up or reset their passwords via the UI";
     private static final String SIGNUP_DESC = "Where users are directed upon clicking the account creation link";
     private static final String PASSWD_DESC = "Where users are directed upon clicking the password reset link";
@@ -195,6 +201,7 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
         samlConfig.setPrivateKey(SERVICE_PROVIDER_KEY);
         samlConfig.setPrivateKeyPassword(SERVICE_PROVIDER_KEY_PASSWORD);
         samlConfig.setEntityID(SERVICE_PROVIDER_ID);
+        samlConfig.setSignatureAlgorithm(SHA256);
         identityZone.getConfig().setIssuer(DEFAULT_ISSUER_URI);
         identityZone.getConfig().setSamlConfig(samlConfig);
         TokenPolicy tokenPolicy = new TokenPolicy(3600, 7200);
@@ -218,6 +225,7 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("config.clientSecretPolicy.requireLowerCaseCharacter").type(NUMBER).description(SECRET_POLICY_LOWERCASE).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("config.clientSecretPolicy.requireDigit").type(NUMBER).description(SECRET_POLICY_DIGIT).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("config.clientSecretPolicy.requireSpecialCharacter").type(NUMBER).description(SECRET_POLICY_SPECIAL_CHAR).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
+                fieldWithPath("config.clientSecretPolicy.expireSecretsInMonths").type(NUMBER).description(SECRET_POLICY_EXPIRE_MONTHS).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
 
                 fieldWithPath("config.tokenPolicy").description(TOKEN_POLICY_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.tokenPolicy.activeKeyId").optional().type(STRING).description(ACTIVE_KEY_ID_DESC).attributes(key("constraints").value("Required if `config.tokenPolicy.keys` are set")),
@@ -233,6 +241,7 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("config.samlConfig.wantAssertionSigned").description(WANT_ASSERTION_SIGNED_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.samlConfig.requestSigned").description(REQUEST_SIGNED_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.samlConfig.wantAuthnRequestSigned").description(WANT_AUTHN_REQUEST_SIGNED_DESC).attributes(key("constraints").value("Optional")),
+                fieldWithPath("config.samlConfig.signatureAlgorithm").description(SAML_SIGNATURE_ALGORITHM_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.samlConfig.assertionTimeToLiveSeconds").description(ASSERTION_TIME_TO_LIVE_SECONDS_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.samlConfig.entityID").type(STRING).description(ENTITY_ID_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.samlConfig.certificate").type(STRING).description(CERTIFICATE_DESC).attributes(key("constraints").value("Deprecated")),
@@ -303,7 +312,8 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("config.mfaConfig.identityProviders").description(MFA_CONFIG_IDENTITY_PROVIDER_DESC).attributes(key("constraints").value("Optional")).optional().type(ARRAY),
 
                 fieldWithPath("created").ignored(),
-                fieldWithPath("last_modified").ignored()
+                fieldWithPath("last_modified").ignored(),
+                fieldWithPath("enable_redirect_uri_check").type(BOOLEAN).description(ENABLE_REDIRECT_URI_CHECK_DESC).attributes(key("constraints").value("Optional"))
         };
 
         mockMvc.perform(
@@ -385,12 +395,14 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("[].config.clientSecretPolicy.requireLowerCaseCharacter").type(NUMBER).description(SECRET_POLICY_LOWERCASE).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("[].config.clientSecretPolicy.requireDigit").type(NUMBER).description(SECRET_POLICY_DIGIT).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("[].config.clientSecretPolicy.requireSpecialCharacter").type(NUMBER).description(SECRET_POLICY_SPECIAL_CHAR).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
+                fieldWithPath("[].config.clientSecretPolicy.expireSecretInMonths").type(NUMBER).description(SECRET_POLICY_EXPIRE_MONTHS).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
 
                 fieldWithPath("[].config.samlConfig.disableInResponseToCheck").description(SAML_DISABLE_IN_RESPONSE_TO_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("[].config.samlConfig.assertionSigned").description(ASSERTION_SIGNED_DESC),
                 fieldWithPath("[].config.samlConfig.wantAssertionSigned").description(WANT_ASSERTION_SIGNED_DESC),
                 fieldWithPath("[].config.samlConfig.requestSigned").description(REQUEST_SIGNED_DESC),
                 fieldWithPath("[].config.samlConfig.wantAuthnRequestSigned").description(WANT_AUTHN_REQUEST_SIGNED_DESC),
+                fieldWithPath("[].config.samlConfig.signatureAlgorithm").description(SAML_SIGNATURE_ALGORITHM_DESC),
                 fieldWithPath("[].config.samlConfig.assertionTimeToLiveSeconds").description(ASSERTION_TIME_TO_LIVE_SECONDS_DESC),
                 fieldWithPath("[].config.samlConfig.entityID").optional().type(STRING).description(ENTITY_ID_DESC),
                 fieldWithPath("[].config.samlConfig.certificate").type(STRING).description(CERTIFICATE_DESC).attributes(key("constraints").value("Deprecated")),
@@ -465,7 +477,8 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("[].config.mfaConfig.identityProviders").optional().description(MFA_CONFIG_IDENTITY_PROVIDER_DESC).attributes(key("constraints").value("Optional")).optional().type(ARRAY),
 
                 fieldWithPath("[].created").ignored(),
-                fieldWithPath("[].last_modified").ignored()
+                fieldWithPath("[].last_modified").ignored(),
+                fieldWithPath("[].enable_redirect_uri_check").type(BOOLEAN).description(ENABLE_REDIRECT_URI_CHECK_DESC).attributes(key("constraints").value("Optional"))
         );
 
         mockMvc.perform(
@@ -506,6 +519,7 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
         samlConfig.setPrivateKey(SERVICE_PROVIDER_KEY);
         samlConfig.setPrivateKeyPassword(SERVICE_PROVIDER_KEY_PASSWORD);
         samlConfig.setCertificate(SERVICE_PROVIDER_CERTIFICATE);
+        samlConfig.setSignatureAlgorithm(SHA256);
         samlConfig.setEntityID(SERVICE_PROVIDER_ID);
         updatedIdentityZone.getConfig().setIssuer(DEFAULT_ISSUER_URI);
         updatedIdentityZone.getConfig().setSamlConfig(samlConfig);
@@ -533,12 +547,14 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("config.clientSecretPolicy.requireLowerCaseCharacter").type(NUMBER).description(SECRET_POLICY_LOWERCASE).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("config.clientSecretPolicy.requireDigit").type(NUMBER).description(SECRET_POLICY_DIGIT).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("config.clientSecretPolicy.requireSpecialCharacter").type(NUMBER).description(SECRET_POLICY_SPECIAL_CHAR).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
+                fieldWithPath("config.clientSecretPolicy.expireSecretInMonths").type(NUMBER).description(SECRET_POLICY_EXPIRE_MONTHS).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
 
                 fieldWithPath("config.samlConfig.disableInResponseToCheck").description(SAML_DISABLE_IN_RESPONSE_TO_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.samlConfig.assertionSigned").description(ASSERTION_SIGNED_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.samlConfig.wantAssertionSigned").description(WANT_ASSERTION_SIGNED_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.samlConfig.requestSigned").description(REQUEST_SIGNED_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.samlConfig.wantAuthnRequestSigned").description(WANT_AUTHN_REQUEST_SIGNED_DESC).attributes(key("constraints").value("Optional")),
+                fieldWithPath("config.samlConfig.signatureAlgorithm").description(SAML_SIGNATURE_ALGORITHM_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.samlConfig.assertionTimeToLiveSeconds").description(ASSERTION_TIME_TO_LIVE_SECONDS_DESC).attributes(key("constraints").value("Optional")),
 
                 fieldWithPath("config.samlConfig.entityID").description(ENTITY_ID_DESC).attributes(key("constraints").value("Optional")),
@@ -608,7 +624,8 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("config.mfaConfig.identityProviders").description(MFA_CONFIG_IDENTITY_PROVIDER_DESC).attributes(key("constraints").value("Optional")).optional().type(ARRAY),
 
                 fieldWithPath("created").ignored(),
-                fieldWithPath("last_modified").ignored()
+                fieldWithPath("last_modified").ignored(),
+                fieldWithPath("enable_redirect_uri_check").type(BOOLEAN).description(ENABLE_REDIRECT_URI_CHECK_DESC).attributes(key("constraints").value("Optional"))
         );
 
         mockMvc.perform(
@@ -720,12 +737,14 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("config.clientSecretPolicy.requireLowerCaseCharacter").type(NUMBER).description(SECRET_POLICY_LOWERCASE).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("config.clientSecretPolicy.requireDigit").type(NUMBER).description(SECRET_POLICY_DIGIT).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("config.clientSecretPolicy.requireSpecialCharacter").type(NUMBER).description(SECRET_POLICY_SPECIAL_CHAR).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
+                fieldWithPath("config.clientSecretPolicy.expireSecretInMonths").type(NUMBER).description(SECRET_POLICY_EXPIRE_MONTHS).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
 
                 fieldWithPath("config.samlConfig.disableInResponseToCheck").description(SAML_DISABLE_IN_RESPONSE_TO_DESC),
                 fieldWithPath("config.samlConfig.assertionSigned").description(ASSERTION_SIGNED_DESC),
                 fieldWithPath("config.samlConfig.wantAssertionSigned").description(WANT_ASSERTION_SIGNED_DESC),
                 fieldWithPath("config.samlConfig.requestSigned").description(REQUEST_SIGNED_DESC),
                 fieldWithPath("config.samlConfig.wantAuthnRequestSigned").description(WANT_AUTHN_REQUEST_SIGNED_DESC),
+                fieldWithPath("config.samlConfig.signatureAlgorithm").description(SAML_SIGNATURE_ALGORITHM_DESC),
                 fieldWithPath("config.samlConfig.assertionTimeToLiveSeconds").description(ASSERTION_TIME_TO_LIVE_SECONDS_DESC),
 
                 fieldWithPath("config.samlConfig.entityID").type(STRING).description(ENTITY_ID_DESC),
@@ -790,7 +809,8 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("config.mfaConfig.providerName").description(MFA_CONFIG_PROVIDER_NAME_DESC).optional().type(STRING),
                 fieldWithPath("config.mfaConfig.identityProviders").description(MFA_CONFIG_IDENTITY_PROVIDER_DESC).optional().type(ARRAY),
                 fieldWithPath("created").ignored(),
-                fieldWithPath("last_modified").ignored()
+                fieldWithPath("last_modified").ignored(),
+                fieldWithPath("enable_redirect_uri_check").type(BOOLEAN).description(ENABLE_REDIRECT_URI_CHECK_DESC).attributes(key("constraints").value("Optional"))
         );
     }
 

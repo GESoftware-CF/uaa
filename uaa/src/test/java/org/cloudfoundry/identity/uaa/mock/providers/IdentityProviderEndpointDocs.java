@@ -33,6 +33,7 @@ import org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter;
 import org.cloudfoundry.identity.uaa.zone.MultitenancyFixture;
 import org.junit.jupiter.api.*;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.restdocs.headers.HeaderDescriptor;
 import org.springframework.restdocs.payload.FieldDescriptor;
 import org.springframework.restdocs.snippet.Attributes;
@@ -44,7 +45,7 @@ import java.net.URL;
 import java.util.*;
 
 import static org.cloudfoundry.identity.uaa.constants.OriginKeys.*;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
 import static org.cloudfoundry.identity.uaa.provider.LdapIdentityProviderDefinition.MAIL;
 import static org.cloudfoundry.identity.uaa.provider.SamlIdentityProviderDefinition.*;
 import static org.cloudfoundry.identity.uaa.test.SnippetUtils.fieldWithPath;
@@ -734,10 +735,12 @@ class IdentityProviderEndpointDocs extends EndpointDocs {
                 responseFields
         ));
 
+        MockHttpSession session = new MockHttpSession();
+
         mockMvc.perform(
                 post("/login.do")
                         .header("Host", zone.getIdentityZone().getSubdomain() + ".localhost")
-                        .with(cookieCsrf())
+                        .with(csrf(session))
                         .param("username", "marissa4")
                         .param("password", "ldap4")
         )

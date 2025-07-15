@@ -12,6 +12,13 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.integration;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.springframework.http.HttpStatus.FOUND;
+import static org.springframework.http.HttpStatus.OK;
+
+import java.util.List;
+
 import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
 import org.apache.http.client.config.RequestConfig;
@@ -28,7 +35,6 @@ import org.cloudfoundry.identity.uaa.ServerRunning;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
 import org.cloudfoundry.identity.uaa.test.TestAccountSetup;
 import org.cloudfoundry.identity.uaa.test.UaaTestAccounts;
-import org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -36,12 +42,8 @@ import org.junit.Test;
 import org.springframework.http.MediaType;
 
 import java.util.Collections;
-import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.springframework.http.HttpStatus.FOUND;
-import static org.springframework.http.HttpStatus.OK;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.CSRF_PARAMETER_NAME;
 
 public class FormLoginIntegrationTests {
 
@@ -107,13 +109,13 @@ public class FormLoginIntegrationTests {
         assertTrue(body.contains("username"));
         assertTrue(body.contains("password"));
 
-        String csrf = IntegrationTestUtils.extractCookieCsrf(body);
+        String csrf = IntegrationTestUtils.extracCsrfToken(body);
 
         HttpUriRequest loginPost = RequestBuilder.post()
             .setUri(serverRunning.getBaseUrl() + "/login.do")
             .addParameter("username",testAccounts.getUserName())
             .addParameter("password",testAccounts.getPassword())
-            .addParameter(CookieBasedCsrfTokenRepository.DEFAULT_CSRF_COOKIE_NAME, csrf)
+            .addParameter(CSRF_PARAMETER_NAME, csrf)
             .build();
 
         response = httpclient.execute(loginPost);
@@ -127,7 +129,8 @@ public class FormLoginIntegrationTests {
 
         body = EntityUtils.toString(response.getEntity());
         response.close();
-        assertTrue(body.contains("Sign Out"));
+        //There is no 'Sign Out' link on the predix uaa homepage
+        //assertTrue(body.contains("Sign Out"));
     }
 
 }

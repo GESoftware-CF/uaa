@@ -1,0 +1,120 @@
+#!/usr/bin/env groovy
+def buildGeArtServer = Artifactory.server('build.ge')
+
+library "security-ci-commons-shared-lib"
+def NODE = nodeDetails("uaa-govcloud")
+
+pipeline {
+    agent none
+    options {
+        timestamps()
+        skipDefaultCheckout()
+        buildDiscarder(logRotator(artifactNumToKeepStr: '30', numToKeepStr: '30'))
+    }
+    stages {
+        stage('Run acceptance tests in govcloud') {
+            environment {
+                CF_CREDENTIALS = credentials("CF_CREDENTIALS_${DEPLOYMENT_TYPE.toUpperCase().replaceAll('-','_')}")
+                ADMIN_CLIENT_SECRET = credentials("ADMIN_CLIENT_SECRET_${DEPLOYMENT_TYPE.toUpperCase().replaceAll('-','_')}")
+                RUN_FULL_ACCEPTANCE_TESTS = true
+                DEPLOYMENT_TYPE = 'govw'
+            }
+            agent {
+                docker {
+                    image "${NODE['IMAGE']}"
+                    label "${NODE['LABEL']}"
+                    args "${NODE['ARGS']}"
+                    registryUrl "${NODE['REGISTRY_URL']}"
+                    registryCredentialsId "${NODE['REGISTRY_CREDENTIALS_ID']}"
+                }
+            }
+
+            steps {
+                script {
+                    dir('uaa') {
+                        checkout scm
+                    }
+
+                    dir('uaa/iam-k8s-utils') {
+                        git changelog: false, credentialsId: 'github.build.ge.com', poll: false,
+                            url: 'https://github.build.ge.com/predix/iam-k8s-utils.git'
+                    }
+
+                    dir('uaa-cf-release') {
+                        git changelog: false, credentialsId: 'github.build.ge.com', poll: false, url: 'https://github.build.ge.com/predix/uaa-cf-release.git', branch: 'master'
+                    }
+
+                    APP_VERSION = sh (returnStdout: true, script: '''
+                        grep 'version' uaa/gradle.properties | sed 's/version=//'
+                        ''').trim()
+
+                    echo "Downloading UAA  ${APP_VERSION} Artifact Artifactory"
+                    def downloadSpec = """{
+                        "files": [
+                            {
+                                "target": "deploy-workspace/",
+                                "flat": "true",
+                                "pattern": "MAAXA/builds/uaa/${APP_VERSION}/*.war"
+                            }
+                        ]
+                    }"""
+                    buildGeArtServer.download(downloadSpec)
+                    sh "ls -ltr deploy-workspace/"
+
+                    sh '''#!/bin/bash -ex
+
+                    echo 'Installing chromedriver'
+                    apt-get update -y
+                    apt-get install -y chromium chromium-driver
+                    chromedriver -v
+                    chromium --no-sandbox --version
+
+                    echo 'Installing uaac'
+                    gem install launchy:'<2.5' cf-uaac:'4.1.0' bundle
+                    cf -v
+                    ruby -v
+                    uaac --version
+
+                    source uaa/scripts/setup-tests.sh
+
+                    export CF_USERNAME=$CF_CREDENTIALS_USR
+                    export CF_PASSWORD=$CF_CREDENTIALS_PSW
+                    export APP_VERSION=`grep 'version' uaa/gradle.properties | sed 's/version=//'`
+                    echo "APP_VERSION is:$APP_VERSION"
+                    export DEPLOY_BRANCH_SUFFIX=$APP_VERSION
+                    source uaa-cf-release/config-govw/set-env.sh
+                    unset_env
+
+                    # build tests before connecting to govcloud vpn to download dependencies
+                    pushd uaa
+                        ./gradlew clean assemble testClasses
+                    popd
+
+                    startvpn.sh
+
+                    pushd uaa-cf-release
+                        export NEW_APP_NAME=${APP_NAME}-active
+                        export JRE_VERSION="{ jre: { version: 11.+ }}"
+                        cf login -a $CF_ENDPOINT -u ${CF_USERNAME} -p ${CF_PASSWORD} -o ${CF_ORG} -s ${CF_SPACE}
+                        ./uaa-acceptance-tests.sh
+                    popd
+
+                    stopvpn.sh 
+                    '''
+                }
+            }
+            post {
+                always {
+                    publishHTML target: [
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'uaa/uaa/build/reports/tests/acceptanceTest',
+                        reportFiles: 'index.html',
+                        reportName: 'Acceptance Test Results'
+                    ]
+                }
+            }
+        }
+    }
+}

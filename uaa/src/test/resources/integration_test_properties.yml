@@ -7,6 +7,11 @@ encryption:
   - label: CHANGE-THIS-KEY
     passphrase: CHANGEME
 
+assetBaseUrl: /resources/predix
+links:
+  passwd: /forgot_password
+  signup: /create_account
+
 issuer:
   uri: http://localhost:8080/uaa
 
@@ -56,6 +61,8 @@ login:
     KdcZYgl4l/L6PxJ982SRhc83ZW2dkAZI4M0/Ud3oePe84k8jm3A7EvH5wi5hvCkK
     RpuRBwn3Ei+jCRouxTbzKPsuCVB+1sNyxMTXzf0=
     -----END CERTIFICATE-----
+  selfServiceResetPasswordEnabled: true
+  selfServiceCreateAccountEnabled: true
   url: http://localhost:8080/uaa
   entityBaseURL: http://localhost:8080/uaa
   entityID: cloudfoundry-saml-login
@@ -81,6 +88,11 @@ login:
       soTimeout: 10000
   authorize:
     url: http://localhost:8080/uaa/oauth/authorize
+  branding:
+    companyName: Predix
+    footerLegalText:  "Copyright © 2021 General Electric Company. All rights reserved."
+    footerLinks:
+      Contact Us: mailto:info@predix.io
 
 database:
   abandonedtimeout: 45
@@ -151,9 +163,13 @@ oauth:
       - user_attributes
       - uaa.offline_token
 
+NUREGO_API_URL: https://am-staging.nurego.com
+
 uaa:
   # The hostname of the UAA that this login server will connect to
   url: http://localhost:8080/uaa
+  dashboard:
+    uri: http://localhost:8080/dashboard
   token:
     url: http://localhost:8080/uaa/oauth/token
   approvals:

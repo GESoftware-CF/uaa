@@ -61,7 +61,7 @@ import java.util.Map;
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
-import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.doesSupportZoneDNS;
+import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.assertSupportsZoneDNS;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
@@ -302,7 +302,7 @@ public class ClientAdminEndpointsIntegrationTests {
 
     @Test
     public void createClientWithStrictSecretPolicyTest() throws Exception {
-        assertTrue("Expected testzone1.localhost and testzone2.localhost to resolve to 127.0.0.1", doesSupportZoneDNS());
+        assertSupportsZoneDNS();
         String testZoneId = "testzone1";
 
         RestTemplate adminClient = IntegrationTestUtils.getClientCredentialsTemplate(
@@ -347,7 +347,7 @@ public class ClientAdminEndpointsIntegrationTests {
 
     @Test
     public void testClientSecretExpiryCannotBeSet() {
-        assertTrue("Expected testzone1.localhost and testzone2.localhost to resolve to 127.0.0.1", doesSupportZoneDNS());
+        assertSupportsZoneDNS();
         String testZoneId = "testzone1";
 
         RestTemplate adminClient = IntegrationTestUtils.getClientCredentialsTemplate(

@@ -10,13 +10,7 @@ import org.cloudfoundry.identity.uaa.codestore.ExpiringCodeType;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.mfa.MfaChecker;
 import org.cloudfoundry.identity.uaa.oauth.client.ClientConstants;
-import org.cloudfoundry.identity.uaa.provider.AbstractExternalOAuthIdentityProviderDefinition;
-import org.cloudfoundry.identity.uaa.provider.AbstractIdentityProviderDefinition;
-import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
-import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
-import org.cloudfoundry.identity.uaa.provider.OIDCIdentityProviderDefinition;
-import org.cloudfoundry.identity.uaa.provider.SamlIdentityProviderDefinition;
-import org.cloudfoundry.identity.uaa.provider.UaaIdentityProviderDefinition;
+import org.cloudfoundry.identity.uaa.provider.*;
 import org.cloudfoundry.identity.uaa.provider.oauth.ExternalOAuthProviderConfigurator;
 import org.cloudfoundry.identity.uaa.provider.saml.LoginSamlAuthenticationToken;
 import org.cloudfoundry.identity.uaa.provider.saml.SamlIdentityProviderConfigurator;
@@ -29,11 +23,7 @@ import org.cloudfoundry.identity.uaa.util.MapCollector;
 import org.cloudfoundry.identity.uaa.util.SessionUtils;
 import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
 import org.cloudfoundry.identity.uaa.web.UaaSavedRequestAwareAuthenticationSuccessHandler;
-import org.cloudfoundry.identity.uaa.zone.IdentityZone;
-import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
-import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
-import org.cloudfoundry.identity.uaa.zone.Links;
-import org.cloudfoundry.identity.uaa.zone.MultitenantClientServices;
+import org.cloudfoundry.identity.uaa.zone.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -54,13 +44,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.servlet.http.Cookie;
@@ -383,8 +367,10 @@ public class LoginInfoEndpoint {
         if (fieldUsernameShow && (allowedIdentityProviderKeys != null) && ((!discoveryEnabled && !accountChooserEnabled) || discoveryPerformed)) {
             if (!allowedIdentityProviderKeys.contains(OriginKeys.UAA)) {
                 linkCreateAccountShow = false;
+            }
+            if (Collections.singletonList(OriginKeys.LDAP).equals(allowedIdentityProviderKeys)) {
                 model.addAttribute("login_hint", new UaaLoginHint(OriginKeys.LDAP).toString());
-            } else if (!allowedIdentityProviderKeys.contains(OriginKeys.LDAP)) {
+            } else if (Collections.singletonList(UAA).equals(allowedIdentityProviderKeys)) {
                 model.addAttribute("login_hint", new UaaLoginHint(OriginKeys.UAA).toString());
             }
         }
@@ -410,7 +396,8 @@ public class LoginInfoEndpoint {
                 excludedPrompts, returnLoginPrompts);
 
         if (principal == null) {
-            return getUnauthenticatedRedirect(model, request, discoveryEnabled, discoveryPerformed, accountChooserNeeded ,accountChooserEnabled);
+            return getUnauthenticatedRedirect(model, request, discoveryEnabled, discoveryPerformed,
+                    accountChooserNeeded, accountChooserEnabled, !allIdentityProviders.isEmpty());
         }
         return "home";
     }
@@ -421,7 +408,8 @@ public class LoginInfoEndpoint {
             boolean discoveryEnabled,
             boolean discoveryPerformed,
             boolean accountChooserNeeded,
-            boolean accountChooserEnabled
+            boolean accountChooserEnabled,
+            boolean identityProvidersAvailable
     ) {
         String formRedirectUri = request.getParameter(UaaSavedRequestAwareAuthenticationSuccessHandler.FORM_REDIRECT_PARAMETER);
         if (hasText(formRedirectUri)) {
@@ -431,7 +419,7 @@ public class LoginInfoEndpoint {
             return "idp_discovery/account_chooser";
         }
         if (discoveryEnabled) {
-            if (!discoveryPerformed) {
+            if (!discoveryPerformed && identityProvidersAvailable) {
                 return "idp_discovery/email";
             }
             return goToPasswordPage(request.getParameter("email"), model);
@@ -985,9 +973,11 @@ public class LoginInfoEndpoint {
         IdentityProvider<UaaIdentityProviderDefinition> uaaIdp = providerProvisioning.retrieveByOriginIgnoreActiveFlag(OriginKeys.UAA, IdentityZoneHolder.get().getId());
         boolean disableInternalUserManagement = (uaaIdp.getConfig() != null) ? uaaIdp.getConfig().isDisableInternalUserManagement() : false;
 
-        boolean selfServiceLinksEnabled = (zone.getConfig() != null) ? zone.getConfig().getLinks().getSelfService().isSelfServiceLinksEnabled() : true;
-
-        final String defaultSignup = "/create_account";
+        boolean selfServiceResetPasswordEnabled = (zone.getConfig() != null) ? zone.getConfig().getLinks().getSelfService()
+                                                                                   .isSelfServiceResetPasswordEnabled() : true;
+        boolean selfServiceCreateAccountEnabled = (zone.getConfig() != null) ? zone.getConfig().getLinks().getSelfService()
+                                                                                   .isSelfServiceCreateAccountEnabled() : true;
+        final String defaultSignup = "";
         final String defaultPasswd = "/forgot_password";
         Links.SelfService service = zone.getConfig() != null ? zone.getConfig().getLinks().getSelfService() : null;
         String signup = UaaStringUtils.nonNull(
@@ -1000,16 +990,18 @@ public class LoginInfoEndpoint {
                 globalLinks.getSelfService().getPasswd(),
                 defaultPasswd);
 
-        if (selfServiceLinksEnabled && !disableInternalUserManagement) {
-            if (hasText(signup)) {
-                signup = UaaStringUtils.replaceZoneVariables(signup, IdentityZoneHolder.get());
-                selfServiceLinks.put(CREATE_ACCOUNT_LINK, signup);
-                selfServiceLinks.put("register", signup);
-            }
+        if (selfServiceResetPasswordEnabled && !disableInternalUserManagement) {
             if (hasText(passwd)) {
                 passwd = UaaStringUtils.replaceZoneVariables(passwd, IdentityZoneHolder.get());
                 selfServiceLinks.put(FORGOT_PASSWORD_LINK, passwd);
                 selfServiceLinks.put("passwd", passwd);
+            }
+        }
+        if (selfServiceCreateAccountEnabled && !disableInternalUserManagement) {
+            if (hasText(signup)) {
+                signup = UaaStringUtils.replaceZoneVariables(signup, IdentityZoneHolder.get());
+                selfServiceLinks.put(CREATE_ACCOUNT_LINK, signup);
+                selfServiceLinks.put("register", signup);
             }
         }
         return selfServiceLinks;

@@ -1,0 +1,162 @@
+#!/usr/bin/env groovy
+
+pipeline {
+    agent {
+        docker {
+            image "dig-grid-artifactory.apps.ge.com/pgog-fss-iam-uaa-docker-stage/uaa-ci-testing:latest"
+            label "dind"
+            args "-v /var/lib/docker/.gradle:/root/.gradle"
+            registryUrl "https://dig-grid-artifactory.apps.ge.com"
+            registryCredentialsId "DIGITAL_GRID_ARTIFACTORY_CREDENTIALS"
+        }
+    }
+    environment {
+        COMPLIANCEENABLED = true
+        ARTIFACTORY_CREDENTIALS = credentials("DIGITAL_GRID_ARTIFACTORY_CREDENTIALS")
+    }
+    options {
+        timestamps()
+        skipDefaultCheckout()
+        buildDiscarder(logRotator(artifactNumToKeepStr: '30', numToKeepStr: '30'))
+    }
+    parameters  {
+        choice(
+            name: 'DEPLOYMENT_ENVIRONMENT',
+            description: 'This specifies which EKS environment to test',
+            choices: 'int\nqa\nperf\nstage\nprod-usw\nprod-euc'
+        )
+        string(
+            name: 'UAA_HOST',
+            defaultValue: 'uaa-blue-int.pss-shared.dev.usw02.15.energy',
+            description: 'application url to run acceptance tests against'
+        )
+        string(
+            name: 'UAA_K8S_DEPLOY_BRANCH',
+            defaultValue: 'master',
+            description: 'uaa-k8s-deploy repo branch to use for testing'
+        )
+        booleanParam(
+            name: 'RUN_ORCHESTRATOR_INTEGRATION_TESTS',
+            defaultValue: false,
+            description: 'Whether or not to run orchestrator integration tests'
+        )
+    }
+    stages {
+        stage('Run acceptance tests in eks') {
+            environment {
+                ADMIN_CLIENT_SECRET = credentials("ADMIN_CLIENT_SECRET_EKS_${DEPLOYMENT_ENVIRONMENT.toUpperCase().replaceAll('-','_')}")
+                FUNCTIONAL_USER = credentials("FUNCTIONAL_USER")
+            }
+            steps {
+                script {
+                    currentBuild.displayName = "#${env.BUILD_NUMBER} (env: ${params.DEPLOYMENT_ENVIRONMENT})"
+                }
+
+                dir('uaa') {
+                    checkout scm
+                }
+
+                dir('uaa/iam-k8s-utils') {
+                    git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                        url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
+                }
+
+                dir('uaa-k8s-deploy') {
+                    git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                        url: 'https://github.software.gevernova.com/pers/uaa-k8s-deploy.git',
+                        branch: params.UAA_K8S_DEPLOY_BRANCH
+                }
+
+                sh '''#!/bin/bash -ex
+                    echo 'Installing yq'
+                    wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+                    chmod a+x /usr/local/bin/yq
+                    yq --version
+
+                    export SAML_IDP_USER=$FUNCTIONAL_USER_USR
+                    export SAML_IDP_USER_PW=$FUNCTIONAL_USER_PSW
+
+                    pushd uaa-k8s-deploy
+                        ./scripts/uaa-acceptance-tests.sh $DEPLOYMENT_ENVIRONMENT $UAA_HOST
+                    popd
+                '''
+            }
+            post{
+                always {
+                    publishHTML target: [
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'uaa/uaa/build/reports/tests/acceptanceTest',
+                        reportFiles: 'index.html',
+                        reportName: 'Acceptance Test Results'
+                    ]
+                }
+            }
+        }
+        stage('Run Orchestrator Integration tests in eks') {
+            when {
+                expression {
+                    return params.RUN_ORCHESTRATOR_INTEGRATION_TESTS
+                }
+            }
+            environment {
+                FUNCTIONAL_USER = credentials("AWS_ECR_SSO_CREDENTIALS")
+            }
+            steps {
+                script {
+                    currentBuild.displayName = "#${env.BUILD_NUMBER} (env: ${params.DEPLOYMENT_ENVIRONMENT})"
+                }
+
+                dir('uaa') {
+                    checkout scm
+                }
+
+                dir('uaa/iam-k8s-utils') {
+                    git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                        url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
+                }
+
+                dir('uaa-k8s-deploy') {
+                    git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                            url: 'https://github.software.gevernova.com/pers/uaa-k8s-deploy.git',
+                            branch: params.UAA_K8S_DEPLOY_BRANCH
+                }
+
+                sh'''
+                    # Install gossamer
+                    CURRENT_VERSION=3.1.7
+                    wget -q https://github.com/GESkunkworks/gossamer3/releases/download/v${CURRENT_VERSION}/gossamer3_${CURRENT_VERSION}_linux_amd64.tar.gz
+                    tar -xzvf gossamer3_${CURRENT_VERSION}_linux_amd64.tar.gz -C /usr/local/bin
+                    chmod u+x /usr/local/bin/gossamer3
+                '''
+
+                sh '''#!/bin/bash -ex
+                    echo 10.229.23.137 signin.aws.amazon.com >> /etc/hosts
+                    echo 10.229.23.151 signin.aws.amazon.com >> /etc/hosts
+                    export ARTIFACTORY_READER=$FUNCTIONAL_USER_USR
+                    export ARTIFACTORY_READER_PW=$FUNCTIONAL_USER_PSW
+                    pushd uaa-k8s-deploy
+                        chmod +x ./test/e2e-claim-test/set-env-${DEPLOYMENT_ENVIRONMENT}.sh
+                       . test/e2e-claim-test/set-env-${DEPLOYMENT_ENVIRONMENT}.sh
+                    popd
+                    pushd uaa
+                        ./gradlew --no-daemon --continue jacocoRootReportOrchestratorIntegrationTest
+                    popd
+                '''
+            }
+            post{
+                always {
+                    publishHTML target: [
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'uaa/uaa/build/reports/tests/orchestratorIntegrationTest',
+                        reportFiles: 'index.html',
+                        reportName: 'Orchestrator Integration Test Results'
+                    ]
+                }
+            }
+        }
+    }
+}

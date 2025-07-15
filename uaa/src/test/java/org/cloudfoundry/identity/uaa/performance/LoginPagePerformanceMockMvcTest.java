@@ -1,7 +1,8 @@
 package org.cloudfoundry.identity.uaa.performance;
 
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
 import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.createOtherIdentityZoneAndReturnResult;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.getLoginForm;
 import static org.junit.Assert.assertFalse;
 import static org.springframework.http.MediaType.TEXT_HTML;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.common.util.RandomValueStringGenerator;
 import org.springframework.security.oauth2.provider.client.BaseClientDetails;
@@ -70,8 +72,6 @@ public class LoginPagePerformanceMockMvcTest {
         this.mockMvc = mockMvc;
         SecurityContextHolder.clearContext();
 
-        originalLimitedModeStatusFile = MockMvcUtils.getLimitedModeStatusFile(webApplicationContext);
-        MockMvcUtils.resetLimitedModeStatusFile(webApplicationContext, null);
         assertFalse(limitedModeUaaFilter.isEnabled());
     }
 
@@ -84,11 +84,11 @@ public class LoginPagePerformanceMockMvcTest {
 
     @AfterEach
     void tearDown(@Autowired IdentityZoneConfigurationBootstrap identityZoneConfigurationBootstrap) throws Exception {
-        MockMvcUtils.setSelfServiceLinksEnabled(webApplicationContext, IdentityZone.getUaaZoneId(), true);
+        MockMvcUtils.setSelfServiceCreateAccountEnabled(webApplicationContext, IdentityZone.getUaaZoneId(), true);
+        MockMvcUtils.setSelfServiceResetPasswordEnabled(webApplicationContext, IdentityZone.getUaaZoneId(), true);
         identityZoneConfigurationBootstrap.afterPropertiesSet();
         SecurityContextHolder.clearContext();
         IdentityZoneHolder.clear();
-        MockMvcUtils.resetLimitedModeStatusFile(webApplicationContext, originalLimitedModeStatusFile);
     }
 
     @Test
@@ -117,11 +117,14 @@ public class LoginPagePerformanceMockMvcTest {
         createOIDCProvider(jdbcIdentityProviderProvisioning, generator, zone, "id_token code", null);
         String originKey = createOIDCProvider(jdbcIdentityProviderProvisioning, generator, zone, "id_token code", "test.org");
 
+        MockHttpSession session = new MockHttpSession();
+        getLoginForm(mockMvc, session);
+
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
         for (int i = 0; i <1000; i++) {
             MvcResult mvcResult = mockMvc.perform(get("/login")
-                    .with(cookieCsrf())
+                    .with(csrf(session))
                     .header("Accept", TEXT_HTML)
                     .with(new SetServerNameRequestPostProcessor(zone.getSubdomain() + ".localhost")))
                     .andExpect(status().isOk())

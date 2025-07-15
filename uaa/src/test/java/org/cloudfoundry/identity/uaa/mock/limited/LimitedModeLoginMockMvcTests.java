@@ -16,36 +16,34 @@
 package org.cloudfoundry.identity.uaa.mock.limited;
 
 import org.cloudfoundry.identity.uaa.login.LoginMockMvcTests;
-import org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils;
 import org.cloudfoundry.identity.uaa.web.LimitedModeUaaFilter;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.context.WebApplicationContext;
+import org.springframework.test.context.ActiveProfiles;
 
-import java.io.File;
-
+import static org.cloudfoundry.identity.uaa.web.LimitedModeUaaFilter.DEGRADED;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+@ActiveProfiles(DEGRADED)
 class LimitedModeLoginMockMvcTests extends LoginMockMvcTests {
-    private File originalLimitedModeStatusFile;
 
     @BeforeEach
     void setUpLimitedModeLoginMockMvcTests(
-            @Autowired WebApplicationContext webApplicationContext,
+            TestInfo testInfo,
             @Autowired LimitedModeUaaFilter limitedModeUaaFilter
-    ) throws Exception {
-        originalLimitedModeStatusFile = MockMvcUtils.getLimitedModeStatusFile(webApplicationContext);
-        MockMvcUtils.setLimitedModeStatusFile(webApplicationContext);
-
-        assertTrue(isLimitedMode(limitedModeUaaFilter));
-    }
-
-    @AfterEach
-    void tearDownLimitedModeLoginMockMvcTests(
-            @Autowired WebApplicationContext webApplicationContext
     ) {
-        MockMvcUtils.resetLimitedModeStatusFile(webApplicationContext, originalLimitedModeStatusFile);
+        assumeTestClassIsOuterClass(testInfo);
+        assertTrue(limitedModeUaaFilter.isEnabled());
     }
 
+    private void assumeTestClassIsOuterClass(TestInfo testInfo) {
+        assumeTrue(testInfo.getTestClass().orElseThrow(AssertionError::new).isAssignableFrom(this.getClass()),
+                "To run in degraded mode, we need to set active profiles to 'degraded'. " +
+                        "The active profiles of a nested class may be set independently of its outer class. " +
+                        "Hence such a nested class will run identically when run from it's outer class' subclass. " +
+                        "It is therefore redundant to run such a nested class in both parent and subclass."
+        );
+    }
 }

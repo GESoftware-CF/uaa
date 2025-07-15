@@ -26,7 +26,6 @@ import org.cloudfoundry.identity.uaa.scim.ScimGroupExternalMember;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupMember;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.scim.ScimUser.PhoneNumber;
-import org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository;
 import org.cloudfoundry.identity.uaa.test.UaaTestAccounts;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
@@ -71,13 +70,14 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.CSRF_PARAMETER_NAME;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
 import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.USER_NAME_ATTRIBUTE_NAME;
-import static org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository.DEFAULT_CSRF_COOKIE_NAME;
 import static org.cloudfoundry.identity.uaa.util.UaaHttpRequestUtils.createRequestFactory;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.core.StringStartsWith.startsWith;
 import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.springframework.http.HttpHeaders.ACCEPT;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
@@ -86,9 +86,12 @@ import static org.springframework.util.StringUtils.hasText;
 
 public class IntegrationTestUtils {
 
+    private static final Pattern CSRF_FORM_ELEMENT = Pattern.compile(
+            "\\<input type=\\\"hidden\\\" name=\\\"" + CSRF_PARAMETER_NAME + "\\\" value=\\\"(.*?)\\\""
+    );
+
     public static final String SIMPLESAMLPHP_UAA_ACCEPTANCE = "http://simplesamlphp.uaa-acceptance.cf-app.com";
-    public static final String SIMPLESAMLPHP_LOGIN_PROMPT_XPATH_EXPR =
-        "//h2[contains(text(), 'Enter your username and password')]";
+    public static final String SIMPLESAMLPHP_LOGIN_PROMPT_XPATH_EXPR = "//h1[contains(text(), 'Enter your username and password')]";
 
 
     public static final String EXAMPLE_DOT_COM_SAML_IDP_METADATA = "<?xml version=\"1.0\"?>\n" +
@@ -241,17 +244,27 @@ public class IntegrationTestUtils {
         }
     };
 
-    public static boolean doesSupportZoneDNS() {
+    public static void assertSupportsZoneDNS() {
+        Arrays.asList(
+                "testzone1.localhost",
+                "testzone2.localhost",
+                "testzone3.localhost",
+                "testzone4.localhost",
+                "testzonedoesnotexist.localhost",
+                "testzoneinactive.localhost",
+                "orchestrator-int-test-zone.localhost"
+        ).forEach(IntegrationTestUtils::assertLoopback);
+    }
+
+    private static void assertLoopback(String host) {
+        InetAddress address;
         try {
-            return Arrays.equals(Inet4Address.getByName("testzone1.localhost").getAddress(), new byte[]{127, 0, 0, 1}) &&
-                    Arrays.equals(Inet4Address.getByName("testzone2.localhost").getAddress(), new byte[]{127, 0, 0, 1}) &&
-                    Arrays.equals(Inet4Address.getByName("testzone3.localhost").getAddress(), new byte[]{127, 0, 0, 1}) &&
-                    Arrays.equals(Inet4Address.getByName("testzone4.localhost").getAddress(), new byte[]{127, 0, 0, 1}) &&
-                    Arrays.equals(Inet4Address.getByName("testzonedoesnotexist.localhost").getAddress(), new byte[]{127, 0, 0, 1}) &&
-                    Arrays.equals(Inet4Address.getByName("testzoneinactive.localhost").getAddress(), new byte[]{127, 0, 0, 1});
+            address = Inet4Address.getByName(host);
         } catch (UnknownHostException e) {
-            return false;
+            fail("no ip address found for " + host, e);
+            return;
         }
+        assertTrue(host + " resolves to " + address + " which is not a loopback address", address.isLoopbackAddress());
     }
 
     public static ClientCredentialsResourceDetails getClientCredentialsResource(String url,
@@ -495,6 +508,17 @@ public class IntegrationTestUtils {
         return null;
     }
 
+    public static ScimGroup getGroup(RestTemplate client,
+                                     String url,
+                                     String groupName) {
+        String id = findGroupId(client, url, groupName);
+        if (id != null) {
+            ResponseEntity<ScimGroup> group = client.getForEntity(url + "/Groups/{id}", ScimGroup.class, id);
+            return group.getBody();
+        }
+        return null;
+    }
+
     public static ScimGroup getGroup(String token,
                                      String zoneId,
                                      String url,
@@ -566,6 +590,30 @@ public class IntegrationTestUtils {
         );
         assertEquals(HttpStatus.OK, updateGroup.getStatusCode());
         return updateGroup.getBody();
+    }
+
+    public static ScimGroup createOrUpdateGroup(RestTemplate client,
+                                                String url,
+                                                ScimGroup scimGroup) {
+        //dont modify the actual argument
+        LinkedList<ScimGroupMember> members = new LinkedList<>(scimGroup.getMembers());
+        ScimGroup existing = getGroup(client, url, scimGroup.getDisplayName());
+        if (existing != null) {
+            members.addAll(existing.getMembers());
+        }
+        scimGroup.setMembers(members);
+        if (existing != null) {
+            scimGroup.setId(existing.getId());
+            client.put(url + "/Groups/{id}", scimGroup, scimGroup.getId());
+            return scimGroup;
+        } else {
+            ResponseEntity<String> group = client.postForEntity(url + "/Groups", scimGroup, String.class);
+            if (group.getStatusCode() == HttpStatus.CREATED) {
+                return JsonUtils.readValue(group.getBody(), ScimGroup.class);
+            } else {
+                throw new IllegalStateException("Invalid return code:" + group.getStatusCode());
+            }
+        }
     }
 
     public static ScimGroup createOrUpdateGroup(String token,
@@ -1023,11 +1071,10 @@ public class IntegrationTestUtils {
 
         HttpEntity postHeaders = new HttpEntity<>(provider, headers);
         ResponseEntity<String> providerPost = client.exchange(
-                url + "/identity-providers/{id}",
-                HttpMethod.POST,
-                postHeaders,
-                String.class,
-                provider.getId()
+            url + "/identity-providers",
+            HttpMethod.POST,
+            postHeaders,
+            String.class
         );
         if (providerPost.getStatusCode() == HttpStatus.CREATED) {
             return JsonUtils.readValue(providerPost.getBody(), IdentityProvider.class);
@@ -1210,10 +1257,10 @@ public class IntegrationTestUtils {
     	assertTrue(response.getBody().contains("/login.do"));
     	assertTrue(response.getBody().contains("username"));
     	assertTrue(response.getBody().contains("password"));
-    	String csrf = IntegrationTestUtils.extractCookieCsrf(response.getBody());
+    	String csrf = IntegrationTestUtils.extracCsrfToken(response.getBody());
     	formData.add("username", username);
     	formData.add("password", password);
-    	formData.add(CookieBasedCsrfTokenRepository.DEFAULT_CSRF_COOKIE_NAME, csrf);
+    	formData.add(CSRF_PARAMETER_NAME, csrf);
     	// Should be redirected to the original URL, but now authenticated
     	result = serverRunning.postForResponse("/login.do", getHeaders(cookies), formData);
     	assertEquals(HttpStatus.FOUND, result.getStatusCode());
@@ -1238,7 +1285,7 @@ public class IntegrationTestUtils {
     		assertTrue(response.getBody().contains("<h1>Application Authorization</h1>"));
     		formData.clear();
     		formData.add(USER_OAUTH_APPROVAL, "true");
-    		formData.add(DEFAULT_CSRF_COOKIE_NAME, IntegrationTestUtils.extractCookieCsrf(response.getBody()));
+    		formData.add(CSRF_PARAMETER_NAME, IntegrationTestUtils.extracCsrfToken(response.getBody()));
     		result = serverRunning.postForResponse("/oauth/authorize", getHeaders(cookies), formData);
     		assertEquals(HttpStatus.FOUND, result.getStatusCode());
     		location = result.getHeaders().getLocation().toString();
@@ -1351,11 +1398,11 @@ public class IntegrationTestUtils {
             assertTrue(response.getBody().contains("/login.do"));
             assertTrue(response.getBody().contains("username"));
             assertTrue(response.getBody().contains("password"));
-            String csrf = IntegrationTestUtils.extractCookieCsrf(response.getBody());
+            String csrf = IntegrationTestUtils.extracCsrfToken(response.getBody());
 
             formData.add("username", username);
             formData.add("password", password);
-            formData.add(CookieBasedCsrfTokenRepository.DEFAULT_CSRF_COOKIE_NAME, csrf);
+            formData.add(CSRF_PARAMETER_NAME, csrf);
 
             // Should be redirected to the original URL, but now authenticated
             result = serverRunning.postForResponse("/login.do", getHeaders(cookies), formData);
@@ -1386,7 +1433,7 @@ public class IntegrationTestUtils {
 
             formData.clear();
             formData.add(USER_OAUTH_APPROVAL, "true");
-            formData.add(DEFAULT_CSRF_COOKIE_NAME, IntegrationTestUtils.extractCookieCsrf(response.getBody()));
+            formData.add(CSRF_PARAMETER_NAME, IntegrationTestUtils.extracCsrfToken(response.getBody()));
             result = serverRunning.postForResponse("/oauth/authorize", getHeaders(cookies), formData);
             assertEquals(HttpStatus.FOUND, result.getStatusCode());
             location = result.getHeaders().getLocation().toString();
@@ -1433,11 +1480,8 @@ public class IntegrationTestUtils {
         return body;
     }
 
-    public static String extractCookieCsrf(String body) {
-        String pattern = "\\<input type=\\\"hidden\\\" name=\\\"X-Uaa-Csrf\\\" value=\\\"(.*?)\\\"";
-
-        Pattern linkPattern = Pattern.compile(pattern);
-        Matcher matcher = linkPattern.matcher(body);
+    public static String extracCsrfToken(String body) {
+        Matcher matcher = CSRF_FORM_ELEMENT.matcher(body);
         if (matcher.find()) {
             return matcher.group(1);
         }

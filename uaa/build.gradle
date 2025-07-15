@@ -1,7 +1,6 @@
 Project identityServer = parent.subprojects.find { it.name.equals("cloudfoundry-identity-server") }
 
 apply(plugin: "war")
-apply(plugin: "org.asciidoctor.convert")
 
 processResources {
     //maven replaces project.artifactId in the log4j.properties file
@@ -18,7 +17,7 @@ war { enabled = true }
 
 
 repositories {
-    maven { url("https://repo.spring.io/libs-milestone") }
+    maven { url("https://repo.spring.io/milestone") }
 }
 
 description = "UAA"
@@ -26,9 +25,12 @@ dependencies {
     implementation(project(":cloudfoundry-identity-server")) {
         exclude(module: "jna")
     }
+    implementation(project(":zone-service"))
     implementation(project(":cloudfoundry-identity-statsd-lib"))
     implementation(libraries.springBootStarter)
-    implementation(libraries.springBootStarterWeb)
+    implementation(libraries.springBootStarterWeb){
+        exclude(group: "org.glassfish", module: "jakarta.el")
+    }
     implementation(libraries.springSecurityOauth) {
         exclude(module: "commons-codec")
         exclude(module: "jackson-mapper-asl")
@@ -46,9 +48,16 @@ dependencies {
     runtimeOnly(libraries.postgresql)
 
     implementation(libraries.javaxXmlBindApi)
+    implementation(libraries.jakartaEl)
     implementation(libraries.glassfishJaxb)
 
     providedCompile(libraries.tomcatEmbed)
+
+    implementation(libraries.springMeteringFilter) {
+        exclude(group: "javax.mail")
+    }
+    //implementation(libraries.dynamicLogConfigurer)
+    runtimeOnly(libraries.nurego)
 
     testImplementation(identityServer.sourceSets.test.output)
 
@@ -93,6 +102,13 @@ dependencies {
     testImplementation(libraries.springRestdocs)
     testImplementation(libraries.javaxMail)
     testImplementation(libraries.greenmail)
+    testImplementation(libraries.lombok)
+
+    testImplementation(libraries.nurego)
+
+    testAnnotationProcessor(libraries.lombok)
+
+    testImplementation(project(":iam-k8s-utils"))
 }
 
 ext {
@@ -100,9 +116,12 @@ ext {
 }
 
 test {
-    exclude("org/cloudfoundry/identity/uaa/integration/*.class")
-    exclude("**/*IT.class")
-    exclude("**/*Docs.class")
+    exclude 'org/cloudfoundry/identity/uaa/integration/*.class'
+    exclude '**/*IT.class'
+    exclude '**/*AT.class'
+    exclude 'org/cloudfoundry/identity/uaa/degraded/*.class'
+    exclude '**/*Docs.class'
+    systemProperty 'java.io.tmpdir', '/tmp'
     systemProperty("mock.suite.test", "true")
 }
 
@@ -148,9 +167,39 @@ generateDocs {
 
 integrationTest {
     filter {
+        exclude '**/*AT.class'
+        exclude 'org/cloudfoundry/identity/uaa/degraded/*.class'
         includeTestsMatching("org.cloudfoundry.identity.uaa.integration.*")
         includeTestsMatching("*IT")
     }
+}
+
+task acceptanceTest(type: Test) {
+  // Don't let tests be 'UP-TO-DATE' and not run
+  outputs.upToDateWhen { false }
+  include "org/cloudfoundry/identity/uaa/acceptance/*.class"
+    // Exclude Selenium chromedriver based SAML login test if UAA is being run locally
+    if (System.getenv('DEPLOYMENT_TYPE') == 'local') {
+        exclude "org/cloudfoundry/identity/uaa/acceptance/SamlLoginAT.class"
+    }
+}
+
+task degradedTestCloud(type: Test) {
+  systemProperty "RUN_AGAINST_CLOUD", true
+  include "org/cloudfoundry/identity/uaa/degraded/*.class"
+}
+
+task degradedTestLocal(type: Test) {
+  systemProperty "RUN_AGAINST_CLOUD", false
+  dependsOn rootProject.cargoStartLocal
+  finalizedBy rootProject.cargoStopLocal
+  include "org/cloudfoundry/identity/uaa/degraded/*.class"
+}
+
+task orchestratorIntegrationTest(type: Test) {
+    // Don't let tests be 'UP-TO-DATE' and not run
+    outputs.upToDateWhen { false }
+    include "org/cloudfoundry/identity/uaa/orchestrator/*.class"
 }
 
 war {
