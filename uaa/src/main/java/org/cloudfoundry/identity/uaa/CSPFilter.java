@@ -51,6 +51,7 @@ public class CSPFilter implements Filter {
         //    Defines your CSP directives.
         //    - 'report-to csp-endpoint;' is for modern browsers (references the group above).
         //    - 'report-uri /api/csp-report-uri;' is for older browsers (points directly to URL).
+
         httpResponse.setHeader(
                 "Content-Security-Policy-Report-Only",
                 "default-src 'self';" +
@@ -63,7 +64,7 @@ public class CSPFilter implements Filter {
                         "frame-ancestors 'none';" +
                         "font-src 'self' https://cdn.predix-ui.com;" +
                         "frame-src 'self';" +
-                        "report-uri https://utility-dev.pss-shared.dev.usw02.15.energy/api/csp-report-uri;"
+                        "report-uri https://uaa-acceptance-zone-eks-int.uaa-int.pss-shared.dev.usw02.15.energy/api/csp-report-uri;"
         );
 //Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none'; style-src 'self'; form-action 'self'; base-uri 'self'; frame-ancestors 'none'; font-src 'self' https://cdn.predix-ui.com; img-src 'self'; frame-src 'self'";
         logger.debug("Added CSP-Report-Only and Report-To headers for URL: {}", httpRequest.getRequestURI());
