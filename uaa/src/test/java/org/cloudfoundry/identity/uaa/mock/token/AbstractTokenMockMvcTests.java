@@ -1,17 +1,15 @@
 package org.cloudfoundry.identity.uaa.mock.token;
 
 import org.cloudfoundry.identity.uaa.DefaultTestContext;
+import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
-import org.cloudfoundry.identity.uaa.login.util.RandomValueStringGenerator;
-import org.cloudfoundry.identity.uaa.mfa.MfaProvider;
-import org.cloudfoundry.identity.uaa.mfa.UserGoogleMfaCredentials;
-import org.cloudfoundry.identity.uaa.mfa.UserGoogleMfaCredentialsProvisioning;
 import org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils;
 import org.cloudfoundry.identity.uaa.oauth.UaaTokenServices;
 import org.cloudfoundry.identity.uaa.oauth.client.ClientConstants;
 import org.cloudfoundry.identity.uaa.oauth.token.JdbcRevocableTokenProvisioning;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
+import org.cloudfoundry.identity.uaa.provider.NoSuchClientException;
 import org.cloudfoundry.identity.uaa.scim.ScimGroup;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupMember;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
@@ -21,24 +19,35 @@ import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimGroupProvisioning;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimUserProvisioning;
 import org.cloudfoundry.identity.uaa.test.TestClient;
 import org.cloudfoundry.identity.uaa.user.UaaUserDatabase;
-import org.cloudfoundry.identity.uaa.zone.*;
+import org.cloudfoundry.identity.uaa.util.AlphanumericRandomValueStringGenerator;
+import org.cloudfoundry.identity.uaa.zone.IdentityZone;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneProvisioning;
+import org.cloudfoundry.identity.uaa.zone.MultitenantClientServices;
+import org.cloudfoundry.identity.uaa.zone.UserConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.oauth2.provider.NoSuchClientException;
-import org.springframework.security.oauth2.provider.client.BaseClientDetails;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.util.StringUtils;
 import org.springframework.web.context.WebApplicationContext;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.createMfaProvider;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.getClientCredentialsOAuthAccessToken;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_IMPLICIT;
-import static org.junit.Assert.assertNull;
 import static org.springframework.util.StringUtils.hasText;
 
 @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
@@ -71,12 +80,10 @@ public abstract class AbstractTokenMockMvcTests {
     protected JdbcRevocableTokenProvisioning revocableTokenProvisioning;
 
     protected String adminToken;
-    protected RandomValueStringGenerator generator = new RandomValueStringGenerator();
+    protected AlphanumericRandomValueStringGenerator generator = new AlphanumericRandomValueStringGenerator();
 
     protected IdentityZone zone;
-    protected MfaProvider mfaProvider;
     private IdentityZoneConfiguration uaaZoneConfig;
-    protected UserGoogleMfaCredentials credentials;
 
     @Autowired
     protected MockMvc mockMvc;
@@ -89,9 +96,6 @@ public abstract class AbstractTokenMockMvcTests {
 
     @Autowired
     protected UaaUserDatabase uaaUserDatabase;
-
-    @Autowired
-    protected UserGoogleMfaCredentialsProvisioning userGoogleMfaCredentialsProvisioning;
 
     Set<String> defaultAuthorities;
 
@@ -116,52 +120,21 @@ public abstract class AbstractTokenMockMvcTests {
     @AfterEach
     public void cleanup() {
         if (uaaZoneConfig != null) {
-            uaaZoneConfig.getMfaConfig().setEnabled(false).setProviderName(null);
             MockMvcUtils.setZoneConfiguration(webApplicationContext, IdentityZone.getUaaZoneId(), uaaZoneConfig);
-            deleteMfaRegistrations();
         }
-    }
-
-    void deleteMfaRegistrations() {
-        jdbcTemplate.update("DELETE FROM user_google_mfa_credentials");
-    }
-
-    public void setupForMfaPasswordGrant() throws Exception {
-        String userId = uaaUserDatabase.retrieveUserByName("marissa", OriginKeys.UAA).getId();
-        setupForMfaPasswordGrant(userId);
-    }
-
-    protected void setupForMfaPasswordGrant(String userId) throws Exception {
-        uaaZoneConfig = MockMvcUtils.getZoneConfiguration(webApplicationContext, IdentityZone.getUaaZoneId());
-
-        cleanup();
-
-        adminToken = testClient.getClientCredentialsOAuthAccessToken(
-                "admin",
-                "adminsecret",
-                "uaa.admin"
-        );
-        mfaProvider = createMfaProvider(webApplicationContext, IdentityZone.getUaa());
-
-        uaaZoneConfig.getMfaConfig().setEnabled(true).setProviderName(mfaProvider.getName());
-        MockMvcUtils.setZoneConfiguration(webApplicationContext, IdentityZone.getUaaZoneId(), uaaZoneConfig);
-
-        credentials = userGoogleMfaCredentialsProvisioning.createUserCredentials(userId);
-        credentials.setMfaProviderId(mfaProvider.getId());
-        userGoogleMfaCredentialsProvisioning.saveUserCredentials(credentials);
     }
 
     protected String createUserForPasswordGrant(
             final JdbcScimUserProvisioning jdbcScimUserProvisioning,
             final JdbcScimGroupMembershipManager jdbcScimGroupMembershipManager,
             final JdbcScimGroupProvisioning jdbcScimGroupProvisioning,
-            final RandomValueStringGenerator generator) {
+            final AlphanumericRandomValueStringGenerator generator) {
         String username = "testuser" + generator.generate();
         String userScopes = "uaa.user";
         ScimUser user = setUpUser(jdbcScimUserProvisioning, jdbcScimGroupMembershipManager, jdbcScimGroupProvisioning, username, userScopes, OriginKeys.UAA, IdentityZone.getUaaZoneId());
         ScimUser scimUser = jdbcScimUserProvisioning.retrieve(user.getId(), IdentityZone.getUaaZoneId());
-        assertNull(scimUser.getLastLogonTime());
-        assertNull(scimUser.getPreviousLogonTime());
+        assertThat(scimUser.getLastLogonTime()).isNull();
+        assertThat(scimUser.getPreviousLogonTime()).isNull();
         return username;
     }
 
@@ -172,7 +145,7 @@ public abstract class AbstractTokenMockMvcTests {
     IdentityZone setupIdentityZone(String subdomain, List<String> defaultUserGroups) {
         IdentityZone zone = new IdentityZone();
         zone.getConfig().getUserConfig().setDefaultGroups(defaultUserGroups);
-        zone.getConfig().getTokenPolicy().setKeys(IdentityZone.getUaa().getConfig().getTokenPolicy().getKeys());
+        zone.getConfig().getTokenPolicy().setKeyInformation(IdentityZone.getUaa().getConfig().getTokenPolicy().getKeys());
         zone.getConfig().setSamlConfig(IdentityZone.getUaa().getConfig().getSamlConfig());
         zone.setId(UUID.randomUUID().toString());
         zone.setName(subdomain);
@@ -198,32 +171,32 @@ public abstract class AbstractTokenMockMvcTests {
         return identityProviderProvisioning.create(defaultIdp, defaultIdp.getIdentityZoneId());
     }
 
-    protected BaseClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Boolean autoapprove) {
+    protected UaaClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Boolean autoapprove) {
         return setUpClients(id, authorities, scopes, grantTypes, autoapprove, null);
     }
 
-    protected BaseClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Boolean autoapprove, String redirectUri) {
+    protected UaaClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Boolean autoapprove, String redirectUri) {
         return setUpClients(id, authorities, scopes, grantTypes, autoapprove, redirectUri, null);
     }
 
-    protected BaseClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Boolean autoapprove, String redirectUri, List<String> allowedIdps) {
+    protected UaaClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Boolean autoapprove, String redirectUri, List<String> allowedIdps) {
         return setUpClients(id, authorities, scopes, grantTypes, autoapprove, redirectUri, allowedIdps, -1);
     }
 
-    protected BaseClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Boolean autoapprove, String redirectUri, List<String> allowedIdps, int accessTokenValidity) {
+    protected UaaClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Boolean autoapprove, String redirectUri, List<String> allowedIdps, int accessTokenValidity) {
         return setUpClients(id, authorities, scopes, grantTypes, autoapprove, redirectUri, allowedIdps, accessTokenValidity, null);
     }
 
-    protected BaseClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Boolean autoapprove, String redirectUri, List<String> allowedIdps, int accessTokenValidity, IdentityZone zone) {
+    protected UaaClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Boolean autoapprove, String redirectUri, List<String> allowedIdps, int accessTokenValidity, IdentityZone zone) {
         return setUpClients(id, authorities, scopes, grantTypes, autoapprove, redirectUri, allowedIdps, accessTokenValidity, zone, Collections.emptyMap());
     }
 
-    protected BaseClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Boolean autoapprove, String redirectUri, List<String> allowedIdps, int accessTokenValidity, IdentityZone zone, Map<String, Object> additionalInfo) {
+    protected UaaClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Boolean autoapprove, String redirectUri, List<String> allowedIdps, int accessTokenValidity, IdentityZone zone, Map<String, Object> additionalInfo) {
         IdentityZone original = IdentityZoneHolder.get();
         if (zone != null) {
             IdentityZoneHolder.set(zone);
         }
-        BaseClientDetails c = new BaseClientDetails(id, "", scopes, grantTypes, authorities);
+        UaaClientDetails c = new UaaClientDetails(id, "", scopes, grantTypes, authorities);
         if (!GRANT_TYPE_IMPLICIT.equals(grantTypes)) {
             c.setClientSecret(SECRET);
         }
@@ -243,7 +216,7 @@ public abstract class AbstractTokenMockMvcTests {
         }
         try {
             clientDetailsService.addClientDetails(c);
-            return (BaseClientDetails) clientDetailsService.loadClientByClientId(c.getClientId());
+            return (UaaClientDetails) clientDetailsService.loadClientByClientId(c.getClientId());
         } finally {
             IdentityZoneHolder.set(original);
         }
@@ -325,7 +298,7 @@ public abstract class AbstractTokenMockMvcTests {
             final String zoneId) {
         List<ScimGroup> scimGroups = groupProvisioning.query("displayName eq \"" + scope + "\"", zoneId);
         if (!scimGroups.isEmpty()) {
-            return scimGroups.get(0);
+            return scimGroups.getFirst();
         } else {
             return groupProvisioning.create(new ScimGroup(null, scope, zoneId), zoneId);
         }
@@ -333,7 +306,7 @@ public abstract class AbstractTokenMockMvcTests {
 
     protected void waitForClient(String clientId, int max) throws InterruptedException {
         int retry = 0;
-        while(retry++ < max) {
+        while (retry++ < max) {
             try {
                 clientDetailsService.loadClientByClientId(clientId);
                 break;
