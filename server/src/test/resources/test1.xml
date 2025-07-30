@@ -1,0 +1,82 @@
+<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="_88e2e62c-e0eb-4732-8e08-24e6057bd19d"
+                Version="2.0" IssueInstant="2025-04-14T13:20:33.247Z"
+                Destination="https://67a965de-e2e1-4539-bb56-a41446c9941e.predix-uaa.run.aws-usw02-pr.ice.predix.io/saml/SSO/alias/67a965de-e2e1-4539-bb56-a41446c9941e.cloudfoundry-saml-login"
+                InResponseTo="a560gf13852d55g04efdd8e38d9b81e">
+    <Issuer xmlns="urn:oasis:names:tc:SAML:2.0:assertion">https://sts.windows.net/fd799da1-bfc1-4234-a91c-72b3a1cb9e26/</Issuer>
+    <samlp:Status>
+        <samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/>
+    </samlp:Status>
+    <Assertion xmlns="urn:oasis:names:tc:SAML:2.0:assertion" ID="_4df91a68-92bf-412b-b3c2-5cbe8cf31400"
+               IssueInstant="2025-04-14T13:20:33.243Z" Version="2.0">
+        <Issuer>https://sts.windows.net/fd799da1-bfc1-4234-a91c-72b3a1cb9e26/</Issuer>
+        <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+            <SignedInfo>
+                <CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+                <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/>
+                <Reference URI="#_4df91a68-92bf-412b-b3c2-5cbe8cf31400">
+                    <Transforms>
+                        <Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+                        <Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+                    </Transforms>
+                    <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+                    <DigestValue>6sCVARSwRVA4GfVuCFk6cQDGGgzA2LPE6+8nyuVLcXQ=</DigestValue>
+                </Reference>
+            </SignedInfo>
+            <SignatureValue>B1ZYegwVuyykyIwIN+72SzyiKsXAsis1es9y1XgAGdJcswcjfSOp2rvgaJmgNv+8TyqhhzSQBHpOV2Pq6/9SB6vGMyM8GUBAAT3K6uV6hVrcSuRD2aNpUkpPEej1xNLMTCtLeWyauwovLNYTVW69AVv3xqwofKf0MAZ/pdhJeLbHc2Q7qXNfPHM1y6nzE3EpjG29IX2QH3WnTGjr6kLaHqr80HPZ5zia2lhQ6o3QEpWkXLjdyTOAesrnydeIGnaA2Tgp7kOySRLJRq3b2ZSfyYu1qjEtD8LLsTNXPKEebi3jPm/ETkvYEyGKA441qYdQ3jkrKjYkk2T/vpI96RIiww==</SignatureValue>
+            <KeyInfo>
+                <X509Data>
+                    <X509Certificate>MIIC8DCCAdigAwIBAgIQHGG1UD1CtpRCtgHvP+BhDjANBgkqhkiG9w0BAQsFADA0MTIwMAYDVQQDEylNaWNyb3NvZnQgQXp1cmUgRmVkZXJhdGVkIFNTTyBDZXJ0aWZpY2F0ZTAeFw0yMzA2MDgyMDI4MDFaFw0yNjA2MDgyMDI4MDFaMDQxMjAwBgNVBAMTKU1pY3Jvc29mdCBBenVyZSBGZWRlcmF0ZWQgU1NPIENlcnRpZmljYXRlMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1qzkW/UPZp+SEQj0R0r9y1i0un6D+2oPXCrQuftwGvougdqy/tMragIh7Ta7m1k8fz58Q8OBRWDweHAL79U0GLKbmhcO9kzHrfGiMGSOIG7AxXezWtR0nb52/jtX15d54pHFjFW1GNRA8WCwnfnKcGiYdNmQOyMQiPRfh0Olq7vGi0nxoXJc2XQfLqpY040b/Xgi7rBUQk7lYBRvX8VvXlh9Om3slG8iXTl78K0G/gXIrXduUa+AQPpk38vbee40j+98eTNsmaA1e851YOxGlYnJlLMV28SQlHYw7WYEq17f9Wsvwls/NZHLyA5pH1CY2KRiLEda5E9AYrdJ69i09QIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQCKesN5Mp1lZ7EDdHTj7UyLmmoR8Js2t+VVgWBIdeEROfbYI+GOUEZcZcwpbJ3Bka2oMZrPc99xsOFB7nzuzncrmM309dS1cRxJKc+d1mqkgFNfIVTYJ6dk+lE8brEiN3+6oE/qa9eXcLNkvrK76n0vvSibY9GojS/lDSrExoeYqipWrAHMZuYmsIn/NFavsE71fmkNW+REmul3omvWcHZKQSG/8oyPax9d2Qf5j75jHP8hmNJU2A5RphpcnMyqLCgSH3mDxZ6UFzmUzq/0IXAHe5O6qjdFBY4QoMq5aJjExFcGqI/gVlJAxbMfCZ2Q1VjE9dgwUOl6KTkTTphD+lEG
+                    </X509Certificate>
+                </X509Data>
+            </KeyInfo>
+        </Signature>
+        <Subject>
+            <NameID Format="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">MonicaHernandez@chevron.com</NameID>
+            <SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
+                <SubjectConfirmationData InResponseTo="a560gf13852d55g04efdd8e38d9b81e"
+                                         NotOnOrAfter="2025-04-14T14:20:32.940Z"
+                                         Recipient="https://67a965de-e2e1-4539-bb56-a41446c9941e.predix-uaa.run.aws-usw02-pr.ice.predix.io/saml/SSO/alias/67a965de-e2e1-4539-bb56-a41446c9941e.cloudfoundry-saml-login"/>
+            </SubjectConfirmation>
+        </Subject>
+        <Conditions NotBefore="2025-04-14T13:15:32.940Z" NotOnOrAfter="2025-04-14T14:20:32.940Z">
+            <AudienceRestriction>
+                <Audience>67a965de-e2e1-4539-bb56-a41446c9941e.cloudfoundry-saml-login</Audience>
+            </AudienceRestriction>
+        </Conditions>
+        <AttributeStatement>
+            <Attribute Name="http://schemas.microsoft.com/identity/claims/tenantid">
+                <AttributeValue>fd799da1-bfc1-4234-a91c-72b3a1cb9e26</AttributeValue>
+            </Attribute>
+            <Attribute Name="http://schemas.microsoft.com/identity/claims/objectidentifier">
+                <AttributeValue>fd2139f1-aad8-4c9e-817d-e83fc973c867</AttributeValue>
+            </Attribute>
+            <Attribute Name="http://schemas.microsoft.com/identity/claims/displayname">
+                <AttributeValue>Hernandez, Monica</AttributeValue>
+            </Attribute>
+            <Attribute Name="http://schemas.microsoft.com/identity/claims/identityprovider">
+                <AttributeValue>https://sts.windows.net/fd799da1-bfc1-4234-a91c-72b3a1cb9e26/</AttributeValue>
+            </Attribute>
+            <Attribute Name="http://schemas.microsoft.com/claims/authnmethodsreferences">
+                <AttributeValue>http://schemas.microsoft.com/ws/2008/06/identity/authenticationmethod/x509</AttributeValue>
+                <AttributeValue>http://schemas.microsoft.com/claims/multipleauthn</AttributeValue>
+            </Attribute>
+            <Attribute Name="http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname">
+                <AttributeValue>Monica</AttributeValue>
+            </Attribute>
+            <Attribute Name="http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname">
+                <AttributeValue>Hernandez</AttributeValue>
+            </Attribute>
+            <Attribute Name="http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress">
+                <AttributeValue>MonicaHernandez@chevron.com</AttributeValue>
+            </Attribute>
+            <Attribute Name="http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name">
+                <AttributeValue>monicahernandez@chevron.com</AttributeValue>
+            </Attribute>
+        </AttributeStatement>
+        <AuthnStatement AuthnInstant="2025-04-14T12:13:48.850Z" SessionIndex="_4df91a68-92bf-412b-b3c2-5cbe8cf31400">
+            <AuthnContext>
+                <AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:Unspecified</AuthnContextClassRef>
+            </AuthnContext>
+        </AuthnStatement>
+    </Assertion>
+</samlp:Response>

@@ -1,0 +1,82 @@
+<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" ID="_7d2951d1-f6da-4d10-9162-9ce9521d6a84"
+                Version="2.0" IssueInstant="2025-04-14T13:07:11.030Z"
+                Destination="https://67a965de-e2e1-4539-bb56-a41446c9941e.predix-uaa.run.aws-usw02-pr.ice.predix.io/saml/SSO/alias/67a965de-e2e1-4539-bb56-a41446c9941e.cloudfoundry-saml-login"
+                InResponseTo="aje29jjh4ie0i0g2hg1jg44f63188b">
+    <Issuer xmlns="urn:oasis:names:tc:SAML:2.0:assertion">https://sts.windows.net/fd799da1-bfc1-4234-a91c-72b3a1cb9e26/</Issuer>
+    <samlp:Status>
+        <samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/>
+    </samlp:Status>
+    <Assertion xmlns="urn:oasis:names:tc:SAML:2.0:assertion" ID="_a72c2991-4608-4152-af49-f741e66c7300"
+               IssueInstant="2025-04-14T13:07:11.026Z" Version="2.0">
+        <Issuer>https://sts.windows.net/fd799da1-bfc1-4234-a91c-72b3a1cb9e26/</Issuer>
+        <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+            <SignedInfo>
+                <CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+                <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/>
+                <Reference URI="#_a72c2991-4608-4152-af49-f741e66c7300">
+                    <Transforms>
+                        <Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+                        <Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+                    </Transforms>
+                    <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+                    <DigestValue>Qa/5hHRlq00YWZGTzjmaK0QVTqhiiY2FOdVHC3ljHsM=</DigestValue>
+                </Reference>
+            </SignedInfo>
+            <SignatureValue>HWTm7vpQjRJor3PhhVOoGjcG0laofc9QSe3H9VDnSyhonHpCvqoImGNEEnGx4hXV5r4k+OZ50KgWcaaxYiX9lGsaEudjRo5od6hlidG0T8mGFMdAndTzT56KtOshLq8UQ1zAOVkPb76VSerYljHFreayq4r772Mdx2uM2jsU3WWEc403oexufcRlV5wyrDiwvY+ty/fB8Yzftxza69GGQg3Hlp24yCLeFI/6RfEwjBAv0AS5RklA/KyR8DJl2zUtYMKneL+b8dv4IB6f+RYVWgMpmWn3fkFYn6SgG1x//2BLP+mQpc3189jgNkSanZ5RyuCfb8YGEjvTEHca500UKg==</SignatureValue>
+            <KeyInfo>
+                <X509Data>
+                    <X509Certificate>MIIC8DCCAdigAwIBAgIQHGG1UD1CtpRCtgHvP+BhDjANBgkqhkiG9w0BAQsFADA0MTIwMAYDVQQDEylNaWNyb3NvZnQgQXp1cmUgRmVkZXJhdGVkIFNTTyBDZXJ0aWZpY2F0ZTAeFw0yMzA2MDgyMDI4MDFaFw0yNjA2MDgyMDI4MDFaMDQxMjAwBgNVBAMTKU1pY3Jvc29mdCBBenVyZSBGZWRlcmF0ZWQgU1NPIENlcnRpZmljYXRlMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1qzkW/UPZp+SEQj0R0r9y1i0un6D+2oPXCrQuftwGvougdqy/tMragIh7Ta7m1k8fz58Q8OBRWDweHAL79U0GLKbmhcO9kzHrfGiMGSOIG7AxXezWtR0nb52/jtX15d54pHFjFW1GNRA8WCwnfnKcGiYdNmQOyMQiPRfh0Olq7vGi0nxoXJc2XQfLqpY040b/Xgi7rBUQk7lYBRvX8VvXlh9Om3slG8iXTl78K0G/gXIrXduUa+AQPpk38vbee40j+98eTNsmaA1e851YOxGlYnJlLMV28SQlHYw7WYEq17f9Wsvwls/NZHLyA5pH1CY2KRiLEda5E9AYrdJ69i09QIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQCKesN5Mp1lZ7EDdHTj7UyLmmoR8Js2t+VVgWBIdeEROfbYI+GOUEZcZcwpbJ3Bka2oMZrPc99xsOFB7nzuzncrmM309dS1cRxJKc+d1mqkgFNfIVTYJ6dk+lE8brEiN3+6oE/qa9eXcLNkvrK76n0vvSibY9GojS/lDSrExoeYqipWrAHMZuYmsIn/NFavsE71fmkNW+REmul3omvWcHZKQSG/8oyPax9d2Qf5j75jHP8hmNJU2A5RphpcnMyqLCgSH3mDxZ6UFzmUzq/0IXAHe5O6qjdFBY4QoMq5aJjExFcGqI/gVlJAxbMfCZ2Q1VjE9dgwUOl6KTkTTphD+lEG
+                    </X509Certificate>
+                </X509Data>
+            </KeyInfo>
+        </Signature>
+        <Subject>
+            <NameID Format="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress">JeffCreamer@chevron.com</NameID>
+            <SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
+                <SubjectConfirmationData InResponseTo="aje29jjh4ie0i0g2hg1jg44f63188b"
+                                         NotOnOrAfter="2025-04-14T14:07:10.761Z"
+                                         Recipient="https://67a965de-e2e1-4539-bb56-a41446c9941e.predix-uaa.run.aws-usw02-pr.ice.predix.io/saml/SSO/alias/67a965de-e2e1-4539-bb56-a41446c9941e.cloudfoundry-saml-login"/>
+            </SubjectConfirmation>
+        </Subject>
+        <Conditions NotBefore="2025-04-14T13:02:10.761Z" NotOnOrAfter="2025-04-14T14:07:10.761Z">
+            <AudienceRestriction>
+                <Audience>67a965de-e2e1-4539-bb56-a41446c9941e.cloudfoundry-saml-login</Audience>
+            </AudienceRestriction>
+        </Conditions>
+        <AttributeStatement>
+            <Attribute Name="http://schemas.microsoft.com/identity/claims/tenantid">
+                <AttributeValue>fd799da1-bfc1-4234-a91c-72b3a1cb9e26</AttributeValue>
+            </Attribute>
+            <Attribute Name="http://schemas.microsoft.com/identity/claims/objectidentifier">
+                <AttributeValue>4f900dcc-c60b-4131-9621-acf28ab79d42</AttributeValue>
+            </Attribute>
+            <Attribute Name="http://schemas.microsoft.com/identity/claims/displayname">
+                <AttributeValue>Creamer, Jeff</AttributeValue>
+            </Attribute>
+            <Attribute Name="http://schemas.microsoft.com/identity/claims/identityprovider">
+                <AttributeValue>https://sts.windows.net/fd799da1-bfc1-4234-a91c-72b3a1cb9e26/</AttributeValue>
+            </Attribute>
+            <Attribute Name="http://schemas.microsoft.com/claims/authnmethodsreferences">
+                <AttributeValue>http://schemas.microsoft.com/ws/2008/06/identity/authenticationmethod/x509</AttributeValue>
+                <AttributeValue>http://schemas.microsoft.com/ws/2008/06/identity/authenticationmethod/windows</AttributeValue>
+            </Attribute>
+            <Attribute Name="http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname">
+                <AttributeValue>Jeff</AttributeValue>
+            </Attribute>
+            <Attribute Name="http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname">
+                <AttributeValue>Creamer</AttributeValue>
+            </Attribute>
+            <Attribute Name="http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress">
+                <AttributeValue>JeffCreamer@chevron.com</AttributeValue>
+            </Attribute>
+            <Attribute Name="http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name">
+                <AttributeValue>JeffCreamer@chevron.com</AttributeValue>
+            </Attribute>
+        </AttributeStatement>
+        <AuthnStatement AuthnInstant="2025-01-06T21:29:55.447Z" SessionIndex="_a72c2991-4608-4152-af49-f741e66c7300">
+            <AuthnContext>
+                <AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:Unspecified</AuthnContextClassRef>
+            </AuthnContext>
+        </AuthnStatement>
+    </Assertion>
+</samlp:Response>
