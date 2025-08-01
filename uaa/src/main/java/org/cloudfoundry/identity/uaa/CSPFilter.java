@@ -22,8 +22,8 @@ public class CSPFilter implements Filter {
 
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
-        httpResponse.setHeader("Content-Security-Policy",
-                "base-uri 'self'; frame-ancestors 'none'; font-src 'self' https://cdn.predix-ui.com; img-src 'self'; frame-src 'self';");
+    httpResponse.setHeader("Content-Security-Policy",
+            "base-uri 'self'; frame-ancestors 'none'; font-src 'self' https://cdn.predix-ui.com; img-src 'self'; frame-src 'self';");
 
         httpResponse.setHeader(
                 "Content-Security-Policy-Report-Only",
