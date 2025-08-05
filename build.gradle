@@ -22,6 +22,10 @@ buildscript {
     }
 }
 
+plugins {
+    id "org.sonarqube" version "4.3.0.3225"
+}
+
 apply from: file('docker.gradle')
 apply(from: "dependencies.gradle")
 
@@ -423,3 +427,40 @@ test.dependsOn(subprojects.test)
 test.mustRunAfter(integrationTest)
 cargoStartLocal.dependsOn(assemble)
 cargoRunLocal.dependsOn(cleanCargoConfDir, assemble)
+
+sonarqube {
+    properties {
+        property "sonar.projectName", "UAA_Service"
+        property "sonar.host.url", System.getenv("SONAR_HOST_URL")
+        property "sonar.login", System.getenv("SONAR_LOGIN_KEY") // Use environment variable for security
+        property "sonar.sourceEncoding", "UTF-8"
+        property "sonar.sources", "src/main/java"
+        property "sonar.tests", "src/test/java"
+        property "sonar.java.binaries", "build/classes"
+        property "sonar.coverage.jacoco.xmlReportPaths", "${buildDir}/reports/jacoco/jacocoRootReport/jacocoRootReport.xml"
+    }
+}
+
+jacocoTestReport {
+    additionalSourceDirs(files(sourceSets.main.allSource.srcDirs))
+    sourceDirectories.setFrom(files(sourceSets.main.allSource.srcDirs))
+    classDirectories.setFrom(files(sourceSets.main.output))
+    executionData(files("${buildDir}/jacoco/test.exec"))
+    reports {
+        xml.enabled = true
+        html.enabled = true
+    }
+}
+
+task jacocoRootReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
+    additionalSourceDirs.from files(subprojects.sourceSets.main.allSource.srcDirs)
+    sourceDirectories.from files(subprojects.sourceSets.main.allSource.srcDirs)
+    classDirectories.from files(subprojects.sourceSets.main.output)
+    executionData.from files(subprojects.jacocoTestReport.executionData)
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        xml.destination = file("${buildDir}/reports/jacoco/jacocoRootReport/jacocoRootReport.xml")
+    }
+    dependsOn subprojects.test
+}
