@@ -302,6 +302,17 @@ class ResetPasswordControllerTest extends TestClassNullifier {
             .andExpect(model().attribute("message_code", "bad_code"));
     }
 
+    @Test
+    void testResetPasswordHead() throws Exception {
+        ExpiringCode code = codeStore.generateCode("{\"user_id\" : \"some-user-id\"}", new Timestamp(System.currentTimeMillis() + 1000000), null, IdentityZoneHolder.get().getId());
+        mockMvc.perform(get("/reset_password").param("code", code.getCode()).with(request -> {
+                   request.setMethod("HEAD");
+                   return request;
+               }))
+               .andExpect(status().isOk())
+               .andExpect(view().name("reset_password"));
+    }
+
     @EnableWebMvc
     @Import(ThymeleafConfig.class)
     static class ContextConfiguration extends WebMvcConfigurerAdapter {
