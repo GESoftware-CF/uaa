@@ -174,6 +174,13 @@ public class ResetPasswordController {
         }
     }
 
+    @RequestMapping(value = "/reset_password", method = RequestMethod.HEAD, params = {"code"})
+    public String resetPasswordHead() {
+        // This HEAD method implementation ensures that HEAD requests are not routed to the GET method above,
+        // as it involves deleting expiring codes and must remain separate.
+        return "reset_password";
+    }
+
     private ExpiringCode checkIfUserExists(ExpiringCode code) {
         if (code == null) {
             logger.debug("reset_password ExpiringCode object is null. Aborting.");
