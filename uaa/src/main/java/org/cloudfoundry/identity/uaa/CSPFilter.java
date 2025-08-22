@@ -32,7 +32,7 @@ public class CSPFilter implements Filter {
                         "style-src 'self';" +
                         "object-src 'none';" +
                         "form-action 'self';" +
-                        "report-uri https://utility-dev.pss-shared.dev.usw02.15.energy/api/csp-report-uri;"
+                        "report-uri https://tenantporting-prod.run.aws-eu-central-1-pr.ice.predix.io/api/csp-report-uri;"
         );
 
         // Continue with the next filter in the chain
