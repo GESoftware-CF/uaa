@@ -18,12 +18,23 @@ public class CSPFilter implements Filter {
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
-        throws IOException, ServletException {
+
+            throws IOException, ServletException {
 
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
-httpResponse.setHeader("Content-Security-Policy",
-                       "base-uri 'self'; frame-ancestors 'none'; font-src 'self' https://cdn.predix-ui.com; img-src 'self'; frame-src 'self';");
+        httpResponse.setHeader("Content-Security-Policy",
+                "base-uri 'self'; frame-ancestors 'none'; font-src 'self' https://cdn.predix-ui.com; img-src 'self'; frame-src 'self';");
+
+        httpResponse.setHeader(
+                "Content-Security-Policy-Report-Only",
+                "default-src 'self';" +
+                        "script-src 'self';" +
+                        "style-src 'self';" +
+                        "object-src 'none';" +
+                        "form-action 'self';" +
+                        "report-uri https://utility-dev.pss-shared.dev.usw02.15.energy/api/csp-report-uri;"
+        );
 
         httpResponse.setHeader(
                 "Content-Security-Policy-Report-Only",
@@ -44,3 +55,4 @@ httpResponse.setHeader("Content-Security-Policy",
         // Clean up resources if needed
     }
 }
+
