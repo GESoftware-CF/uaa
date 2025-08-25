@@ -4,6 +4,7 @@ import org.apache.commons.lang.StringUtils;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthentication;
 import org.cloudfoundry.identity.uaa.authentication.UaaPrincipal;
 import org.cloudfoundry.identity.uaa.authentication.event.IdentityProviderAuthenticationSuccessEvent;
+import org.cloudfoundry.identity.uaa.authentication.event.UserLoginSuccessEvent;
 import org.cloudfoundry.identity.uaa.authentication.manager.ExternalGroupAuthorizationEvent;
 import org.cloudfoundry.identity.uaa.authentication.manager.InvitedUserAuthenticatedEvent;
 import org.cloudfoundry.identity.uaa.authentication.manager.NewUserAuthenticatedEvent;
@@ -376,7 +377,9 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
                 }
             }
         }
-        if (haveUserAttributesChanged(user, userWithSamlAttributes)) {
+
+        if ( haveUserAttributesChanged(user, userWithSamlAttributes)) {
+            logger.debug("User attributes have changed. Modifying user attributes.");
             userModified = true;
             user = user.modifyAttributes(userWithSamlAttributes.getEmail(),
                     userWithSamlAttributes.getGivenName(),
@@ -384,7 +387,20 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
                     userWithSamlAttributes.getPhoneNumber(),
                     userWithSamlAttributes.getExternalId(),
                     user.isVerified() || userWithSamlAttributes.isVerified());
+            logger.debug("User attributes updated successfully.");
+        } else {
+            logger.debug("No changes detected in user attributes.");
         }
+
+        boolean isNameChanged = !StringUtils.equals(user.getGivenName(), userWithSamlAttributes.getGivenName()) ||
+                !StringUtils.equals(user.getFamilyName(), userWithSamlAttributes.getFamilyName());
+        boolean isEmailChanged = !StringUtils.equals(user.getEmail(), userWithSamlAttributes.getEmail());
+
+        logger.debug(String.format("isNameChanged: %s, isEmailChanged: %s", isNameChanged, isEmailChanged));
+
+        publishUserLoginSuccessEvent(user, isNameChanged, isEmailChanged);
+        logger.debug("User login success event published.");
+
         publish(
                 new ExternalGroupAuthorizationEvent(
                         user,
@@ -393,6 +409,7 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
                         true
                 )
         );
+        logger.debug("External group authorization event published.");
         user = userDatabase.retrieveUserById(user.getId());
         return user;
     }
@@ -426,5 +443,10 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
                 !StringUtils.equals(existingUser.getPhoneNumber(), user.getPhoneNumber()) ||
                 !StringUtils.equals(existingUser.getEmail(), user.getEmail())||
                 !StringUtils.equals(existingUser.getExternalId(), user.getExternalId());
+    }
+    protected void publishUserLoginSuccessEvent(UaaUser user, boolean isNameChanged, boolean isEmailChanged) {
+        if (eventPublisher != null) {
+            eventPublisher.publishEvent(new UserLoginSuccessEvent(this, user, isNameChanged, isEmailChanged));
+        }
     }
 }
