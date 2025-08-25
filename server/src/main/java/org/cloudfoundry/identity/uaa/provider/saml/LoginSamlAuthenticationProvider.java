@@ -379,6 +379,7 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
         }
 
         if ( haveUserAttributesChanged(user, userWithSamlAttributes)) {
+            logger.debug("User attributes have changed. Modifying user attributes.");
             userModified = true;
             user = user.modifyAttributes(userWithSamlAttributes.getEmail(),
                     userWithSamlAttributes.getGivenName(),
@@ -386,11 +387,20 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
                     userWithSamlAttributes.getPhoneNumber(),
                     userWithSamlAttributes.getExternalId(),
                     user.isVerified() || userWithSamlAttributes.isVerified());
+            logger.debug("User attributes updated successfully.");
+        } else {
+            logger.debug("No changes detected in user attributes.");
         }
+
         boolean isNameChanged = !StringUtils.equals(user.getGivenName(), userWithSamlAttributes.getGivenName()) ||
                 !StringUtils.equals(user.getFamilyName(), userWithSamlAttributes.getFamilyName());
         boolean isEmailChanged = !StringUtils.equals(user.getEmail(), userWithSamlAttributes.getEmail());
+
+        logger.debug(String.format("isNameChanged: %s, isEmailChanged: %s", isNameChanged, isEmailChanged));
+
         publishUserLoginSuccessEvent(user, isNameChanged, isEmailChanged);
+        logger.debug("User login success event published.");
+
         publish(
                 new ExternalGroupAuthorizationEvent(
                         user,
@@ -399,6 +409,7 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
                         true
                 )
         );
+        logger.debug("External group authorization event published.");
         user = userDatabase.retrieveUserById(user.getId());
         return user;
     }
