@@ -381,7 +381,8 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
         if (haveUserAttributesChanged(user, userWithSamlAttributes)) {
             logger.info("<<<<<<<<<<<-----------User attributes have changed. No modifications will be made.---------->>>>>>>>>>");
             userModified = true;
-            logger.info(String.format("<<<<<<<<<<<-----------Changed attributes: " +
+
+            logger.info(String.format("User attributes have changed for user ID: %s. All attributes: " +
                             "Email: Current: %s, New: %s; " +
                             "GivenName: Current: %s, New: %s; " +
                             "FamilyName: Current: %s, New: %s; " +
@@ -389,6 +390,7 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
                             "ExternalId: Current: %s, New: %s; " +
                             "Verified: Current: %s, New: %s; " +
                             "LastLoginTime: Current: %s, New: %s",
+                    user.getId(),
                     user.getEmail(), userWithSamlAttributes.getEmail(),
                     user.getGivenName(), userWithSamlAttributes.getGivenName(),
                     user.getFamilyName(), userWithSamlAttributes.getFamilyName(),
@@ -396,31 +398,63 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
                     user.getExternalId(), userWithSamlAttributes.getExternalId(),
                     user.isVerified(), userWithSamlAttributes.isVerified(),
                     user.getLastLogonTime(), userWithSamlAttributes.getLastLogonTime()));
-        } else {
-            logger.debug("No changes detected in user attributes.");
+
+            StringBuilder changedAttributesMessage = new StringBuilder("User attributes have changed for user ID: " + user.getId() + ". Changed attributes: ");
+
+            if (!StringUtils.equals(user.getEmail(), userWithSamlAttributes.getEmail())) {
+                changedAttributesMessage.append(String.format("Email: Current: %s, New: %s; ", user.getEmail(), userWithSamlAttributes.getEmail()));
+            }
+            if (!StringUtils.equals(user.getGivenName(), userWithSamlAttributes.getGivenName())) {
+                changedAttributesMessage.append(String.format("GivenName: Current: %s, New: %s; ", user.getGivenName(), userWithSamlAttributes.getGivenName()));
+            }
+            if (!StringUtils.equals(user.getFamilyName(), userWithSamlAttributes.getFamilyName())) {
+                changedAttributesMessage.append(String.format("FamilyName: Current: %s, New: %s; ", user.getFamilyName(), userWithSamlAttributes.getFamilyName()));
+            }
+
+            if (!StringUtils.equals(user.getLastLogonTime(), userWithSamlAttributes.getLastLogonTime())) {
+                changedAttributesMessage.append(String.format("LastLoginTime: Current: %s, New: %s; ", user.getLastLogonTime(), userWithSamlAttributes.getLastLogonTime()));
+            }
+
+            if (changedAttributesMessage.length() > ("User attributes have changed for user ID: " + user.getId() + ". Changed attributes: ").length()) {
+                publishToSns(changedAttributesMessage.toString());
+            } else {
+                logger.debug("No attributes have changed to send an SNS notification.");
+            }
+
+            boolean isNameChanged = !StringUtils.equals(user.getGivenName(), userWithSamlAttributes.getGivenName()) ||
+                    !StringUtils.equals(user.getFamilyName(), userWithSamlAttributes.getFamilyName());
+            boolean isEmailChanged = !StringUtils.equals(user.getEmail(), userWithSamlAttributes.getEmail());
+
+            logger.debug(String.format("isNameChanged: %s, isEmailChanged: %s", isNameChanged, isEmailChanged));
+
+            publishUserLoginSuccessEvent(user, isNameChanged, isEmailChanged);
+            logger.debug("User login success event published.");
+
+            publish(
+                    new ExternalGroupAuthorizationEvent(
+                            user,
+                            userModified,
+                            authorities,
+                            true
+                    )
+            );
+            logger.debug("External group authorization event published.");
+
+            user = userDatabase.retrieveUserById(user.getId());
+            return user;
         }
 
-        boolean isNameChanged = !StringUtils.equals(user.getGivenName(), userWithSamlAttributes.getGivenName()) ||
-                !StringUtils.equals(user.getFamilyName(), userWithSamlAttributes.getFamilyName());
-        boolean isEmailChanged = !StringUtils.equals(user.getEmail(), userWithSamlAttributes.getEmail());
+        private void publishToSns(String changedAttributesMessage) {
+            try {
+                AmazonSNS snsClient = AmazonSNSClientBuilder.defaultClient();
+                String topicArn = "arn:aws:sns:us-west-2:119672459156:uaa-sample-sns-topic-stg.fifo";
+                snsClient.publish(topicArn, changedAttributesMessage);
+                logger.info("SNS notification sent successfully.");
+            } catch (Exception e) {
+                logger.error("Failed to send SNS notification.", e);
+            }
+        }
 
-        logger.debug(String.format("isNameChanged: %s, isEmailChanged: %s", isNameChanged, isEmailChanged));
-
-        publishUserLoginSuccessEvent(user, isNameChanged, isEmailChanged);
-        logger.debug("User login success event published.");
-
-        publish(
-                new ExternalGroupAuthorizationEvent(
-                        user,
-                        userModified,
-                        authorities,
-                        true
-                )
-        );
-        logger.debug("External group authorization event published.");
-        user = userDatabase.retrieveUserById(user.getId());
-        return user;
-    }
 
     protected UaaUser getUser(UaaPrincipal principal, MultiValueMap<String, String> userAttributes) {
         if (principal.getName() == null && userAttributes.getFirst(EMAIL_ATTRIBUTE_NAME) == null) {
