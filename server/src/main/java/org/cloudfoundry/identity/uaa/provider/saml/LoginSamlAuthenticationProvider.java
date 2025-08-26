@@ -378,16 +378,24 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
             }
         }
 
-        if ( haveUserAttributesChanged(user, userWithSamlAttributes)) {
-            logger.debug("User attributes have changed. Modifying user attributes.");
+        if (haveUserAttributesChanged(user, userWithSamlAttributes)) {
+            logger.info("<<<<<<<<<<<-----------User attributes have changed. No modifications will be made.---------->>>>>>>>>>");
             userModified = true;
-            user = user.modifyAttributes(userWithSamlAttributes.getEmail(),
-                    userWithSamlAttributes.getGivenName(),
-                    userWithSamlAttributes.getFamilyName(),
-                    userWithSamlAttributes.getPhoneNumber(),
-                    userWithSamlAttributes.getExternalId(),
-                    user.isVerified() || userWithSamlAttributes.isVerified());
-            logger.debug("User attributes updated successfully.");
+            logger.info(String.format("<<<<<<<<<<<-----------Changed attributes: " +
+                            "Email: Current: %s, New: %s; " +
+                            "GivenName: Current: %s, New: %s; " +
+                            "FamilyName: Current: %s, New: %s; " +
+                            "PhoneNumber: Current: %s, New: %s; " +
+                            "ExternalId: Current: %s, New: %s; " +
+                            "Verified: Current: %s, New: %s; " +
+                            "LastLoginTime: Current: %s, New: %s",
+                    user.getEmail(), userWithSamlAttributes.getEmail(),
+                    user.getGivenName(), userWithSamlAttributes.getGivenName(),
+                    user.getFamilyName(), userWithSamlAttributes.getFamilyName(),
+                    user.getPhoneNumber(), userWithSamlAttributes.getPhoneNumber(),
+                    user.getExternalId(), userWithSamlAttributes.getExternalId(),
+                    user.isVerified(), userWithSamlAttributes.isVerified(),
+                    user.getLastLogonTime(), userWithSamlAttributes.getLastLogonTime()));
         } else {
             logger.debug("No changes detected in user attributes.");
         }
