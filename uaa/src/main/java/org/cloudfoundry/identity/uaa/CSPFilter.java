@@ -11,6 +11,12 @@ import javax.servlet.http.HttpServletResponse;
 
 public class CSPFilter implements Filter {
 
+    private final String cspReportUri;
+
+    public CSPFilter(String cspReportUri) {
+        this.cspReportUri = cspReportUri;
+    }
+
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
         // Filter initialization if needed
@@ -32,10 +38,9 @@ public class CSPFilter implements Filter {
                         "style-src 'self';" +
                         "object-src 'none';" +
                         "form-action 'self';" +
-                        "report-uri https://tenantporting-prod.run.aws-eu-central-1-pr.ice.predix.io/api/csp-report-uri;"
+                        "report-uri " + cspReportUri + ";"
         );
 
-        // Continue with the next filter in the chain
         chain.doFilter(request, response);
     }
 
