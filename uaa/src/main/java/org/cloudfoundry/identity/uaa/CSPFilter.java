@@ -14,7 +14,7 @@ import javax.servlet.http.HttpServletResponse;
 
 public class CSPFilter implements Filter, ApplicationContextInitializer<ConfigurableWebApplicationContext> {
 
-    private String cspReportUri = "";
+    private String cspReportUri;
 
     @Override
     public void initialize(ConfigurableWebApplicationContext applicationContext) {
