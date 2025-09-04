@@ -1,5 +1,7 @@
 package org.cloudfoundry.identity.uaa;
 
+import org.springframework.context.ApplicationContextInitializer;
+import org.springframework.web.context.ConfigurableWebApplicationContext;
 import java.io.IOException;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
