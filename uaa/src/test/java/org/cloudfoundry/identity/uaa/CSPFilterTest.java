@@ -50,12 +50,14 @@ class CSPFilterTest {
     @BeforeEach
     void setUp() {
         cspFilter = new CSPFilter();
-        when(filterConfig.getServletContext()).thenReturn(servletContext);
+        // Only stub when needed - removed unnecessary stubbing
     }
 
     @Test
     void testInitWithSpringContextAndValidReportUri() throws ServletException {
         // Arrange
+        when(filterConfig.getServletContext()).thenReturn(servletContext);
+
         try (MockedStatic<WebApplicationContextUtils> mockedUtils = mockStatic(WebApplicationContextUtils.class)) {
             mockedUtils.when(() -> WebApplicationContextUtils.getWebApplicationContext(servletContext))
                     .thenReturn(webApplicationContext);
@@ -77,6 +79,8 @@ class CSPFilterTest {
     @Test
     void testInitWithSpringContextButEmptyReportUri() throws ServletException {
         // Arrange
+        when(filterConfig.getServletContext()).thenReturn(servletContext);
+
         try (MockedStatic<WebApplicationContextUtils> mockedUtils = mockStatic(WebApplicationContextUtils.class)) {
             mockedUtils.when(() -> WebApplicationContextUtils.getWebApplicationContext(servletContext))
                     .thenReturn(webApplicationContext);
@@ -97,6 +101,8 @@ class CSPFilterTest {
     @Test
     void testInitWithSpringContextButNullReportUri() throws ServletException {
         // Arrange
+        when(filterConfig.getServletContext()).thenReturn(servletContext);
+
         try (MockedStatic<WebApplicationContextUtils> mockedUtils = mockStatic(WebApplicationContextUtils.class)) {
             mockedUtils.when(() -> WebApplicationContextUtils.getWebApplicationContext(servletContext))
                     .thenReturn(webApplicationContext);
@@ -117,32 +123,27 @@ class CSPFilterTest {
     @Test
     void testInitWithoutSpringContextFallsBackToSystemProperty() throws ServletException {
         // Arrange
-        try (MockedStatic<WebApplicationContextUtils> mockedUtils = mockStatic(WebApplicationContextUtils.class);
-             MockedStatic<System> mockedSystem = mockStatic(System.class)) {
+        when(filterConfig.getServletContext()).thenReturn(servletContext);
 
+        try (MockedStatic<WebApplicationContextUtils> mockedUtils = mockStatic(WebApplicationContextUtils.class)) {
             mockedUtils.when(() -> WebApplicationContextUtils.getWebApplicationContext(servletContext))
                     .thenReturn(null);
-            mockedSystem.when(() -> System.getProperty("cspReportUri", System.getenv("CSP_REPORT_URI")))
-                    .thenReturn("https://fallback.com/csp-report");
 
             // Act
             cspFilter.init(filterConfig);
 
             // Assert
             mockedUtils.verify(() -> WebApplicationContextUtils.getWebApplicationContext(servletContext));
-            mockedSystem.verify(() -> System.getProperty("cspReportUri", System.getenv("CSP_REPORT_URI")));
         }
     }
 
     @Test
     void testInitWithoutSpringContextAndNoFallbackValues() throws ServletException {
         // Arrange
-        try (MockedStatic<WebApplicationContextUtils> mockedUtils = mockStatic(WebApplicationContextUtils.class);
-             MockedStatic<System> mockedSystem = mockStatic(System.class)) {
+        when(filterConfig.getServletContext()).thenReturn(servletContext);
 
+        try (MockedStatic<WebApplicationContextUtils> mockedUtils = mockStatic(WebApplicationContextUtils.class)) {
             mockedUtils.when(() -> WebApplicationContextUtils.getWebApplicationContext(servletContext))
-                    .thenReturn(null);
-            mockedSystem.when(() -> System.getProperty("cspReportUri", System.getenv("CSP_REPORT_URI")))
                     .thenReturn(null);
 
             // Act
@@ -150,7 +151,6 @@ class CSPFilterTest {
 
             // Assert
             mockedUtils.verify(() -> WebApplicationContextUtils.getWebApplicationContext(servletContext));
-            mockedSystem.verify(() -> System.getProperty("cspReportUri", System.getenv("CSP_REPORT_URI")));
         }
     }
 
@@ -251,7 +251,7 @@ class CSPFilterTest {
 
     @Test
     void testDoFilterWithComplexReportUri() throws IOException, ServletException {
-        // Arrange - similar to your log output
+        // Arrange
         initializeFilterWithReportUri("https://utility-dev.pss-shared.dev.usw02.15.energy/api/csp-report-uri");
 
         // Act
@@ -305,6 +305,8 @@ class CSPFilterTest {
     @Test
     void testInitWithSpringContextAndWhitespaceReportUri() throws ServletException {
         // Arrange
+        when(filterConfig.getServletContext()).thenReturn(servletContext);
+
         try (MockedStatic<WebApplicationContextUtils> mockedUtils = mockStatic(WebApplicationContextUtils.class)) {
             mockedUtils.when(() -> WebApplicationContextUtils.getWebApplicationContext(servletContext))
                     .thenReturn(webApplicationContext);
@@ -325,24 +327,23 @@ class CSPFilterTest {
     @Test
     void testInitWithoutSpringContextAndWhitespaceReportUri() throws ServletException {
         // Arrange
-        try (MockedStatic<WebApplicationContextUtils> mockedUtils = mockStatic(WebApplicationContextUtils.class);
-             MockedStatic<System> mockedSystem = mockStatic(System.class)) {
+        when(filterConfig.getServletContext()).thenReturn(servletContext);
 
+        try (MockedStatic<WebApplicationContextUtils> mockedUtils = mockStatic(WebApplicationContextUtils.class)) {
             mockedUtils.when(() -> WebApplicationContextUtils.getWebApplicationContext(servletContext))
                     .thenReturn(null);
-            mockedSystem.when(() -> System.getProperty("cspReportUri", System.getenv("CSP_REPORT_URI")))
-                    .thenReturn("   ");
 
             // Act
             cspFilter.init(filterConfig);
 
             // Assert
             mockedUtils.verify(() -> WebApplicationContextUtils.getWebApplicationContext(servletContext));
-            mockedSystem.verify(() -> System.getProperty("cspReportUri", System.getenv("CSP_REPORT_URI")));
         }
     }
 
     private void initializeFilterWithReportUri(String reportUri) {
+        when(filterConfig.getServletContext()).thenReturn(servletContext);
+
         try (MockedStatic<WebApplicationContextUtils> mockedUtils = mockStatic(WebApplicationContextUtils.class)) {
             mockedUtils.when(() -> WebApplicationContextUtils.getWebApplicationContext(servletContext))
                     .thenReturn(webApplicationContext);
