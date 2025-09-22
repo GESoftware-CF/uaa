@@ -4,6 +4,16 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.ge.predix.pki.device.spi.DevicePublicKeyProvider;
 import com.ge.predix.pki.device.spi.PublicKeyNotFoundException;
 import org.cloudfoundry.identity.uaa.oauth.client.ClientConstants;
+import org.cloudfoundry.identity.uaa.oauth.common.OAuth2AccessToken;
+import org.cloudfoundry.identity.uaa.oauth.common.exceptions.InvalidTokenException;
+import org.cloudfoundry.identity.uaa.oauth.jwk.JsonWebKey;
+import org.cloudfoundry.identity.uaa.oauth.jwt.Jwt;
+import org.cloudfoundry.identity.uaa.oauth.jwt.JwtHelper;
+import org.cloudfoundry.identity.uaa.oauth.jwt.SignatureVerifier;
+import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetails;
+import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetailsService;
+import org.cloudfoundry.identity.uaa.oauth.provider.TokenGranter;
+import org.cloudfoundry.identity.uaa.oauth.provider.TokenRequest;
 import org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants;
 import org.cloudfoundry.identity.uaa.provider.KeyProviderConfig;
 import org.cloudfoundry.identity.uaa.provider.KeyProviderProvisioning;
@@ -14,21 +24,13 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.jwt.Jwt;
-import org.springframework.security.jwt.JwtHelper;
-import org.springframework.security.jwt.crypto.sign.RsaVerifier;
-import org.springframework.security.jwt.crypto.sign.SignatureVerifier;
-import org.springframework.security.oauth2.common.OAuth2AccessToken;
-import org.springframework.security.oauth2.common.exceptions.InvalidTokenException;
-import org.springframework.security.oauth2.provider.ClientDetails;
-import org.springframework.security.oauth2.provider.ClientDetailsService;
-import org.springframework.security.oauth2.provider.TokenGranter;
-import org.springframework.security.oauth2.provider.TokenRequest;
+
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_CLIENT_CREDENTIALS;
@@ -233,13 +235,13 @@ public class JwtBearerAssertionTokenAuthenticator {
                     OAuth2AccessToken dcsAccessToken = dcsEndpointTokenGranter.grant(GRANT_TYPE_CLIENT_CREDENTIALS, tokenRequest);
                     base64UrlEncodedPublicKey = this.clientPublicKeyProvider.getPublicKeyWithToken(tenantId, deviceId,
                             predixZoneId, dcsAccessToken.getValue());
-                    logger.debug("Public Key for tenant: " + base64UrlEncodedPublicKey);
+                    logger.debug("Public Key for tenant: {}", base64UrlEncodedPublicKey);
                     return new String(Base64.getUrlDecoder().decode(base64UrlEncodedPublicKey));
                 }
             }
             //fallback to global settings for dcs call
             base64UrlEncodedPublicKey = this.clientPublicKeyProvider.getPublicKey(tenantId, deviceId, "");
-            logger.debug("Public Key for tenant: " + base64UrlEncodedPublicKey);
+            logger.debug("Public Key for tenant: {}", base64UrlEncodedPublicKey);
             return new String(Base64.getUrlDecoder().decode(base64UrlEncodedPublicKey));
         } catch (PublicKeyNotFoundException e) {
             logger.debug("Unable to retrieve public key to validate jwt-bearer assertion. Error: " + e);
@@ -293,7 +295,16 @@ public class JwtBearerAssertionTokenAuthenticator {
 
     private static SignatureVerifier getVerifier(final String signingKey) {
         if (signingKey.startsWith("-----BEGIN PUBLIC KEY-----")) {
-            return new RsaVerifier(signingKey);
+            try {
+                // Create a JsonWebKey from the PEM string
+                Map<String, Object> keyMap = new HashMap<>();
+                keyMap.put("kty", "RSA");
+                keyMap.put("value", signingKey);
+                JsonWebKey jsonWebKey = new JsonWebKey(keyMap);
+                return new SignatureVerifier(jsonWebKey);
+            } catch (Exception e) {
+                throw new InvalidTokenException("Failed to create verifier from public key", e);
+            }
         }
         throw new InvalidTokenException("No RSA public key available for token verification.");
     }

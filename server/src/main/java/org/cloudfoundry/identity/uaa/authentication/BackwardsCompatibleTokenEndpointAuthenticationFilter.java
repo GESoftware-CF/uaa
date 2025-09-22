@@ -14,6 +14,13 @@
 
 package org.cloudfoundry.identity.uaa.authentication;
 
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.cloudfoundry.identity.uaa.oauth.common.exceptions.OAuth2Exception;
@@ -24,10 +31,7 @@ import org.cloudfoundry.identity.uaa.oauth.provider.OAuth2Request;
 import org.cloudfoundry.identity.uaa.oauth.provider.OAuth2RequestFactory;
 import org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AuthenticationEntryPoint;
 import org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants;
-import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
-import org.cloudfoundry.identity.uaa.provider.OIDCIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.provider.oauth.ExternalOAuthAuthenticationManager;
-import org.cloudfoundry.identity.uaa.provider.oauth.ExternalOAuthCodeToken;
 import org.cloudfoundry.identity.uaa.provider.saml.Saml2BearerGrantAuthenticationConverter;
 import org.cloudfoundry.identity.uaa.util.SessionUtils;
 import org.cloudfoundry.identity.uaa.util.UaaSecurityContextUtils;
@@ -47,19 +51,11 @@ import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.util.Assert;
 
-import jakarta.servlet.Filter;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.ServletRequest;
-import jakarta.servlet.ServletResponse;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.GRANT_TYPE;
-import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_JWT_BEARER;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_PASSWORD;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_SAML2_BEARER;
 

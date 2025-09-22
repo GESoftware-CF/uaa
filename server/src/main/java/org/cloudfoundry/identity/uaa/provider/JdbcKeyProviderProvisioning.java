@@ -32,7 +32,7 @@ public class JdbcKeyProviderProvisioning implements KeyProviderProvisioning, Sys
     public static final RowMapper<KeyProviderConfig> mapper = new KeyProviderRowMapper();
 
     public JdbcKeyProviderProvisioning(JdbcTemplate jdbcTemplate) {
-        Assert.notNull(jdbcTemplate);
+        Assert.notNull(jdbcTemplate, "jdbcTemplate cannot be null");
         this.jdbcTemplate = jdbcTemplate;
     }
 

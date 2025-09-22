@@ -2,8 +2,8 @@ package org.cloudfoundry.identity.uaa.provider.token;
 
 import com.ge.predix.pki.device.spi.DevicePublicKeyProvider;
 import com.ge.predix.pki.device.spi.PublicKeyNotFoundException;
-import org.springframework.util.Base64Utils;
 
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -121,7 +121,7 @@ public class MockKeyProvider implements DevicePublicKeyProvider {
             throw new PublicKeyNotFoundException();
         } else {
             // base64url encode this public key to replicate how real provider returns the key
-            return Base64Utils.encodeToString(key.getBytes());
+            return Base64.getEncoder().encodeToString(key.getBytes());
         }
     }
 
@@ -134,7 +134,7 @@ public class MockKeyProvider implements DevicePublicKeyProvider {
             throw new PublicKeyNotFoundException();
         } else {
             // base64url encode this public key to replicate how real provider returns the key
-            return Base64Utils.encodeToString(key.getBytes());
+            return Base64.getEncoder().encodeToString(key.getBytes());
         }
     }
 }

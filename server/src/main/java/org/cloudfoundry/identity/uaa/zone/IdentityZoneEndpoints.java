@@ -1,18 +1,20 @@
 package org.cloudfoundry.identity.uaa.zone;
 
+import jakarta.validation.Valid;
 import org.cloudfoundry.identity.uaa.audit.event.EntityDeletedEvent;
 import org.cloudfoundry.identity.uaa.client.InvalidClientDetailsException;
 import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.error.UaaException;
 import org.cloudfoundry.identity.uaa.logging.SanitizedLogFactory;
+import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetails;
 import org.cloudfoundry.identity.uaa.provider.ClientAlreadyExistsException;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
-import org.cloudfoundry.identity.uaa.provider.NoSuchClientException;
 import org.cloudfoundry.identity.uaa.provider.KeyProviderConfig;
 import org.cloudfoundry.identity.uaa.provider.KeyProviderProvisioning;
 import org.cloudfoundry.identity.uaa.provider.KeyProviderValidator;
+import org.cloudfoundry.identity.uaa.provider.NoSuchClientException;
 import org.cloudfoundry.identity.uaa.provider.UaaIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.saml.SamlKey;
 import org.cloudfoundry.identity.uaa.scim.ScimGroup;
@@ -28,7 +30,6 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetails;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.BindingResult;
@@ -45,7 +46,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import jakarta.validation.Valid;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -398,7 +398,7 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
     public ResponseEntity<? extends ClientDetails> deleteClient(
             @PathVariable String identityZoneId, @PathVariable String clientId) {
         if (identityZoneId == null) {
-            throw new ZoneDoesNotExistsException(identityZoneId);
+            throw new ZoneDoesNotExistsException(null);
         }
         if (!IdentityZoneHolder.isUaa() && !identityZoneId.equals(IdentityZoneHolder.get().getId())) {
             throw new AccessDeniedException("Zone admins can only delete their own zone.");
@@ -416,7 +416,7 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
         }
     }
 
-    @RequestMapping(method = POST, value = "{identityZoneId}/key-provider-config")
+    @PostMapping("{identityZoneId}/key-provider-config")
     public ResponseEntity<KeyProviderConfig> createKeyProviderConfig(@RequestBody KeyProviderConfig body, @PathVariable String identityZoneId) throws KeyProviderValidator.KeyProviderValidatorException {
         validateZoneId(identityZoneId);
         body.setIdentityZoneId(identityZoneId);
@@ -425,19 +425,19 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
         return new ResponseEntity<>(keyProvider, CREATED);
     }
 
-    @RequestMapping(method = GET, value="{identityZoneId}/key-provider-config/{keyProviderId}")
+    @GetMapping("{identityZoneId}/key-provider-config/{keyProviderId}")
     public ResponseEntity<KeyProviderConfig> retrieveKeyProviderConfig(@PathVariable String identityZoneId, @PathVariable String keyProviderId) {
         validateZoneId(identityZoneId);
         return new ResponseEntity<>(keyProviderProvisioning.retrieve(keyProviderId), OK);
     }
 
-    @RequestMapping(method = GET, value="{identityZoneId}/key-provider-config")
+    @GetMapping("{identityZoneId}/key-provider-config")
     public ResponseEntity<KeyProviderConfig> findKeyProviderConfigs(@PathVariable String identityZoneId) {
         validateZoneId(identityZoneId);
         return new ResponseEntity<>(keyProviderProvisioning.findActive(), OK);
     }
 
-    @RequestMapping(method = DELETE, value="{identityZoneId}/key-provider-config/{keyProviderId}")
+    @DeleteMapping("{identityZoneId}/key-provider-config/{keyProviderId}")
     public ResponseEntity<KeyProviderConfig> deleteKeyProviderConfig(@PathVariable String identityZoneId, @PathVariable String keyProviderId) {
         validateZoneId(identityZoneId);
         int deleted = keyProviderProvisioning.delete(keyProviderId);

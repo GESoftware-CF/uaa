@@ -1,9 +1,10 @@
 package org.cloudfoundry.identity.uaa.mock.zones;
 
 import org.cloudfoundry.identity.uaa.audit.event.SystemDeletable;
+import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.mock.EndpointDocs;
-import org.cloudfoundry.identity.uaa.util.AlphanumericRandomValueStringGenerator;
 import org.cloudfoundry.identity.uaa.provider.KeyProviderConfig;
+import org.cloudfoundry.identity.uaa.util.AlphanumericRandomValueStringGenerator;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.zone.BrandingInformation;
 import org.cloudfoundry.identity.uaa.zone.BrandingInformation.Banner;
@@ -22,7 +23,6 @@ import org.springframework.restdocs.payload.FieldDescriptor;
 import org.springframework.restdocs.snippet.Snippet;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.oauth2.provider.client.BaseClientDetails;
 import org.springframework.util.StringUtils;
 
 import java.util.Collection;
@@ -857,7 +857,7 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                         .contentType(APPLICATION_JSON))
                 .andExpect(status().is(HttpStatus.OK.value()))
                 .andReturn().getResponse().getContentAsString();
-        BaseClientDetails adminClient = JsonUtils.readValue(response, BaseClientDetails.class);
+        UaaClientDetails adminClient = JsonUtils.readValue(response, UaaClientDetails.class);
         Collection<GrantedAuthority> authorities = adminClient.getAuthorities();
         String zoneScope = "zones." + identityZone + ".admin";
         authorities.add(new SimpleGrantedAuthority(zoneScope));
@@ -879,7 +879,7 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 "adminsecret",
                 "uaa.admin");
 
-        BaseClientDetails client = new BaseClientDetails();
+        UaaClientDetails client = new UaaClientDetails();
         client.setClientId(clientId);
         client.setClientSecret(clientSecret);
         client.setAuthorizedGrantTypes(Collections.singleton("client_credentials"));

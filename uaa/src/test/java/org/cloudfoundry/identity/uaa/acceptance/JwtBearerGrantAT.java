@@ -1,34 +1,33 @@
 package org.cloudfoundry.identity.uaa.acceptance;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.integration.feature.DefaultIntegrationTestConfig;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
 import org.cloudfoundry.identity.uaa.oauth.client.ClientConstants;
+import org.cloudfoundry.identity.uaa.oauth.client.OAuth2RestTemplate;
+import org.cloudfoundry.identity.uaa.oauth.common.OAuth2AccessToken;
+import org.cloudfoundry.identity.uaa.oauth.common.util.OAuth2Utils;
+import org.cloudfoundry.identity.uaa.oauth.jwt.Jwt;
+import org.cloudfoundry.identity.uaa.oauth.jwt.JwtHelper;
 import org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants;
 import org.cloudfoundry.identity.uaa.provider.token.MockAssertionToken;
 import org.cloudfoundry.identity.uaa.provider.token.MockClientAssertionHeader;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Before;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.jwt.Jwt;
-import org.springframework.security.jwt.JwtHelper;
-import org.springframework.security.oauth2.client.OAuth2RestTemplate;
-import org.springframework.security.oauth2.common.OAuth2AccessToken;
-import org.springframework.security.oauth2.common.util.OAuth2Utils;
-import org.springframework.security.oauth2.provider.client.BaseClientDetails;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.util.LinkedMultiValueMap;
@@ -39,8 +38,8 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_JWT_BEARER;
+import static org.junit.Assert.assertEquals;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = DefaultIntegrationTestConfig.class)
@@ -64,7 +63,7 @@ public class JwtBearerGrantAT {
     String tokenIssuerUrl;
 
     private OAuth2RestTemplate adminClientRestTemplate;
-    private BaseClientDetails identityClient;
+    private UaaClientDetails identityClient;
     private final RestTemplate tokenRestTemplate = new RestTemplate();
     String assertionTokenAudience;
     String acceptanceTokenIssuer;
@@ -96,7 +95,7 @@ public class JwtBearerGrantAT {
     }
 
     private void instantiateIdentityClient() {
-        this.identityClient = new BaseClientDetails();
+        this.identityClient = new UaaClientDetails();
         this.identityClient.setClientId("identity");
         this.identityClient.setClientSecret("identitysecret");
     }
@@ -111,7 +110,7 @@ public class JwtBearerGrantAT {
 
     private void createUaaClientForDevice(final String deviceId) throws Exception {
         // register client for jwt-bearer grant
-        BaseClientDetails client = new BaseClientDetails(DEVICE_CLIENT_ID, "none", "uaa.none", GRANT_TYPE_JWT_BEARER,
+        UaaClientDetails client = new UaaClientDetails(DEVICE_CLIENT_ID, "none", "uaa.none", GRANT_TYPE_JWT_BEARER,
                 CONFIGURED_SCOPE, null);
         // authorize device for test client
         client.addAdditionalInformation(ClientConstants.ALLOWED_DEVICE_ID, deviceId);
@@ -132,7 +131,7 @@ public class JwtBearerGrantAT {
         doJwtBearerGrantRequest(getHttpHeaders(), this.acceptanceZoneUrl, this.identityClient, new MockAssertionToken());
     }
 
-    private void doJwtBearerGrantRequest(final HttpHeaders headers, final String uaaUrl, final BaseClientDetails client, MockAssertionToken assertionToken) throws Exception {
+    private void doJwtBearerGrantRequest(final HttpHeaders headers, final String uaaUrl, final UaaClientDetails client, MockAssertionToken assertionToken) throws Exception {
         // create bearer token
         String token = assertionToken.mockAssertionToken(DEVICE_CLIENT_ID, DEVICE_ID,
                                                          System.currentTimeMillis(), 600, TENANT_ID, assertionTokenAudience);

@@ -20,6 +20,8 @@ import org.cloudfoundry.identity.uaa.oauth.provider.ClientRegistrationService;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
 import org.cloudfoundry.identity.uaa.provider.JdbcIdentityProviderProvisioning;
+import org.cloudfoundry.identity.uaa.provider.JdbcKeyProviderProvisioning;
+import org.cloudfoundry.identity.uaa.provider.KeyProviderConfig;
 import org.cloudfoundry.identity.uaa.provider.OIDCIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.resources.SearchResults;
 import org.cloudfoundry.identity.uaa.scim.ScimGroup;
@@ -29,8 +31,6 @@ import org.cloudfoundry.identity.uaa.scim.ScimGroupMembershipManager;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupProvisioning;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.scim.ScimUserProvisioning;
-import org.cloudfoundry.identity.uaa.provider.JdbcKeyProviderProvisioning;
-import org.cloudfoundry.identity.uaa.provider.KeyProviderConfig;
 import org.cloudfoundry.identity.uaa.scim.event.GroupModifiedEvent;
 import org.cloudfoundry.identity.uaa.scim.event.UserModifiedEvent;
 import org.cloudfoundry.identity.uaa.scim.exception.ScimResourceNotFoundException;
@@ -93,15 +93,14 @@ import static org.cloudfoundry.identity.uaa.constants.OriginKeys.UAA;
 import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.TokenFormat.OPAQUE;
+import static org.cloudfoundry.identity.uaa.util.UaaStringUtils.EMPTY_STRING;
 import static org.hamcrest.Matchers.containsString;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.springframework.http.HttpStatus.CONFLICT;
 import static org.springframework.http.HttpStatus.CREATED;
 import static org.springframework.http.HttpStatus.FORBIDDEN;
-
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.http.MediaType.TEXT_HTML_VALUE;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -1550,7 +1549,7 @@ class IdentityZoneEndpointsMockMvcTests {
                 -----BEGIN RSA PRIVATE KEY-----
                 Proc-Type: 4,ENCRYPTED
                 DEK-Info: DES-EDE3-CBC,5771044F3450A262
-                
+
                 VfRgIdzq/TUFdIwTOxochDs02sSQXA/Z6mRnffYTQMwXpQ5f5nRuqcY8zECGMaDe
                 aLrndpWzGbxiePKgN5AxuIDYNnKMrDRgyCzaaPx66rb87oMwtuq1HM18qqs+yN5v
                 CdsoS2uz57fCDI24BuJkIDSIeumLXc5MdN0HUeaxOVzmpbpsbBXjRYa24gW38mUh
@@ -2221,7 +2220,7 @@ class IdentityZoneEndpointsMockMvcTests {
         String keyProviderId = keyProviderSetup(identityZoneId, CREATED, CREATED, adminToken);
         mockMvc.perform(
                    delete("/identity-zones/" + identityZoneId + "/key-provider-config/" + keyProviderId)
-                       .header("Authorization", "Bearer " + lowPriviledgeToken)
+                       .header("Authorization", "Bearer " + lowPrivilegeToken)
                        .header("X-Identity-Zone-Id", identityZoneId)
                        .contentType(APPLICATION_JSON)
                        .accept(APPLICATION_JSON))
@@ -2231,7 +2230,7 @@ class IdentityZoneEndpointsMockMvcTests {
 
     @Test
     public void testCreateKeyProviderConfigWithLowPrivilegeIsForbidden() throws Exception {
-        keyProviderSetup(new RandomValueStringGenerator(5).generate(), FORBIDDEN, CREATED, lowPriviledgeToken);
+        keyProviderSetup(new RandomValueStringGenerator(5).generate(), FORBIDDEN, CREATED, lowPrivilegeToken);
     }
 
     @Test
@@ -2270,7 +2269,7 @@ class IdentityZoneEndpointsMockMvcTests {
         assertNotNull(keyProviderId);
         MockHttpServletResponse response = mockMvc.perform(
                                                       get("/identity-zones/" + identityZoneId + "/key-provider-config")
-                                                          .header("Authorization", "Bearer " + lowPriviledgeToken)
+                                                          .header("Authorization", "Bearer " + lowPrivilegeToken)
                                                           .header("X-Identity-Zone-Id", identityZoneId)
                                                           .accept(APPLICATION_JSON))
                                                   .andExpect(status().isForbidden()).andReturn().getResponse();
@@ -2298,7 +2297,7 @@ class IdentityZoneEndpointsMockMvcTests {
         assertNotNull(keyProviderId);
         MockHttpServletResponse response = mockMvc.perform(
                                                       get("/identity-zones/" + identityZoneId + "/key-provider-config/" + keyProviderId)
-                                                          .header("Authorization", "Bearer " + lowPriviledgeToken)
+                                                          .header("Authorization", "Bearer " + lowPrivilegeToken)
                                                           .header("X-Identity-Zone-Id", identityZoneId)
                                                           .accept(APPLICATION_JSON))
                                                   .andExpect(status().isForbidden()).andReturn().getResponse();
@@ -2320,7 +2319,7 @@ class IdentityZoneEndpointsMockMvcTests {
     }
     private String keyProviderSetup(String identityZoneId, HttpStatus createKeyProviderStatus, HttpStatus zoneCreateStatus, String token) throws Exception {
         createZone(identityZoneId, zoneCreateStatus, adminToken, new IdentityZoneConfiguration());
-        BaseClientDetails client = new BaseClientDetails();
+        UaaClientDetails client = new UaaClientDetails();
         client.setClientId("client1");
         client.setClientSecret("test");
         client.setAuthorizedGrantTypes(Collections.singleton("client_credentials"));

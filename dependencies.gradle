@@ -126,7 +126,7 @@ libraries.xmlSecurity = "org.apache.santuario:xmlsec:4.0.4"
 libraries.xmlUnit = "org.xmlunit:xmlunit-assertj"
 
 // Predix dependencies
-libraries.predixPublicKeyProvider = "com.ge.predix:jwt-bearer-key-provider:2.0.0"
+libraries.predixPublicKeyProvider = "com.ge.predix:jwt-bearer-key-provider:3.0.0-SNAPSHOT"
 
 // gradle plugins
 libraries.cargoGradlePlugin = "com.bmuschko:gradle-cargo-plugin:2.9.0"
@@ -134,3 +134,6 @@ libraries.springBootGradlePlugin = "org.springframework.boot:spring-boot-gradle-
 libraries.springDependencyMangementGradlePlugin = "io.spring.gradle:dependency-management-plugin"
 libraries.gradleJcocoPlugin = "org.barfuin.gradle.jacocolog:gradle-jacoco-log:3.1.0"
 libraries.sonarqubePlugin = "org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:6.2.0.5505"
+
+libraries.cargoDockerPlugin = "com.bmuschko:gradle-docker-plugin:9.0.1"
+libraries.downloadGradlePlugin = "de.undercouch:gradle-download-task:5.6.0"

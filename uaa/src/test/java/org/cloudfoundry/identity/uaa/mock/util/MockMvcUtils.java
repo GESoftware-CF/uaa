@@ -15,6 +15,8 @@
 package org.cloudfoundry.identity.uaa.mock.util;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthentication;
@@ -43,10 +45,10 @@ import org.cloudfoundry.identity.uaa.scim.ScimGroup;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupMember;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.scim.ScimUserProvisioning;
+import org.cloudfoundry.identity.uaa.scim.endpoints.ScimGroupEndpoints;
 import org.cloudfoundry.identity.uaa.scim.exception.ScimResourceAlreadyExistsException;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimGroupExternalMembershipManager;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimGroupProvisioning;
-import org.cloudfoundry.identity.uaa.scim.endpoints.ScimGroupEndpoints;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimUserProvisioning;
 import org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository;
 import org.cloudfoundry.identity.uaa.test.TestApplicationEventListener;
@@ -59,13 +61,12 @@ import org.cloudfoundry.identity.uaa.util.SetServerNameRequestPostProcessor;
 import org.cloudfoundry.identity.uaa.web.LimitedModeUaaFilter;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneProvisioning;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter;
 import org.cloudfoundry.identity.uaa.zone.Links;
 import org.cloudfoundry.identity.uaa.zone.MultitenancyFixture;
 import org.cloudfoundry.identity.uaa.zone.MultitenantJdbcClientDetailsService;
-import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -79,18 +80,15 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.context.SecurityContextImpl;
-import org.springframework.security.web.PortResolverImpl;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
-import org.springframework.security.web.savedrequest.DefaultSavedRequest;
 import org.springframework.security.web.savedrequest.SavedRequest;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -101,8 +99,6 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.context.support.GenericWebApplicationContext;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.Serial;
 import java.net.URL;
@@ -710,7 +706,7 @@ public final class MockMvcUtils {
                 ScimGroup.class);
     }
 
-    public static void createClient(ApplicationContext context, BaseClientDetails client, String zoneId) throws Exception {
+    public static void createClient(ApplicationContext context, UaaClientDetails client, String zoneId) throws Exception {
         IdentityZone original = IdentityZoneHolder.get();
         try {
             IdentityZoneHolder.set(MultitenancyFixture.identityZone(zoneId,zoneId));
@@ -1186,53 +1182,55 @@ public final class MockMvcUtils {
         return JsonUtils.readValue(responseAsString, IdentityZone.class);
     }
 
-    public static class MockSavedRequest extends DefaultSavedRequest {
+    public static class MockSavedRequest implements SavedRequest {
+
+        private static final String REDIRECT_URL = "http://test/redirect/oauth/authorize";
+        private static final String CLIENT_ID_PARAM = "client_id";
+
+        private final Map<String, String[]> parameterMap;
 
         public MockSavedRequest() {
-            super(new MockHttpServletRequest(), new PortResolverImpl());
+            this.parameterMap = Collections.singletonMap(CLIENT_ID_PARAM, new String[] { "admin" });
         }
 
         @Override
         public String getRedirectUrl() {
-            return "http://test/redirect/oauth/authorize";
+            return REDIRECT_URL;
         }
 
         @Override
         public String[] getParameterValues(String name) {
-            if ("client_id".equals(name)) {
-                return new String[]{"admin"};
-            }
-            return new String[0];
+            return parameterMap.getOrDefault(name, new String[0]);
         }
 
         @Override
         public List<Cookie> getCookies() {
-            return null;
+            return Collections.emptyList();
         }
 
         @Override
         public String getMethod() {
-            return null;
+            return "GET";
         }
 
         @Override
         public List<String> getHeaderValues(String name) {
-            return null;
+            return Collections.emptyList();
         }
 
         @Override
         public Collection<String> getHeaderNames() {
-            return null;
+            return Collections.emptyList();
         }
 
         @Override
         public List<Locale> getLocales() {
-            return null;
+            return Collections.singletonList(Locale.ENGLISH);
         }
 
         @Override
         public Map<String, String[]> getParameterMap() {
-            return null;
+            return parameterMap;
         }
     }
 
