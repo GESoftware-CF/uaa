@@ -40,9 +40,11 @@ import static org.springframework.restdocs.payload.JsonFieldType.ARRAY;
 import static org.springframework.restdocs.payload.JsonFieldType.BOOLEAN;
 import static org.springframework.restdocs.payload.JsonFieldType.OBJECT;
 import static org.springframework.restdocs.payload.JsonFieldType.STRING;
+import static org.springframework.restdocs.payload.JsonFieldType.VARIES;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
-import static org.springframework.restdocs.request.RequestDocumentation.requestParameters;
+import static org.springframework.restdocs.request.RequestDocumentation.formParameters;
+import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
@@ -52,7 +54,7 @@ class LoginInfoEndpointDocs extends EndpointDocs {
 
     @Test
     void info_endpoint_for_json() throws Exception {
-        Snippet requestParameters = requestParameters(
+        Snippet queryParameters = queryParameters(
                 parameterWithName("origin").optional(null).type(STRING).description("Use the configured prompts of the OpenID Connect Provider with the given origin key in the response. Fallback to zone values if no prompts are configured or origin is invalid.")
         );
 
@@ -61,7 +63,7 @@ class LoginInfoEndpointDocs extends EndpointDocs {
                 fieldWithPath("commit_id").type(STRING).description("The GIT sha for the UAA version"),
                 fieldWithPath("timestamp").type(STRING).description("JSON timestamp for the commit of the UAA version"),
                 fieldWithPath("idpDefinitions").optional().type(OBJECT).description("A list of alias/url pairs of SAML IDP providers configured. Each url is the starting point to initiate the authentication process for the SAML identity provider."),
-                fieldWithPath("idpDefinitions.*").optional().type(ARRAY).description("A list of alias/url pairs of SAML IDP providers configured. Each url is the starting point to initiate the authentication process for the SAML identity provider."),
+                fieldWithPath("idpDefinitions.*").optional().type(VARIES).description("The URL to initiate the authentication process for the SAML identity provider."),
                 fieldWithPath("links").type(OBJECT).description("A list of alias/url pairs of configured action URLs for the UAA"),
                 fieldWithPath("links.login").type(STRING).description("The link to the login host alias of the UAA"),
                 fieldWithPath("links.uaa").type(STRING).description("The link to the uaa alias host of the UAA"),
@@ -88,14 +90,14 @@ class LoginInfoEndpointDocs extends EndpointDocs {
                         document("{ClassName}/{methodName}",
                                 preprocessResponse(prettyPrint()),
                                 requestHeaders,
-                                requestParameters,
+                                queryParameters,
                                 responseFields)
                 );
     }
 
     @Test
     void user_ui_login() throws Exception {
-        Snippet requestParameters = requestParameters(
+        Snippet formParameters = formParameters(
                 parameterWithName("username").required().type(STRING).description("The username of the user, sometimes the email address."),
                 parameterWithName("password").required().type(STRING).description("The user's password"),
                 parameterWithName(CSRF_PARAMETER_NAME).required().type(STRING).description("Automatically configured by the server upon /login.")
@@ -129,7 +131,7 @@ class LoginInfoEndpointDocs extends EndpointDocs {
     @Test
     void passcode_request() throws Exception {
         ScimUserProvisioning userProvisioning = webApplicationContext.getBean(JdbcScimUserProvisioning.class);
-        ScimUser marissa = userProvisioning.query("username eq \"marissa\" and origin eq \"uaa\"", IdentityZoneHolder.get().getId()).get(0);
+        ScimUser marissa = userProvisioning.query("username eq \"marissa\" and origin eq \"uaa\"", IdentityZoneHolder.get().getId()).getFirst();
         UaaPrincipal uaaPrincipal = new UaaPrincipal(marissa.getId(), marissa.getUserName(), marissa.getPrimaryEmail(), marissa.getOrigin(), marissa.getExternalId(), IdentityZoneHolder.get().getId());
         UaaAuthentication principal = new UaaAuthentication(uaaPrincipal,
                 Collections.singletonList(UaaAuthority.fromAuthorities("uaa.user")), null);
@@ -201,7 +203,7 @@ class LoginInfoEndpointDocs extends EndpointDocs {
     @Test
     void perform_auto_login() throws Exception {
         Map<String, Object> code = generate_auto_login_code(true);
-        Snippet requestParameters = requestParameters(
+        Snippet queryParameters = queryParameters(
                 parameterWithName("code").required().type(STRING).description("The code generated from the POST /autologin"),
                 parameterWithName("client_id").required().type(STRING).description("The client_id that generated the autologin code")
         );
@@ -212,7 +214,7 @@ class LoginInfoEndpointDocs extends EndpointDocs {
                 .andDo(
                         document("{ClassName}/{methodName}",
                                 preprocessResponse(prettyPrint()),
-                                requestParameters
+                                queryParameters
                         )
                 )
                 .andExpect(redirectedUrl("home"));

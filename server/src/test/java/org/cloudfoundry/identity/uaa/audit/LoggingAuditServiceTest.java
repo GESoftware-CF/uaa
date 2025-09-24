@@ -1,6 +1,5 @@
 package org.cloudfoundry.identity.uaa.audit;
 
-
 import org.cloudfoundry.identity.uaa.logging.LogSanitizerUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,12 +20,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.cloudfoundry.identity.uaa.audit.AuditEventType.ClientAuthenticationFailure;
 import static org.cloudfoundry.identity.uaa.audit.AuditEventType.ClientAuthenticationSuccess;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.audit.AuditEventType.PasswordChangeFailure;
 import static org.cloudfoundry.identity.uaa.audit.AuditEventType.UserAuthenticationSuccess;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -54,7 +50,7 @@ class LoggingAuditServiceTest {
         ArgumentCaptor<String> stringCaptor = ArgumentCaptor.forClass(String.class);
         verify(mockLogger).info(stringCaptor.capture());
         String logMessage = stringCaptor.getValue();
-        assertThat(logMessage, is("PasswordChangeFailure ('theData'): principal=thePrincipalId, origin=[theOrigin], identityZoneId=[theZoneId], authenticationType=[theAuthType]"));
+        assertThat(logMessage).isEqualTo("PasswordChangeFailure ('theData'): principal=thePrincipalId, origin=[theOrigin], identityZoneId=[theZoneId], authenticationType=[theAuthType], detailedDescription=[theDescription]");
     }
 
     @Test
@@ -66,7 +62,7 @@ class LoggingAuditServiceTest {
         ArgumentCaptor<String> stringCaptor = ArgumentCaptor.forClass(String.class);
         verify(mockLogger).info(stringCaptor.capture());
         String logMessage = stringCaptor.getValue();
-        assertThat(logMessage, is("PasswordChangeFailure ('theData'): principal=thePrincipalId, origin=[theOrigin], identityZoneId=[theZoneId]"));
+        assertThat(logMessage).isEqualTo("PasswordChangeFailure ('theData'): principal=thePrincipalId, origin=[theOrigin], identityZoneId=[theZoneId], detailedDescription=[theDescription]");
     }
 
     @Test
@@ -77,10 +73,10 @@ class LoggingAuditServiceTest {
 
         ArgumentCaptor<String> stringCaptor = ArgumentCaptor.forClass(String.class);
         verify(mockLogger).info(stringCaptor.capture());
-        assertFalse(stringCaptor.getValue().contains("\r"));
-        assertFalse(stringCaptor.getValue().contains("\n"));
-        assertFalse(stringCaptor.getValue().contains("\t"));
-        assertTrue(stringCaptor.getValue().contains(LogSanitizerUtil.SANITIZED_FLAG));
+        assertThat(stringCaptor.getValue()).doesNotContain("\r")
+                .doesNotContain("\n")
+                .doesNotContain("\t")
+                .contains(LogSanitizerUtil.SANITIZED_FLAG);
     }
 
     @Test
@@ -91,7 +87,7 @@ class LoggingAuditServiceTest {
 
         ArgumentCaptor<String> stringCaptor = ArgumentCaptor.forClass(String.class);
         verify(mockLogger).info(stringCaptor.capture());
-        assertFalse(stringCaptor.getValue().contains(LogSanitizerUtil.SANITIZED_FLAG));
+        assertThat(stringCaptor.getValue()).doesNotContain(LogSanitizerUtil.SANITIZED_FLAG);
     }
 
     @Test

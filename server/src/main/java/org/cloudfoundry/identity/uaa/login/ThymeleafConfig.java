@@ -24,10 +24,10 @@ import org.springframework.web.servlet.view.BeanNameViewResolver;
 import org.springframework.web.servlet.view.ContentNegotiatingViewResolver;
 import org.springframework.web.servlet.view.json.MappingJackson2JsonView;
 import org.thymeleaf.dialect.IDialect;
-import org.thymeleaf.extras.springsecurity5.dialect.SpringSecurityDialect;
-import org.thymeleaf.spring5.SpringTemplateEngine;
-import org.thymeleaf.spring5.templateresolver.SpringResourceTemplateResolver;
-import org.thymeleaf.spring5.view.ThymeleafViewResolver;
+import org.thymeleaf.extras.springsecurity6.dialect.SpringSecurityDialect;
+import org.thymeleaf.spring6.SpringTemplateEngine;
+import org.thymeleaf.spring6.templateresolver.SpringResourceTemplateResolver;
+import org.thymeleaf.spring6.view.ThymeleafViewResolver;
 import org.thymeleaf.templatemode.TemplateMode;
 import org.thymeleaf.templateresolver.ITemplateResolver;
 
@@ -38,7 +38,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Configuration
-public class ThymeleafConfig  {
+public class ThymeleafConfig {
 
     @Bean
     public ThymeleafViewResolver thymeleafViewResolver(ApplicationContext context) {
@@ -84,7 +84,7 @@ public class ThymeleafConfig  {
 
     @Bean
     public org.springframework.web.servlet.view.ContentNegotiatingViewResolver viewResolver(ApplicationContext context,
-                                                                                            ContentNegotiationManager contentNegotiationManager) {
+            ContentNegotiationManager contentNegotiationManager) {
         ContentNegotiatingViewResolver resolver = new ContentNegotiatingViewResolver();
         ThymeleafViewResolver viewResolver = new ThymeleafViewResolver();
 

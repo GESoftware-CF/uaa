@@ -15,11 +15,11 @@
 
 package org.cloudfoundry.identity.uaa.mock.limited;
 
+import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.mock.token.TokenMvcMockTests;
 import org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.codec.Base64;
-import org.springframework.security.oauth2.provider.client.BaseClientDetails;
 
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
@@ -33,21 +33,21 @@ public class LimitedModeTokenMockMvcTests extends TokenMvcMockTests {
 
     @Test
     void check_token_while_limited() throws Exception {
-        BaseClientDetails client = setUpClients(generator.generate().toLowerCase(),
-                                                "uaa.resource,clients.read",
-                                                "",
-                                                "client_credentials",
-                                                true);
+        UaaClientDetails client = setUpClients(generator.generate().toLowerCase(),
+                "uaa.resource,clients.read",
+                "",
+                "client_credentials",
+                true);
         String token = MockMvcUtils.getClientCredentialsOAuthAccessToken(mockMvc, client.getClientId(), SECRET, null, null, true);
         mockMvc.perform(
-            post("/check_token")
-                .param("token", token)
-                .header(AUTHORIZATION,
-                        "Basic " + new String(Base64.encode((client.getClientId() + ":" + SECRET).getBytes())))
-        )
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.scope").value(containsInAnyOrder("clients.read", "uaa.resource")))
-            .andExpect(jsonPath("$.client_id").value(client.getClientId()))
-            .andExpect(jsonPath("$.jti").value(token));
+                        post("/check_token")
+                                .param("token", token)
+                                .header(AUTHORIZATION,
+                                        "Basic " + new String(Base64.encode((client.getClientId() + ":" + SECRET).getBytes())))
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.scope").value(containsInAnyOrder("clients.read", "uaa.resource")))
+                .andExpect(jsonPath("$.client_id").value(client.getClientId()))
+                .andExpect(jsonPath("$.jti").value(token));
     }
 }

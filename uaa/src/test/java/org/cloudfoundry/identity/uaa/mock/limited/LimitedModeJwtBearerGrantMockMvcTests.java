@@ -16,9 +16,32 @@
 package org.cloudfoundry.identity.uaa.mock.limited;
 
 import org.cloudfoundry.identity.uaa.mock.token.JwtBearerGrantMockMvcTests;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+
+import java.io.File;
+
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.getLimitedModeStatusFile;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.resetLimitedModeStatusFile;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.setLimitedModeStatusFile;
 
 @Disabled("GE Fork has its own JWT-bearer implementation")
-@LimitedMode
 class LimitedModeJwtBearerGrantMockMvcTests extends JwtBearerGrantMockMvcTests {
+    private File existingStatusFile;
+
+    @BeforeEach
+    void setUpLimitedModeContext(
+            @Autowired @Qualifier("defaultUserAuthorities") Object defaultAuthorities
+    ) throws Exception {
+        super.setUpContext(defaultAuthorities);
+        existingStatusFile = getLimitedModeStatusFile(webApplicationContext);
+        setLimitedModeStatusFile(webApplicationContext);
+    }
+
+    @AfterEach
+    void tearDown() {
+        resetLimitedModeStatusFile(webApplicationContext, existingStatusFile);
+    }
 }

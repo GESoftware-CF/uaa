@@ -2,10 +2,14 @@ package org.cloudfoundry.identity.uaa.zone;
 
 import org.cloudfoundry.identity.uaa.audit.event.EntityDeletedEvent;
 import org.cloudfoundry.identity.uaa.client.InvalidClientDetailsException;
+import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.error.UaaException;
+import org.cloudfoundry.identity.uaa.logging.SanitizedLogFactory;
+import org.cloudfoundry.identity.uaa.provider.ClientAlreadyExistsException;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
+import org.cloudfoundry.identity.uaa.provider.NoSuchClientException;
 import org.cloudfoundry.identity.uaa.provider.KeyProviderConfig;
 import org.cloudfoundry.identity.uaa.provider.KeyProviderProvisioning;
 import org.cloudfoundry.identity.uaa.provider.KeyProviderValidator;
@@ -14,8 +18,7 @@ import org.cloudfoundry.identity.uaa.saml.SamlKey;
 import org.cloudfoundry.identity.uaa.scim.ScimGroup;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupProvisioning;
 import org.cloudfoundry.identity.uaa.zone.SamlConfig.SignatureAlgorithm;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,24 +31,32 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.provider.ClientAlreadyExistsException;
-import org.springframework.security.oauth2.provider.ClientDetails;
-import org.springframework.security.oauth2.provider.NoSuchClientException;
-import org.springframework.security.oauth2.provider.client.BaseClientDetails;
+import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetails;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.Errors;
 import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.validation.Valid;
-import java.util.*;
+import jakarta.validation.Valid;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 import static java.util.Optional.ofNullable;
 import static org.springframework.http.HttpStatus.CONFLICT;
@@ -54,16 +65,13 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 import static org.springframework.http.HttpStatus.NO_CONTENT;
 import static org.springframework.http.HttpStatus.OK;
 import static org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY;
-import static org.springframework.web.bind.annotation.RequestMethod.DELETE;
-import static org.springframework.web.bind.annotation.RequestMethod.GET;
-import static org.springframework.web.bind.annotation.RequestMethod.POST;
-import static org.springframework.web.bind.annotation.RequestMethod.PUT;
 
 @RestController("identityZoneEndpoints")
-@RequestMapping("/identity-zones")
+@RequestMapping({"/identity-zones", "/identity-zones/"})
 public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
 
-    private static final Logger logger = LoggerFactory.getLogger(IdentityZoneEndpoints.class);
+    private static final SanitizedLogFactory.SanitizedLog logger = SanitizedLogFactory.getLog(IdentityZoneEndpoints.class);
+    private static final String ID_SUBDOMAIN_LOGGING = "[{}] subdomain [{}]";
 
     private final IdentityZoneProvisioning zoneDao;
     private final IdentityProviderProvisioning idpDao;
@@ -80,11 +88,11 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
     private SignatureAlgorithm defaultSamlSignatureAlgorithm;
 
     public IdentityZoneEndpoints(final IdentityZoneProvisioning zoneDao,
-                                 final @Qualifier("identityProviderProvisioning") IdentityProviderProvisioning idpDao,
-                                 final IdentityZoneEndpointClientRegistrationService clientRegistrationService,
-                                 final ScimGroupProvisioning groupProvisioning,
-                                 final IdentityZoneValidator validator,
-                                 final MessageSource messageSource,
+            final @Qualifier("identityProviderProvisioning") IdentityProviderProvisioning idpDao,
+            final IdentityZoneEndpointClientRegistrationService clientRegistrationService,
+            final ScimGroupProvisioning groupProvisioning,
+            final IdentityZoneValidator validator,
+            final MessageSource messageSource,
                                  final KeyProviderProvisioning keyProviderProvisioning,
                                  final KeyProviderValidator keyProviderValidator) {
         super();
@@ -109,18 +117,18 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
     }
 
 
-    @RequestMapping(value = "{id}", method = GET)
+    @GetMapping("{id}")
     public IdentityZone getIdentityZone(@PathVariable String id) {
         List<IdentityZone> result = filterForCurrentZone(Collections.singletonList(zoneDao.retrieveIgnoreActiveFlag(id)));
-        if (result.size() == 0) {
+        if (result.isEmpty()) {
             throw new ZoneDoesNotExistsException("Zone does not exist or is not accessible.");
         }
-        return removeKeys(result.get(0));
+        return removeKeys(result.getFirst());
     }
 
     protected IdentityZone removeKeys(IdentityZone identityZone) {
         if (identityZone.getConfig() != null && identityZone.getConfig().getTokenPolicy() != null) {
-            identityZone.getConfig().getTokenPolicy().setKeys(null);
+            identityZone.getConfig().getTokenPolicy().setKeyInformation(null);
         }
         if (identityZone.getConfig() != null && identityZone.getConfig().getSamlConfig() != null) {
             identityZone.getConfig().getSamlConfig().setPrivateKeyPassword(null);
@@ -133,7 +141,7 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
         return identityZone;
     }
 
-    @RequestMapping(method = GET)
+    @GetMapping
     public List<IdentityZone> getIdentityZones() {
         return filterForCurrentZone(zoneDao.retrieveAll());
     }
@@ -183,7 +191,7 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
     }
 
 
-    @RequestMapping(method = POST)
+    @PostMapping
     public ResponseEntity<IdentityZone> createIdentityZone(@RequestBody @Valid IdentityZone body, BindingResult result) {
 
         if (result.hasErrors()) {
@@ -210,9 +218,12 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
         }
         IdentityZone previous = IdentityZoneHolder.get();
         try {
-            logger.debug("Zone - creating id[" + body.getId() + "] subdomain[" + body.getSubdomain() + "]");
+            logger.debug("Zone - creating id[{}] subdomain[{}]",
+                    UaaStringUtils.getCleanedUserControlString(body.getId()),
+                    UaaStringUtils.getCleanedUserControlString(body.getSubdomain())
+            );
             IdentityZone created = zoneDao.create(body);
-            logger.debug("Zone - created id[" + created.getId() + "] subdomain[" + created.getSubdomain() + "]");
+            logger.debug("Zone - created id " + ID_SUBDOMAIN_LOGGING, created.getId(), created.getSubdomain());
             IdentityZoneHolder.set(created);
             IdentityProvider defaultIdp = new IdentityProvider();
             defaultIdp.setName(OriginKeys.UAA);
@@ -223,7 +234,7 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
             idpDefinition.setPasswordPolicy(null);
             defaultIdp.setConfig(idpDefinition);
             idpDao.create(defaultIdp, created.getId());
-            logger.debug("Created default IDP in zone - created id[" + created.getId() + "] subdomain[" + created.getSubdomain() + "]");
+            logger.debug("Created default IDP in zone - created id " + ID_SUBDOMAIN_LOGGING, created.getId(), created.getSubdomain());
             createUserGroups(created);
             return new ResponseEntity<>(removeKeys(created), CREATED);
         } finally {
@@ -235,9 +246,9 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
         UserConfig userConfig = zone.getConfig().getUserConfig();
         if (userConfig != null) {
             List<String> defaultGroups = ofNullable(userConfig.getDefaultGroups()).orElse(Collections.emptyList());
-            logger.debug(String.format("About to create default groups count: %s for subdomain: %s", defaultGroups.size(), zone.getSubdomain()));
+            logger.debug("About to create default groups count: %s for subdomain: %s".formatted(defaultGroups.size(), zone.getSubdomain()));
             for (String group : defaultGroups) {
-                logger.debug(String.format("Creating zone default group: %s for subdomain: %s", group, zone.getSubdomain()));
+                logger.debug("Creating zone default group: %s for subdomain: %s".formatted(group, zone.getSubdomain()));
                 groupProvisioning.createOrGet(
                         new ScimGroup(
                                 null,
@@ -258,7 +269,7 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
         return String.join("\r\n", messages);
     }
 
-    @RequestMapping(value = "{id}", method = PUT)
+    @PutMapping("{id}")
     public ResponseEntity<IdentityZone> updateIdentityZone(
             @RequestBody @Valid IdentityZone body, @PathVariable String id) {
         IdentityZone previous = IdentityZoneHolder.get();
@@ -284,10 +295,22 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
             }
             body = validator.validate(body, IdentityZoneValidator.Mode.MODIFY);
 
-            logger.debug("Zone - updating id[" + id + "] subdomain[" + body.getSubdomain() + "]");
+            UserConfig userConfig = body.getConfig().getUserConfig();
+            if (!userConfig.allGroupsAllowed()) {
+                Set<String> allowedGroups = userConfig.resultingAllowedGroups();
+                // check for groups which would be not allowed after the update
+                if (groupProvisioning.retrieveAll(body.getId()).stream().anyMatch(g -> !allowedGroups.contains(g.getDisplayName()))) {
+                    throw new UnprocessableEntityException("The identity zone user configuration contains not-allowed groups.");
+                }
+            }
+
+            logger.debug("Zone - updating id[{}] subdomain[{}]",
+                    UaaStringUtils.getCleanedUserControlString(id),
+                    UaaStringUtils.getCleanedUserControlString(body.getSubdomain())
+            );
             IdentityZone updated = zoneDao.update(body);
             IdentityZoneHolder.set(updated);
-            logger.debug("Zone - updated id[" + updated.getId() + "] subdomain[" + updated.getSubdomain() + "]");
+            logger.debug("Zone - updated id " + ID_SUBDOMAIN_LOGGING, updated.getId(), updated.getSubdomain());
             createUserGroups(updated);
             return new ResponseEntity<>(removeKeys(updated), OK);
         } catch (InvalidIdentityZoneDetailsException ex) {
@@ -303,7 +326,7 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
         if (newZone.getConfig() != null) {
             if (newZone.getConfig().getTokenPolicy() != null) {
                 if (newZone.getConfig().getTokenPolicy().getKeys() == null || newZone.getConfig().getTokenPolicy().getKeys().isEmpty()) {
-                    newZone.getConfig().getTokenPolicy().setKeys(existingZone.getConfig().getTokenPolicy().getKeys());
+                    newZone.getConfig().getTokenPolicy().setKeyInformation(existingZone.getConfig().getTokenPolicy().getKeys());
                 }
             }
             if (newZone.getConfig().getSamlConfig() != null) {
@@ -324,7 +347,7 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
         }
     }
 
-    @RequestMapping(value = "{id}", method = DELETE)
+    @DeleteMapping("{id}")
     @Transactional
     public ResponseEntity<IdentityZone> deleteIdentityZone(@PathVariable String id) {
         if (id == null) {
@@ -345,7 +368,15 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
             }
             // ignore the id in the body, the id in the path is the only one that matters
             IdentityZoneHolder.set(zone);
-            if (publisher != null && zone != null) {
+
+            /* reject deletion if an IdP with alias exists in the zone - checking for users with alias is not required
+             * here, since they can only exist if their origin IdP has an alias as well */
+            final boolean idpWithAliasExists = idpDao.idpWithAliasExistsInZone(zone.getId());
+            if (idpWithAliasExists) {
+                return new ResponseEntity<>(UNPROCESSABLE_ENTITY);
+            }
+
+            if (publisher != null) {
                 publisher.publishEvent(new EntityDeletedEvent<>(zone, SecurityContextHolder.getContext().getAuthentication(), IdentityZoneHolder.getCurrentZoneId()));
                 logger.debug("Zone - deleted id[" + zone.getId() + "]");
                 return new ResponseEntity<>(removeKeys(zone), OK);
@@ -357,9 +388,9 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
         }
     }
 
-    @RequestMapping(method = POST, value = "{identityZoneId}/clients")
+    @PostMapping("{identityZoneId}/clients")
     public ResponseEntity<? extends ClientDetails> createClient(
-            @PathVariable String identityZoneId, @RequestBody BaseClientDetails clientDetails) {
+            @PathVariable String identityZoneId, @RequestBody UaaClientDetails clientDetails) {
         if (identityZoneId == null) {
             throw new ZoneDoesNotExistsException(identityZoneId);
         }
@@ -380,12 +411,12 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
     }
 
     private ClientDetails removeSecret(ClientDetails createdClient) {
-        BaseClientDetails response = (BaseClientDetails) createdClient;
+        UaaClientDetails response = (UaaClientDetails) createdClient;
         response.setClientSecret(null);
         return response;
     }
 
-    @RequestMapping(method = DELETE, value = "{identityZoneId}/clients/{clientId}")
+    @DeleteMapping("{identityZoneId}/clients/{clientId}")
     public ResponseEntity<? extends ClientDetails> deleteClient(
             @PathVariable String identityZoneId, @PathVariable String clientId) {
         if (identityZoneId == null) {

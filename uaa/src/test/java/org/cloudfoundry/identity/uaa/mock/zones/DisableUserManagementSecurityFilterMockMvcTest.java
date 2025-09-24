@@ -6,12 +6,12 @@ import org.cloudfoundry.identity.uaa.account.PasswordChangeRequest;
 import org.cloudfoundry.identity.uaa.codestore.ExpiringCode;
 import org.cloudfoundry.identity.uaa.codestore.ExpiringCodeStore;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
-import org.cloudfoundry.identity.uaa.login.util.RandomValueStringGenerator;
 import org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.scim.endpoints.PasswordChange;
 import org.cloudfoundry.identity.uaa.scim.test.JsonObjectMatcherUtils;
 import org.cloudfoundry.identity.uaa.test.TestClient;
+import org.cloudfoundry.identity.uaa.util.AlphanumericRandomValueStringGenerator;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
 import org.json.JSONObject;
@@ -33,9 +33,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.*;
 import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
-import static org.junit.Assert.assertNotNull;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -120,11 +120,11 @@ class DisableUserManagementSecurityFilterMockMvcTest {
 
         MockMvcUtils.setDisableInternalUserManagement(webApplicationContext, true);
         mockMvc.perform(put("/Users/" + createdUser.getId())
-                .header("Authorization", "Bearer " + token)
-                .header("If-Match", "\"" + createdUser.getVersion() + "\"")
-                .accept(APPLICATION_JSON)
-                .contentType(APPLICATION_JSON)
-                .content(JsonUtils.writeValueAsString(createdUser)))
+                        .header("Authorization", "Bearer " + token)
+                        .header("If-Match", "\"" + createdUser.getVersion() + "\"")
+                        .accept(APPLICATION_JSON)
+                        .contentType(APPLICATION_JSON)
+                        .content(JsonUtils.writeValueAsString(createdUser)))
                 .andExpect(status().isOk());
     }
 
@@ -140,9 +140,9 @@ class DisableUserManagementSecurityFilterMockMvcTest {
         request.setOldPassword(PASSWD);
         request.setPassword("n3wAw3som3Passwd");
         mockMvc.perform(put("/Users/" + createdUser.getId() + "/password")
-                .header("Authorization", "Bearer " + token)
-                .contentType(APPLICATION_JSON)
-                .content(JsonUtils.writeValueAsString(request)))
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(APPLICATION_JSON)
+                        .content(JsonUtils.writeValueAsString(request)))
                 .andExpect(status().isForbidden())
                 .andExpect(content()
                         .string(JsonObjectMatcherUtils.matchesJsonObject(
@@ -160,7 +160,7 @@ class DisableUserManagementSecurityFilterMockMvcTest {
 
         MockMvcUtils.setDisableInternalUserManagement(webApplicationContext, true);
         mockMvc.perform(delete("/Users/" + createdUser.getId())
-                .header("Authorization", "Bearer " + token))
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden())
                 .andExpect(content()
                         .string(JsonObjectMatcherUtils.matchesJsonObject(
@@ -178,7 +178,7 @@ class DisableUserManagementSecurityFilterMockMvcTest {
 
         MockMvcUtils.setDisableInternalUserManagement(webApplicationContext, true);
         mockMvc.perform(delete("/Users/" + createdUser.getId())
-                .header("Authorization", "Bearer " + token))
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
     }
 
@@ -191,7 +191,7 @@ class DisableUserManagementSecurityFilterMockMvcTest {
 
         MockMvcUtils.setDisableInternalUserManagement(webApplicationContext, true);
         mockMvc.perform(get("/Users")
-                .header("Authorization", "Bearer " + adminToken))
+                        .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk());
     }
 
@@ -203,7 +203,7 @@ class DisableUserManagementSecurityFilterMockMvcTest {
 
         MockMvcUtils.setDisableInternalUserManagement(webApplicationContext, true);
         mockMvc.perform(get("/Users/" + createdUser.getId() + "/verify")
-                .header("Authorization", "Bearer " + token))
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden())
                 .andExpect(content()
                         .string(JsonObjectMatcherUtils.matchesJsonObject(
@@ -233,11 +233,11 @@ class DisableUserManagementSecurityFilterMockMvcTest {
 
         MockMvcUtils.setDisableInternalUserManagement(webApplicationContext, true);
         mockMvc.perform(post("/create_account.do")
-                .with(csrf(session))
-                .param("client_id", "login")
-                .param("email", "another@example.com")
-                .param("password", "foobar")
-                .param("password_confirmation", "foobar"))
+                        .with(csrf(session))
+                        .param("client_id", "login")
+                        .param("email", "another@example.com")
+                        .param("password", "foobar")
+                        .param("password_confirmation", "foobar"))
                 .andExpect(status().isForbidden())
                 .andExpect(content()
                         .string(JsonObjectMatcherUtils.matchesJsonObject(
@@ -272,7 +272,7 @@ class DisableUserManagementSecurityFilterMockMvcTest {
 
         MockMvcUtils.setDisableInternalUserManagement(webApplicationContext, true);
         mockMvc.perform(get("/verify_user")
-                .param("code", getExpiringCode(codeData, codeStore, identityZoneManager).getCode()))
+                        .param("code", getExpiringCode(codeData, codeStore, identityZoneManager).getCode()))
                 .andExpect(status().isForbidden())
                 .andExpect(content()
                         .string(JsonObjectMatcherUtils.matchesJsonObject(
@@ -291,8 +291,8 @@ class DisableUserManagementSecurityFilterMockMvcTest {
         MockHttpSession userSession = getUserSession(createdUser.getUserName(), PASSWD);
         MockMvcUtils.setDisableInternalUserManagement(webApplicationContext, true);
         mockMvc.perform(get("/change_email")
-                .session(userSession)
-                .accept(ACCEPT_TEXT_HTML))
+                        .session(userSession)
+                        .accept(ACCEPT_TEXT_HTML))
                 .andExpect(status().isForbidden())
                 .andExpect(content()
                         .string(JsonObjectMatcherUtils.matchesJsonObject(
@@ -314,10 +314,10 @@ class DisableUserManagementSecurityFilterMockMvcTest {
 
         MockMvcUtils.setDisableInternalUserManagement(webApplicationContext, true);
         mockMvc.perform(post("/change_email.do")
-                .with(csrf(session))
-                .accept(ACCEPT_TEXT_HTML)
-                .param("newEmail", "newUser@example.com")
-                .param("client_id", "login"))
+                        .with(csrf(session))
+                        .accept(ACCEPT_TEXT_HTML)
+                        .param("newEmail", "newUser@example.com")
+                        .param("client_id", "login"))
                 .andExpect(status().isForbidden())
                 .andExpect(content()
                         .string(JsonObjectMatcherUtils.matchesJsonObject(
@@ -342,7 +342,7 @@ class DisableUserManagementSecurityFilterMockMvcTest {
 
         MockMvcUtils.setDisableInternalUserManagement(webApplicationContext, true);
         mockMvc.perform(get("/verify_email")
-                .param("code", code.getCode()))
+                        .param("code", code.getCode()))
                 .andExpect(status().isForbidden())
                 .andExpect(content()
                         .string(JsonObjectMatcherUtils.matchesJsonObject(
@@ -362,7 +362,7 @@ class DisableUserManagementSecurityFilterMockMvcTest {
         MockMvcUtils.setDisableInternalUserManagement(webApplicationContext, true);
 
         mockMvc.perform(get("/change_password")
-                .session(getUserSession(createdUser.getUserName(), PASSWD)))
+                        .session(getUserSession(createdUser.getUserName(), PASSWD)))
                 .andExpect(status().isForbidden())
                 .andExpect(content()
                         .string(JsonObjectMatcherUtils.matchesJsonObject(
@@ -384,11 +384,11 @@ class DisableUserManagementSecurityFilterMockMvcTest {
 
         MockMvcUtils.setDisableInternalUserManagement(webApplicationContext, true);
         mockMvc.perform(post("/change_password.do")
-                .with(csrf(userSession))
-                .accept(ACCEPT_TEXT_HTML)
-                .param("current_password", PASSWD)
-                .param("new_password", "whatever")
-                .param("confirm_password", "whatever"))
+                        .with(csrf(userSession))
+                        .accept(ACCEPT_TEXT_HTML)
+                        .param("current_password", PASSWD)
+                        .param("new_password", "whatever")
+                        .param("confirm_password", "whatever"))
                 .andExpect(status().isForbidden())
                 .andExpect(content()
                         .string(JsonObjectMatcherUtils.matchesJsonObject(
@@ -417,7 +417,7 @@ class DisableUserManagementSecurityFilterMockMvcTest {
     void resetPasswordControllerForgotPasswordNotAllowed() throws Exception {
         MockMvcUtils.setDisableInternalUserManagement(webApplicationContext, true);
         mockMvc.perform(post("/forgot_password.do")
-                .param("email", "another@example.com"))
+                        .param("email", "another@example.com"))
                 .andExpect(status().isForbidden())
                 .andExpect(content()
                         .string(JsonObjectMatcherUtils.matchesJsonObject(
@@ -446,8 +446,8 @@ class DisableUserManagementSecurityFilterMockMvcTest {
     void resetPasswordControllerResetPasswordPageNotAllowed() throws Exception {
         MockMvcUtils.setDisableInternalUserManagement(webApplicationContext, true);
         mockMvc.perform(get("/reset_password")
-                .param("code", "12345")
-                .param("email", "another@example.com"))
+                        .param("code", "12345")
+                        .param("email", "another@example.com"))
                 .andExpect(status().isForbidden())
                 .andExpect(content()
                         .string(JsonObjectMatcherUtils.matchesJsonObject(
@@ -504,15 +504,15 @@ class DisableUserManagementSecurityFilterMockMvcTest {
         getLoginForm(mockMvc, session);
 
         MockHttpSession afterLoginSession = (MockHttpSession) mockMvc.perform(post("/login.do")
-                .with(csrf(session))
-                .accept(ACCEPT_TEXT_HTML)
-                .param("username", username)
-                .param("password", password))
+                        .with(csrf(session))
+                        .accept(ACCEPT_TEXT_HTML)
+                        .param("username", username)
+                        .param("password", password))
                 .andDo(print())
                 .andReturn().getRequest().getSession(false);
 
-        assertNotNull(afterLoginSession);
-        assertNotNull(afterLoginSession.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY));
+        assertThat(afterLoginSession).isNotNull();
+        assertThat(afterLoginSession.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY)).isNotNull();
         return afterLoginSession;
     }
 
@@ -526,7 +526,7 @@ class DisableUserManagementSecurityFilterMockMvcTest {
             final String origin,
             final MockMvc mockMvc,
             final String token) throws Exception {
-        String id = new RandomValueStringGenerator().generate();
+        String id = new AlphanumericRandomValueStringGenerator().generate();
         ScimUser user = new ScimUser(id, id + "@example.com", "first-name", "family-name");
         user.setOrigin(origin);
         user.setPassword(PASSWD);
@@ -552,11 +552,11 @@ class DisableUserManagementSecurityFilterMockMvcTest {
 
         MockMvcUtils.setDisableInternalUserManagement(webApplicationContext, true);
         mockMvc.perform(put("/Users/" + createdUser.getId())
-                .header("Authorization", "Bearer " + token)
-                .header("If-Match", "\"" + createdUser.getVersion() + "\"")
-                .accept(APPLICATION_JSON)
-                .contentType(APPLICATION_JSON)
-                .content(JsonUtils.writeValueAsString(createdUser)))
+                        .header("Authorization", "Bearer " + token)
+                        .header("If-Match", "\"" + createdUser.getVersion() + "\"")
+                        .accept(APPLICATION_JSON)
+                        .contentType(APPLICATION_JSON)
+                        .content(JsonUtils.writeValueAsString(createdUser)))
                 .andExpect(status().isForbidden())
                 .andExpect(content()
                         .string(JsonObjectMatcherUtils.matchesJsonObject(new JSONObject()

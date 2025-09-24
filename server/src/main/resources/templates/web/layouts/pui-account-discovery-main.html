@@ -28,7 +28,7 @@
     <link th:href="@{${assetBaseUrl}+'/stylesheets/roboto.css'}" rel="stylesheet"/>
 </head>
 <body class="predix-uaa">
-    <div th:if="${banner != null && (T(org.springframework.util.StringUtils).hasText(banner.getText()) || T(org.springframework.util.StringUtils).hasText(banner.getLogo()))}" class="login-header top-header banner-header"
+    <div th:if="${banner != null && (T(org.cloudfoundry.identity.uaa.util.UaaStringUtils).hasText(banner.getText()) || T(org.cloudfoundry.identity.uaa.util.UaaStringUtils).hasText(banner.getLogo()))}" class="login-header top-header banner-header"
             th:with="backgroundColor=${banner.getBackgroundColor() != null ? 'background-color :'+banner.getBackgroundColor()+';' : ''},
                     textColor=${banner.getTextColor() != null ? 'color :'+banner.getTextColor()+';' : ''}"
             th:style="${backgroundColor}+${textColor}">
@@ -44,7 +44,7 @@
      <div class="predix-uaa__header">
         <div>
             <div>
-                <img class="header img-responsive logo" style="max-width:330px" th:with="logo=${branding.getProductLogo()},defaultLogo=@{${assetBaseUrl+'/images/predix-word.svg'}}" th:src="${logo != null ? 'data:image/png;base64,'+logo : defaultLogo}"/>
+                <img class="header img-responsive logo" style="max-width:330px" th:with="logo=${branding.getInlinedBase64PngLogo()},defaultLogo=@{${assetBaseUrl+'/images/predix-word.svg'}}" th:src="${logo != null ? logo : defaultLogo}"/>
             </div>
             <div class="predix-uaa__content" layout:fragment="page-content"></div>
         </div>

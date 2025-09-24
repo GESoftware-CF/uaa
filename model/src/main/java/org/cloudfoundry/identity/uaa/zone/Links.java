@@ -27,7 +27,7 @@ public class Links {
 
     private SelfService service = new SelfService();
     private Logout logout = new Logout();
-    private String homeRedirect = null;
+    private String homeRedirect;
 
     public Logout getLogout() {
         return logout;
@@ -59,8 +59,8 @@ public class Links {
     public static class Logout {
         private String redirectUrl = "/login";
         private String redirectParameterName = "redirect";
-        private boolean disableRedirectParameter = false;
-        private List<String> whitelist = null;
+        private boolean disableRedirectParameter;
+        private List<String> whitelist;
 
         public boolean isDisableRedirectParameter() {
             return false;
@@ -102,8 +102,8 @@ public class Links {
         private boolean selfServiceLinksEnabled = true;
         private boolean selfServiceCreateAccountEnabled = true;
         private boolean selfServiceResetPasswordEnabled = true;
-        private String signup = null;
-        private String passwd = null;
+        private String signup;
+        private String passwd;
 
         public void setSelfServiceLinksEnabled(boolean selfServiceLinksEnabled) {
             this.selfServiceLinksEnabled = selfServiceLinksEnabled;

@@ -1,5 +1,5 @@
 package org.cloudfoundry.identity.uaa.web;
-
+import jakarta.servlet.http.HttpServletResponse;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.util.TimeService;
 import org.junit.jupiter.api.AfterEach;
@@ -9,18 +9,19 @@ import org.springframework.mock.env.MockEnvironment;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-import javax.servlet.FilterChain;
+import jakarta.servlet.FilterChain;
 import java.io.File;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static javax.servlet.http.HttpServletResponse.SC_SERVICE_UNAVAILABLE;
+import static jakarta.servlet.http.HttpServletResponse.SC_SERVICE_UNAVAILABLE;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.cloudfoundry.identity.uaa.web.LimitedModeUaaFilter.STATUS_INTERVAL_MS;
 import static org.cloudfoundry.identity.uaa.web.LimitedModeUaaFilter.DEGRADED;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
@@ -57,7 +58,7 @@ public class LimitedModeUaaFilterTests {
         mockFilterChain = mock(FilterChain.class);
         filter = new LimitedModeUaaFilter();
         setActiveProfiles("default", DEGRADED);
-        statusFile = File.createTempFile("uaa-limited-mode.", ".status");
+        statusFile = Files.createTempFile("uaa-limited-mode.", ".status").toFile();
     }
 
     @AfterEach
@@ -70,7 +71,7 @@ public class LimitedModeUaaFilterTests {
         setActiveProfiles("default");
         filter.doFilterInternal(mockHttpServletRequest, mockHttpServletResponse, mockFilterChain);
         verify(mockFilterChain, times(1)).doFilter(same(mockHttpServletRequest), same(mockHttpServletResponse));
-        assertFalse(filter.isEnabled());
+        assertThat(filter.isEnabled()).isFalse();
     }
 
     @Test
@@ -78,7 +79,7 @@ public class LimitedModeUaaFilterTests {
         mockHttpServletRequest.setMethod(POST.name());
         filter.doFilterInternal(mockHttpServletRequest, mockHttpServletResponse, mockFilterChain);
         verifyNoInteractions(mockFilterChain);
-        assertEquals(SC_SERVICE_UNAVAILABLE, mockHttpServletResponse.getStatus());
+        assertThat(mockHttpServletResponse.getStatus()).isEqualTo(SC_SERVICE_UNAVAILABLE);
     }
 
     @Test
@@ -111,7 +112,7 @@ public class LimitedModeUaaFilterTests {
             reset(mockFilterChain);
             filter.doFilterInternal(mockHttpServletRequest, mockHttpServletResponse, mockFilterChain);
             verifyNoInteractions(mockFilterChain);
-            assertEquals(SC_SERVICE_UNAVAILABLE, mockHttpServletResponse.getStatus());
+            assertThat(mockHttpServletResponse.getStatus()).isEqualTo(SC_SERVICE_UNAVAILABLE);
         }
     }
 
@@ -125,8 +126,8 @@ public class LimitedModeUaaFilterTests {
             mockHttpServletRequest.setMethod(POST.name());
             mockHttpServletRequest.addHeader(ACCEPT, accept);
             filter.doFilterInternal(mockHttpServletRequest, mockHttpServletResponse, mockFilterChain);
-            assertEquals(SC_SERVICE_UNAVAILABLE, mockHttpServletResponse.getStatus());
-            assertEquals(JsonUtils.writeValueAsString(filter.getErrorData()), mockHttpServletResponse.getContentAsString());
+            assertThat(mockHttpServletResponse.getStatus()).isEqualTo(SC_SERVICE_UNAVAILABLE);
+            assertThat(mockHttpServletResponse.getContentAsString()).isEqualTo(JsonUtils.writeValueAsString(filter.getErrorData()));
         }
     }
 
@@ -140,8 +141,8 @@ public class LimitedModeUaaFilterTests {
             mockHttpServletRequest.setMethod(POST.name());
             mockHttpServletRequest.addHeader(ACCEPT, accept);
             filter.doFilterInternal(mockHttpServletRequest, mockHttpServletResponse, mockFilterChain);
-            assertEquals(SC_SERVICE_UNAVAILABLE, mockHttpServletResponse.getStatus());
-            assertEquals(filter.getErrorData().get("description"), mockHttpServletResponse.getErrorMessage());
+            assertThat(mockHttpServletResponse.getStatus()).isEqualTo(SC_SERVICE_UNAVAILABLE);
+            assertThat(mockHttpServletResponse.getErrorMessage()).isEqualTo(filter.getErrorData().get("description"));
         }
     }
 
