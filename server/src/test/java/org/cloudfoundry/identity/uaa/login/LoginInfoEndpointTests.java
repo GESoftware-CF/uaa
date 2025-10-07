@@ -69,7 +69,9 @@ import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.cloudfoundry.identity.uaa.util.UaaUrlUtils.addSubdomainToUrl;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -387,11 +389,12 @@ class LoginInfoEndpointTests {
             final String signup,
             final String passwd,
             final Map<String, String> links) {
-        assertThat(links).containsEntry("createAccountLink", signup)
-                .containsEntry("forgotPasswordLink", passwd)
-                //json links
-                .containsEntry("register", signup)
-                .containsEntry("passwd", passwd);
+        if (signup != null) {
+            assertThat(links).containsEntry("createAccountLink", signup).containsEntry("register", signup);
+        }
+        if (passwd != null) {
+            assertThat(links).containsEntry("forgotPasswordLink", passwd).containsEntry("passwd", passwd);
+        }
     }
 
     @Test
@@ -535,9 +538,9 @@ class LoginInfoEndpointTests {
                 .doesNotContainKey("fieldUsernameShow")
                 .doesNotContainKey("forgotPasswordLink")
                 .doesNotContainKey("createAccountLink")
+                .doesNotContainKey("register")
                 .containsEntry("login", "http://someurl")
                 .containsEntry("uaa", "http://someurl")
-                .containsEntry("register", "/create_account")
                 .containsEntry("passwd", "/forgot_password");
     }
 
@@ -1005,7 +1008,7 @@ class LoginInfoEndpointTests {
         when(mockOidcConfig.getResponseType()).thenReturn("token");
         when(mockOidcConfig.getEmailDomain()).thenReturn(singletonList("example.com"));
         when(mockProvider.getConfig()).thenReturn(mockOidcConfig);
-        when(mockIdentityProviderProvisioning.retrieveAll(anyBoolean(), any())).thenReturn(singletonList(mockProvider));
+        when(mockIdentityProviderProvisioning.retrieveActive(any())).thenReturn(singletonList(mockProvider));
 
         LoginInfoEndpoint endpoint = getEndpoint(IdentityZoneHolder.get(), clientDetailsService);
         SavedRequest savedRequest = SessionUtils.getSavedRequestSession(mockHttpServletRequest.getSession());
@@ -1652,7 +1655,7 @@ class LoginInfoEndpointTests {
         LoginInfoEndpoint endpoint = getEndpoint(IdentityZoneHolder.get(), clientDetailsService);
         String redirect = endpoint.loginForHtml(extendedModelMap, null, mockHttpServletRequest, singletonList(MediaType.TEXT_HTML));
 
-        assertThat(extendedModelMap.containsAttribute("login_hint")).isTrue();
+        assertThat(extendedModelMap.containsAttribute("login_hint")).isFalse();
         assertThat(redirect).isEqualTo("login");
 
         Collection<Map<String, String>> oauthLinks = (Collection<Map<String, String>>) extendedModelMap.get("oauthLinks");
@@ -1814,7 +1817,9 @@ class LoginInfoEndpointTests {
         when(mockOidcConfig.getResponseType()).thenReturn("token");
         when(mockProvider.getConfig()).thenReturn(mockOidcConfig);
         when(mockOidcConfig.isShowLinkText()).thenReturn(true);
+        when(mockIdentityProviderProvisioning.retrieveActiveByTypes(anyString(), any())).thenReturn(singletonList(mockProvider));
         when(mockIdentityProviderProvisioning.retrieveActive(any())).thenReturn(singletonList(mockProvider));
+        when(mockIdentityProviderProvisioning.retrieveByOrigin(eq("my-OIDC-idp1"), any())).thenReturn(mockProvider);
     }
 
     private static void mockLoginHintProvider(ExternalOAuthProviderConfigurator mockIdentityProviderProvisioning)

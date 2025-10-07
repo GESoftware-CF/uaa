@@ -1,47 +1,35 @@
 package org.cloudfoundry.identity.uaa.mock.zones;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.springframework.http.MediaType.APPLICATION_JSON;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import org.cloudfoundry.identity.uaa.NestedMapPropertySourceFactory;
-import org.cloudfoundry.identity.uaa.extensions.PollutionPreventionExtension;
+import net.bytebuddy.utility.RandomString;
+import org.cloudfoundry.identity.uaa.DefaultTestContext;
+import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
+import org.cloudfoundry.identity.uaa.oauth.provider.ClientRegistrationService;
+import org.cloudfoundry.identity.uaa.test.TestClient;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZone;
 import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneRequest;
 import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.beans.factory.support.GenericBeanDefinition;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ImportResource;
-import org.springframework.context.annotation.PropertySource;
-import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
-import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultMatcher;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.util.StringUtils;
-import org.springframework.web.context.WebApplicationContext;
 
-@ExtendWith(SpringExtension.class)
-@ExtendWith(PollutionPreventionExtension.class)
-@ActiveProfiles("default")
-@WebAppConfiguration
-@ContextConfiguration(classes = OrchestratorZoneTestConfiguration.class)
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@DefaultTestContext
 public class OrchestratorZoneControllerTransactionRollbackTests {
 
     private static final String ZONE_NAME = "The Twiglet Zone";
@@ -51,10 +39,43 @@ public class OrchestratorZoneControllerTransactionRollbackTests {
     private MockMvc mockMvc;
     private ApplicationContext applicationContext;
 
+    private String orchestratorZonesReadToken = null;
+    private String orchestratorZonesWriteToken = null;
+
     @BeforeEach
-    void setUp(@Autowired MockMvc mockMvc, @Autowired ApplicationContext applicationContext) {
+    void setUp(@Autowired MockMvc mockMvc, @Autowired ApplicationContext applicationContext,
+               @Autowired ClientRegistrationService clientRegistrationService, @Autowired TestClient testClient) throws Exception {
         this.mockMvc = mockMvc;
         this.applicationContext = applicationContext;
+
+        orchestratorZonesReadToken = getAccessToken(
+                clientRegistrationService,
+                testClient,
+                "orchestrator-zone-reader-" + RandomString.make(5).toLowerCase(),
+                "r3ader",
+                "orchestrator.zones.read");
+        orchestratorZonesWriteToken = getAccessToken(
+                clientRegistrationService,
+                testClient,
+                "orchestrator-zone-provisioner-" + RandomString.make(5).toLowerCase(),
+                "pr0visioner",
+                "orchestrator.zones.read,orchestrator.zones.write");
+    }
+
+    private String getAccessToken(ClientRegistrationService clientRegistrationService,
+                                  TestClient testClient,
+                                  String clientId,
+                                  String clientSecret,
+                                  String scope) throws Exception {
+        UaaClientDetails clientDetails = new UaaClientDetails(
+                clientId,
+                null,
+                "uaa.none",
+                "client_credentials",
+                scope);
+        clientDetails.setClientSecret(clientSecret);
+        clientRegistrationService.addClientDetails(clientDetails);
+        return testClient.getClientCredentialsOAuthAccessToken(clientId, clientSecret, scope);
     }
 
     @Test
@@ -76,8 +97,10 @@ public class OrchestratorZoneControllerTransactionRollbackTests {
             OrchestratorZoneRequest orchestratorZoneRequest = getOrchestratorZoneRequest(ZONE_NAME, ADMIN_CLIENT_SECRET,
                                                                                          SUB_DOMAIN_NAME);
 
-            MvcResult result = mockMvc.perform(post("/orchestrator/zones").contentType(APPLICATION_JSON).content(
-                JsonUtils.writeValueAsString(orchestratorZoneRequest))).andReturn();
+            MvcResult result = mockMvc.perform(post("/orchestrator/zones")
+                    .header("Authorization", "Bearer " + orchestratorZonesWriteToken)
+                    .contentType(APPLICATION_JSON).content(
+                    JsonUtils.writeValueAsString(orchestratorZoneRequest))).andReturn();
 
             processZoneAPI(get("/orchestrator/zones"), ZONE_NAME, status().isNotFound());
         } finally {
@@ -91,7 +114,9 @@ public class OrchestratorZoneControllerTransactionRollbackTests {
                                                     String nameParameter, ResultMatcher expectedStatus)
         throws Exception {
         MvcResult result =
-            mockMvc.perform(mockRequestBuilder.param("name", nameParameter)).andExpect(expectedStatus).andReturn();
+            mockMvc.perform(mockRequestBuilder.param("name", nameParameter).
+                    header("Authorization", "Bearer " + orchestratorZonesReadToken))
+                    .andExpect(expectedStatus).andReturn();
         if (StringUtils.hasLength(result.getResponse().getContentAsString()) &&
             result.getResponse().getStatus() == 200) {
             return JsonUtils.readValue(result.getResponse().getContentAsString(), OrchestratorZoneResponse.class);
@@ -107,20 +132,5 @@ public class OrchestratorZoneControllerTransactionRollbackTests {
         orchestratorZoneRequest.setName(name);
         orchestratorZoneRequest.setParameters(orchestratorZone);
         return orchestratorZoneRequest;
-    }
-}
-
-@ImportResource(locations = {"file:./src/main/webapp/WEB-INF/spring-servlet.xml" })
-@PropertySource(value = "classpath:integration_test_properties.yml", factory = NestedMapPropertySourceFactory.class)
-class OrchestratorZoneTestConfiguration {
-
-    @Bean
-    public static PropertySourcesPlaceholderConfigurer properties() {
-        return new PropertySourcesPlaceholderConfigurer();
-    }
-
-    @Bean
-    public MockMvc mockMvc(WebApplicationContext webApplicationContext) {
-        return MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
     }
 }

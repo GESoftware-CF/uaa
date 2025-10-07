@@ -1,3 +1,4 @@
+/*
 package org.cloudfoundry.identity.uaa.db;
 
 
@@ -18,9 +19,11 @@ package org.cloudfoundry.identity.uaa.db;
  import java.util.Arrays;
  import java.util.List;
 
- /**
+ */
+/**
   * DataSourceConfig used for all cloud profiles.
-  */
+  *//*
+
  @Configuration
  @Profile({ "cloud" })
  public class CloudDataSourceConfig extends AbstractCloudConfig {
@@ -53,4 +56,4 @@ package org.cloudfoundry.identity.uaa.db;
      }
 
 
- }
+ }*/

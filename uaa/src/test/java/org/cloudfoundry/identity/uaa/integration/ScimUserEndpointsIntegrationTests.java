@@ -45,6 +45,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @OAuth2ContextConfiguration(OAuth2ContextConfiguration.ClientCredentials.class)
 class ScimUserEndpointsIntegrationTests {
@@ -118,10 +120,10 @@ class ScimUserEndpointsIntegrationTests {
     }
 
     private ResponseEntity<Object> createUserTx(String[] usernames, String[] firstNames, String[] lastNames, String[] emails) {
-        assertTrue("argument lengths not equal",
+        assertThat(
                 (usernames.length == firstNames.length) &&
                 (firstNames.length == lastNames.length) &&
-                (lastNames.length == emails.length));
+                (lastNames.length == emails.length)).isTrue();
         ArrayList<ScimUser> users = new ArrayList<ScimUser>(usernames.length);
         for(int i = 0; i < usernames.length; i++) {
             ScimUser user = new ScimUser();
@@ -130,7 +132,7 @@ class ScimUserEndpointsIntegrationTests {
             user.setName(new ScimUser.Name(firstNames[i], lastNames[i]));
             Email email = new Email();
             email.setValue(emails[i]);
-            user.setEmails(Arrays.asList(email));
+            user.setEmails(List.of(email));
             users.add(user);
         }
 
@@ -183,7 +185,7 @@ class ScimUserEndpointsIntegrationTests {
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
             for(String userName : userNames) {
                 Map<String, Collection> userRes = client.getForObject(serverRunning.getUrl(userEndpoint + "?filter=userName eq '" + userName + "'"), Map.class);
-                assertTrue(userRes.get("resources").isEmpty());
+                assertThat(userRes.get("resources")).isEmpty();
             }
     }
 

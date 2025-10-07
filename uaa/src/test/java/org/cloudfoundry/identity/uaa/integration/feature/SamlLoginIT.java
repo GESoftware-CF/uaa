@@ -90,6 +90,7 @@ import java.util.UUID;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.cloudfoundry.identity.uaa.integration.feature.OIDCLoginIT.doesSupportZoneDNS;
 import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.createSimplePHPSamlIDP;
 import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.assertSupportsZoneDNS;
 import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.getZoneAdminToken;
@@ -468,7 +469,6 @@ public class SamlLoginIT {
 
         // UAA Should no longer be logged in
         HomePage.assertThatGoHome_redirectsToLoginPage(webDriver, baseUrl);
-        */
     }
 
     @Test

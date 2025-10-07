@@ -243,7 +243,6 @@ public class ExternalOAuthProviderConfigurator implements IdentityProviderProvis
         return retrieveAll(providers);
     }
 
-    @Override
     public List<IdentityProvider> retrieveAll(List<IdentityProvider> providers) {
         final List<String> types = Arrays.asList(OAUTH20, OIDC10);
         final List<IdentityProvider> oauthAndOidcProviders = providers.stream()

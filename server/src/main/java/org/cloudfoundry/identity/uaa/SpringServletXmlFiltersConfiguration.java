@@ -107,6 +107,7 @@ public class SpringServletXmlFiltersConfiguration {
     @Bean
     FilterRegistrationBean<LimitedModeUaaFilter> limitedModeUaaFilter() {
         LimitedModeUaaFilter filter = new LimitedModeUaaFilter();
+        // TODO: check this
         filter.setStatusFile(limitedModeProperties.statusFile);
         filter.setPermittedEndpoints(limitedModeProperties.permitted.endpoints());
         filter.setPermittedMethods(limitedModeProperties.permitted.methods());

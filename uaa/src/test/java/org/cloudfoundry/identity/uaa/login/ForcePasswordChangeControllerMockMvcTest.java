@@ -37,6 +37,9 @@ import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.getForcePasswordChangeForm;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.getLoginForm;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.performGet;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -249,7 +252,7 @@ class ForcePasswordChangeControllerMockMvcTest {
                 .param("password_confirmation", "test");
         mockMvc.perform(validPost)
                 .andExpect(status().isFound())
-                .andExpect(redirectedUrl("http://localhost/login?error=invalid_login_request")));
+                .andExpect(redirectedUrl("http://localhost/login?error=invalid_login_request"));
     }
 
     @SneakyThrows
@@ -261,7 +264,7 @@ class ForcePasswordChangeControllerMockMvcTest {
     @SneakyThrows
     private ResultActions getRootPath(MockHttpSession session) {
         return performGet(mockMvc, session, "/")
-                .andExpect(status().isFound();
+                .andExpect(status().isFound());
     }
 
     static class PasswordPolicyWithInvalidPassword {

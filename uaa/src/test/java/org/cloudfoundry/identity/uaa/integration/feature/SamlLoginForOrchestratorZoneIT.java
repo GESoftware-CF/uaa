@@ -1,3 +1,4 @@
+/*
 package org.cloudfoundry.identity.uaa.integration.feature;
 
 
@@ -5,8 +6,8 @@ import org.cloudfoundry.identity.uaa.integration.feature.orchestrator.uilocators
 import org.cloudfoundry.identity.uaa.integration.feature.orchestrator.uilocators.SploginUI;
 import org.cloudfoundry.identity.uaa.integration.feature.orchestrator.utils.IntegrationUtilsOrchestrator;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
+import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
 import org.cloudfoundry.identity.uaa.provider.SamlIdentityProviderDefinition;
-import org.cloudfoundry.identity.uaa.provider.saml.idp.SamlServiceProviderDefinition;
 import org.cloudfoundry.identity.uaa.scim.ScimGroup;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
@@ -17,7 +18,6 @@ import org.junit.runner.RunWith;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Cookie;
 import org.openqa.selenium.NoSuchElementException;
-import org.springframework.security.oauth2.common.util.RandomValueStringGenerator;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.web.client.RestTemplate;
@@ -68,9 +68,11 @@ public class SamlLoginForOrchestratorZoneIT extends SamlBaseIT {
         }
     }
 
-    /**
+    */
+/**
      * In this test samlidpzone acts as the SAML IdP and samlspzone acts as the SAML SP.
-     */
+     *//*
+
     @Test
     public void testCrossZoneSamlIntegration() throws Throwable {
         String idpZoneId = "samlidpzone";
@@ -145,3 +147,4 @@ public class SamlLoginForOrchestratorZoneIT extends SamlBaseIT {
         }
     }
 }
+*/

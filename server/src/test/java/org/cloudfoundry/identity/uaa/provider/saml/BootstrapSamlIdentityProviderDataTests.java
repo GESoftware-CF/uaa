@@ -99,6 +99,7 @@ public class BootstrapSamlIdentityProviderDataTests {
     private BootstrapSamlIdentityProviderData bootstrap;
     private SamlIdentityProviderDefinition singleAdd;
     private static final String SINGLE_ADD_ALIAS = "sample-alias";
+    RequestScopedIdpDefinitionsCache requestScopedIdpDefinitionsCache = mock(RequestScopedIdpDefinitionsCache.class);
 
     public static String sampleYaml = "  providers:\n" +
             "    okta-local:\n" +
@@ -153,7 +154,7 @@ public class BootstrapSamlIdentityProviderDataTests {
 
     @BeforeEach
     void beforeEach() {
-        bootstrap = new BootstrapSamlIdentityProviderData(new SamlIdentityProviderConfigurator(mock(JdbcIdentityProviderProvisioning.class), new IdentityZoneManagerImpl(), mock(FixedHttpMetaDataProvider.class)));
+        bootstrap = new BootstrapSamlIdentityProviderData(new SamlIdentityProviderConfigurator(mock(JdbcIdentityProviderProvisioning.class), new IdentityZoneManagerImpl(), mock(FixedHttpMetaDataProvider.class), requestScopedIdpDefinitionsCache));
         singleAdd = new SamlIdentityProviderDefinition()
                 .setMetaDataLocation(BootstrapSamlIdentityProviderDataTests.XML_WITHOUT_ID.formatted(new RandomValueStringGenerator().generate()))
                 .setIdpEntityAlias(SINGLE_ADD_ALIAS)

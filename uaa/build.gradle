@@ -61,7 +61,6 @@ dependencies {
 
     implementation(libraries.braveInstrumentation)
     implementation(libraries.braveContextSlf4j)
-    implementation(libraries.jakartaEl)
 
     implementation(libraries.springWeb)
     implementation(libraries.springWebMvc)
@@ -120,8 +119,6 @@ dependencies {
     testImplementation(libraries.nimbusJwt)
     testImplementation(libraries.lombok)
     testAnnotationProcessor(libraries.lombok)
-
-    testImplementation(project(":iam-k8s-utils"))
 }
 
 ext {

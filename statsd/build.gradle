@@ -19,7 +19,6 @@ dependencies {
     providedRuntime(libraries.springBootStarterTomcat){
         exclude(group: "org.glassfish", module: "jakarta.el")
     }
-    implementation(libraries.jakartaEl)
 }
 
 test {

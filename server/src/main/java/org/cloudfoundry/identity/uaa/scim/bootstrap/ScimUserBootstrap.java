@@ -246,6 +246,7 @@ public class ScimUserBootstrap implements
     public void onApplicationEvent(AuthEvent event) {
         UaaUser uaaUser = event.getUser();
         if (event instanceof InvitedUserAuthenticatedEvent) {
+            ScimUser user = getScimUser(uaaUser);
             // external users should default to not being verified
             if (!OriginKeys.UAA.equals(uaaUser.getOrigin())) {
                 uaaUser.setVerified(false);

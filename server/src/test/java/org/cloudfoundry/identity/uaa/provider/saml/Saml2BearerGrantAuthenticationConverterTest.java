@@ -74,15 +74,17 @@ class Saml2BearerGrantAuthenticationConverterTest {
 
     private Saml2BearerGrantAuthenticationConverter provider;
 
+    RequestScopedIdpDefinitionsCache requestScopedIdpDefinitionsCache = mock(RequestScopedIdpDefinitionsCache.class);
+
     @BeforeEach
     void beforeEach() {
         IdentityZoneManager identityZoneManager = new IdentityZoneManagerImpl();
         SamlConfiguration samlConfiguration = new SamlConfiguration();
         JdbcIdentityProviderProvisioning providerProvisioning = mock(JdbcIdentityProviderProvisioning.class);
 
-        SamlIdentityProviderConfigurator identityProviderConfigurator = new SamlIdentityProviderConfigurator(
-                providerProvisioning, identityZoneManager, samlConfiguration.fixedHttpMetaDataProvider(RestTemplateConfig.createDefaults(), null)
-        );
+        SamlIdentityProviderConfigurator identityProviderConfigurator = new SamlIdentityProviderConfigurator
+                (providerProvisioning, identityZoneManager, samlConfiguration.fixedHttpMetaDataProvider
+                        (RestTemplateConfig.createDefaults(), null), requestScopedIdpDefinitionsCache);
         SamlRelyingPartyRegistrationRepositoryConfig samlRelyingPartyRegistrationRepositoryConfig =
                 new SamlRelyingPartyRegistrationRepositoryConfig(
                         "integration-saml-entity-id", Saml2TestUtils.createTestSamlProperties(),

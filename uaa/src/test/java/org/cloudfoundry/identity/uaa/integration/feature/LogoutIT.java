@@ -1,12 +1,13 @@
 package org.cloudfoundry.identity.uaa.integration.feature;
 
-import org.cloudfoundry.identity.uaa.ServerRunning;
+import org.cloudfoundry.identity.uaa.ServerRunningExtension;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.runner.RunWith;
 import org.openqa.selenium.WebDriver;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,17 +32,14 @@ import static org.junit.Assert.assertTrue;
 @ContextConfiguration(classes = DefaultIntegrationTestConfig.class)
 public class LogoutIT {
 	
-	@Autowired 
-	@Rule
-    public IntegrationTestRule integrationTestRule;
-	
     @Autowired
     WebDriver webDriver;
 
     @Value("${integration.test.base_url}")
     String baseUrl;
-    
-    ServerRunning serverRunning = ServerRunning.isRunning();  
+
+    @RegisterExtension
+    private static final ServerRunningExtension serverRunning = ServerRunningExtension.connect();
     
     @Before
     @After

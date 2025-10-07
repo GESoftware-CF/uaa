@@ -32,6 +32,7 @@ import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.CLIENT_AU
 import static org.junit.Assert.assertTrue;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.http.MediaType.APPLICATION_JSON_UTF8;
+import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 class PasswordGrantIntegrationTests {
     @RegisterExtension

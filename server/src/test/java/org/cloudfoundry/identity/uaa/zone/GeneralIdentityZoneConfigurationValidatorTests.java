@@ -20,7 +20,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.cloudfoundry.identity.uaa.zone.SamlConfig.SignatureAlgorithm;
 
 import java.security.Security;
 import java.util.HashMap;
@@ -325,39 +324,6 @@ class GeneralIdentityZoneConfigurationValidatorTests {
         assertThatThrownBy(() -> validator.validate(zone, mode))
                 .isInstanceOf(InvalidIdentityZoneConfigurationException.class)
                 .hasMessageContaining("Invalid value in config.corsPolicy.xhrConfiguration.allowedUris: '^/uaa/userinfo('");
-    }
-
-    @Test
-    public void testSamlSignatureAlgorithmValid() throws Exception{
-        validateSignatureAlgorithm(SHA1, SHA1, true);
-        validateSignatureAlgorithm(SHA1, SHA256, true);
-        validateSignatureAlgorithm(SHA1, SHA512, true);
-        validateSignatureAlgorithm(SHA256, SHA256, true);
-        validateSignatureAlgorithm(SHA256, SHA512, true);
-        validateSignatureAlgorithm(SHA512, SHA512, true);
-    }
-
-    @Test
-    public void testSamlSignatureAlgorithmLessThanGlobalDefault() throws Exception{
-        boolean valid = true;
-        if(mode == IdentityZoneValidator.Mode.CREATE) {
-            valid = false;
-        }
-        validateSignatureAlgorithm(SHA256, SHA1, valid);
-        validateSignatureAlgorithm(SHA512, SHA1, valid);
-        validateSignatureAlgorithm(SHA512, SHA256, valid);
-    }
-
-    private void validateSignatureAlgorithm(SignatureAlgorithm globalDefault, SignatureAlgorithm samlConfigAlgorithm, boolean valid) throws Exception{
-
-        validator.setDefaultSamlSignatureAlgorithm(globalDefault);
-        samlConfig.setSignatureAlgorithm(samlConfigAlgorithm);
-
-        if(!valid) {
-            expection.expect(InvalidIdentityZoneConfigurationException.class);
-            expection.expectMessage("Invalid SAML signatureAlgorithm. Must be " + globalDefault + " or higher");
-        }
-        validator.validate(zone, mode);
     }
 
     @MethodSource("parameters")

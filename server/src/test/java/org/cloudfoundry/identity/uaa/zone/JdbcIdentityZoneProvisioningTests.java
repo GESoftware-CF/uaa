@@ -1,6 +1,5 @@
 package org.cloudfoundry.identity.uaa.zone;
 
-import org.apache.commons.lang.RandomStringUtils;
 import org.cloudfoundry.identity.uaa.annotations.WithDatabaseContext;
 import org.cloudfoundry.identity.uaa.audit.event.EntityDeletedEvent;
 import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
@@ -15,9 +14,12 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @WithDatabaseContext
 class JdbcIdentityZoneProvisioningTests {
@@ -71,8 +73,8 @@ class JdbcIdentityZoneProvisioningTests {
         assertThat(createdIdZone.getConfig().getTokenPolicy().getRefreshTokenValidity()).isEqualTo(7200);
         assertThat(createdIdZone.isActive()).isTrue();
 
-        assertFalse(createdIdZone.getConfig().getLinks().getSelfService().isSelfServiceCreateAccountEnabled());
-        assertTrue(createdIdZone.getConfig().getLinks().getSelfService().isSelfServiceResetPasswordEnabled());
+        assertThat(createdIdZone.getConfig().getLinks().getSelfService().isSelfServiceCreateAccountEnabled()).isFalse();
+        assertThat(createdIdZone.getConfig().getLinks().getSelfService().isSelfServiceResetPasswordEnabled()).isTrue();
         assertNull(createdIdZone.getConfig().getLinks().getSelfService().getPasswd());
         assertNull(createdIdZone.getConfig().getLinks().getSelfService().getSignup());
     }
@@ -87,10 +89,10 @@ class JdbcIdentityZoneProvisioningTests {
 
         IdentityZone createdIdZone = jdbcIdentityZoneProvisioning.create(identityZone);
 
-        assertEquals(identityZone.getId(), createdIdZone.getId());
-        assertEquals(identityZone.getSubdomain(), createdIdZone.getSubdomain());
-        assertEquals(identityZone.getName(), createdIdZone.getName());
-        assertEquals(identityZone.getDescription(), createdIdZone.getDescription());
+        assertThat(identityZone.getId()).isEqualTo(createdIdZone.getId());
+        assertThat(identityZone.getSubdomain()).isEqualTo(createdIdZone.getSubdomain());
+        assertThat(identityZone.getName()).isEqualTo(createdIdZone.getName());
+        assertThat(identityZone.getDescription()).isEqualTo(createdIdZone.getDescription());
         assertTrue(createdIdZone.isActive());
 
         assertFalse(createdIdZone.getConfig().getLinks().getSelfService().isSelfServiceCreateAccountEnabled());
@@ -563,12 +565,12 @@ class JdbcIdentityZoneProvisioningTests {
 
         IdentityZone createdIdZone = jdbcIdentityZoneProvisioning.create(identityZone);
         jdbcIdentityZoneProvisioning.createOrchestratorZone(identityZone.getId(), identityZone.getName());
-        assertThat(jdbcTemplate.queryForObject("select count(*) from identity_zone where id = ?", new Object[]{createdIdZone.getId()}, Integer.class), is(1));
-        assertThat(jdbcTemplate.queryForObject("select count(*) from orchestrator_zone where identity_zone_id = ? and orchestrator_zone_name=?", new Object[]{createdIdZone.getId(), createdIdZone.getName()}, Integer.class), is(1));
+        assertThat(jdbcTemplate.queryForObject("select count(*) from identity_zone where id = ?", new Object[]{createdIdZone.getId()}, Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("select count(*) from orchestrator_zone where identity_zone_id = ? and orchestrator_zone_name=?", new Object[]{createdIdZone.getId(), createdIdZone.getName()}, Integer.class)).isEqualTo(1);
         jdbcIdentityZoneProvisioning.deleteOrchestratorZone(identityZone.getName());
         jdbcIdentityZoneProvisioning.onApplicationEvent(new EntityDeletedEvent<>(identityZone, null, IdentityZoneHolder.getCurrentZoneId()));
-        assertThat(jdbcTemplate.queryForObject("select count(*) from identity_zone where id = ?", new Object[]{createdIdZone.getId()}, Integer.class), is(0));
-        assertThat(jdbcTemplate.queryForObject("select count(*) from orchestrator_zone where identity_zone_id = ? and orchestrator_zone_name=?", new Object[]{createdIdZone.getId(), createdIdZone.getName()}, Integer.class), is(0));
+        assertThat(jdbcTemplate.queryForObject("select count(*) from identity_zone where id = ?", new Object[]{createdIdZone.getId()}, Integer.class)).isEqualTo(0);
+        assertThat(jdbcTemplate.queryForObject("select count(*) from orchestrator_zone where identity_zone_id = ? and orchestrator_zone_name=?", new Object[]{createdIdZone.getId(), createdIdZone.getName()}, Integer.class)).isEqualTo(0);
     }
 
     @Test

@@ -49,6 +49,8 @@ import static org.cloudfoundry.identity.uaa.constants.OriginKeys.SAML;
 import static org.cloudfoundry.identity.uaa.constants.OriginKeys.UAA;
 import static org.cloudfoundry.identity.uaa.constants.OriginKeys.UNKNOWN;
 import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.USER_NAME_ATTRIBUTE_NAME;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -210,7 +212,7 @@ class IdentityProviderEndpointsTest {
     @Test
     void testRetrieveMissingIdentityProviderThrowsException() {
         when(mockIdentityProviderProvisioning.retrieve(anyString(), anyString())).thenReturn(null);
-        Assertions.assertThrows(EmptyResultDataAccessException.class,
+        assertThrows(EmptyResultDataAccessException.class,
                 () -> identityProviderEndpoints.retrieveIdentityProvider("123", true));
     }
 

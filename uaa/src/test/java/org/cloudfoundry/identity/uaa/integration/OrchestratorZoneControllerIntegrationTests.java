@@ -1,42 +1,19 @@
 package org.cloudfoundry.identity.uaa.integration;
 
-import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.assertSupportsZoneDNS;
-import static org.cloudfoundry.identity.uaa.mock.zones.OrchestratorZoneControllerMockMvcTests.DASHBOARD_URI;
-import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.DASHBOARD_LOGIN_PATH;
-import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.X_IDENTITY_ZONE_ID;
-import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.ZONE_CREATED_MESSAGE;
-import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.ZONE_DELETED_MESSAGE;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.core.Is.is;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.springframework.http.MediaType.APPLICATION_JSON_UTF8;
-
-import java.io.ByteArrayInputStream;
-import java.net.URI;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.cloudfoundry.identity.uaa.ServerRunning;
+import org.cloudfoundry.identity.uaa.ServerRunningExtension;
+import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
+import org.cloudfoundry.identity.uaa.oauth.client.OAuth2RestTemplate;
+import org.cloudfoundry.identity.uaa.oauth.client.http.OAuth2ErrorHandler;
+import org.cloudfoundry.identity.uaa.oauth.client.resource.ClientCredentialsResourceDetails;
+import org.cloudfoundry.identity.uaa.oauth.client.test.OAuth2ContextConfiguration;
+import org.cloudfoundry.identity.uaa.oauth.client.test.OAuth2ContextExtension;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.UaaIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.saml.SamlKey;
-import org.cloudfoundry.identity.uaa.test.TestAccountSetup;
+import org.cloudfoundry.identity.uaa.test.TestAccountExtension;
 import org.cloudfoundry.identity.uaa.test.UaaTestAccounts;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
@@ -54,9 +31,9 @@ import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneResponse;
 import org.hamcrest.MatcherAssert;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
@@ -69,17 +46,42 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.crypto.codec.Base64;
-import org.springframework.security.oauth2.client.OAuth2RestTemplate;
-import org.springframework.security.oauth2.client.http.OAuth2ErrorHandler;
-import org.springframework.security.oauth2.client.test.OAuth2ContextConfiguration;
-import org.springframework.security.oauth2.client.test.OAuth2ContextSetup;
-import org.springframework.security.oauth2.client.token.grant.client.ClientCredentialsResourceDetails;
-import org.springframework.security.oauth2.provider.client.BaseClientDetails;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
-@OAuth2ContextConfiguration(OrchestratorZoneControllerIntegrationTests.OrchestratorClient.class)
+import java.io.ByteArrayInputStream;
+import java.net.URI;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.assertSupportsZoneDNS;
+import static org.cloudfoundry.identity.uaa.mock.zones.OrchestratorZoneControllerMockMvcTests.DASHBOARD_URI;
+import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.DASHBOARD_LOGIN_PATH;
+import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.X_IDENTITY_ZONE_ID;
+import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.ZONE_CREATED_MESSAGE;
+import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.ZONE_DELETED_MESSAGE;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.core.Is.is;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.http.MediaType.APPLICATION_JSON_UTF8;
+import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
+
+@OAuth2ContextConfiguration(IdentityZoneEndpointsIntegrationTests.IdentityClient.class)
 public class OrchestratorZoneControllerIntegrationTests {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OrchestratorZoneControllerIntegrationTests.class);
@@ -99,16 +101,16 @@ public class OrchestratorZoneControllerIntegrationTests {
 
     private static final String OAUTH_CLIENT_URI = "/oauth/clients";
 
-    @Rule
-    public ServerRunning serverRunning = ServerRunning.isRunning();
+    @RegisterExtension
+    private static final ServerRunningExtension serverRunning = ServerRunningExtension.connect();
 
-    private final UaaTestAccounts testAccounts = UaaTestAccounts.standard(serverRunning);
+    private static final UaaTestAccounts testAccounts = UaaTestAccounts.standard(serverRunning);
 
-    @Rule
-    public OAuth2ContextSetup context = OAuth2ContextSetup.standard(serverRunning);
+    @RegisterExtension
+    private static final TestAccountExtension testAccountExtension = TestAccountExtension.standard(serverRunning, testAccounts);
 
-    @Rule
-    public TestAccountSetup testAccountSetup = TestAccountSetup.standard(serverRunning, testAccounts);
+    @RegisterExtension
+    private static final OAuth2ContextExtension context = OAuth2ContextExtension.withTestAccounts(serverRunning, testAccountExtension);
 
     private RestTemplate client;
 
@@ -630,8 +632,8 @@ public class OrchestratorZoneControllerIntegrationTests {
         expectedResponse.setMessage("parameters.adminClientSecret must not be empty and must not have empty spaces");
         expectedResponse.setState(OrchestratorState.PERMANENT_FAILURE.toString());
 
-        assertEquals(getResponse.getStatusCode(), HttpStatus.BAD_REQUEST);
-        assertEquals(APPLICATION_JSON_UTF8, getResponse.getHeaders().getContentType());
+        assertEquals(HttpStatus.BAD_REQUEST, getResponse.getStatusCode());
+        assertEquals(APPLICATION_JSON, getResponse.getHeaders().getContentType());
         assertResponse(expectedResponse, getResponse.getBody());
     }
 
@@ -646,8 +648,8 @@ public class OrchestratorZoneControllerIntegrationTests {
                 "subdomain name except hyphen which can be specified in the middle");
         expectedResponse.setState(OrchestratorState.PERMANENT_FAILURE.toString());
 
-        assertEquals(getResponse.getStatusCode(), HttpStatus.BAD_REQUEST);
-        assertEquals(APPLICATION_JSON_UTF8, getResponse.getHeaders().getContentType());
+        assertEquals(HttpStatus.BAD_REQUEST, getResponse.getStatusCode());
+        assertEquals(APPLICATION_JSON, getResponse.getHeaders().getContentType());
         assertResponse(expectedResponse, getResponse.getBody());
     }
 
@@ -661,8 +663,8 @@ public class OrchestratorZoneControllerIntegrationTests {
         expectedResponse.setMessage("name must not be blank");
         expectedResponse.setState(OrchestratorState.PERMANENT_FAILURE.toString());
 
-        assertEquals(getResponse.getStatusCode(), HttpStatus.BAD_REQUEST);
-        assertEquals(APPLICATION_JSON_UTF8, getResponse.getHeaders().getContentType());
+        assertEquals(HttpStatus.BAD_REQUEST, getResponse.getStatusCode());
+        assertEquals(APPLICATION_JSON, getResponse.getHeaders().getContentType());
         assertResponse(expectedResponse, getResponse.getBody());
     }
 
@@ -670,12 +672,12 @@ public class OrchestratorZoneControllerIntegrationTests {
 
         public OrchestratorClient(Object target) {
             OrchestratorZoneControllerIntegrationTests test = (OrchestratorZoneControllerIntegrationTests) target;
-            ClientCredentialsResourceDetails resource = test.testAccounts.getClientCredentialsResource(
+            ClientCredentialsResourceDetails resource = testAccounts.getClientCredentialsResource(
                     new String[] {"uaa.none"}, "orchestrator-zone-provisioner", "orchestratorsecret");
             setClientId(resource.getClientId());
             setClientSecret(resource.getClientSecret());
             setId(getClientId());
-            setAccessTokenUri(test.serverRunning.getAccessTokenUri());
+            setAccessTokenUri(serverRunning.getAccessTokenUri());
         }
     }
 
@@ -741,7 +743,7 @@ public class OrchestratorZoneControllerIntegrationTests {
 
     private void createClient(String zoneId, final String authorities, final String clientId, final String clientSecret, final String grantTypes, final String resourceIds, final String scopes) {
         OAuth2RestTemplate adminClient = (OAuth2RestTemplate) IntegrationTestUtils.getClientCredentialsTemplate(IntegrationTestUtils.getClientCredentialsResource(serverRunning.getBaseUrl(), new String[0], ADMIN_CLIENT_NAME, SUPER_ADMIN_CLIENT_SECRET));
-        BaseClientDetails client = new BaseClientDetails(ADMIN_CLIENT_NAME, resourceIds, scopes, grantTypes, authorities);
+        UaaClientDetails client = new UaaClientDetails(ADMIN_CLIENT_NAME, resourceIds, scopes, grantTypes, authorities);
         client.setClientSecret(ADMIN_CLIENT_SECRET);
 
         URI currentURI = URI.create(serverRunning.getUrl(OAUTH_CLIENT_URI));
@@ -749,9 +751,9 @@ public class OrchestratorZoneControllerIntegrationTests {
         HttpHeaders headers = new HttpHeaders();
         headers.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
         headers.add(IdentityZoneSwitchingFilter.HEADER, zoneId);
-        HttpEntity<BaseClientDetails> requestEntity = new HttpEntity<>(client, headers);
+        HttpEntity<UaaClientDetails> requestEntity = new HttpEntity<>(client, headers);
 
-        ResponseEntity<BaseClientDetails> createClientResponse = adminClient.postForEntity(currentURI, requestEntity, BaseClientDetails.class);
+        ResponseEntity<UaaClientDetails> createClientResponse = adminClient.postForEntity(currentURI, requestEntity, UaaClientDetails.class);
         Assert.assertEquals(HttpStatus.CREATED, createClientResponse.getStatusCode());
     }
 
@@ -802,8 +804,6 @@ public class OrchestratorZoneControllerIntegrationTests {
     }
 
     private void checkSamlConfig(final SamlConfig samlConfig) {
-        assertNotNull(samlConfig.getSignatureAlgorithm());
-        assertEquals(samlConfig.getSignatureAlgorithm(), SignatureAlgorithm.SHA256);
         assertNotNull(samlConfig.getActiveKeyId());
     }
 
@@ -843,10 +843,10 @@ public class OrchestratorZoneControllerIntegrationTests {
                                          final String zoneId,
                                          final OAuth2RestTemplate zoneAdminClient) {
 
-        ResponseEntity<BaseClientDetails> baseClientDetailsResponse = zoneAdminClient.getForEntity(
+        ResponseEntity<UaaClientDetails> baseClientDetailsResponse = zoneAdminClient.getForEntity(
                 zoneUri + OAUTH_CLIENT_ENDPOINT + "/admin",
-                BaseClientDetails.class);
-        BaseClientDetails baseClientDetails = baseClientDetailsResponse.getBody();
+                UaaClientDetails.class);
+        UaaClientDetails baseClientDetails = baseClientDetailsResponse.getBody();
 
         Collection<GrantedAuthority> authorities = baseClientDetails.getAuthorities();
         List<String> defaultAuthList =

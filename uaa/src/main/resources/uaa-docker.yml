@@ -604,4 +604,3 @@ encryption:
 #The secret that an external login server will use to authenticate to the uaa using the id `login`
 LOGIN_SECRET: loginsecret
 
-NUREGO_API_URL: https://api.nurego.com

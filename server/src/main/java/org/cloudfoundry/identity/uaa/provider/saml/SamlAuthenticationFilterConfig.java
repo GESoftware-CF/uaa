@@ -5,7 +5,6 @@ import org.cloudfoundry.identity.uaa.authentication.SamlLogoutResponseValidator;
 import org.cloudfoundry.identity.uaa.login.UaaAuthenticationFailureHandler;
 import org.cloudfoundry.identity.uaa.provider.JdbcIdentityProviderProvisioning;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupExternalMembershipManager;
-import org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository;
 import org.cloudfoundry.identity.uaa.user.UaaUserDatabase;
 import org.cloudfoundry.identity.uaa.web.UaaSavedRequestAwareAuthenticationSuccessHandler;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
@@ -34,6 +33,7 @@ import org.springframework.security.web.authentication.logout.SecurityContextLog
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CsrfLogoutHandler;
+import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 import jakarta.servlet.Filter;
@@ -183,14 +183,14 @@ public class SamlAuthenticationFilterConfig {
     @Bean
     FilterRegistrationBean<Saml2LogoutRequestFilter> saml2LogoutRequestFilter(UaaRelyingPartyRegistrationResolver relyingPartyRegistrationResolver,
             UaaAuthenticationFailureHandler authenticationFailureHandler,
-            CookieBasedCsrfTokenRepository loginCookieCsrfRepository) {
+                                      HttpSessionCsrfTokenRepository csrfTokenRepository) {
 
         // This validator ignores missing signatures in the SAML2 Logout Response
         Saml2LogoutRequestValidator logoutRequestValidator = new SamlLogoutRequestValidator();
         Saml2LogoutResponseResolver logoutResponseResolver = new OpenSaml4LogoutResponseResolver(relyingPartyRegistrationResolver);
 
         SecurityContextLogoutHandler securityContextLogoutHandlerWithHandler = new SecurityContextLogoutHandler();
-        CsrfLogoutHandler csrfLogoutHandler = new CsrfLogoutHandler(loginCookieCsrfRepository);
+        CsrfLogoutHandler csrfLogoutHandler = new CsrfLogoutHandler(csrfTokenRepository);
         CookieClearingLogoutHandler cookieClearingLogoutHandlerWithHandler = new CookieClearingLogoutHandler("JSESSIONID");
 
         Saml2LogoutRequestFilter filter = new Saml2LogoutRequestFilter(relyingPartyRegistrationResolver,

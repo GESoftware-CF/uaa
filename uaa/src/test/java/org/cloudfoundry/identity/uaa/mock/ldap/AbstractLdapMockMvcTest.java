@@ -84,13 +84,16 @@ import java.util.concurrent.ThreadLocalRandom;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.constants.OriginKeys.LDAP;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
 import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.createClient;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.getLoginForm;
 import static org.cloudfoundry.identity.uaa.oauth.common.OAuth2AccessToken.ACCESS_TOKEN;
 import static org.cloudfoundry.identity.uaa.oauth.common.OAuth2AccessToken.REFRESH_TOKEN;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_PASSWORD;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_REFRESH_TOKEN;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.Mockito.atLeast;
@@ -656,10 +659,10 @@ public abstract class AbstractLdapMockMvcTest {
                 .andExpect(redirectedUrl("/login?error=login_failure"));
 
         ArgumentCaptor<ApplicationEvent> captor = ArgumentCaptor.forClass(ApplicationEvent.class);
-        verify(listener, atLeast(3)).onApplicationEvent(captor.capture());
+        verify(listener, atLeast(5)).onApplicationEvent(captor.capture());
         List<ApplicationEvent> allValues = captor.getAllValues();
-        assertThat(allValues.get(2)).isInstanceOf(IdentityProviderAuthenticationFailureEvent.class);
-        IdentityProviderAuthenticationFailureEvent event = (IdentityProviderAuthenticationFailureEvent) allValues.get(2);
+        assertThat(allValues.get(5)).isInstanceOf(IdentityProviderAuthenticationFailureEvent.class);
+        IdentityProviderAuthenticationFailureEvent event = (IdentityProviderAuthenticationFailureEvent) allValues.get(5);
         assertThat(event.getUsername()).isEqualTo("marissa");
         assertThat(event.getAuthenticationType()).isEqualTo(OriginKeys.LDAP);
 
@@ -680,7 +683,9 @@ public abstract class AbstractLdapMockMvcTest {
         captor = ArgumentCaptor.forClass(ApplicationEvent.class);
         verify(listener, atLeast(5)).onApplicationEvent(captor.capture());
         allValues = captor.getAllValues();
-        assertThat(allValues, hasItem(instanceOf(IdentityProviderAuthenticationSuccessEvent.class)));
+        assertThat(allValues.stream()
+                .anyMatch(IdentityProviderAuthenticationSuccessEvent.class::isInstance))
+                .isTrue();
         IdentityProviderAuthenticationSuccessEvent successEvent = allValues
                 .stream()
                 .filter(e -> e instanceof IdentityProviderAuthenticationSuccessEvent)

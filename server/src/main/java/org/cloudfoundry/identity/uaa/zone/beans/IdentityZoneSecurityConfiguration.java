@@ -28,6 +28,69 @@ import static org.cloudfoundry.identity.uaa.web.AuthorizationManagersUtils.anyOf
 class IdentityZoneSecurityConfiguration {
 
     @Bean
+    @Order(FilterChainOrder.ORCHESTRATOR_ZONES)
+    public SecurityFilterChain orchestratorZoneSecurity(
+            HttpSecurity http,
+            UaaTokenServices tokenServices,
+            @Qualifier("oauthAccessDeniedHandler") OAuth2AccessDeniedHandler oauthAccessDeniedHandler,
+            @Qualifier("oauthAuthenticationEntryPoint") OAuth2AuthenticationEntryPoint oauthAuthenticationEntryPoint
+    ) throws Exception {
+        var emptyAuthenticationManager = new ProviderManager(new AuthenticationManagerBeanDefinitionParser.NullAuthenticationProvider());
+
+        OAuth2AuthenticationManager authenticationManager = new OAuth2AuthenticationManager();
+        authenticationManager.setTokenServices(tokenServices);
+        OAuth2AuthenticationProcessingFilter oauth2ResourceFilter = new OAuth2AuthenticationProcessingFilter();
+        oauth2ResourceFilter.setAuthenticationManager(authenticationManager);
+        oauth2ResourceFilter.setAuthenticationEntryPoint(oauthAuthenticationEntryPoint);
+
+        var originalFilterChain = http
+                .securityMatcher("/orchestrator/zones/**")
+                .authenticationManager(emptyAuthenticationManager)
+                .authorizeHttpRequests(auth -> {
+                    auth.requestMatchers(HttpMethod.POST, "/orchestrator/zones").access(
+                            anyOf()
+                                    .isZoneAdmin()
+                                    .hasScope("orchestrator.zones.write")
+                                    .hasScope("zones.write")
+                                    .throwOnMissingScope()
+                    );
+                    auth.requestMatchers(HttpMethod.GET, "/orchestrator/zones").access(
+                            anyOf()
+                                    .isZoneAdmin()
+                                    .hasScope("orchestrator.zones.read")
+                                    .hasScopeWithZoneId("zones.read")
+                                    .hasScope("orchestrator.zones.write")
+                                    .hasScope("zones.write")
+                                    .throwOnMissingScope()
+                    );
+                    auth.requestMatchers(HttpMethod.DELETE, "/orchestrator/zones").access(
+                            anyOf()
+                                    .isZoneAdmin()
+                                    .hasScope("orchestrator.zones.write")
+                                    .hasScope("zones.write")
+                                    .throwOnMissingScope()
+                    );
+                    auth.requestMatchers(HttpMethod.PUT, "/orchestrator/zones").access(
+                            anyOf()
+                                    .isZoneAdmin()
+                                    .hasScope("orchestrator.zones.write")
+                                    .hasScope("zones.write")
+                                    .throwOnMissingScope()
+                    );
+                })
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(oauth2ResourceFilter, AbstractPreAuthenticatedProcessingFilter.class)
+                .csrf(CsrfConfigurer::disable)
+                .exceptionHandling(exception -> {
+                    exception.authenticationEntryPoint(oauthAuthenticationEntryPoint);
+                    exception.accessDeniedHandler(oauthAccessDeniedHandler);
+                })
+                .securityContext(sc -> sc.requireExplicitSave(false))
+                .build();
+        return new UaaFilterChain(originalFilterChain, "orchestratorZones");
+    }
+
+    @Bean
     @Order(FilterChainOrder.IDENTITY_ZONES)
     public SecurityFilterChain identityZones(
             HttpSecurity http,

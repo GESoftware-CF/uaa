@@ -8,6 +8,8 @@ import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.oauth.common.exceptions.RedirectMismatchException;
 import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetails;
+import org.cloudfoundry.identity.uaa.zone.IdentityZone;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -28,7 +30,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
-import static org.hamcrest.core.IsNot.not;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -62,6 +63,16 @@ class LegacyRedirectResolverTest {
         assertThat(logEvents).filteredOn(l -> l.getLevel().equals(expectedLevel))
                 .extracting(l -> l.getMessage().getFormattedMessage())
                 .contains(expectedMessage);
+    }
+
+    private void assertNotThatMessageWasLogged(
+            final List<LogEvent> logEvents,
+            final Level expectedLevel,
+            final String expectedMessage) {
+
+        assertThat(logEvents).filteredOn(l -> l.getLevel().equals(expectedLevel))
+                .extracting(l -> l.getMessage().getFormattedMessage())
+                .doesNotContain(expectedMessage);
     }
 
     @Nested
@@ -186,7 +197,10 @@ class LegacyRedirectResolverTest {
             ClientDetails client = createClient("foo", configuredExplicitRedirectUri, configuredImplicitRedirectUri);
 
             resolver.resolveRedirect(requestedRedirectUri, client);
-            assertThatMessageWasLogged(logEvents, WARN, expectedWarning(client.getClientId(), requestedRedirectUri, configuredImplicitRedirectUri));
+            // In Predix, domain expansion is not allowed
+            // so requested URL https://an.example.com/ should not match https://example.com/ configured URL
+            // https://github.com/GESoftware-CF/uaa/commit/1404e58467a323aee44841e158580323bbcc9b8b
+            assertNotThatMessageWasLogged(logEvents, WARN, expectedWarning(client.getClientId(), requestedRedirectUri, configuredImplicitRedirectUri));
             assertThatMessageWasLogged(logEvents, WARN, expectedWarning(client.getClientId(), requestedRedirectUri, configuredExplicitRedirectUri));
         }
 

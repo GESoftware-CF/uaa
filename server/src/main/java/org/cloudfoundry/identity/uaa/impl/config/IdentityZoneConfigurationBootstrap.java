@@ -92,7 +92,6 @@ public class IdentityZoneConfigurationBootstrap implements InitializingBean {
         definition.getSamlConfig().setDisableInResponseToCheck(disableSamlInResponseToCheck);
         definition.getSamlConfig().setWantAssertionSigned(samlWantAssertionSigned);
         definition.getSamlConfig().setRequestSigned(samlRequestSigned);
-        definition.getSamlConfig().setSignatureAlgorithm(samlSignatureAlgorithm);
         definition.setIdpDiscoveryEnabled(idpDiscoveryEnabled);
         definition.setAccountChooserEnabled(accountChooserEnabled);
         definition.setDefaultIdentityProvider(defaultIdentityProvider);

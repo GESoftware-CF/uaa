@@ -1,24 +1,5 @@
 package org.cloudfoundry.identity.uaa.zone;
 
-import static java.util.Optional.ofNullable;
-import static org.springframework.util.StringUtils.hasLength;
-import static org.springframework.util.StringUtils.hasText;
-
-import java.io.IOException;
-import java.io.StringWriter;
-import java.math.BigInteger;
-import java.net.URI;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
-
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.cert.X509CertificateHolder;
@@ -31,7 +12,10 @@ import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.cloudfoundry.identity.uaa.audit.event.EntityDeletedEvent;
 import org.cloudfoundry.identity.uaa.client.ClientAdminEndpointsValidator;
+import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
+import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
+import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetails;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
 import org.cloudfoundry.identity.uaa.provider.UaaIdentityProviderDefinition;
@@ -52,10 +36,26 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.common.util.RandomValueStringGenerator;
-import org.springframework.security.oauth2.provider.ClientDetails;
-import org.springframework.security.oauth2.provider.client.BaseClientDetails;
 import org.springframework.web.util.UriComponentsBuilder;
+
+import java.io.IOException;
+import java.io.StringWriter;
+import java.math.BigInteger;
+import java.net.URI;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+
+import static java.util.Optional.ofNullable;
+import static org.springframework.util.StringUtils.hasLength;
+import static org.springframework.util.StringUtils.hasText;
 
 public class OrchestratorZoneService implements ApplicationEventPublisherAware {
 
@@ -88,8 +88,6 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
 
     private ApplicationEventPublisher publisher;
 
-    private SignatureAlgorithm defaultSamlSignatureAlgorithm;
-
     private static final Logger logger = LoggerFactory.getLogger(OrchestratorZoneService.class);
 
     public OrchestratorZoneService(IdentityZoneProvisioning zoneProvisioning,
@@ -108,11 +106,6 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
         this.uaaDashboardUri = uaaDashboardUri;
         this.uaaUrl = uaaUrl;
         this.issuerUri = issuerUri;
-    }
-
-    @Autowired
-    public void setDefaultSamlSignatureAlgorithm(@Qualifier("globalSamlSignatureAlgorithm") SignatureAlgorithm samlSignatureAlgorithm) {
-        this.defaultSamlSignatureAlgorithm = samlSignatureAlgorithm;
     }
 
     public OrchestratorZoneResponse getZoneDetails(String zoneName) {
@@ -369,7 +362,7 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
     private void createZoneAdminClient(final String id, final String authorities, final String clientId,
                                        final String clientSecret,
                                        final String grantTypes, final String resourceIds, final String scopes) {
-        BaseClientDetails clientDetails = new BaseClientDetails(clientId, resourceIds, scopes, grantTypes, authorities);
+        UaaClientDetails clientDetails = new UaaClientDetails(clientId, resourceIds, scopes, grantTypes, authorities);
         clientDetails.setClientSecret(clientSecret);
         ClientDetails details = clientDetailsValidator.validate(clientDetails, true, false);
         clientDetailsService.create(details, id);
@@ -420,7 +413,7 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
         SamlConfig samlConfig = new SamlConfig();
         try {
             JcePEMEncryptorBuilder builder = new JcePEMEncryptorBuilder("DES-EDE3-CBC");
-            builder.setProvider("BC");
+            builder.setProvider("BCFIPS");
             String passphrase = new RandomValueStringGenerator(8).generate();
             PEMEncryptor pemEncryptor = builder.build(passphrase.toCharArray());
             KeyPairGenerator rsa = KeyPairGenerator.getInstance("RSA");
@@ -455,9 +448,6 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
             samlKeys.put(GENERATED_KEY_ID, new SamlKey(pemStringWriter.toString(), passphrase, certificate));
             samlConfig.setKeys(samlKeys);
             samlConfig.setActiveKeyId(GENERATED_KEY_ID);
-            if (samlConfig.getSignatureAlgorithm() == null) {
-                samlConfig.setSignatureAlgorithm(defaultSamlSignatureAlgorithm);
-            }
         } finally {
             pemWriter.flush();
             pemWriter.close();

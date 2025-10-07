@@ -243,9 +243,9 @@ public class OIDCLoginIT {
         assertThat(afterLogin).isNotNull();
         assertThat(afterLogin.getValue()).isNotNull()
                 .isNotEqualTo(beforeLogin.getValue());
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(),
-                   //Predix specific message on landing page.
-                   Matchers.containsString("You should not see this page. Set up your redirect URI."));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText())
+                .as("Predix specific message on landing page.")
+                .contains("You should not see this page. Set up your redirect URI.");
     }
 
     @Test

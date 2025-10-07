@@ -13,14 +13,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.cloudfoundry.identity.uaa.DefaultTestContext;
-import org.cloudfoundry.identity.uaa.login.util.RandomValueStringGenerator;
+import org.cloudfoundry.identity.uaa.oauth.common.util.OAuth2Utils;
+import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimGroupMembershipManager;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimGroupProvisioning;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimUserProvisioning;
+import org.cloudfoundry.identity.uaa.util.AlphanumericRandomValueStringGenerator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.oauth2.common.util.OAuth2Utils;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -29,7 +30,7 @@ import org.springframework.test.web.servlet.MockMvc;
     "jwt.token.queryString.enabled=false"
 })
 public class TokenWithDisallowedQueryStringMockMvcTests extends AbstractTokenMockMvcTests {
-    protected RandomValueStringGenerator generator = new RandomValueStringGenerator();
+    protected AlphanumericRandomValueStringGenerator generator = new AlphanumericRandomValueStringGenerator();
 
     @Autowired
     private MockMvc mockMvc;
@@ -69,7 +70,7 @@ public class TokenWithDisallowedQueryStringMockMvcTests extends AbstractTokenMoc
                .andExpect(status().isMethodNotAllowed())
                .andExpect(header().string(CONTENT_TYPE, APPLICATION_JSON_VALUE))
                .andExpect(jsonPath("$.error").value("method_not_allowed"))
-               .andExpect(jsonPath("$.error_description").value("Request method 'GET' not supported"));
+               .andExpect(jsonPath("$.error_description").value("Request method 'GET' is not supported"));
     }
 
     @Test

@@ -6,6 +6,7 @@ import com.amazonaws.services.secretsmanager.model.GetSecretValueResult;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.ServletContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,11 +18,11 @@ import org.springframework.core.convert.TypeDescriptor;
 import org.springframework.core.convert.converter.GenericConverter;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
+import org.springframework.mock.web.MockServletContext;
 import org.springframework.web.context.ConfigurableWebApplicationContext;
 import org.springframework.web.context.support.StandardServletEnvironment;
 import org.yaml.snakeyaml.Yaml;
 
-import javax.servlet.ServletContext;
 import java.util.*;
 import java.util.stream.Stream;
 
@@ -59,16 +60,18 @@ class AwsSecretsLoaderTest {
 
     @BeforeEach
     void setup() {
-        awsSecretsLoader = spy(AwsSecretsLoader.class);
+        awsSecretsLoader = spy(new AwsSecretsLoader());
         environment = new StandardServletEnvironment();
         awsSecretsManager = mock(AWSSecretsManager.class);
-        initializer = spy(YamlServletProfileInitializer.class);
+        initializer = new YamlServletProfileInitializer(); // no spy needed
         context = mock(ConfigurableWebApplicationContext.class);
-        ServletContext servletContext = mock(ServletContext.class);
 
-        doReturn(servletContext).when(context).getServletContext();
-        doReturn(environment).when(context).getEnvironment();
-        doReturn("/context").when(servletContext).getContextPath();
+        ServletContext servletContext = new MockServletContext();
+
+        when(context.getServletContext()).thenReturn(servletContext);
+        when(context.getEnvironment()).thenReturn(environment);
+        // Optional: context path if needed
+        // ((MockServletContext) servletContext).setContextPath("/context");
     }
 
     @AfterEach

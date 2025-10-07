@@ -36,6 +36,8 @@ import static org.cloudfoundry.identity.uaa.zone.SamlConfig.SignatureAlgorithm.S
 import static org.cloudfoundry.identity.uaa.provider.saml.TestCredentialObjects.certificate1;
 import static org.cloudfoundry.identity.uaa.provider.saml.TestCredentialObjects.key1;
 import static org.cloudfoundry.identity.uaa.provider.saml.TestCredentialObjects.passphrase1;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 @WithDatabaseContext
 public class IdentityZoneConfigurationBootstrapTests {
@@ -322,15 +324,5 @@ public class IdentityZoneConfigurationBootstrapTests {
         bootstrap.afterPropertiesSet();
         IdentityZoneConfiguration config = provisioning.retrieve(IdentityZone.getUaaZoneId()).getConfig();
         assertThat(config.isIdpDiscoveryEnabled()).isTrue();
-    }
-
-    @Test
-    public void testSamlSignatureAlgorithm() throws Exception{
-        bootstrap.setSamlSignatureAlgorithm(SHA512);
-
-        bootstrap.afterPropertiesSet();
-
-        IdentityZoneConfiguration config = provisioning.retrieve(IdentityZone.getUaa().getId()).getConfig();
-        assertEquals(SHA512, config.getSamlConfig().getSignatureAlgorithm());
     }
 }

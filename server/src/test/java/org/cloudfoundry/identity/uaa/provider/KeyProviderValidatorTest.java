@@ -1,13 +1,12 @@
 package org.cloudfoundry.identity.uaa.provider;
 
+import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
+import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetailsService;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.mockito.Mockito;
-import org.springframework.security.oauth2.provider.ClientDetailsService;
-import org.springframework.security.oauth2.provider.NoSuchClientException;
-import org.springframework.security.oauth2.provider.client.BaseClientDetails;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -29,14 +28,14 @@ public class KeyProviderValidatorTest {
 
     @Test
     public void testValidate() throws KeyProviderValidator.KeyProviderValidatorException {
-        when(mockClients.loadClientByClientId(eq("valid-client-id"))).thenReturn(new BaseClientDetails());
+        when(mockClients.loadClientByClientId(eq("valid-client-id"))).thenReturn(new UaaClientDetails());
         KeyProviderConfig test = new KeyProviderConfig("valid-client-id", "anything");
         keyProviderValidator.validate(test);
     }
 
     @Test
     public void testValidateEmptyClientId() throws KeyProviderValidator.KeyProviderValidatorException {
-        when(mockClients.loadClientByClientId(anyString())).thenReturn(new BaseClientDetails());
+        when(mockClients.loadClientByClientId(anyString())).thenReturn(new UaaClientDetails());
         KeyProviderConfig test = new KeyProviderConfig("", "anything");
         expection.expect(KeyProviderValidator.KeyProviderValidatorException.class);
         expection.expectMessage("Empty client id.");
@@ -45,7 +44,7 @@ public class KeyProviderValidatorTest {
 
     @Test
     public void testValidateEmptyTenantId() throws KeyProviderValidator.KeyProviderValidatorException {
-        when(mockClients.loadClientByClientId(anyString())).thenReturn(new BaseClientDetails());
+        when(mockClients.loadClientByClientId(anyString())).thenReturn(new UaaClientDetails());
         KeyProviderConfig test = new KeyProviderConfig("anything", "");
         expection.expect(KeyProviderValidator.KeyProviderValidatorException.class);
         expection.expectMessage("Empty tenant id.");

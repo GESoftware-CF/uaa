@@ -92,6 +92,8 @@ dependencies {
 
     implementation(libraries.springLogFilter) {
         exclude(group: 'ch.qos.logback')
+        exclude(group: 'org.springframework')
+        exclude(group: 'org.apache.logging.log4j')
     }
 
     implementation(libraries.springAwsSecretsManager)

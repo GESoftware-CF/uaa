@@ -3,17 +3,19 @@ package org.cloudfoundry.identity.uaa.degraded;
 
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.integration.feature.DefaultIntegrationTestConfig;
+import org.cloudfoundry.identity.uaa.integration.feature.SamlServerConfig;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
-import org.cloudfoundry.identity.uaa.integration.util.ScreenshotOnFail;
+import org.cloudfoundry.identity.uaa.integration.util.ScreenshotOnFailExtension;
+import org.cloudfoundry.identity.uaa.oauth.common.DefaultOAuth2AccessToken;
+import org.cloudfoundry.identity.uaa.oauth.common.OAuth2AccessToken;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.SamlIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.scim.ScimGroup;
 import org.hamcrest.Matchers;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.slf4j.Logger;
@@ -27,11 +29,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.codec.Base64;
-import org.springframework.security.oauth2.common.DefaultOAuth2AccessToken;
-import org.springframework.security.oauth2.common.OAuth2AccessToken;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.TestExecutionListeners;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
@@ -39,23 +37,23 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestOperations;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static java.time.temporal.ChronoUnit.SECONDS;
 import static org.cloudfoundry.identity.uaa.authentication.AbstractClientParametersAuthenticationFilter.CLIENT_SECRET;
+import static org.cloudfoundry.identity.uaa.login.InvitationsServiceMockMvcTests.REDIRECT_URI;
+import static org.cloudfoundry.identity.uaa.oauth.common.util.OAuth2Utils.RESPONSE_TYPE;
+import static org.cloudfoundry.identity.uaa.oauth.jwt.JwtClientAuthentication.GRANT_TYPE;
+import static org.cloudfoundry.identity.uaa.oauth.provider.token.AccessTokenConverter.CLIENT_ID;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED_VALUE;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
-import static org.springframework.security.oauth2.common.util.OAuth2Utils.CLIENT_ID;
-import static org.springframework.security.oauth2.common.util.OAuth2Utils.GRANT_TYPE;
-import static org.springframework.security.oauth2.common.util.OAuth2Utils.REDIRECT_URI;
-import static org.springframework.security.oauth2.common.util.OAuth2Utils.RESPONSE_TYPE;
-import static org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS;
 
-@RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = DefaultIntegrationTestConfig.class)
-@TestExecutionListeners(value = { ScreenshotOnFail.class }, mergeMode = MERGE_WITH_DEFAULTS)
+@SpringJUnitConfig(classes = DefaultIntegrationTestConfig.class)
+@ExtendWith(ScreenshotOnFailExtension.class)
 public class DegradedSamlLoginTests {
 
     private static final String SAML_USERNAME = "samluser1";
@@ -99,6 +97,8 @@ public class DegradedSamlLoginTests {
     private String testRedirectUri;
     private String zoneAdminToken;
     private String baseUaaZoneHost;
+    @Autowired
+    private SamlServerConfig samlServerConfig;
 
     @Before
     public void setup() throws Exception {
@@ -164,7 +164,7 @@ public class DegradedSamlLoginTests {
         );
         assertEquals(HttpStatus.OK, providerGet.getStatusCode());
 
-        SamlIdentityProviderDefinition samlIdentityProviderDefinition = IntegrationTestUtils.createSimplePHPSamlIDP("simplesamlphp", "test-app-zone");
+        SamlIdentityProviderDefinition samlIdentityProviderDefinition = IntegrationTestUtils.createSimplePHPSamlIDP("simplesamlphp", "test-app-zone", samlServerConfig.getSamlServerUrl());
         samlIdentityProviderDefinition.setAddShadowUserOnLogin(true);
         IdentityProvider provider = new IdentityProvider();
         provider.setIdentityZoneId(OriginKeys.UAA);
@@ -225,7 +225,7 @@ public class DegradedSamlLoginTests {
         webDriver.get(baseUrl + "/logout.do");
         webDriver.get(baseUrl + "/oauth/authorize?client_id=cf&response_type=token&redirect_uri=" + testRedirectUri +"/cf");
         logger.info("testImplicitTokenAndCheckToken() webdriver page source" + webDriver.getPageSource());
-        webDriver.manage().timeouts().pageLoadTimeout(20, TimeUnit.SECONDS);
+        webDriver.manage().timeouts().pageLoadTimeout(Duration.of(20, SECONDS));
         assertThat(webDriver.getCurrentUrl(), Matchers.containsString("login"));
         logger.info(webDriver.getCurrentUrl());
         webDriver.findElement(By.xpath("//title[contains(text(), '" + zoneSubdomain + "')]"));
@@ -235,7 +235,7 @@ public class DegradedSamlLoginTests {
         webDriver.findElement(By.xpath("//input[@type='submit']")).click();
 
         //Ensure the browser/webdriver processes all the flows
-        webDriver.manage().timeouts().implicitlyWait(20, TimeUnit.SECONDS);
+        webDriver.manage().timeouts().implicitlyWait(Duration.of(20, SECONDS));
         //Get the http archive logs
         String requestUrl = webDriver.getCurrentUrl();
         logger.info("request url: " + requestUrl);
@@ -280,7 +280,7 @@ public class DegradedSamlLoginTests {
         webDriver.findElement(By.xpath("//input[@type='submit']")).click();
 
         //Ensure the browser/webdriver processes all the flows
-        webDriver.manage().timeouts().implicitlyWait(20, TimeUnit.SECONDS);
+        webDriver.manage().timeouts().implicitlyWait(Duration.of(20, SECONDS));
 
         String lastRequestUrl = webDriver.getCurrentUrl();
         logger.info("last request url: " + lastRequestUrl);

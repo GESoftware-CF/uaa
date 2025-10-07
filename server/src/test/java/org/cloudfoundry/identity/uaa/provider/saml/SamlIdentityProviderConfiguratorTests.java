@@ -54,8 +54,6 @@ import static org.cloudfoundry.identity.uaa.constants.OriginKeys.SAML;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -173,7 +171,8 @@ public class SamlIdentityProviderConfiguratorTests {
         for (SamlIdentityProviderDefinition def : bootstrap.getIdentityProviderDefinitions()) {
             if ("okta-local-2".equalsIgnoreCase(def.getIdpEntityAlias())) {
                 when(idp2.getConfig()).thenReturn(def.clone().setIdpEntityAlias("okta-local-1"));
-                when(provisioning.retrieveActiveByTypes(anyString(), eq(SAML))).thenReturn(List.of(idp2));
+                when(idp2.getType()).thenReturn(SAML);
+                when(requestScopedIdpDefinitionsCache.getIdps(any())).thenReturn(List.of(idp2));
                 assertThatThrownBy(() -> configurator.validateSamlIdentityProviderDefinition(def, true))
                         .isInstanceOf(IdpAlreadyExistsException.class)
                         .hasMessageStartingWith("Duplicate entity ID:http://www.okta.com");
@@ -196,13 +195,11 @@ public class SamlIdentityProviderConfiguratorTests {
                 .setIconUrl("sample-icon-url")
                 .setZoneId("other-zone-id");
 
-        when(idp1.getConfig()).thenReturn(def1);
         when(idp2.getConfig()).thenReturn(def1.clone().setIdpEntityAlias("okta-local-2"));
-        when(provisioning.retrieveActiveByTypes(anyString(), eq(SAML))).thenReturn(Arrays.asList(idp1, idp2));
+        when(idp2.getType()).thenReturn(SAML);
+        when(requestScopedIdpDefinitionsCache.getIdps(any())).thenReturn(List.of(idp1, idp2));
 
-        when(provisioning.retrieveActive(anyString())).thenReturn(Arrays.asList(idp1, idp2));
-
-        return configurator.getIdentityProviderDefinitions(clientIdpAliases, Arrays.asList(idp1, idp2));
+        configurator.getIdentityProviderDefinitions(clientIdpAliases, Arrays.asList(idp1, idp2));
     }
 
     @Test
@@ -219,12 +216,7 @@ public class SamlIdentityProviderConfiguratorTests {
                 .setLinkText("sample-link-test")
                 .setIconUrl("sample-icon-url")
                 .setZoneId("other-zone-id");
-
-        when(idp1.getConfig()).thenReturn(def1);
-        when(idp2.getConfig()).thenReturn(def1.clone().setIdpEntityAlias("okta-local-2"));
-        when(provisioning.retrieveActiveByTypes(anyString(), eq(SAML))).thenReturn(Arrays.asList(idp1, idp2));
-
-        List<SamlIdentityProviderDefinition> clientIdps = configurator.getIdentityProviderDefinitions(clientIdpAliases, new IdentityZoneManagerImpl().getCurrentIdentityZone());
+        List<SamlIdentityProviderDefinition> clientIdps = configurator.getIdentityProviderDefinitions(clientIdpAliases, Arrays.asList(idp1, idp2));
         assertThat(clientIdps).isEmpty();
     }
 
@@ -240,7 +232,7 @@ public class SamlIdentityProviderConfiguratorTests {
         // set read timeout to value that will cause read timeout before 1s
         samlConfiguration.setSocketReadTimeout(100);
         FixedHttpMetaDataProvider realFixedHttpMetaDataProvider = createNonMockFixedHttpMetaDataProvider(samlConfiguration);
-        configurator = new SamlIdentityProviderConfigurator(provisioning, new IdentityZoneManagerImpl(), realFixedHttpMetaDataProvider);
+        configurator = new SamlIdentityProviderConfigurator(provisioning, new IdentityZoneManagerImpl(), realFixedHttpMetaDataProvider, requestScopedIdpDefinitionsCache);
 
         SamlIdentityProviderDefinition def = new SamlIdentityProviderDefinition();
         def.setMetaDataLocation(slowHttpServer.getUrl());
@@ -257,7 +249,7 @@ public class SamlIdentityProviderConfiguratorTests {
         // Set connection timeout to very low value to cause connect timeout
         samlConfiguration.setSocketConnectionTimeout(1);
         fixedHttpMetaDataProvider = createNonMockFixedHttpMetaDataProvider(samlConfiguration);
-        configurator = new SamlIdentityProviderConfigurator(provisioning, new IdentityZoneManagerImpl(), fixedHttpMetaDataProvider);
+        configurator = new SamlIdentityProviderConfigurator(provisioning, new IdentityZoneManagerImpl(), fixedHttpMetaDataProvider, requestScopedIdpDefinitionsCache);
 
         SamlIdentityProviderDefinition def = new SamlIdentityProviderDefinition();
         def.setMetaDataLocation("http://10.255.255.1/something");

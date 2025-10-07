@@ -22,54 +22,56 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.util.StopWatch;
 import org.springframework.util.StringUtils;
 import org.springframework.web.context.WebApplicationContext;
 
-import java.io.File;
 import java.net.URI;
 import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
 import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.createOtherIdentityZoneAndReturnResult;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.getLoginForm;
 import static org.springframework.http.MediaType.TEXT_HTML;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @DefaultTestContext
-@DirtiesContext
 class LoginPagePerformanceMockMvcTest {
-
-    private WebApplicationContext webApplicationContext;
 
     private AlphanumericRandomValueStringGenerator generator;
 
-    private MockMvc mockMvc;
-
-
-    private File originalLimitedModeStatusFile;
-
-    @MockBean
+    @MockitoBean
     OidcMetadataFetcher oidcMetadataFetcher;
+
+    @Autowired
+    private WebApplicationContext webApplicationContext;
+    @Autowired
+    private MockMvc mockMvc;
+    @Autowired
+    private FilterRegistrationBean<LimitedModeUaaFilter> limitedModeUaaFilter;
+
+    @Autowired
+    private JdbcExpiringCodeStore jdbcExpiringCodeStore;
+
+    @Autowired
+    private IdentityZoneConfigurationBootstrap identityZoneConfigurationBootstrap;
+
+    @Autowired
+    private JdbcIdentityProviderProvisioning jdbcIdentityProviderProvisioning;
 
     @BeforeEach
     void setUpContext(
-            @Autowired WebApplicationContext webApplicationContext,
-            @Autowired MockMvc mockMvc,
-            @Autowired FilterRegistrationBean<LimitedModeUaaFilter> limitedModeUaaFilter
     ) {
         generator = new AlphanumericRandomValueStringGenerator();
-        this.webApplicationContext = webApplicationContext;
-        this.mockMvc = mockMvc;
         SecurityContextHolder.clearContext();
 
         assertThat(limitedModeUaaFilter.getFilter().isEnabled()).isFalse();
@@ -77,13 +79,12 @@ class LoginPagePerformanceMockMvcTest {
 
     @AfterEach
     void resetGenerator(
-            @Autowired JdbcExpiringCodeStore jdbcExpiringCodeStore
     ) {
         jdbcExpiringCodeStore.setGenerator(new RandomValueStringGenerator(24));
     }
 
     @AfterEach
-    void tearDown(@Autowired IdentityZoneConfigurationBootstrap identityZoneConfigurationBootstrap) throws Exception {
+    void tearDown() throws Exception {
         MockMvcUtils.setSelfServiceCreateAccountEnabled(webApplicationContext, IdentityZone.getUaaZoneId(), true);
         MockMvcUtils.setSelfServiceResetPasswordEnabled(webApplicationContext, IdentityZone.getUaaZoneId(), true);
         identityZoneConfigurationBootstrap.afterPropertiesSet();
@@ -92,9 +93,7 @@ class LoginPagePerformanceMockMvcTest {
     }
 
     @Test
-    void idpDiscoveryRedirectsToOIDCProvider(
-            @Autowired JdbcIdentityProviderProvisioning jdbcIdentityProviderProvisioning
-    ) throws Exception {
+    void idpDiscoveryRedirectsToOIDCProvider() throws Exception {
         String subdomain = "oidc-discovery-" + generator.generate().toLowerCase();
         IdentityZone zone = MultitenancyFixture.identityZone(subdomain, subdomain);
         zone.getConfig().setIdpDiscoveryEnabled(true);

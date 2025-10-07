@@ -21,14 +21,10 @@ dependencies {
     implementation(libraries.hibernateValidator)
     implementation(libraries.slf4jImpl)
     implementation(libraries.log4jCore)
-    implementation(libraries.bouncyCastleProv)
-    implementation(libraries.bouncyCastlePkix)
+    implementation(libraries.bouncyCastleFipsProv)
+    implementation(libraries.bouncyCastleTlsFips)
+    implementation(libraries.bouncyCastlePkixFips)
     testImplementation(libraries.springBootStarterTest)
-    implementation(libraries.springSecurityOauth) {
-        exclude(module: "commons-codec")
-        exclude(module: "jackson-mapper-asl")
-        exclude(module: "spring-security-web")
-    }
 }
 
 test {

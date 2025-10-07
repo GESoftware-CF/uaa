@@ -24,10 +24,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.opensaml.saml.saml2.core.Response;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -55,8 +53,6 @@ import static org.hamcrest.Matchers.containsString;
 import static org.opensaml.xmlsec.signature.support.SignatureConstants.ALGO_ID_C14N_EXCL_OMIT_COMMENTS;
 import static org.opensaml.xmlsec.signature.support.SignatureConstants.ALGO_ID_DIGEST_SHA256;
 import static org.opensaml.xmlsec.signature.support.SignatureConstants.ALGO_ID_SIGNATURE_RSA_SHA256;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.times;
 import static org.springframework.http.HttpHeaders.CONTENT_TYPE;
 import static org.springframework.http.HttpHeaders.HOST;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -86,9 +82,6 @@ class SamlAuthenticationMockMvcTests {
     @Autowired
     private WebApplicationContext webApplicationContext;
 
-    @Autowired
-    private JdbcScimUserProvisioning jdbcScimUserProvisioning;
-    @SpyBean
     private JdbcIdentityProviderProvisioning jdbcIdentityProviderProvisioning;
 
     private static void createUser(
@@ -105,6 +98,7 @@ class SamlAuthenticationMockMvcTests {
             @Autowired JdbcIdentityProviderProvisioning jdbcIdentityProviderProvisioning,
             @Autowired JdbcScimUserProvisioning jdbcScimUserProvisioning
     ) throws Exception {
+        this.jdbcIdentityProviderProvisioning = jdbcIdentityProviderProvisioning;
         generator = new RandomValueStringGenerator();
         UaaClientDetails adminClient = new UaaClientDetails("admin", "", "", "client_credentials", "uaa.admin");
         adminClient.setClientSecret("adminsecret");
@@ -533,7 +527,7 @@ class SamlAuthenticationMockMvcTests {
         @BeforeEach
         void setupLogger() throws Exception {
             logEvents = new ArrayList<>();
-            appender = new AbstractAppender("", null, null) {
+            appender = new AbstractAppender("", null, null, false, null) {
                 @Override
                 public void append(LogEvent event) {
                     if (LOGGER_NAME.equals(event.getLoggerName())) {

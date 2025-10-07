@@ -1,38 +1,14 @@
 package org.cloudfoundry.identity.uaa.mock.zones;
 
-import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.DASHBOARD_LOGIN_PATH;
-import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.X_IDENTITY_ZONE_ID;
-import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.ZONE_CREATED_MESSAGE;
-import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.ZONE_DELETED_MESSAGE;
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.core.Is.is;
-import static org.hamcrest.core.IsInstanceOf.instanceOf;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.springframework.http.MediaType.APPLICATION_JSON;
-import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.util.StringUtils.hasText;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-import java.util.stream.Stream;
-
 import lombok.SneakyThrows;
 import net.bytebuddy.utility.RandomString;
 import org.cloudfoundry.identity.uaa.DefaultTestContext;
 import org.cloudfoundry.identity.uaa.audit.event.AbstractUaaEvent;
 import org.cloudfoundry.identity.uaa.audit.event.EntityDeletedEvent;
+import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.login.util.RandomValueStringGenerator;
 import org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils;
+import org.cloudfoundry.identity.uaa.oauth.provider.ClientRegistrationService;
 import org.cloudfoundry.identity.uaa.test.TestApplicationEventListener;
 import org.cloudfoundry.identity.uaa.test.TestClient;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
@@ -55,13 +31,37 @@ import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.oauth2.provider.ClientRegistrationService;
-import org.springframework.security.oauth2.provider.client.BaseClientDetails;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultMatcher;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.util.StringUtils;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Stream;
+
+import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.DASHBOARD_LOGIN_PATH;
+import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.X_IDENTITY_ZONE_ID;
+import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.ZONE_CREATED_MESSAGE;
+import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.ZONE_DELETED_MESSAGE;
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.Is.is;
+import static org.hamcrest.core.IsInstanceOf.instanceOf;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.util.StringUtils.hasText;
 
 @DefaultTestContext
 public class OrchestratorZoneControllerMockMvcTests {
@@ -156,7 +156,7 @@ public class OrchestratorZoneControllerMockMvcTests {
                                   String clientId,
                                   String clientSecret,
                                   String scope) throws Exception {
-        BaseClientDetails clientDetails = new BaseClientDetails(
+        UaaClientDetails clientDetails = new UaaClientDetails(
                 clientId,
                 null,
                 "uaa.none",
@@ -350,7 +350,7 @@ public class OrchestratorZoneControllerMockMvcTests {
         performMockMvcCallAndAssertError(delete("/orchestrator/zones").param("name", "random-name"),
                 status().isForbidden(),
                 "{\"error\":\"insufficient_scope\",\"error_description\":\"Insufficient " +
-                        "scope for this resource\",\"scope\":\"uaa.admin orchestrator.zones.write zones.uaa.admin zones" +
+                        "scope for this resource\",\"scope\":\"zones.{zone.id}.admin orchestrator.zones.write zones" +
                         ".write\"}",
                 orchestratorZonesReadToken);
     }
@@ -373,7 +373,7 @@ public class OrchestratorZoneControllerMockMvcTests {
                         "{\"name\": \"\",\"parameters\": {\"adminSecret\": \"\",\"subDomain\": \"\"}}"),
                 status().isForbidden(),
                 "{\"error\":\"insufficient_scope\",\"error_description\":\"Insufficient " +
-                        "scope for this resource\",\"scope\":\"uaa.admin orchestrator.zones.write zones.uaa.admin zones.write\"}",
+                        "scope for this resource\",\"scope\":\"zones.{zone.id}.admin orchestrator.zones.write zones.write\"}",
                 orchestratorZonesReadToken);
     }
 
@@ -542,19 +542,20 @@ public class OrchestratorZoneControllerMockMvcTests {
     @Test
     void testCreateZone_MessageNotReadable_JsonMappingException() throws Exception {
         OrchestratorZoneResponse expectedResponse = new OrchestratorZoneResponse();
-        expectedResponse.setMessage("parameters is invalid: Invalid numeric value");
+        expectedResponse.setMessage("Unexpected character ('\"' (code 34)): was expecting comma to separate Object entries");
         expectedResponse.setState(OrchestratorState.PERMANENT_FAILURE.toString());
 
         performMockMvcCallAndAssertResponse(
                 post("/orchestrator/zones")
                         .contentType(APPLICATION_JSON)
-                        .content("{\n" +
-                                "  \"name\": \"tes5000-00\",\n" +
-                                "  \"parameters\": {\n" +
-                                "    \"adminClientSecret\": 0992932.303203.00223\n" +
-                                "    \"subdomain\" : \"uywyyw\"\n" +
-                                "  }\n" +
-                                "}"),
+                        .content("""
+                                {
+                                  "name": "tes5000-00",
+                                  "parameters": {
+                                    "adminClientSecret": "0992932.303203.00223"
+                                    "subdomain" : "uywyyw"
+                                  }
+                                }"""),
                 orchestratorZonesWriteToken, status().isBadRequest(), expectedResponse);
     }
 
@@ -568,28 +569,31 @@ public class OrchestratorZoneControllerMockMvcTests {
         performMockMvcCallAndAssertResponse(
                 post("/orchestrator/zones")
                         .contentType(APPLICATION_JSON)
-                        .content("{\n" +
-                                "  \"name\": [\"323231\", \"323232\", \"323233\"],\n" +
-                                "  \"parameters\": {\n" +
-                                "    \"adminClientSecret\": \"dsfds\",\n" +
-                                "    \"subdomain\" : \"test-zone-0\"\n" +
-                                "  }\n" +
-                                "}"),
+                        .content("""
+                                {
+                                  "name": ["323231", "323232", "323233"],
+                                  "parameters": {
+                                    "adminClientSecret": "dsfds",
+                                    "subdomain" : "test-zone-0"
+                                  }
+                                }"""),
                 orchestratorZonesWriteToken, status().isBadRequest(), expectedResponse);
     }
 
     @Test
     void testCreateZone_MessageNotReadable_JsonParsingException() throws Exception {
         OrchestratorZoneResponse expectedResponse = new OrchestratorZoneResponse();
-        expectedResponse.setMessage("Unexpected character");
+        expectedResponse.setMessage("parameters must be specified");
+        expectedResponse.setName("tes5000-00");
         expectedResponse.setState(OrchestratorState.PERMANENT_FAILURE.toString());
 
         performMockMvcCallAndAssertResponse(
                 post("/orchestrator/zones")
                         .contentType(APPLICATION_JSON)
-                        .content("{\n" +
-                                "  \"name\": \"tes5000-00\",\n" +
-                                "}"),
+                        .content("""
+                                {
+                                  "name": "tes5000-00"
+                                }"""),
                 orchestratorZonesWriteToken, status().isBadRequest(), expectedResponse);
     }
 
@@ -687,7 +691,7 @@ public class OrchestratorZoneControllerMockMvcTests {
     }
 
     private void configureIdentiyZoneClient() throws Exception {
-        BaseClientDetails uaaAdminClient = new BaseClientDetails("uaa-admin-" + RandomString.make(5).toLowerCase(),
+        UaaClientDetails uaaAdminClient = new UaaClientDetails("uaa-admin-" + RandomString.make(5).toLowerCase(),
                 null,
                 "uaa.admin",
                 "password,client_credentials",

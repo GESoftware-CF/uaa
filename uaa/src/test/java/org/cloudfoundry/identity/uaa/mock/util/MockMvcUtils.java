@@ -15,6 +15,9 @@
 package org.cloudfoundry.identity.uaa.mock.util;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -46,10 +49,10 @@ import org.cloudfoundry.identity.uaa.scim.ScimGroup;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupMember;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.scim.ScimUserProvisioning;
+import org.cloudfoundry.identity.uaa.scim.endpoints.ScimGroupEndpoints;
 import org.cloudfoundry.identity.uaa.scim.exception.ScimResourceAlreadyExistsException;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimGroupExternalMembershipManager;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimGroupProvisioning;
-import org.cloudfoundry.identity.uaa.scim.endpoints.ScimGroupEndpoints;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimUserProvisioning;
 import org.cloudfoundry.identity.uaa.test.TestApplicationEventListener;
 import org.cloudfoundry.identity.uaa.user.UaaAuthority;
@@ -58,14 +61,16 @@ import org.cloudfoundry.identity.uaa.util.AlphanumericRandomValueStringGenerator
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.util.SessionUtils;
 import org.cloudfoundry.identity.uaa.util.SetServerNameRequestPostProcessor;
+import org.cloudfoundry.identity.uaa.web.LimitedModeUaaFilter;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneProvisioning;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter;
 import org.cloudfoundry.identity.uaa.zone.Links;
 import org.cloudfoundry.identity.uaa.zone.MultitenancyFixture;
 import org.cloudfoundry.identity.uaa.zone.MultitenantJdbcClientDetailsService;
-import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
+import org.junit.Assert;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -78,20 +83,19 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpSession;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.context.SecurityContextImpl;
-import org.springframework.security.web.PortResolverImpl;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.savedrequest.DefaultSavedRequest;
 import org.springframework.security.web.savedrequest.SavedRequest;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.ResultMatcher;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
@@ -99,8 +103,6 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.context.support.GenericWebApplicationContext;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.Serial;
 import java.net.URL;
@@ -118,7 +120,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.TokenFormat.OPAQUE;
 import static org.cloudfoundry.identity.uaa.scim.ScimGroupMember.Type.USER;
@@ -212,6 +213,123 @@ public final class MockMvcUtils {
                 });
         return results.getResources().getFirst();
     }
+
+    @SneakyThrows
+    public static ResultActions performGet(MockMvc mvc, MockHttpSession session, String urlTemplate, Object... uriVars) {
+        return mvc.perform(
+                get(urlTemplate, uriVars)
+                        .session(session)
+        );
+    }
+
+    @SneakyThrows
+    public static ResultActions getLoginForm(MockMvc mockMvc, MockHttpSession session) {
+        return performGet(mockMvc, session, "/login")
+                .andExpect(status().isOk());
+    }
+
+    @SneakyThrows
+    public static ResultActions getCreateAccountForm(MockMvc mockMvc, MockHttpSession session) {
+        return performGet(mockMvc, session, "/create_account")
+                .andExpect(status().isOk());
+    }
+
+    @SneakyThrows
+    public static ResultActions getForcePasswordChangeForm(MockMvc mockMvc, MockHttpSession session) {
+        return performGet(mockMvc, session, "/force_password_change")
+                .andExpect(status().isOk());
+    }
+
+    @SneakyThrows
+    public static ResultActions getChangePasswordForm(MockMvc mockMvc, MockHttpSession session) {
+        return performGet(mockMvc, session, "/change_password")
+                .andExpect(status().isOk());
+    }
+
+    public static class MockSavedRequest extends DefaultSavedRequest {
+
+        public MockSavedRequest() {
+            super(new MockHttpServletRequest());
+        }
+
+        @Override
+        public String getRedirectUrl() {
+            return "http://test/redirect/oauth/authorize";
+        }
+
+        @Override
+        public String[] getParameterValues(String name) {
+            if ("client_id".equals(name)) {
+                return new String[]{"admin"};
+            }
+            return new String[0];
+        }
+
+        @Override
+        public List<Cookie> getCookies() {
+            return null;
+        }
+
+        @Override
+        public String getMethod() {
+            return null;
+        }
+
+        @Override
+        public List<String> getHeaderValues(String name) {
+            return null;
+        }
+
+        @Override
+        public Collection<String> getHeaderNames() {
+            return null;
+        }
+
+        @Override
+        public List<Locale> getLocales() {
+            return null;
+        }
+
+        @Override
+        public Map<String, String[]> getParameterMap() {
+            return null;
+        }
+
+    }
+
+    public static class ZoneScimInviteData {
+        private final IdentityZoneCreationResult zone;
+        private final String adminToken;
+        private final ClientDetails scimInviteClient;
+        private final String defaultZoneAdminToken;
+
+        public ZoneScimInviteData(String adminToken,
+                                  IdentityZoneCreationResult zone,
+                                  ClientDetails scimInviteClient,
+                                  String defaultZoneAdminToken) {
+            this.adminToken = adminToken;
+            this.zone = zone;
+            this.scimInviteClient = scimInviteClient;
+            this.defaultZoneAdminToken = defaultZoneAdminToken;
+        }
+
+        public ClientDetails getScimInviteClient() {
+            return scimInviteClient;
+        }
+
+        public String getDefaultZoneAdminToken() {
+            return defaultZoneAdminToken;
+        }
+
+        public IdentityZoneCreationResult getZone() {
+            return zone;
+        }
+
+        public String getAdminToken() {
+            return adminToken;
+        }
+    }
+
 
     public static String extractInvitationCode(String inviteLink) {
         Pattern p = Pattern.compile("accept\\?code=(.*)");
@@ -715,7 +833,7 @@ public final class MockMvcUtils {
                 ScimGroup.class);
     }
 
-    public static void createClient(ApplicationContext context, BaseClientDetails client, String zoneId) throws Exception {
+    public static void createClient(ApplicationContext context, UaaClientDetails client, String zoneId) throws Exception {
         IdentityZone original = IdentityZoneHolder.get();
         try {
             IdentityZoneHolder.set(MultitenancyFixture.identityZone(zoneId,zoneId));
@@ -1191,89 +1309,6 @@ public final class MockMvcUtils {
         return JsonUtils.readValue(responseAsString, IdentityZone.class);
     }
 
-    public static class MockSavedRequest extends DefaultSavedRequest {
-
-        public MockSavedRequest() {
-            super(new MockHttpServletRequest(), new PortResolverImpl());
-        }
-
-        @Override
-        public String getRedirectUrl() {
-            return "http://test/redirect/oauth/authorize";
-        }
-
-        @Override
-        public String[] getParameterValues(String name) {
-            if ("client_id".equals(name)) {
-                return new String[]{"admin"};
-            }
-            return new String[0];
-        }
-
-        @Override
-        public List<Cookie> getCookies() {
-            return null;
-        }
-
-        @Override
-        public String getMethod() {
-            return null;
-        }
-
-        @Override
-        public List<String> getHeaderValues(String name) {
-            return null;
-        }
-
-        @Override
-        public Collection<String> getHeaderNames() {
-            return null;
-        }
-
-        @Override
-        public List<Locale> getLocales() {
-            return null;
-        }
-
-        @Override
-        public Map<String, String[]> getParameterMap() {
-            return null;
-        }
-    }
-
-    public static class ZoneScimInviteData {
-        private final IdentityZoneCreationResult zone;
-        private final String adminToken;
-        private final ClientDetails scimInviteClient;
-        private final String defaultZoneAdminToken;
-
-        public ZoneScimInviteData(String adminToken,
-                IdentityZoneCreationResult zone,
-                ClientDetails scimInviteClient,
-                String defaultZoneAdminToken) {
-            this.adminToken = adminToken;
-            this.zone = zone;
-            this.scimInviteClient = scimInviteClient;
-            this.defaultZoneAdminToken = defaultZoneAdminToken;
-        }
-
-        public ClientDetails getScimInviteClient() {
-            return scimInviteClient;
-        }
-
-        public String getDefaultZoneAdminToken() {
-            return defaultZoneAdminToken;
-        }
-
-        public IdentityZoneCreationResult getZone() {
-            return zone;
-        }
-
-        public String getAdminToken() {
-            return adminToken;
-        }
-    }
-
     public static class IdentityZoneCreationResult {
         private final IdentityZone identityZone;
         private final UaaPrincipal zoneAdmin;
@@ -1328,10 +1363,6 @@ public final class MockMvcUtils {
         private final HttpSession session;
         private boolean useInvalidToken;
 
-        public static CookieCsrfPostProcessor cookieCsrf() {
-            return new CookieCsrfPostProcessor();
-        }
-
         public CsrfPostProcessor useInvalidToken() {
             useInvalidToken = true;
             return this;
@@ -1356,10 +1387,6 @@ public final class MockMvcUtils {
         }
     }
 
-    public static RequestPostProcessor httpBearer(String authorization) {
-        return new HttpBearerAuthRequestPostProcessor(authorization);
-    }
-
     private static final class HttpBearerAuthRequestPostProcessor implements RequestPostProcessor {
         private final String headerValue;
 
@@ -1381,5 +1408,12 @@ public final class MockMvcUtils {
         public String generate() {
             return "test" + counter.incrementAndGet();
         }
+    }
+
+
+    public static MockHttpSession getLoginForm(MockMvc mockMvc) {
+        MockHttpSession session = new MockHttpSession();
+        MockMvcUtils.getLoginForm(mockMvc, session);
+        return session;
     }
 }

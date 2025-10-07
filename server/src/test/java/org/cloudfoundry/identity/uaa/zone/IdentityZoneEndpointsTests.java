@@ -29,6 +29,7 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
@@ -195,10 +196,17 @@ class IdentityZoneEndpointsTests {
 
         // arrange IdP with alias exists in zone
         when(mockIdentityProviderProvisioning.idpWithAliasExistsInZone(idzId)).thenReturn(true);
+        mockOrchestratorEntity();
 
         final ResponseEntity<IdentityZone> response = endpoints.deleteIdentityZone(idzId);
         assertThat(response).isNotNull();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    private void mockOrchestratorEntity() {
+        OrchestratorZoneEntity mockedOrchestratorEntity = mock(OrchestratorZoneEntity.class);
+        mockedOrchestratorEntity.setOrchestratorZoneName("test");
+        when(mockIdentityZoneProvisioning.retrieveOrchestratorZoneByIdentityZoneId(anyString())).thenReturn(mockedOrchestratorEntity);
     }
 
     @Test
@@ -212,7 +220,7 @@ class IdentityZoneEndpointsTests {
 
         // arrange no IdP with alias exists in zone
         when(mockIdentityProviderProvisioning.idpWithAliasExistsInZone(idzId)).thenReturn(false);
-
+        mockOrchestratorEntity();
         final ResponseEntity<IdentityZone> response = endpoints.deleteIdentityZone(idzId);
         assertThat(response).isNotNull();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);

@@ -17,7 +17,6 @@ dependencies {
     testImplementation(libraries.bytebuddyagent)
     implementation(libraries.jacksonDataformatYaml)
     implementation(libraries.jacksonDatabind)
-    implementation(libraries.jakartaEl)
 }
 
 test {

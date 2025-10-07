@@ -31,15 +31,20 @@ import static jakarta.servlet.http.HttpServletResponse.SC_SERVICE_UNAVAILABLE;
 
 @Slf4j
 public class LimitedModeUaaFilter extends OncePerRequestFilter {
-    // To set Predix UAA limited/degraded mode, use environment variable instead of StatusFile
+    // TODO: check this To set Predix UAA limited/degraded mode, use environment variable instead of StatusFile
 
     public static final String ERROR_CODE = "uaa_unavailable";
     public static final String ERROR_MESSAGE = "UAA intentionally in limited mode, operation not permitted. Please try later.";
     public static final long STATUS_INTERVAL_MS = 5000;
-    public static final String DEGRADED = "degraded";
 
     private Set<String> permittedMethods = emptySet();
     private List<AntPathRequestMatcher> endpoints = emptyList();
+    private volatile boolean enabled;
+    @Getter
+    private File statusFile;
+    @Setter
+    private TimeService timeService = new TimeServiceImpl();
+    private final AtomicLong lastFileCheck = new AtomicLong(0);
 
     @Override
     protected void doFilterInternal(
@@ -67,10 +72,6 @@ public class LimitedModeUaaFilter extends OncePerRequestFilter {
         } else {
             filterChain.doFilter(request, response);
         }
-    }
-
-    public boolean isEnabled() {
-        return Arrays.asList(getEnvironment().getActiveProfiles()).contains(DEGRADED);
     }
 
     protected Map<String, String> getErrorData() {
@@ -103,5 +104,29 @@ public class LimitedModeUaaFilter extends OncePerRequestFilter {
 
     public void setPermittedMethods(Set<String> permittedMethods) {
         this.permittedMethods = ofNullable(permittedMethods).orElse(emptySet());
+    }
+
+    private boolean isTimeToCheckFileSystem() {
+        long time = lastFileCheck.get();
+        long now = timeService.getCurrentTimeMillis();
+        return now - time > STATUS_INTERVAL_MS && lastFileCheck.compareAndSet(time, now);
+    }
+
+    public boolean isEnabled() {
+        if (statusFile == null) {
+            enabled = false;
+        } else if (isTimeToCheckFileSystem()) {
+            enabled = statusFile.exists();
+        }
+        return enabled;
+    }
+
+    public void setStatusFile(File statusFile) {
+        this.statusFile = statusFile;
+        lastFileCheck.set(0);
+    }
+
+    public long getLastFileSystemCheck() {
+        return lastFileCheck.get();
     }
 }

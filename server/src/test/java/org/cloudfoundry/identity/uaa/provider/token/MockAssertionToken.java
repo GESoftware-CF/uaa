@@ -4,57 +4,53 @@ import java.security.interfaces.RSAPrivateKey;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import com.nimbusds.jose.JWSAlgorithm;
+import org.cloudfoundry.identity.uaa.oauth.KeyInfo;
+import org.cloudfoundry.identity.uaa.oauth.jwt.Jwt;
+import org.cloudfoundry.identity.uaa.oauth.jwt.JwtHelper;
 import org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants;
-import org.cloudfoundry.identity.uaa.util.JsonUtils;
-import org.springframework.security.jwt.JwtHelper;
-import org.springframework.security.jwt.crypto.sign.RsaSigner;
+
 public class MockAssertionToken {
 
-    private final RsaSigner signer;
+    private final KeyInfo keyInfo;
 
     public MockAssertionToken(final String tokenSigningKey) {
-        this.signer = new RsaSigner(tokenSigningKey);
+        this.keyInfo = new KeyInfo(null, tokenSigningKey, "https://localhost", JWSAlgorithm.RS256.getName(), null);
     }
 
     /**
      * Create a mock with D1 signer
      */
     public MockAssertionToken() {
-        this.signer = new RsaSigner(MockKeyProvider.DEVICE1_PRIVATE_KEY);
+        this.keyInfo = new KeyInfo(null, MockKeyProvider.DEVICE1_PRIVATE_KEY, "https://localhost");
     }
-    
+
     public MockAssertionToken(RSAPrivateKey tokenSigningKey) {
-        this.signer = new RsaSigner(tokenSigningKey);
+        // Convert RSAPrivateKey to PEM format for KeyInfo
+        this.keyInfo = new KeyInfo(null, convertToPem(tokenSigningKey), "https://localhost");
     }
 
     public String mockAssertionToken(String issuer, final String subject, final long issuedAtMillis,
-            final long validitySeconds, final String tenantId, final Object audience) {
+                                     final long validitySeconds, final String tenantId, final Object audience) {
         Object expiration = (issuedAtMillis + (validitySeconds * 1000L)) / 1000L;
         return createAssertionToken(issuer, subject, audience, issuedAtMillis, tenantId, expiration);
     }
 
     public String mockInvalidExpirationAssertionToken(String issuer, final String subject,
-            final long issuedAtMillis, final String tenantId, final Object audience, final Object expiration) {
+                                                      final long issuedAtMillis, final String tenantId, final Object audience, final Object expiration) {
         return createAssertionToken(issuer, subject, audience, issuedAtMillis, tenantId, expiration);
     }
 
-
     private String createAssertionToken(String issuer, String subject, Object audience,
-             final long issuedAtMillis, final String tenantId, final Object expiration) {
-
-        String content;
-        try {
-            content = JsonUtils.writeValueAsString(
-                    createClaims(issuer, subject, audience, issuedAtMillis, expiration, tenantId));
-        } catch (JsonUtils.JsonUtilException e) {
-            throw new IllegalStateException("Cannot convert access token to JSON", e);
-        }
-        return JwtHelper.encode(content, this.signer).getEncoded();
+                                        final long issuedAtMillis, final String tenantId, final Object expiration) {
+        Map<String, Object> claims = createClaims(issuer, subject, audience, issuedAtMillis, expiration, tenantId);
+        Jwt token = JwtHelper.encode(claims, this.keyInfo);
+        return token.getEncoded();
     }
 
-    static Map<String, ?> createClaims(String issuer, String subject, final Object audience,
-             final long issuedAtMillis, final Object expiration, final String tenantId) {
-        Map<String, Object> response = new LinkedHashMap<String, Object>();
+    static Map<String, Object> createClaims(String issuer, String subject, final Object audience,
+                                            final long issuedAtMillis, final Object expiration, final String tenantId) {
+        Map<String, Object> response = new LinkedHashMap<>();
         response.put(ClaimConstants.ISS, issuer);
         response.put(ClaimConstants.SUB, subject);
         response.put(ClaimConstants.TENANT_ID, tenantId);
@@ -68,4 +64,14 @@ public class MockAssertionToken {
         return response;
     }
 
+    private String convertToPem(RSAPrivateKey privateKey) {
+        // Convert RSAPrivateKey to PEM format
+        java.util.Base64.Encoder encoder = java.util.Base64.getEncoder();
+        String encoded = encoder.encodeToString(privateKey.getEncoded());
+        return "-----BEGIN PRIVATE KEY-----\n" +
+                encoded.replaceAll("(.{64})", "$1\n") +
+                "\n-----END PRIVATE KEY-----";
+    }
 }
+
+

@@ -152,7 +152,7 @@ public final class TestAccountExtension implements BeforeAllCallback {
     }
 
     private void createOrchestratorClient(RestOperations client) {
-        BaseClientDetails clientDetails = new BaseClientDetails("orchestrator-zone-provisioner", "none",
+        UaaClientDetails clientDetails = new UaaClientDetails("orchestrator-zone-provisioner", "none",
                 "uaa.none", "client_credentials","orchestrator.zones.write,orchestrator.zones.read");
         clientDetails.setClientSecret("orchestratorsecret");
         createClient(client, testAccounts.getClientDetails("oauth.clients.orchestrator", clientDetails));

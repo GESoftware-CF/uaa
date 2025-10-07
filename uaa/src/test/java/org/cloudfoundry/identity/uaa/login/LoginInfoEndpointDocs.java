@@ -114,7 +114,7 @@ class LoginInfoEndpointDocs extends EndpointDocs {
                 .andDo(
                         document("{ClassName}/{methodName}",
                                 preprocessResponse(prettyPrint()),
-                                requestParameters))
+                                formParameters))
                 .andExpect(status().isFound())
                 .andExpect(redirectedUrl("/"));
     }

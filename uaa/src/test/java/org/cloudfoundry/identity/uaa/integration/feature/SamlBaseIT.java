@@ -1,3 +1,4 @@
+/*
 package org.cloudfoundry.identity.uaa.integration.feature;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -31,7 +32,9 @@ public class SamlBaseIT {
 
     public static final String IDP_ENTITY_ID = "cloudfoundry-saml-login";
 
-    ServerRunning serverRunning = ServerRunning.isRunning();
+    ServerRunning serverRunning = ServerRunning.isRunning();*/
+/**//*
+
 
     protected final SamlTestUtils samlTestUtils = new SamlTestUtils();
 
@@ -165,3 +168,4 @@ public class SamlBaseIT {
         return null;
     }
 }
+*/

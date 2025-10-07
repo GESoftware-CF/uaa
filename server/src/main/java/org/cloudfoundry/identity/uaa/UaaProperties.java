@@ -51,7 +51,8 @@ public class UaaProperties {
     @ConfigurationProperties(prefix = "login")
     public record Login(
             @DefaultValue(UaaStringUtils.DEFAULT_UAA_URL) String url,
-            @DefaultValue("true") boolean selfServiceLinksEnabled,
+            @DefaultValue("true") boolean selfServiceResetPasswordEnabled,
+            @DefaultValue("true") boolean  selfServiceCreateAccountEnabled,
             String homeRedirect,
             @DefaultValue("false") boolean idpDiscoveryEnabled,
             @DefaultValue("false") boolean accountChooserEnabled,

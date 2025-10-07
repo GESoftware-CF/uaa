@@ -6,9 +6,9 @@ import static org.cloudfoundry.identity.uaa.zone.ErrorMessageUtil.MANDATORY_VALI
 
 import lombok.Data;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 @Data
 public class OrchestratorZoneRequest {

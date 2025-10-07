@@ -73,7 +73,7 @@ public class ApprovalsMockMvcTests extends AbstractTokenMockMvcTests {
         mockMvc.perform(post("/profile")
                         .with(csrf(session))
                         .param("delete", "true")
-                        .param("clientId", client1.getClientId())
+                        .param("clientId", client1.getClientId()))
                 .andExpect(status().isFound())
                 .andExpect(header().string("Location", "profile"));
     }

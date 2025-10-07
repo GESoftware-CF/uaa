@@ -19,9 +19,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
-import com.fasterxml.jackson.annotation.JsonSetter;
 import org.cloudfoundry.identity.uaa.saml.SamlKey;
-import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -44,7 +42,6 @@ public class SamlConfig {
     private Map<String, SamlKey> keys = new HashMap<>();
     private String entityID;
     private boolean disableInResponseToCheck;
-    private SignatureAlgorithm signatureAlgorithm;
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public String getEntityID() {
@@ -174,19 +171,6 @@ public class SamlConfig {
     @JsonIgnore
     public SamlKey removeKey(String keyId) {
         return keys.remove(keyId);
-    }
-
-    @JsonSetter("signatureAlgorithm")
-    public void parseSignatureAlgorithm (String signatureAlgorithm) {
-        if(StringUtils.hasText(signatureAlgorithm)) {
-            try {
-                this.signatureAlgorithm = SignatureAlgorithm.valueOf(signatureAlgorithm);
-            } catch (IllegalArgumentException e) {
-                if(e.getMessage().contains("No enum constant")) {
-                    this.signatureAlgorithm = SignatureAlgorithm.UNKNOWN;
-                }
-            }
-        }
     }
 
     public enum SignatureAlgorithm {

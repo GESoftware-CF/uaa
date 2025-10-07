@@ -18,18 +18,48 @@ package org.cloudfoundry.identity.uaa.mock.limited;
 import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.mock.token.TokenMvcMockTests;
 import org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils;
+import org.cloudfoundry.identity.uaa.web.LimitedModeUaaFilter;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.security.crypto.codec.Base64;
 
+import java.io.File;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.getLimitedModeStatusFile;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.resetLimitedModeStatusFile;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.setLimitedModeStatusFile;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@LimitedMode
-public class LimitedModeTokenMockMvcTests extends TokenMvcMockTests {
-    // To set Predix UAA limited/degraded mode, use environment variable instead of StatusFile
+class LimitedModeTokenMockMvcTests extends TokenMvcMockTests {
+
+    private File existingStatusFile;
+
+    @BeforeEach
+    @Override
+    public void setUpContext(
+            @Autowired @Qualifier("defaultUserAuthorities") Object defaultAuthorities
+    ) throws Exception {
+        super.setUpContext(defaultAuthorities);
+
+        existingStatusFile = getLimitedModeStatusFile(webApplicationContext);
+        setLimitedModeStatusFile(webApplicationContext);
+
+        assertThat(isLimitedMode()).isTrue();
+    }
+
+    @AfterEach
+    void tearDown() {
+        resetLimitedModeStatusFile(webApplicationContext, existingStatusFile);
+    }
 
     @Test
     void check_token_while_limited() throws Exception {
@@ -49,5 +79,13 @@ public class LimitedModeTokenMockMvcTests extends TokenMvcMockTests {
                 .andExpect(jsonPath("$.scope").value(containsInAnyOrder("clients.read", "uaa.resource")))
                 .andExpect(jsonPath("$.client_id").value(client.getClientId()))
                 .andExpect(jsonPath("$.jti").value(token));
+    }
+
+    private boolean isLimitedMode() {
+        FilterRegistrationBean<LimitedModeUaaFilter> bean =
+                    (FilterRegistrationBean<LimitedModeUaaFilter>)
+                            webApplicationContext.getBean("limitedModeUaaFilter", FilterRegistrationBean.class);
+        LimitedModeUaaFilter filter = bean.getFilter();
+        return filter.isEnabled();
     }
 }

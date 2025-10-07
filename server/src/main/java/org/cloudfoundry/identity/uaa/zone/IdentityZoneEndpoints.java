@@ -1,27 +1,28 @@
 package org.cloudfoundry.identity.uaa.zone;
 
+import jakarta.validation.Valid;
 import org.cloudfoundry.identity.uaa.audit.event.EntityDeletedEvent;
 import org.cloudfoundry.identity.uaa.client.InvalidClientDetailsException;
 import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.error.UaaException;
 import org.cloudfoundry.identity.uaa.logging.SanitizedLogFactory;
+import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetails;
 import org.cloudfoundry.identity.uaa.provider.ClientAlreadyExistsException;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
-import org.cloudfoundry.identity.uaa.provider.NoSuchClientException;
 import org.cloudfoundry.identity.uaa.provider.KeyProviderConfig;
 import org.cloudfoundry.identity.uaa.provider.KeyProviderProvisioning;
 import org.cloudfoundry.identity.uaa.provider.KeyProviderValidator;
+import org.cloudfoundry.identity.uaa.provider.NoSuchClientException;
 import org.cloudfoundry.identity.uaa.provider.UaaIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.saml.SamlKey;
 import org.cloudfoundry.identity.uaa.scim.ScimGroup;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupProvisioning;
-import org.cloudfoundry.identity.uaa.zone.SamlConfig.SignatureAlgorithm;
 import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
+import org.cloudfoundry.identity.uaa.zone.SamlConfig.SignatureAlgorithm;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.context.MessageSource;
@@ -31,7 +32,6 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetails;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.BindingResult;
@@ -48,13 +48,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import jakarta.validation.Valid;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -65,6 +65,9 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 import static org.springframework.http.HttpStatus.NO_CONTENT;
 import static org.springframework.http.HttpStatus.OK;
 import static org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY;
+import static org.springframework.web.bind.annotation.RequestMethod.DELETE;
+import static org.springframework.web.bind.annotation.RequestMethod.GET;
+import static org.springframework.web.bind.annotation.RequestMethod.POST;
 
 @RestController("identityZoneEndpoints")
 @RequestMapping({"/identity-zones", "/identity-zones/"})
@@ -85,8 +88,6 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
 
     private ApplicationEventPublisher publisher;
 
-    private SignatureAlgorithm defaultSamlSignatureAlgorithm;
-
     public IdentityZoneEndpoints(final IdentityZoneProvisioning zoneDao,
             final @Qualifier("identityProviderProvisioning") IdentityProviderProvisioning idpDao,
             final IdentityZoneEndpointClientRegistrationService clientRegistrationService,
@@ -104,11 +105,6 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
         this.messageSource = messageSource;
         this.keyProviderProvisioning = keyProviderProvisioning;
         this.keyProviderValidator = keyProviderValidator;
-    }
-
-    @Autowired
-    public void setDefaultSamlSignatureAlgorithm(@Qualifier("globalSamlSignatureAlgorithm") SignatureAlgorithm samlSignatureAlgorithm) {
-        this.defaultSamlSignatureAlgorithm = samlSignatureAlgorithm;
     }
 
     @Override
@@ -201,11 +197,6 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
         if (!IdentityZoneHolder.isUaa()) {
             throw new AccessDeniedException("Zones can only be created by being authenticated in the default zone.");
         }
-
-        if(body.getConfig().getSamlConfig() != null && body.getConfig().getSamlConfig().getSignatureAlgorithm() == null) {
-            body.getConfig().getSamlConfig().setSignatureAlgorithm(defaultSamlSignatureAlgorithm);
-        }
-
         try {
             body = validator.validate(body, IdentityZoneValidator.Mode.CREATE);
         } catch (InvalidIdentityZoneDetailsException ex) {
@@ -290,9 +281,6 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
             restoreSecretProperties(existingZone, body);
             //validator require id to be present
             body.setId(id);
-            if(body.getConfig().getSamlConfig() != null && body.getConfig().getSamlConfig().getSignatureAlgorithm() == null) {
-                body.getConfig().getSamlConfig().setSignatureAlgorithm(defaultSamlSignatureAlgorithm);
-            }
             body = validator.validate(body, IdentityZoneValidator.Mode.MODIFY);
 
             UserConfig userConfig = body.getConfig().getUserConfig();

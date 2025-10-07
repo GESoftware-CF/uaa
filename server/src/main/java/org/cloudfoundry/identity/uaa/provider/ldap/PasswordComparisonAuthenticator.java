@@ -127,7 +127,6 @@ public class PasswordComparisonAuthenticator extends AbstractLdapAuthenticator {
         if (!match) {
             throw new BadCredentialsException(BAD_CREDENTIALS);
         }
-        return user;
     }
 
     public DirContextOperations searchAuthenticate(DirContextOperations user, byte[] passwordBytes,

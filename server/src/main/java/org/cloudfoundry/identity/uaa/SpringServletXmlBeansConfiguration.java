@@ -404,7 +404,8 @@ public class SpringServletXmlBeansConfiguration {
         bean.setValidator(identityZoneValidator);
         bean.setClientSecretPolicy(defaultUaaClientSecretPolicy);
         bean.setTokenPolicy(uaaTokenPolicy);
-        bean.setSelfServiceLinksEnabled(loginProps.selfServiceLinksEnabled());
+        bean.setSelfServiceCreateAccountEnabled(loginProps.selfServiceCreateAccountEnabled());
+        bean.setSelfServiceResetPasswordEnabled(loginProps.selfServiceResetPasswordEnabled());
         bean.setSelfServiceLinks(links);
         if (links.containsKey("homeRedirect")) {
             bean.setHomeRedirect((String) links.get("homeRedirect"));

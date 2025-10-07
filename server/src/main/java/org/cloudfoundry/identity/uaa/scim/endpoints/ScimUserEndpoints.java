@@ -80,6 +80,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -233,13 +235,13 @@ public class ScimUserEndpoints implements InitializingBean, ApplicationEventPubl
     @ResponseBody
     public ScimUser createUser(@RequestBody ScimUser user, HttpServletRequest request, HttpServletResponse response) {
         boolean isBatchCall = false;
-        ScimUser scimUser = createScimUserHelper(user, request, isBatchCall);
+        ScimUser scimUser = createScimUserHelper(user, request, isBatchCall, response);
 
         addETagHeader(response, scimUser);
         return scimUser;
     }
 
-    private ScimUser createScimUserHelper(ScimUser user, HttpServletRequest request, boolean isBatchCall) {
+    private ScimUser createScimUserHelper(ScimUser user, HttpServletRequest request, boolean isBatchCall, HttpServletResponse response) {
         //default to UAA origin
         if (!hasLength(user.getOrigin())) {
             user.setOrigin(OriginKeys.UAA);
@@ -596,7 +598,7 @@ public class ScimUserEndpoints implements InitializingBean, ApplicationEventPubl
         boolean isBatchCall = true;
         ScimUser[] res = new ScimUser[users.length];
         for(int i = 0; i < users.length; i++){
-            res[i] = createScimUserHelper(users[i], request, isBatchCall);
+            res[i] = createScimUserHelper(users[i], request, isBatchCall, response);
         }
         return res;
     }

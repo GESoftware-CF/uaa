@@ -14,15 +14,19 @@
 package org.cloudfoundry.identity.uaa.integration.feature;
 
 import com.dumbster.smtp.SimpleSmtpServer;
+import org.cloudfoundry.identity.uaa.ServerRunningExtension;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
 import org.cloudfoundry.identity.uaa.oauth.client.test.TestAccounts;
-import org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository;
+import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
+import org.cloudfoundry.identity.uaa.provider.OIDCIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.test.UaaWebDriver;
 import org.cloudfoundry.identity.uaa.zone.BrandingInformation;
 import org.cloudfoundry.identity.uaa.zone.BrandingInformation.Banner;
+import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
+import org.cloudfoundry.identity.uaa.zone.Links;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -39,19 +43,21 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.web.client.ResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 
-import java.io.IOException;
+import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.doesSupportZoneDNS;
+import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.assertSupportsZoneDNS;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.CSRF_PARAMETER_NAME;
+import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.USER_NAME_ATTRIBUTE_NAME;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
 
@@ -78,7 +84,9 @@ class LoginIT {
 
     @Autowired
     SimpleSmtpServer simpleSmtpServer;
-    private static ServerRunning serverRunning = ServerRunning.isRunning();
+
+    @RegisterExtension
+    private static final ServerRunningExtension serverRunning = ServerRunningExtension.connect();
 
     String originKey = "oidc-idp";
 
@@ -206,12 +214,12 @@ class LoginIT {
         assertEquals("Predix", webDriver.getTitle());
 
         //assert Predix logo
-        assertThat(webDriver.findElement(By.id("logo-header")).getAttribute("src"),
-                   containsString("GE_Vernova_Standard_RGB-White.svg"));
+        assertThat(webDriver.findElement(By.id("logo-header")).getAttribute("src"))
+                .isEqualTo("GE_Vernova_Standard_RGB-White.svg");
 
         attemptLogin(newUserEmail, USER_PASSWORD);
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText(),
-                   containsString("You should not see this page. Set up your redirect URI."));
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText())
+                .isEqualTo("You should not see this page. Set up your redirect URI.");
 
         IntegrationTestUtils.validateAccountChooserCookie(baseUrl, webDriver, IdentityZoneHolder.get());
     }
@@ -280,17 +288,7 @@ class LoginIT {
     @Test
     void accessDeniedIfCsrfIsMissing() {
         RestTemplate template = new RestTemplate();
-        template.setErrorHandler(new ResponseErrorHandler() {
-            @Override
-            public boolean hasError(ClientHttpResponse response) throws IOException {
-                return response.getStatusCode().is5xxServerError();
-            }
-
-            @Override
-            public void handleError(ClientHttpResponse response) {
-                // pass through
-            }
-        });
+        template.setErrorHandler(response -> response.getStatusCode().is5xxServerError());
         LinkedMultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("username", testAccounts.getUserName());
         body.add("password", testAccounts.getPassword());
@@ -380,8 +378,7 @@ class LoginIT {
         webDriver.clickAndWait(By.cssSelector("div.action a"));
 
         loginThroughDiscovery(userEmail, USER_PASSWORD);
-        assertThat(webDriver.findElement(By.cssSelector(".island h1")).getText(),
-                containsString("You should not see this page. Set up your redirect URI."));
+        assertThat(webDriver.findElement(By.cssSelector(".island h1")).getText()).isEqualTo("You should not see this page. Set up your redirect URI.");
         deleteDiscoveryZoneIdentityProvider();
 
     }
@@ -406,9 +403,8 @@ class LoginIT {
         assertThat(webDriver.getCurrentUrl()).contains("login_hint");
         webDriver.findElement(By.id("password")).sendKeys(USER_PASSWORD);
         webDriver.clickAndWait(By.xpath("//input[@value='Sign in']"));
-        assertThat(webDriver.findElement(By.cssSelector(".island h1")).getText(),
-                containsString("You should not see this page. Set up your redirect URI."));
-        deleteDiscoveryZoneIdentityProvider().isEqualTo("Where to?");
+        assertThat(webDriver.findElement(By.cssSelector(".island h1")).getText()).isEqualTo("You should not see this page. Set up your redirect URI.");
+        deleteDiscoveryZoneIdentityProvider();
     }
 
     @Test

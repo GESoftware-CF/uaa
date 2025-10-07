@@ -18,6 +18,7 @@ import org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils;
 import org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.IdentityZoneCreationResult;
 import org.cloudfoundry.identity.uaa.oauth.client.ClientConstants;
 import org.cloudfoundry.identity.uaa.oauth.provider.ClientRegistrationService;
+import org.cloudfoundry.identity.uaa.oauth.token.TokenConstants;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
 import org.cloudfoundry.identity.uaa.provider.JdbcIdentityProviderProvisioning;
@@ -30,8 +31,6 @@ import org.cloudfoundry.identity.uaa.scim.ScimGroupMembershipManager;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupProvisioning;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.scim.ScimUserProvisioning;
-import org.cloudfoundry.identity.uaa.provider.JdbcKeyProviderProvisioning;
-import org.cloudfoundry.identity.uaa.provider.KeyProviderConfig;
 import org.cloudfoundry.identity.uaa.scim.event.GroupModifiedEvent;
 import org.cloudfoundry.identity.uaa.scim.event.UserModifiedEvent;
 import org.cloudfoundry.identity.uaa.scim.exception.ScimResourceNotFoundException;
@@ -53,25 +52,25 @@ import org.cloudfoundry.identity.uaa.zone.IdentityZoneProvisioning;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter;
 import org.cloudfoundry.identity.uaa.zone.JdbcIdentityZoneProvisioning;
 import org.cloudfoundry.identity.uaa.zone.MultitenancyFixture;
+import org.cloudfoundry.identity.uaa.zone.OrchestratorState;
 import org.cloudfoundry.identity.uaa.zone.SamlConfig;
 import org.cloudfoundry.identity.uaa.zone.TokenPolicy;
 import org.cloudfoundry.identity.uaa.zone.UserConfig;
 import org.cloudfoundry.identity.uaa.zone.ZoneManagementScopes;
 import org.cloudfoundry.identity.uaa.zone.event.IdentityZoneModifiedEvent;
-import org.cloudfoundry.identity.uaa.zone.SamlConfig.SignatureAlgorithm;
 import org.cloudfoundry.identity.uaa.zone.model.ConnectionDetails;
 import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZone;
 import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneRequest;
 import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneResponse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
@@ -103,12 +102,20 @@ import static org.cloudfoundry.identity.uaa.constants.OriginKeys.UAA;
 import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
 import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.getLoginForm;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
+import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.TokenFormat.JWT;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.TokenFormat.OPAQUE;
-import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.ZONE_CREATED_MESSAGE;
-import static org.cloudfoundry.identity.uaa.zone.SamlConfig.SignatureAlgorithm.SHA1;
 import static org.cloudfoundry.identity.uaa.util.UaaStringUtils.EMPTY_STRING;
+import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.ZONE_CREATED_MESSAGE;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.http.HttpStatus.NOT_FOUND;
+import static org.springframework.http.HttpStatus.OK;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.http.MediaType.TEXT_HTML_VALUE;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -119,15 +126,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import static org.springframework.http.HttpStatus.CONFLICT;
-import static org.springframework.http.HttpStatus.CREATED;
-import static org.springframework.http.HttpStatus.FORBIDDEN;
-import static org.springframework.http.HttpStatus.NOT_FOUND;
-import static org.springframework.http.HttpStatus.OK;
-import static org.springframework.http.HttpStatus.UNAUTHORIZED;
-import static org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY;
-
 import static org.springframework.util.StringUtils.hasText;
 
 // TODO: This class has a lot of helpers, why?
@@ -206,7 +204,6 @@ class IdentityZoneEndpointsMockMvcTests {
     private String uaaAdminClientToken;
     private String uaaAdminUserToken;
     private DbUtils dbUtils;
-    private SignatureAlgorithm globalDefaultSamlSignatureAlgorithm;
 
     private String orchestratorZonesWriteToken = null;
 
@@ -237,7 +234,6 @@ class IdentityZoneEndpointsMockMvcTests {
 
         String groupId = scimGroupProvisioning.getByName("uaa.admin", IdentityZone.getUaaZoneId()).getId();
         scimGroupMembershipManager.addMember(groupId, new ScimGroupMember<>(uaaAdminUser.getId()), IdentityZone.getUaaZoneId());
-        globalDefaultSamlSignatureAlgorithm = webApplicationContext.getBean("globalSamlSignatureAlgorithm", SignatureAlgorithm.class);
 
         uaaAdminUserToken = testClient.getUserOAuthAccessToken(
                 uaaAdminClient.getClientId(),
@@ -311,13 +307,13 @@ class IdentityZoneEndpointsMockMvcTests {
             mockMvc.perform(
                             get("/identity-zones")
                                     .header("Authorization", "Bearer " + token)
-                                    .header("Accept", MediaType.APPLICATION_JSON_VALUE)
+                                    .header("Accept", APPLICATION_JSON_VALUE)
                     )
                     .andExpect(status().isOk());
             mockMvc.perform(
                             get("/identity-zones/{id}", zone.getId())
                                     .header("Authorization", "Bearer " + token)
-                                    .header("Accept", MediaType.APPLICATION_JSON_VALUE)
+                                    .header("Accept", APPLICATION_JSON_VALUE)
                     )
                     .andExpect(status().isOk());
         }
@@ -503,39 +499,7 @@ class IdentityZoneEndpointsMockMvcTests {
         }
     }
 
-
-    @Test
-    public void testCreateWithSamlConfig() throws Exception {
-        String id = generator.generate();
-
-        SignatureAlgorithm uaaDefaultSignatureAlgorthm = webApplicationContext.getBean("defaultUaaSamlSignatureAlgorithm", SignatureAlgorithm.class);
-
-        SamlConfig samlConfig = new SamlConfig();
-        samlConfig.setSignatureAlgorithm(SignatureAlgorithm.SHA512);
-
-        IdentityZoneConfiguration zoneConfiguration = new IdentityZoneConfiguration();
-        zoneConfiguration.setSamlConfig(samlConfig);
-
-        IdentityZone zone = createZone(id, HttpStatus.CREATED, identityClientToken, zoneConfiguration);
-        IdentityZone uaaZone = IdentityZoneHolder.getUaaZone();
-
-        assertEquals(SignatureAlgorithm.SHA512, zone.getConfig().getSamlConfig().getSignatureAlgorithm());
-        assertEquals(uaaDefaultSignatureAlgorthm, uaaZone.getConfig().getSamlConfig().getSignatureAlgorithm());
-    }
-
-    @Test
-    public void testDefaultSignatureAlgorithmFromGlobalDefault() throws Exception{
-        IdentityZoneEndpoints zoneEndpoints = webApplicationContext.getBean(IdentityZoneEndpoints.class);
-        zoneEndpoints.setDefaultSamlSignatureAlgorithm(SignatureAlgorithm.SHA512);
-        String id = new RandomValueStringGenerator(5).generate();
-
-        IdentityZone zone = createZone(id, HttpStatus.CREATED, identityClientToken, new IdentityZoneConfiguration().setSamlConfig(new SamlConfig()));
-
-        assertEquals(SignatureAlgorithm.SHA512, zone.getConfig().getSamlConfig().getSignatureAlgorithm());
-
-        zoneEndpoints.setDefaultSamlSignatureAlgorithm(globalDefaultSamlSignatureAlgorithm);
-    }
-
+    @Disabled("Saml algorithm validation disabled for now, since it is removed in latest UAA")
     @Test
     public void testCreateWithInvalidSamlSigningAlgorithm() throws Exception {
         String zoneId = generator.generate();
@@ -547,33 +511,19 @@ class IdentityZoneEndpointsMockMvcTests {
                 .header("Content-Type", APPLICATION_JSON)
                 .content(requestBody)).andExpect(status().isUnprocessableEntity()).andReturn();
 
-        assertThat(mvcResult.getResponse().getContentAsString(), containsString("Invalid SAML signatureAlgorithm."));
+        assertThat(mvcResult.getResponse().getContentAsString()).contains("Invalid SAML signatureAlgorithm.");
     }
 
 
+    @Disabled("Saml algorithm validation disabled for now, since it is removed in latest UAA")
     @Test
     public void testCreateWithSHA1WhenGlobalDefaultIsSHA256() throws Exception{
         String zoneId = generator.generate();
         SamlConfig samlConfig = new SamlConfig();
-        samlConfig.setSignatureAlgorithm(SHA1);
         IdentityZoneConfiguration zoneConfiguration = new IdentityZoneConfiguration();
         zoneConfiguration.setSamlConfig(samlConfig);
 
         createZone(zoneId, HttpStatus.UNPROCESSABLE_ENTITY, identityClientToken, zoneConfiguration);
-    }
-
-    @Test
-    public void zoneUpdateCanDowngradeSignatureAlgorithmToSHA1() throws Exception{
-        String id = new RandomValueStringGenerator(6).generate();
-        IdentityZoneEndpoints zoneEndpoints = webApplicationContext.getBean(IdentityZoneEndpoints.class);
-        zoneEndpoints.setDefaultSamlSignatureAlgorithm(SignatureAlgorithm.SHA512);
-        IdentityZone zone = createZone(id, HttpStatus.CREATED, identityClientToken, new IdentityZoneConfiguration().setSamlConfig(new SamlConfig()));
-        zone.getConfig().getSamlConfig().setSignatureAlgorithm(SHA1);
-
-        IdentityZone updatedZone = updateZone(zone, HttpStatus.OK, identityClientToken);
-
-        assertEquals(SHA1, updatedZone.getConfig().getSamlConfig().getSignatureAlgorithm());
-        zoneEndpoints.setDefaultSamlSignatureAlgorithm(globalDefaultSamlSignatureAlgorithm);
     }
 
     @Test
@@ -774,7 +724,6 @@ class IdentityZoneEndpointsMockMvcTests {
         checkZoneAuditEventInUaa(1, AuditEventType.IdentityZoneCreatedEvent);
         created.setDescription("updated description");
         IdentityZoneConfiguration definition = new IdentityZoneConfiguration(new TokenPolicy(3600, 7200));
-        definition.getSamlConfig().setSignatureAlgorithm(globalDefaultSamlSignatureAlgorithm);
         definition.getLinks().getSelfService().setSelfServiceCreateAccountEnabled(false);
         created.setConfig(definition);
 
@@ -1069,7 +1018,6 @@ class IdentityZoneEndpointsMockMvcTests {
         samlConfig.setCertificate(samlCertificate);
         samlConfig.setPrivateKey(samlPrivateKey);
         samlConfig.setPrivateKeyPassword(samlKeyPassphrase);
-        samlConfig.setSignatureAlgorithm(SignatureAlgorithm.SHA256);
 
         IdentityZoneConfiguration definition = new IdentityZoneConfiguration(tokenPolicy);
         identityZone.setConfig(definition.setSamlConfig(samlConfig));
@@ -1951,7 +1899,7 @@ class IdentityZoneEndpointsMockMvcTests {
                                 .header("Authorization", "Bearer " + identityClientToken)
                                 .accept(APPLICATION_JSON))
                 .andExpect(status().isUnprocessableEntity()).andReturn();
-        assertThat(result.getResponse().getContentAsString(), containsString("This service instance has been ported to EKS. Deletion of this service instance from CF is not allowed"));
+        assertThat(result.getResponse().getContentAsString()).contains("This service instance has been ported to EKS. Deletion of this service instance from CF is not allowed");
     }
 
     @Test
@@ -2295,46 +2243,6 @@ class IdentityZoneEndpointsMockMvcTests {
                 .returns("kid", TokenPolicy::getActiveKeyId)
                 .returns(emptyMap(), TokenPolicy::getKeys);
     }
-
-    @Test
-    void createZoneWithMfaConfigIsNotSupported() throws Exception {
-        MfaProvider<GoogleMfaProviderConfig> mfaProvider = createGoogleMfaProvider(null);
-        String zoneId = new RandomValueStringGenerator(5).generate();
-        String zoneContent = "{\"id\" : \"" + zoneId + "\", \"name\" : \"" + zoneId + "\", \"subdomain\" : \"" + zoneId + "\", \"config\" : { \"mfaConfig\" : {\"enabled\" : true, \"providerName\" : \"" + mfaProvider.getName() + "\"}}}";
-        mockMvc.perform(post("/identity-zones")
-                            .header("Authorization", "Bearer " + adminToken)
-                            .contentType(APPLICATION_JSON)
-                            .content(zoneContent))
-               .andExpect(status().isUnprocessableEntity())
-               .andReturn().getResponse();
-    }
-
-    @Test
-    void updateZoneWithValidMfaConfig() throws Exception {
-        IdentityZone identityZone = createZone(new RandomValueStringGenerator(5).generate(), HttpStatus.CREATED, adminToken, new IdentityZoneConfiguration());
-        MfaProvider<GoogleMfaProviderConfig> mfaProvider = createGoogleMfaProvider(identityZone.getId());
-        identityZone.getConfig().setMfaConfig(new MfaConfig().setProviderName(mfaProvider.getName()));
-
-        IdentityZone updatedZone = updateZone(identityZone, HttpStatus.OK, adminToken);
-
-        assertEquals(mfaProvider.getName(), updatedZone.getConfig().getMfaConfig().getProviderName());
-        assertFalse(updatedZone.getConfig().getMfaConfig().isEnabled());
-    }
-
-    @Test
-    void updateZoneWithValidMfaConfigWithoutIdInBody_Succeeds() throws Exception {
-        IdentityZone identityZone = createZone(new RandomValueStringGenerator(5).generate(), HttpStatus.CREATED, adminToken, new IdentityZoneConfiguration());
-        MfaProvider<GoogleMfaProviderConfig> mfaProvider = createGoogleMfaProvider(identityZone.getId());
-        identityZone.getConfig().setMfaConfig(new MfaConfig().setEnabled(true).setProviderName(mfaProvider.getName()));
-        String id = identityZone.getId();
-        identityZone.setId(null);
-
-        IdentityZone updatedZone = updateZone(id, identityZone, HttpStatus.OK, adminToken);
-
-        assertEquals(mfaProvider.getName(), updatedZone.getConfig().getMfaConfig().getProviderName());
-        assertTrue(updatedZone.getConfig().getMfaConfig().isEnabled());
-    }
-
     @Test
     void updateZoneWithDifferentIdInBodyAndPath_fails() throws Exception {
         IdentityZone identityZone = createZone(new AlphanumericRandomValueStringGenerator(5).generate(), HttpStatus.CREATED, adminToken, new IdentityZoneConfiguration());
@@ -2455,7 +2363,7 @@ class IdentityZoneEndpointsMockMvcTests {
         assertThat(zone.getSubdomain()).isEqualTo(id.toLowerCase());
         assertThat(zone.getConfig().getTokenPolicy().isRefreshTokenUnique()).isFalse();
         assertThat(zone.getConfig().getTokenPolicy().isRefreshTokenRotate()).isFalse();
-        assertThat(zone.getConfig().getTokenPolicy().getRefreshTokenFormat()).isEqualTo(OPAQUE.getStringValue());
+        assertThat(zone.getConfig().getTokenPolicy().getRefreshTokenFormat()).isEqualTo(JWT.getStringValue());
         checkAuditEventListener(1, AuditEventType.IdentityZoneCreatedEvent, zoneModifiedEventListener, IdentityZone.getUaaZoneId(), "http://localhost:8080/uaa/oauth/token", "identity");
 
         //validate that default groups got created
@@ -2676,7 +2584,7 @@ class IdentityZoneEndpointsMockMvcTests {
 
 
     private String configureOrchestratorZone() throws Exception {
-        BaseClientDetails clientDetails = new BaseClientDetails("orchestrator-zone-provisioner-" + RandomString.make(5).toLowerCase(), null, "uaa.none", "client_credentials", "orchestrator.zones.read,orchestrator.zones.write");
+        UaaClientDetails clientDetails = new UaaClientDetails("orchestrator-zone-provisioner-" + RandomString.make(5).toLowerCase(), null, "uaa.none", "client_credentials", "orchestrator.zones.read,orchestrator.zones.write");
         clientDetails.setClientSecret("pr0visioner");
         orchestratorZoneClientRegistrationService.addClientDetails(clientDetails);
         return testClient.getClientCredentialsOAuthAccessToken(clientDetails.getClientId(), clientDetails.getClientSecret(), "orchestrator.zones.read,orchestrator.zones.write");

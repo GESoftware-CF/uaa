@@ -7,7 +7,6 @@ import org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AccessDeniedHand
 import org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AuthenticationEntryPoint;
 import org.cloudfoundry.identity.uaa.security.IsSelfCheck;
 import org.cloudfoundry.identity.uaa.web.SelfCheckAuthorizationManager;
-import org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository;
 import org.cloudfoundry.identity.uaa.web.FilterChainOrder;
 import org.cloudfoundry.identity.uaa.web.UaaFilterChain;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,9 +41,6 @@ class ScimSecurityConfiguration {
     @Autowired
     @Qualifier("oauthAccessDeniedHandler")
     OAuth2AccessDeniedHandler oauthAccessDeniedHandler;
-
-    @Autowired
-    CookieBasedCsrfTokenRepository csrfTokenRepository;
 
     @Bean
     @Order(FilterChainOrder.SCIM_PASSWORD)

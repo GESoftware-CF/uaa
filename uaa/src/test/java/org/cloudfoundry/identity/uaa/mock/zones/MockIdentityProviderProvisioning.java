@@ -19,6 +19,11 @@ public class MockIdentityProviderProvisioning implements IdentityProviderProvisi
     }
 
     @Override
+    public boolean idpWithAliasExistsInZone(String zoneId) {
+        return false;
+    }
+
+    @Override
     public IdentityProvider retrieve(String id, String zoneId) {
         return null;
     }
@@ -29,12 +34,22 @@ public class MockIdentityProviderProvisioning implements IdentityProviderProvisi
     }
 
     @Override
+    public List<IdentityProvider> retrieveActiveByTypes(String zoneId, String... types) {
+        return List.of();
+    }
+
+    @Override
     public List<IdentityProvider> retrieveAll(boolean activeOnly, String zoneId) {
         return null;
     }
 
     @Override
     public IdentityProvider retrieveByOrigin(String origin, String zoneId) {
+        return null;
+    }
+
+    @Override
+    public IdentityProvider retrieveByExternId(String externId, String type, String zoneId) {
         return null;
     }
 }

@@ -36,6 +36,7 @@ import java.util.Iterator;
 
 import static org.apache.commons.lang3.StringUtils.contains;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 //Some tests are Ignored to accomodate Predix Branding changes
 @SpringJUnitConfig(classes = DefaultIntegrationTestConfig.class)
@@ -188,13 +189,13 @@ class ResetPasswordIT {
         webDriver.findElement(By.name("password")).sendKeys("new_password");
         webDriver.clickAndWait(By.xpath("//input[@value='Sign in']"));
 
-        assertThat(webDriver.getCurrentUrl(), startsWith("https://www.google.com/?code="));
+        assertThat(webDriver.getCurrentUrl()).startsWith("https://www.google.com/?code=");
     }
 
     @Test
     void resettingAPasswordForANonExistentUser() {
         webDriver.get(baseUrl + "/login");
-        Assert.assertEquals("Predix", webDriver.getTitle());
+        assertEquals("Predix", webDriver.getTitle());
         int receivedEmailSize = simpleSmtpServer.getReceivedEmailSize();
 
         beginPasswordReset("nonexistent_user");

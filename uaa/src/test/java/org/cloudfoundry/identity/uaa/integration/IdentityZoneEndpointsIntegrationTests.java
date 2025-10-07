@@ -5,6 +5,7 @@ import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
 import org.cloudfoundry.identity.uaa.oauth.client.ClientConstants;
+import org.cloudfoundry.identity.uaa.oauth.client.DefaultOAuth2ClientContext;
 import org.cloudfoundry.identity.uaa.oauth.client.OAuth2RestTemplate;
 import org.cloudfoundry.identity.uaa.oauth.client.http.OAuth2ErrorHandler;
 import org.cloudfoundry.identity.uaa.oauth.client.resource.ClientCredentialsResourceDetails;
@@ -29,7 +30,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.junit.jupiter.api.Assertions;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -47,6 +47,10 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
+import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.ZONE_CREATED_MESSAGE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @OAuth2ContextConfiguration(IdentityZoneEndpointsIntegrationTests.IdentityClient.class)
 class IdentityZoneEndpointsIntegrationTests {
@@ -309,12 +313,12 @@ class IdentityZoneEndpointsIntegrationTests {
         expectedResponse.setMessage(ZONE_CREATED_MESSAGE);
         expectedResponse.setState(OrchestratorState.CREATE_IN_PROGRESS.toString());
 
-        Assertions.assertEquals(HttpStatus.ACCEPTED, importResponse.getStatusCode());
+        assertEquals(HttpStatus.ACCEPTED, importResponse.getStatusCode());
 
         ResponseEntity<Void> deleteResponse = client.exchange(serverRunning.getUrl("/identity-zones/" + id), HttpMethod.DELETE, null, new ParameterizedTypeReference<Void>() {
         });
 
-        Assertions.assertEquals(deleteResponse.getStatusCode(), HttpStatus.UNPROCESSABLE_ENTITY);
+        assertEquals(deleteResponse.getStatusCode(), HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
     private ResponseEntity<Void> portZone(String zoneId) {

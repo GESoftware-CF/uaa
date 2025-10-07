@@ -13,6 +13,8 @@ import java.util.stream.Collectors;
 @Slf4j(topic = "org.cloudfoundry.identity.uaa.authentication.SamlResponseLoggerBinding")
 @Component("samlResponseLoggerBinding")
 public class MalformedSamlResponseLogger {
+
+
     public static final String X_VCAP_REQUEST_ID_HEADER = "X-Vcap-Request-Id";
 
     public void logMalformedResponse(HttpServletRequest httpServletRequest) {

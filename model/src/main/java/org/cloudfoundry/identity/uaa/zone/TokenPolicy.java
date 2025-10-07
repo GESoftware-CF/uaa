@@ -14,7 +14,11 @@
 
 package org.cloudfoundry.identity.uaa.zone;
 
-import com.fasterxml.jackson.annotation.*;
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonSetter;
 import org.cloudfoundry.identity.uaa.oauth.token.TokenConstants;
 import org.springframework.util.StringUtils;
 
@@ -25,7 +29,7 @@ import java.util.Map;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
-import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.TokenFormat.OPAQUE;
+import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.TokenFormat.JWT;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class TokenPolicy {
@@ -44,7 +48,7 @@ public class TokenPolicy {
     private boolean jwtRevocable;
     private boolean refreshTokenUnique;
     private boolean refreshTokenRotate;
-    private String refreshTokenFormat = OPAQUE.getStringValue();
+    private String refreshTokenFormat = JWT.getStringValue();
 
     @JsonGetter("keys")
     @JsonInclude(JsonInclude.Include.NON_NULL)

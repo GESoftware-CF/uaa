@@ -5,7 +5,6 @@ import org.cloudfoundry.identity.uaa.util.TimeService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.mock.env.MockEnvironment;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -20,21 +19,19 @@ import java.util.concurrent.atomic.AtomicLong;
 import static jakarta.servlet.http.HttpServletResponse.SC_SERVICE_UNAVAILABLE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.web.LimitedModeUaaFilter.STATUS_INTERVAL_MS;
-import static org.cloudfoundry.identity.uaa.web.LimitedModeUaaFilter.DEGRADED;
-
 import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.springframework.core.env.AbstractEnvironment.ACTIVE_PROFILES_PROPERTY_NAME;
 import static org.springframework.http.HttpHeaders.ACCEPT;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
 
 public class LimitedModeUaaFilterTests {
-    // To set Predix UAA limited/degraded mode, use environment variable instead of StatusFile
 
     private MockHttpServletRequest mockHttpServletRequest;
     private MockHttpServletResponse mockHttpServletResponse;
@@ -57,7 +54,6 @@ public class LimitedModeUaaFilterTests {
         mockHttpServletResponse = new MockHttpServletResponse();
         mockFilterChain = mock(FilterChain.class);
         filter = new LimitedModeUaaFilter();
-        setActiveProfiles("default", DEGRADED);
         statusFile = Files.createTempFile("uaa-limited-mode.", ".status").toFile();
     }
 
@@ -68,7 +64,6 @@ public class LimitedModeUaaFilterTests {
 
     @Test
     void disabled() throws Exception {
-        setActiveProfiles("default");
         filter.doFilterInternal(mockHttpServletRequest, mockHttpServletResponse, mockFilterChain);
         verify(mockFilterChain, times(1)).doFilter(same(mockHttpServletRequest), same(mockHttpServletResponse));
         assertThat(filter.isEnabled()).isFalse();
@@ -77,6 +72,7 @@ public class LimitedModeUaaFilterTests {
     @Test
     void enabledNoWhitelistPost() throws Exception {
         mockHttpServletRequest.setMethod(POST.name());
+        filter.setStatusFile(statusFile);
         filter.doFilterInternal(mockHttpServletRequest, mockHttpServletResponse, mockFilterChain);
         verifyNoInteractions(mockFilterChain);
         assertThat(mockHttpServletResponse.getStatus()).isEqualTo(SC_SERVICE_UNAVAILABLE);
@@ -85,6 +81,7 @@ public class LimitedModeUaaFilterTests {
     @Test
     void enabledNoWhitelistGet() throws Exception {
         mockHttpServletRequest.setMethod(GET.name());
+        filter.setStatusFile(statusFile);
         filter.setPermittedMethods(new HashSet<>(Collections.singletonList(GET.toString())));
         filter.doFilterInternal(mockHttpServletRequest, mockHttpServletResponse, mockFilterChain);
         verify(mockFilterChain, times(1)).doFilter(same(mockHttpServletRequest), same(mockHttpServletResponse));
@@ -94,6 +91,7 @@ public class LimitedModeUaaFilterTests {
     void enabledMatchingUrlPost() throws Exception {
         mockHttpServletRequest.setMethod(POST.name());
         filter.setPermittedEndpoints(Collections.singleton("/oauth/token/**"));
+        filter.setStatusFile(statusFile);
         for (String pathInfo : Arrays.asList("/oauth/token", "/oauth/token/alias/something")) {
             setPathInfo(pathInfo, mockHttpServletRequest);
             reset(mockFilterChain);
@@ -106,6 +104,7 @@ public class LimitedModeUaaFilterTests {
     void enabledNotMatchingPost() throws Exception {
         mockHttpServletRequest.setMethod(POST.name());
         filter.setPermittedEndpoints(Collections.singleton("/oauth/token/**"));
+        filter.setStatusFile(statusFile);
         for (String pathInfo : Arrays.asList("/url", "/other/url")) {
             mockHttpServletResponse = new MockHttpServletResponse();
             setPathInfo(pathInfo, mockHttpServletRequest);
@@ -119,6 +118,7 @@ public class LimitedModeUaaFilterTests {
     @Test
     void errorIsJson() throws Exception {
         filter.setPermittedEndpoints(Collections.singleton("/oauth/token/**"));
+        filter.setStatusFile(statusFile);
         for (String accept : Arrays.asList("application/json", "text/html,*/*")) {
             mockHttpServletRequest = new MockHttpServletRequest();
             mockHttpServletResponse = new MockHttpServletResponse();
@@ -134,6 +134,7 @@ public class LimitedModeUaaFilterTests {
     @Test
     void errorIsNot() throws Exception {
         filter.setPermittedEndpoints(Collections.singleton("/oauth/token/**"));
+        filter.setStatusFile(statusFile);
         for (String accept : Arrays.asList("text/html", "text/plain")) {
             mockHttpServletRequest = new MockHttpServletRequest();
             mockHttpServletResponse = new MockHttpServletResponse();
@@ -147,15 +148,27 @@ public class LimitedModeUaaFilterTests {
     }
 
     @Test
-    void removeDegradedEnvVariable_filterIsDisabled() {
-        assertTrue(filter.isEnabled());
-        setActiveProfiles("default");
-        assertFalse(filter.isEnabled());
+    void disableEnableUsesCacheToAvoidFileAccess() {
+        File spy = spy(statusFile);
+        doCallRealMethod().when(spy).exists();
+        filter.setTimeService(timeService);
+        filter.setStatusFile(spy);
+        assertThat(filter.isEnabled()).isTrue();
+        statusFile.delete();
+        for (int i = 0; i < 10; i++) {
+            assertThat(filter.isEnabled()).isTrue();
+        }
+        time.set(time.get() + STATUS_INTERVAL_MS + 10);
+        assertThat(filter.isEnabled()).isFalse();
+        verify(spy, times(2)).exists();
     }
 
-    private void setActiveProfiles(CharSequence... profiles) {
-        MockEnvironment env = new MockEnvironment();
-        filter.setEnvironment(env.withProperty(ACTIVE_PROFILES_PROPERTY_NAME, String.join(",", profiles)));
+    @Test
+    void settingsFileChangesCache() {
+        disableEnableUsesCacheToAvoidFileAccess();
+        filter.setStatusFile(null);
+        assertThat(filter.isEnabled()).isFalse();
+        assertThat(filter.getLastFileSystemCheck()).isZero();
     }
 
     public static void setPathInfo(
