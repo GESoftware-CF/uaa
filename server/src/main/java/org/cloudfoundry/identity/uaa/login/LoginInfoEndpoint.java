@@ -446,7 +446,7 @@ public class LoginInfoEndpoint {
             return "idp_discovery/account_chooser";
         }
         if (discoveryEnabled) {
-            if (!discoveryPerformed && identityProvidersAvailable) {
+            if (!discoveryPerformed) {
                 return "idp_discovery/email";
             }
             return goToPasswordPage(request.getParameter(EMAIL_ATTRIBUTE), model);

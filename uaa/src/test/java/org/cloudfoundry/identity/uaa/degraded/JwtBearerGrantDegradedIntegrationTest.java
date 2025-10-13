@@ -12,9 +12,8 @@ import org.cloudfoundry.identity.uaa.provider.token.MockAssertionToken;
 import org.cloudfoundry.identity.uaa.provider.token.MockClientAssertionHeader;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,8 +23,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.codec.Base64;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
@@ -37,8 +35,7 @@ import java.util.Map;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_JWT_BEARER;
 import static org.junit.Assert.assertEquals;
 
-@RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = DefaultIntegrationTestConfig.class)
+@SpringJUnitConfig(classes = DefaultIntegrationTestConfig.class)
 public class JwtBearerGrantDegradedIntegrationTest {
 
     private static final String PREDIX_CLIENT_ASSERTION_HEADER = "Predix-Client-Assertion";
@@ -85,7 +82,7 @@ public class JwtBearerGrantDegradedIntegrationTest {
         return headers;
     }
 
-    @Before
+    @BeforeEach
     public void setup() {
         if (StringUtils.hasText(protocol)) {
             protocol = protocol.contains("://") ? protocol : protocol + "://";

@@ -1189,7 +1189,7 @@ class LoginInfoEndpointTests {
         String redirect = endpoint.loginForHtml(extendedModelMap, null, mockHttpServletRequest, singletonList(MediaType.TEXT_HTML));
 
         assertThat(extendedModelMap).containsEntry("login_hint", "{\"origin\":\"uaa\"}");
-        assertThat(redirect).isEqualTo("idp_discovery/password");
+        assertThat(redirect).isEqualTo("idp_discovery/email");
     }
 
     @Test
@@ -1205,7 +1205,7 @@ class LoginInfoEndpointTests {
         IdentityZoneHolder.get().getConfig().setAccountChooserEnabled(false);
         String redirect = endpoint.loginForHtml(extendedModelMap, null, mockHttpServletRequest, singletonList(MediaType.TEXT_HTML));
 
-        assertThat(redirect).isEqualTo("idp_discovery/password");
+        assertThat(redirect).isEqualTo("idp_discovery/email");
     }
 
     @Test

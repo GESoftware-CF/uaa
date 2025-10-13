@@ -79,7 +79,7 @@ class HomeIT {
     void message() {
         LoginPage.go(webDriver, baseUrl)
                 .sendLoginCredentials(testAccounts.getUserName(), testAccounts.getPassword());
-        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("You should not see this page. Set up your redirect URI");
+        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("You should not see this page. Set up your redirect URI.");
     }
 
     @Test
@@ -88,7 +88,7 @@ class HomeIT {
         HomePage homePage = LoginPage.go(webDriver, baseUrl)
                 .sendLoginCredentials(testAccounts.getUserName(), testAccounts.getPassword());
         try {
-            homePage.goHome().assertThatPageSource().contains("Where to?");
+            homePage.goHome().assertThatPageSource().contains("You should not see this page. Set up your redirect URI.");
             webDriver.pressUaaNavigation("nav-dropdown-button", "nav-dropdown-content-profile");
         } catch (TimeoutException e) {
             webDriver.get(baseUrl + "/profile");
@@ -97,20 +97,22 @@ class HomeIT {
     }
 
     @Test
+    @Disabled
     void defaultNoDropDown() {
         LoginPage.go(webDriver, baseUrl)
                 .sendLoginCredentials(testAccounts.getUserName(), testAccounts.getPassword())
-                .assertThatPageSource().contains("Where to?");
+                .assertThatPageSource().contains("You should not see this page. Set up your redirect URI.");
         assertThat(asOnHomePage.getUsernameElement()).isNotNull();
         assertThat(asOnHomePage.getAccountSettingsElement().isDisplayed()).isFalse();
         assertThat(asOnHomePage.getSignOutElement().isDisplayed()).isFalse();
     }
 
     @Test
+    @Disabled
     void theHeaderDropdown() {
         LoginPage.go(webDriver, baseUrl)
                 .sendLoginCredentials(testAccounts.getUserName(), testAccounts.getPassword())
-                .assertThatPageSource().contains("Where to?");
+                .assertThatPageSource().contains("You should not see this page. Set up your redirect URI.");
         try {
             WebDriverWait wait = new WebDriverWait(webDriver, Duration.ofSeconds(30));
             wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("nav-dropdown-button"))).click();

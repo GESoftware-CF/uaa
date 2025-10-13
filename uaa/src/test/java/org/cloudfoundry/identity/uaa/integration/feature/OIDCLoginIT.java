@@ -551,7 +551,7 @@ public class OIDCLoginIT {
 
         String externalOIDCProviderLoginPage = baseUrl;
         webDriver.get(externalOIDCProviderLoginPage);
-        assertThat(webDriver.getPageSource()).as("Did not land on the external OIDC provider home page (as an authenticated user).").contains("Where to?");
+        assertThat(webDriver.getPageSource()).as("Did not land on the external OIDC provider home page (as an authenticated user).").contains("You should not see this page. Set up your redirect URI.");
     }
 
     private String getRefreshTokenResponse(ServerRunningExtension serverRunning, String refreshToken) {

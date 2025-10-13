@@ -50,6 +50,7 @@ public class IdentityZoneResolvingFilter extends OncePerRequestFilter implements
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         IdentityZone identityZone = null;
+        logger.info("Inside zone filter ****************");
         String hostname = request.getServerName();
         String subdomain = getSubdomain(hostname);
         if (subdomain != null) {

@@ -157,7 +157,7 @@ public class UaaAuthorizationEndpoint extends AbstractEndpoint implements Authen
             SessionStatus sessionStatus,
             Principal principal,
             HttpServletRequest request) {
-
+        logger.error("Inside zone filter ********************************************");
         ClientDetails client;
         String clientId;
         try {

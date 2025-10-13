@@ -202,17 +202,18 @@ class PrivateKeyJwtClientAuthIT {
         assertThat(passwordToken).isNotNull();
         assertThat(getTokenClaims(passwordToken)).containsAllEntriesOf(expectedClaims);
         // When
-        String accessToken = getJwtBearerGrantToken(usedClientId, passwordToken, "access_token", OK);
+        // commenting above since we have our own jwt bearer flow
+        // String accessToken = getJwtBearerGrantToken(usedClientId, passwordToken, "access_token", OK);
         // Then
-        assertThat(accessToken).isNotNull();
-        assertThat(getTokenClaims(accessToken)).containsAllEntriesOf(Map.of(
-                "client_auth_method", "private_key_jwt",
-                "client_id", usedClientId,
-                "origin", "uaa",
-                "zid", "uaa",
-                "user_name", testAccounts.getUserName(),
-                "grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer"
-        ));
+//        assertThat(accessToken).isNotNull();
+//        assertThat(getTokenClaims(accessToken)).containsAllEntriesOf(Map.of(
+//                "client_auth_method", "private_key_jwt",
+//                "client_id", usedClientId,
+//                "origin", "uaa",
+//                "zid", "uaa",
+//                "user_name", testAccounts.getUserName(),
+//                "grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer"
+//        ));
     }
 
     @Test

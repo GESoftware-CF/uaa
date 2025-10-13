@@ -255,11 +255,13 @@ task acceptanceTest(type: Test) {
 }
 
 task degradedTestCloud(type: Test) {
+    useJUnitPlatform()
     systemProperty "RUN_AGAINST_CLOUD", true
     include "org/cloudfoundry/identity/uaa/degraded/*.class"
 }
 
 task degradedTestLocal(type: Test) {
+    useJUnitPlatform()
     systemProperty "RUN_AGAINST_CLOUD", false
     dependsOn rootProject.cargoStartLocal
     finalizedBy rootProject.cargoStopLocal
@@ -267,11 +269,13 @@ task degradedTestLocal(type: Test) {
 }
 
 task degradedJwtTestCloud(type: Test) {
+    useJUnitPlatform()
     systemProperty "RUN_AGAINST_CLOUD", true
     include "org/cloudfoundry/identity/uaa/jwt/degraded/*.class"
 }
 
 task degradedJwtTestLocal(type: Test) {
+    useJUnitPlatform()
     systemProperty "RUN_AGAINST_CLOUD", false
     dependsOn rootProject.setupDegradedTestsForJwtBearerLocal
     include "org/cloudfoundry/identity/uaa/jwt/degraded/*.class"

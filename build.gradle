@@ -23,10 +23,6 @@ buildscript {
     }
 }
 
-plugins {
-    id "org.sonarqube" version "4.3.0.3225"
-}
-
 apply from: file('docker.gradle')
 apply(from: "dependencies.gradle")
 
@@ -41,10 +37,11 @@ def proxyHost  = System.getenv('PROXY_HOST')
 def proxyPort  = System.getenv('PROXY_PORT')
 def nonProxyHosts = 'localhost|*.localhost'
 
+apply(plugin: "org.sonarqube")
+
 allprojects {
     apply(plugin: "io.spring.dependency-management")
     apply(plugin: "org.barfuin.gradle.jacocolog")
-    apply(plugin: "org.sonarqube")
 
     dependencyManagement {
         imports {
@@ -73,9 +70,6 @@ allprojects {
     //running server on http://localhost:8080/uaa
     ext.runCargoTests = Boolean.valueOf(System.getProperty("cargo.tests.run", "true"))
 }
-
-apply(plugin: "jacoco")
-apply(plugin: "com.github.kt3k.coveralls")
 
 subprojects {
     apply(plugin: "java")
@@ -199,34 +193,7 @@ subprojects {
         systemProperties = System.properties
         systemProperties['user.dir'] = workingDir
     }
-
-    jacocoTestReport {
-        additionalSourceDirs(files(sourceSets.main.allSource.srcDirs))
-        sourceDirectories.setFrom(files(sourceSets.main.allSource.srcDirs))
-        classDirectories.setFrom(files(sourceSets.main.output))
-        reports {
-            html.enabled = true
-            xml.enabled = true
-            csv.enabled = false
-        }
-        getExecutionData().setFrom(fileTree(buildDir).include("/jacoco/*.exec"))
-    }
-
-    if (!path.startsWith(':cloudfoundry-identity-samples')) {
-        task collectDependencies(type: Copy) {
-            from configurations.runtime
-            into "${rootProject.buildDir}/dependencies"
-            exclude 'cloudfoundry-identity-*.jar'
-        }
-    }
 }
-
-def jacocoJarPath = project.zipTree(configurations.jacocoAgent.singleFile).filter({
-    it.name == 'jacocoagent.jar'
-}).asPath
-def jacocoLocation = System.getProperty('java.io.tmpdir') + "/jacocoagent.jar"
-
-def integrationTestCoverageExecutionData = "${buildDir}/integrationTestCoverageReport.exec"
 
 cargo {
     containerId = "tomcat10x"
@@ -247,8 +214,6 @@ cargo {
         rmiPort = applicationPort + 10
 
         jvmArgs = ""
-        jvmArgs = String.format("%s -javaagent:%s=output=file,dumponexit=true,append=false,destfile=%s", jvmArgs,
-            file(jacocoLocation).getAbsolutePath(), integrationTestCoverageExecutionData)
         jvmArgs = String.format("%s -DCLOUDFOUNDRY_CONFIG_PATH='%s'", jvmArgs, file("scripts/cargo").getAbsolutePath())
         jvmArgs = String.format("%s -Dlogging.config='%s'", jvmArgs, file("scripts/cargo/log4j2.properties").getAbsolutePath())
         jvmArgs = String.format("%s -Dstatsd.enabled=true", jvmArgs)
@@ -267,8 +232,8 @@ cargo {
         if (Boolean.valueOf(System.getProperty("xcoveragerun"))) {
             copy {
                 from(zipTree(configurations.getByName('jacocoAgent')
-                        .findAll { 'runtimeClasspath' }.get(0))
-                        .matching { include 'jacocoagent.jar' }.singleFile)
+                                           .findAll { 'runtimeClasspath' }.get(0))
+                             .matching { include 'jacocoagent.jar' }.singleFile)
                 into(layout.buildDirectory.dir("jacoco"))
             }
 
@@ -313,15 +278,80 @@ cargo {
     }
 }
 
-//sonarqube {
-//    properties {
-//        property "sonar.projectKey", "cloudfoundry-identity-parent"
-//        property "sonar.organization", "cloudfoundry-1"
-//        property "sonar.host.url", "https://sonarcloud.io"
-//        property "sonar.exclusions", "samples/**/*.*,**/*Test.java,**/*Tests.java,**/*IT.java,**/*SecurityConfiguration.java"
-//        property "sonar.java.source", JavaVersion.current()
-//    }
-//}
+// Configure SonarQube after all projects are evaluated to ensure source sets are properly initialized
+allprojects {
+    pluginManager.withPlugin('org.sonarqube') {
+        sonarqube {
+            // Skip sonar on all subprojects - only run at root level
+            skipProject = (project.parent != null)
+        }
+    }
+}
+
+sonarqube {
+    properties {
+        property "sonar.projectKey", "UAA_Service"
+        property "sonar.organization", "Ge Vernova"
+        property "sonar.host.url", System.getenv("SONAR_HOST_URL")
+        property "sonar.login", System.getenv("SONAR_LOGIN_KEY")
+        property "sonar.coverage.jacoco.xmlReportPaths", "${buildDir}/reports/jacoco/jacocoRootReport/jacocoRootReport.xml"
+        property "sonar.exclusions", "samples/**/*.*,**/*Test.java,**/*Tests.java,**/*IT.java,**/*SecurityConfiguration.java"
+        property "sonar.java.source", JavaVersion.current()
+    }
+}
+
+// Configure sources, tests, and binaries after evaluation when source sets are properly initialized
+gradle.projectsEvaluated {
+    tasks.named('sonar').configure {
+        // Ensure all classes are compiled and jacoco report is generated first
+        dependsOn subprojects.collect { it.tasks.findByName('classes') }.findAll { it != null }
+        dependsOn tasks.named('jacocoRootReport')
+
+        doFirst {
+            def sourceSet = new LinkedHashSet<String>()
+            def testSet = new LinkedHashSet<String>()
+            def binarySet = new LinkedHashSet<String>()
+
+            subprojects.findAll { it.pluginManager.hasPlugin('java') }.each { proj ->
+                // Collect main source directories
+                proj.sourceSets.main.allJava.srcDirs.each { dir ->
+                    if (dir.exists() && dir.isDirectory()) {
+                        sourceSet.add(dir.absolutePath)
+                    }
+                }
+
+                // Collect test source directories
+                proj.sourceSets.test.allJava.srcDirs.each { dir ->
+                    if (dir.exists() && dir.isDirectory()) {
+                        testSet.add(dir.absolutePath)
+                    }
+                }
+
+                // Collect binary directories
+                proj.sourceSets.main.output.classesDirs.files.each { dir ->
+                    if (dir.exists() && dir.isDirectory()) {
+                        binarySet.add(dir.absolutePath)
+                    }
+                }
+            }
+
+            // Set the properties dynamically using the properties map
+            if (!sourceSet.isEmpty()) {
+                project.extensions.sonarqube.properties['sonar.sources'] = sourceSet.join(',')
+            }
+            if (!testSet.isEmpty()) {
+                project.extensions.sonarqube.properties['sonar.tests'] = testSet.join(',')
+            }
+            if (!binarySet.isEmpty()) {
+                project.extensions.sonarqube.properties['sonar.java.binaries'] = binarySet.join(',')
+            }
+
+            println "SonarQube Sources: ${sourceSet.size()} directories"
+            println "SonarQube Tests: ${testSet.size()} directories"
+            println "SonarQube Binaries: ${binarySet.size()} directories"
+        }
+    }
+}
 
 project.gradle.taskGraph.whenReady { TaskExecutionGraph graph ->
     project.allprojects.collect({ it.tasks.withType(Test) }).flatten().each {
@@ -346,11 +376,11 @@ tasks.register('manifests', Copy) {
     from("uaa/src/test/resources/sample-manifests") {
         include("**/*.yml")
         filter(ReplaceTokens,
-                tokens: [
-                        version  : version,
-                        app      : System.getProperty("app", "myuaa"),
-                        appdomain: System.getProperty("app-domain", "bosh-lite.com"),
-                ]
+               tokens: [
+                       version  : version,
+                       app      : System.getProperty("app", "myuaa"),
+                       appdomain: System.getProperty("app-domain", "bosh-lite.com"),
+               ]
         )
     }
     into("build/sample-manifests")
@@ -358,16 +388,11 @@ tasks.register('manifests', Copy) {
 
 tasks.register('cleanCargoConfDir') {
     delete(Path.of(System.getProperty("java.io.tmpdir"), "cargo", "uaa-${applicationPort}"))
-    delete file(jacocoLocation)
     try {
         Files.createDirectory(Path.of(System.getProperty("java.io.tmpdir"), "uaa-${applicationPort}"))
     } catch (ignored) {
     }
-    delete file(jacocoLocation)
-    Files.copy(Paths.get(jacocoJarPath), Paths.get(jacocoLocation))
 }
-
-def publishedProjects = subprojects
 
 tasks.register('integrationTest', Test) {
     if (runCargoTests) {
@@ -378,6 +403,70 @@ tasks.register('integrationTest', Test) {
         finalizedBy cargoStopLocal
     }
 }
+
+task setupDegradedTestLocal(type: Exec, dependsOn: cargoStartLocal) {
+    workingDir 'scripts'
+    commandLine './setupDegradedTests.sh'
+    finalizedBy 'cargoStopLocal'
+
+    standardOutput = new ByteArrayOutputStream()
+
+    ext.output = {
+        return standardOutput.toString()
+    }
+
+    doLast {
+        println ext.output
+    }
+
+}
+
+task setupDegradedTestCloud(type: Exec) {
+    workingDir 'scripts'
+    commandLine './setupDegradedTests.sh'
+}
+
+tasks.register('jacocoRootReportIntegrationTest', org.gradle.testing.jacoco.tasks.JacocoReport) {
+    //configure jacocoRootReportConfiguration
+    dependsOn = [ integrationTest ]
+}
+
+tasks.register('jacocoRootReportTest', org.gradle.testing.jacoco.tasks.JacocoReport) {
+    //configure jacocoRootReportConfiguration
+    dependsOn = [ test ]
+}
+
+tasks.register('jacocoRootReportServerTest', org.gradle.testing.jacoco.tasks.JacocoReport) {
+    //configure jacocoRootReportConfiguration
+    dependsOn(':cloudfoundry-identity-server:test')
+    dependsOn(':zone-service:test')
+}
+
+tasks.register('jacocoRootReportUaaTest', org.gradle.testing.jacoco.tasks.JacocoReport) {
+    //configure jacocoRootReportConfiguration
+    dependsOn(':cloudfoundry-identity-uaa:test')
+}
+
+tasks.register('jacocoRootReportDegradedCloudTest', org.gradle.testing.jacoco.tasks.JacocoReport) {
+    //configure jacocoRootReportConfiguration
+    dependsOn(':cloudfoundry-identity-uaa:degradedTestCloud')
+}
+
+tasks.register('jacocoRootReportDegradedJwtCloudTest', org.gradle.testing.jacoco.tasks.JacocoReport) {
+    //configure jacocoRootReportConfiguration
+    dependsOn(':cloudfoundry-identity-uaa:degradedJwtTestCloud')
+}
+
+tasks.register('jacocoRootReportAcceptanceTest', org.gradle.testing.jacoco.tasks.JacocoReport) {
+    //configure jacocoRootReportConfiguration
+    dependsOn(':cloudfoundry-identity-uaa:acceptanceTest')
+}
+
+tasks.register('jacocoRootReportOrchestratorIntegrationTest', org.gradle.testing.jacoco.tasks.JacocoReport) {
+    //configure jacocoRootReportConfiguration
+    dependsOn(':cloudfoundry-identity-uaa:orchestratorIntegrationTest')
+}
+
 
 // Jacoco report from cargo run
 // - To record coverage of cargo run, execute the task with
@@ -405,100 +494,15 @@ task jacocoCargoReport(type: JacocoReport) {
     additionalClassDirs = classTree
 }
 
-def jacocoRootReportConfiguration = {
-    additionalSourceDirs(files(subprojects.sourceSets.main.allSource.srcDirs))
-    sourceDirectories.setFrom(files(subprojects.sourceSets.main.allSource.srcDirs))
-    classDirectories.setFrom(files(subprojects.sourceSets.main.output))
-    executionData(files(subprojects.jacocoTestReport.executionData))
-    reports {
-        html.enabled = true
-        xml.enabled = true
-        xml.destination = file("${buildDir}/reports/jacoco/jacocoRootReport/jacocoRootReport.xml")
-        csv.enabled = false
-    }
+tasks.register('setupDegradedTestsForJwtBearerCloud', Exec) {
+    workingDir 'scripts'
+    commandLine './setupDegradedTestsForJwtBearer.sh'
 }
 
-task jacocoRootReportIntegrationTest(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
-    configure jacocoRootReportConfiguration
-    dependsOn = [integrationTest]
-}
-
-task jacocoRootReportTest(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
-    configure jacocoRootReportConfiguration
-    dependsOn = [test]
-}
-
-task jacocoRootReportServerTest(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
-    configure jacocoRootReportConfiguration
-    dependsOn(':cloudfoundry-identity-server:test')
-    dependsOn(':zone-service:test')
-}
-
-task jacocoRootReportUaaTest(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
-    configure jacocoRootReportConfiguration
-    dependsOn(':cloudfoundry-identity-uaa:test')
-}
-
-task jacocoRootReportDegradedCloudTest(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
-    configure jacocoRootReportConfiguration
-    dependsOn(':cloudfoundry-identity-uaa:degradedTestCloud')
-}
-
-task jacocoRootReportDegradedJwtCloudTest(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
-    configure jacocoRootReportConfiguration
-    dependsOn(':cloudfoundry-identity-uaa:degradedJwtTestCloud')
-}
-
-task jacocoRootReportAcceptanceTest(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
-    configure jacocoRootReportConfiguration
-    dependsOn(':cloudfoundry-identity-uaa:acceptanceTest')
-}
-
-task jacocoRootReportOrchestratorIntegrationTest(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
-    configure jacocoRootReportConfiguration
-    dependsOn(':cloudfoundry-identity-uaa:orchestratorIntegrationTest')
-}
-
-coveralls {
-    sourceDirs = publishedProjects.sourceSets.main.allSource.srcDirs.flatten()
-    jacocoReportPath = "${buildDir}/reports/jacoco/jacocoRootReport/jacocoRootReport.xml"
-}
-
-tasks.coveralls {
-    group = 'Coverage reports'
-    description = 'Uploads the aggregated coverage report to Coveralls'
-}
-
-task setupDegradedTestLocal(type: Exec, dependsOn: cargoStartLocal) {
-  workingDir 'scripts'
-  commandLine './setupDegradedTests.sh'
-  finalizedBy 'cargoStopLocal'
-
-  standardOutput = new ByteArrayOutputStream()
-
-  ext.output = {
-    return standardOutput.toString()
-  }
-
-  doLast {
-    println ext.output
-  }
-
-}
-
-task setupDegradedTestCloud(type: Exec) {
-  workingDir 'scripts'
-  commandLine './setupDegradedTests.sh'
-}
-
-task setupDegradedTestsForJwtBearerCloud(type: Exec) {
-  workingDir 'scripts'
-  commandLine './setupDegradedTestsForJwtBearer.sh'
-}
-
-task setupDegradedTestsForJwtBearerLocal(type: Exec, dependsOn: rootProject.cargoStartLocal) {
-  workingDir 'scripts'
-  commandLine './setupDegradedTestsForJwtBearer.sh'
+tasks.register('setupDegradedTestsForJwtBearerLocal', Exec) {
+    dependsOn rootProject.cargoStartLocal
+    workingDir 'scripts'
+    commandLine './setupDegradedTestsForJwtBearer.sh'
 }
 
 // task dependencies
@@ -531,39 +535,39 @@ tasks.register('bootWarRun', JavaExec) {
     systemProperty("statsd.enabled", "true")
 }
 
-sonarqube {
-    properties {
-        property "sonar.projectName", "UAA_Service"
-        property "sonar.host.url", System.getenv("SONAR_HOST_URL")
-        property "sonar.login", System.getenv("SONAR_LOGIN_KEY") // Use environment variable for security
-        property "sonar.sourceEncoding", "UTF-8"
-        property "sonar.sources", "src/main/java"
-        property "sonar.tests", "src/test/java"
-        property "sonar.java.binaries", "build/classes"
-        property "sonar.coverage.jacoco.xmlReportPaths", "${buildDir}/reports/jacoco/jacocoRootReport/jacocoRootReport.xml"
-    }
-}
-
 jacocoTestReport {
     additionalSourceDirs(files(sourceSets.main.allSource.srcDirs))
     sourceDirectories.setFrom(files(sourceSets.main.allSource.srcDirs))
     classDirectories.setFrom(files(sourceSets.main.output))
     executionData(files("${buildDir}/jacoco/test.exec"))
     reports {
-        xml.enabled = true
-        html.enabled = true
+        xml.required.set(true)
+        html.required.set(true)
     }
 }
 
 task jacocoRootReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
+    // Don't depend on tests - assume they've already run
+    // This allows running the report generation independently
+
     additionalSourceDirs.from files(subprojects.sourceSets.main.allSource.srcDirs)
     sourceDirectories.from files(subprojects.sourceSets.main.allSource.srcDirs)
     classDirectories.from files(subprojects.sourceSets.main.output)
-    executionData.from files(subprojects.jacocoTestReport.executionData)
+
+    // Collect all execution data files from build directories
+    executionData.from fileTree(dir: '.', include: '**/build/jacoco/*.exec')
+
     reports {
         xml.required.set(true)
         html.required.set(true)
-        xml.destination = file("${buildDir}/reports/jacoco/jacocoRootReport/jacocoRootReport.xml")
+        xml.outputLocation.set(file("${buildDir}/reports/jacoco/jacocoRootReport/jacocoRootReport.xml"))
+        html.outputLocation.set(file("${buildDir}/reports/jacoco/jacocoRootReport/html"))
     }
-    dependsOn subprojects.test
+
+    doFirst {
+        // Log the execution data files found (for debugging)
+        def execFiles = executionData.files.findAll { it.exists() }
+        println "Jacoco execution data files found: ${execFiles.size()}"
+        execFiles.each { println "  - ${it}" }
+    }
 }

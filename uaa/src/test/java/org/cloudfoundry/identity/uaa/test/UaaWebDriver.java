@@ -42,6 +42,21 @@ public class UaaWebDriver implements WebDriver {
      */
     public void clickAndWait(By locator) {
         var clickableElement = this.delegate.findElement(locator);
+
+        // Scroll element into view to prevent ElementClickInterceptedException
+        if (this.delegate instanceof JavascriptExecutor) {
+            ((JavascriptExecutor) this.delegate).executeScript(
+                "arguments[0].scrollIntoView({behavior: 'auto', block: 'center', inline: 'center'});",
+                clickableElement
+            );
+            // Small wait to ensure scrolling is complete
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
         clickableElement.click();
 
         new FluentWait<>(this.delegate).withTimeout(Duration.ofSeconds(5))
@@ -67,9 +82,27 @@ public class UaaWebDriver implements WebDriver {
     public void pressUaaNavigation(String navigationElementId, String idButton) {
         WebDriverWait wait1 = new WebDriverWait(this.delegate, Duration.ofSeconds(10));
         WebElement elm1 = wait1.ignoreAll(List.of(StaleElementReferenceException.class, ElementNotInteractableException.class)).until(ExpectedConditions.visibilityOfElementLocated(By.id(navigationElementId)));
+
+        // Scroll element into view to prevent ElementClickInterceptedException
+        if (this.delegate instanceof JavascriptExecutor) {
+            ((JavascriptExecutor) this.delegate).executeScript(
+                "arguments[0].scrollIntoView({behavior: 'auto', block: 'center', inline: 'center'});",
+                elm1
+            );
+        }
+
         elm1.click();
         WebDriverWait wait2 = new WebDriverWait(this.delegate, Duration.ofSeconds(30));
         WebElement elm2 = wait2.ignoreAll(List.of(StaleElementReferenceException.class, ElementNotInteractableException.class)).until(ExpectedConditions.visibilityOfElementLocated(By.id(idButton)));
+
+        // Scroll element into view to prevent ElementClickInterceptedException
+        if (this.delegate instanceof JavascriptExecutor) {
+            ((JavascriptExecutor) this.delegate).executeScript(
+                "arguments[0].scrollIntoView({behavior: 'auto', block: 'center', inline: 'center'});",
+                elm2
+            );
+        }
+
         elm2.click();
     }
 

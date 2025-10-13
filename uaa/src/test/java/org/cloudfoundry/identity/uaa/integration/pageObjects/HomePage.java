@@ -25,7 +25,7 @@ public class HomePage extends Page {
         Consumer<String> endsWithSlash = url -> assertThat(url).endsWith(SLASH_URL_PATH);
         Consumer<String> endsWithHome = url -> assertThat(url).endsWith(HOME_URL_PATH);
         assertThatUrlEventuallySatisfies(assertUrl -> assertUrl.satisfiesAnyOf(endsWithSlash, endsWithHome));
-        assertThatPageSource().contains("Where to?");
+        assertThatPageSource().contains("You should not see this page. Set up your redirect URI.");
     }
 
     public HomePage(WebDriver driver, String baseUrl) {

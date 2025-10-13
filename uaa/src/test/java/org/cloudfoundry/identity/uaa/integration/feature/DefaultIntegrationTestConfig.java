@@ -80,9 +80,28 @@ public class DefaultIntegrationTestConfig {
                 "--ignore-certificate-errors",
                 "--allow-running-insecure-content",
                 "--allow-insecure-localhost",
+                "--allow-insecure-example.com",
                 "--no-sandbox",
                 "--disable-gpu",
-                "--remote-allow-origins=*"
+                "--remote-allow-origins=*",
+                // Additional flags to prevent tab crashes in CI environments
+                "--disable-dev-shm-usage", // Overcome limited resource problems in Docker/Jenkins
+                "--disable-extensions",
+                "--disable-software-rasterizer",
+                "--disable-background-networking",
+                "--disable-background-timer-throttling",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-breakpad",
+                "--disable-component-extensions-with-background-pages",
+                "--disable-features=TranslateUI,BlinkGenPropertyTrees",
+                "--disable-ipc-flooding-protection",
+                "--disable-renderer-backgrounding",
+                "--enable-features=NetworkService,NetworkServiceInProcess",
+                "--force-color-profile=srgb",
+                "--hide-scrollbars",
+                "--metrics-recording-only",
+                "--mute-audio",
+                "--disable-crash-reporter"
         );
         options.setAcceptInsecureCerts(true);
 

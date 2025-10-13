@@ -269,16 +269,28 @@ class ResetPasswordIT {
     }
 
     private String getPasswordResetLink(String email) {
-        Iterator<SmtpMessage> receivedEmail = simpleSmtpServer.getReceivedEmail();
-        SmtpMessage message = receivedEmail.next();
-        receivedEmail.remove();
-        assertThat(message.getHeaderValue("To")).isEqualTo(email);
+        SmtpMessage message = takeMessageFor(email);
         assertThat(message.getBody()).contains("Reset your password");
-
-        assertThat(webDriver.findElement(By.cssSelector(".instructions-sent")).getText()).isEqualTo("Please check your email for a reset password link.");
-
-        // Extract link from email
+        assertThat(webDriver.findElement(By.cssSelector(".instructions-sent")).getText())
+                .isEqualTo("Please check your email for a reset password link.");
         return testClient.extractLink(message.getBody());
+    }
+
+    private SmtpMessage takeMessageFor(String expectedEmail) {
+        Iterator<SmtpMessage> it = simpleSmtpServer.getReceivedEmail();
+        SmtpMessage found = null;
+        while (it.hasNext()) {
+            SmtpMessage m = it.next();
+            if (expectedEmail.equals(m.getHeaderValue("To"))) {
+                found = m;
+                it.remove(); // remove only the matched message
+                break;
+            }
+        }
+        assertThat(found)
+                .as("No email found for %s in SMTP queue; possible parallel test interference", expectedEmail)
+                .isNotNull();
+        return found;
     }
 
     private void finishPasswordReset(String username, String email) {

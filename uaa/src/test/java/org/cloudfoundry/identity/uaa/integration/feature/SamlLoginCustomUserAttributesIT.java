@@ -233,7 +233,7 @@ class SamlLoginCustomUserAttributesIT {
         //we should now be in the Simple SAML PHP site
         webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
         sendCredentials("marissa5", "saml5");
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Where to?");
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("You should not see this page. Set up your redirect URI.");
 
         // do an auth code grant, passing the jsessionid
         Cookie cookie = webDriver.manage().getCookieNamed("JSESSIONID");

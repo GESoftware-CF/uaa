@@ -82,7 +82,7 @@ public class SpringServletXmlFiltersConfiguration {
 
     @Bean
     FilterRegistrationBean<CorsFilter> corsFilter() {
-        CorsFilter filter = new CorsFilter(identityZoneManager, corsProperties.enforceSystemZoneSettings);
+        CorsFilter filter = new CorsFilter();
 
         filter.setCorsAllowedUris(corsProperties.defaultAllowed.uris());
         filter.setCorsAllowedOrigins(corsProperties.defaultAllowed.origins());
@@ -112,7 +112,7 @@ public class SpringServletXmlFiltersConfiguration {
         filter.setPermittedEndpoints(limitedModeProperties.permitted.endpoints());
         filter.setPermittedMethods(limitedModeProperties.permitted.methods());
         FilterRegistrationBean<LimitedModeUaaFilter> bean = new FilterRegistrationBean<>(filter);
-        bean.setEnabled(false);
+        bean.setEnabled(true);
         return bean;
     }
 

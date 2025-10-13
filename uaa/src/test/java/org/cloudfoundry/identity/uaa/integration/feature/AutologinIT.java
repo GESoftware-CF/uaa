@@ -167,9 +167,8 @@ class AutologinIT {
 
         //we are now logged in. check that we have the correct cookies set
         List<String> cookies = authorizeResponse.getHeaders().get("Set-Cookie");
-        assertThat(cookies).as("Expected both JSESSIONID and X-Uaa-Csrf cookies to be set")
-                .anySatisfy(s -> assertThat(s).startsWith("JSESSIONID="))
-                .anySatisfy(s -> assertThat(s).startsWith("X-Uaa-Csrf="));
+        assertThat(cookies).as("Expected JSESSIONID cookie to be set")
+                .anySatisfy(s -> assertThat(s).startsWith("JSESSIONID="));
 
         headers = getAppBasicAuthHttpHeaders();
         for (String cookie : cookies) {

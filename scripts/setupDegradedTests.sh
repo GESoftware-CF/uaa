@@ -12,15 +12,15 @@ uaac client update admin --authorities "zones.test-app-zone.admin zones.test-pla
 
 #Create test-app-zone (Application UAA) with zone admin
 uaac curl -X POST /identity-zones -H 'Content-Type: application/json' -d'{ "id": "test-app-zone", "subdomain":"test-app-zone", "name":"test-app-zone"}'
-uaac -t curl -H "X-Identity-Zone-Id:test-app-zone" -XPOST -H"Content-Type:application/json" -H"Accept:application/json" --data '{ "client_id" : "admin", "client_secret" : "'"$ZONE_ADMIN_SECRET"'", "scope" : ["uaa.none"], "resource_ids" : ["none"], "authorities" : ["uaa.admin","clients.read","clients.write","clients.secret","scim.read","scim.write","clients.admin", "sps.write", "sps.read", "zones.test-app-zone.admin", "idps.read", "idps.write", "uaa.resource"], "authorized_grant_types" : ["client_credentials"]}' /oauth/clients
+uaac curl -t -H "X-Identity-Zone-Id:test-app-zone" -XPOST -H"Content-Type:application/json" -H"Accept:application/json" --data '{ "client_id" : "admin", "client_secret" : "'"$ZONE_ADMIN_SECRET"'", "scope" : ["uaa.none"], "resource_ids" : ["none"], "authorities" : ["uaa.admin","clients.read","clients.write","clients.secret","scim.read","scim.write","clients.admin", "sps.write", "sps.read", "zones.test-app-zone.admin", "idps.read", "idps.write", "uaa.resource"], "authorized_grant_types" : ["client_credentials"]}' /oauth/clients
 
 #Create test-platform-zone (Platform UAA) with zone admin
 uaac curl -X POST /identity-zones -H 'Content-Type: application/json' -d'{ "id": "test-platform-zone", "subdomain":"test-platform-zone", "name":"test-platform-zone", "config": {"idpDiscoveryEnabled" : true, "prompts" : [ {"name" : "username","type" : "text","text" : "username"}, {"name" : "password","type" : "password","text" : "password"}], "links" : {"selfService" : {"selfServiceLinksEnabled" : false}} }}'
-uaac -t curl -H "X-Identity-Zone-Id:test-platform-zone" -XPOST -H"Content-Type:application/json" -H"Accept:application/json" --data '{ "client_id" : "admin", "client_secret" : "'"$ZONE_ADMIN_SECRET"'", "scope" : ["uaa.none"], "resource_ids" : ["none"], "authorities" : ["uaa.admin","clients.read","clients.write","clients.secret","scim.read","scim.write","clients.admin", "sps.write", "sps.read", "zones.test-platform-zone.admin", "idps.read", "idps.write"], "authorized_grant_types" : ["client_credentials"]}' /oauth/clients
+uaac curl -t -H "X-Identity-Zone-Id:test-platform-zone" -XPOST -H"Content-Type:application/json" -H"Accept:application/json" --data '{ "client_id" : "admin", "client_secret" : "'"$ZONE_ADMIN_SECRET"'", "scope" : ["uaa.none"], "resource_ids" : ["none"], "authorities" : ["uaa.admin","clients.read","clients.write","clients.secret","scim.read","scim.write","clients.admin", "sps.write", "sps.read", "zones.test-platform-zone.admin", "idps.read", "idps.write"], "authorized_grant_types" : ["client_credentials"]}' /oauth/clients
 
 #Create test-saml-zone (SAML IDP) with zone admin
 uaac curl -X POST /identity-zones -H 'Content-Type: application/json' -d'{ "id": "test-saml-zone", "subdomain":"test-saml-zone", "name":"test-saml-zone"}'
-uaac -t curl -H "X-Identity-Zone-Id:test-saml-zone" -XPOST -H"Content-Type:application/json" -H"Accept:application/json" --data '{ "client_id" : "admin", "client_secret" : "'"$ZONE_ADMIN_SECRET"'",  "scope" : ["uaa.none"], "resource_ids" : ["none"], "authorities" : ["uaa.admin","clients.read","clients.write","clients.secret","scim.read","scim.write","clients.admin", "sps.write", "sps.read", "zones.test-saml-zone.admin", "idps.read", "idps.write"], "authorized_grant_types" : ["client_credentials"]}' /oauth/clients
+uaac curl -t -H "X-Identity-Zone-Id:test-saml-zone" -XPOST -H"Content-Type:application/json" -H"Accept:application/json" --data '{ "client_id" : "admin", "client_secret" : "'"$ZONE_ADMIN_SECRET"'",  "scope" : ["uaa.none"], "resource_ids" : ["none"], "authorities" : ["uaa.admin","clients.read","clients.write","clients.secret","scim.read","scim.write","clients.admin", "sps.write", "sps.read", "zones.test-saml-zone.admin", "idps.read", "idps.write"], "authorized_grant_types" : ["client_credentials"]}' /oauth/clients
 
 
 #Login to test-saml-zone
@@ -28,7 +28,7 @@ uaac target ${PROTOCOL}://test-saml-zone.$PUBLISHED_DOMAIN
 uaac token client get admin -s $ZONE_ADMIN_SECRET
 
 #Get SAML IDP metadata
-SAML_IDP_RESPONSE=$(uaac curl "/saml/idp/metadata")
+SAML_IDP_RESPONSE=$(uaac curl -t "/saml/metadata")
 SAML_IDP_METADATA_RAW=$(echo $SAML_IDP_RESPONSE | sed s/.*RESPONSE\ BODY://)
 SAML_IDP_METADATA=$(echo $SAML_IDP_METADATA_RAW | sed 's/"/\\"/g')
 
@@ -67,7 +67,7 @@ uaac curl '/Users' -X POST -H 'Accept: application/json' -H 'Content-Type: appli
 }'
 
 #Get SAML SP metadata
-SAML_SP_RESPONSE=$(uaac curl "/saml/metadata/alias/test-platform-zone.cloudfoundry-saml-login")
+SAML_SP_RESPONSE=$(uaac curl -t "/saml/metadata/alias/test-platform-zone.cloudfoundry-saml-login")
 SAML_SP_METADATA_RAW=$(echo $SAML_SP_RESPONSE | sed s/.*RESPONSE\ BODY://)
 SAML_SP_METADATA=$(echo $SAML_SP_METADATA_RAW | sed 's/"/\\\\\\"/g')
 SAML_SP_CONFIG='{\"metaDataLocation\":\"'$SAML_SP_METADATA'\",\"metadataTrustCheck\":true}'
@@ -118,7 +118,7 @@ uaac target ${PROTOCOL}://test-saml-zone.$PUBLISHED_DOMAIN
 uaac token client get admin -s $ZONE_ADMIN_SECRET
 
 #Create a SP of platform uaa
-uaac curl /saml/service-providers -XPOST -H 'Content-Type: application/json' -d '{
+uaac curl -t /saml/service-providers -XPOST -H 'Content-Type: application/json' -d '{
   "name" : "test-platform-zone",
   "entityId" : "test-platform-zone.cloudfoundry-saml-login",
   "active" : true,

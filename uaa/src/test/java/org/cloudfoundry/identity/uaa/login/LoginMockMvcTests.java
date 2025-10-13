@@ -898,7 +898,7 @@ public class LoginMockMvcTests {
     void testLogOutWithLogoutEndpoint() throws Exception {
         mockMvc.perform(get("/uaa/logout").contextPath("/uaa"))
                 .andExpect(status().isFound())
-                .andExpect(redirectedUrl("http://localhost/uaa/login"))
+                .andExpect(redirectedUrl("/uaa/login"))
                 .andExpect(emptyCurrentUserCookie());
     }
 
@@ -2386,8 +2386,8 @@ public class LoginMockMvcTests {
                 .with(new SetServerNameRequestPostProcessor(subdomain + ".localhost")))
                 .andExpect(status().isForbidden()).andReturn();
         assertEquals("Illegal request URI", mvcResult.getResponse().getErrorMessage());
-
         //make preflight call with header that is not allowed
+
         mvcResult = mockMvc.perform(options("/uaa/logout.do")
                 .header("X-Requested-With", "XMLHttpRequest")
                 .header("Access-Control-Request-Method", "GET")
@@ -2608,10 +2608,9 @@ public class LoginMockMvcTests {
                 .header("Accept", TEXT_HTML)
                 .with(new SetServerNameRequestPostProcessor(zone.getSubdomain() + ".localhost")))
                 .andExpect(status().isOk())
-                .andExpect(view().name("idp_discovery/password"))
-                .andExpect(xpath("//input[@name='username']").exists())
-                .andExpect(xpath("//input[@name='password']").exists())
-                .andExpect(xpath("//input[@type='submit']/@value").string("Sign in"));
+                .andExpect(view().name("idp_discovery/email"))
+                .andExpect(xpath("//input[@name='email']").exists())
+                .andExpect(xpath("//input[@type='submit']/@value").string("Next"));
     }
 
     @Test

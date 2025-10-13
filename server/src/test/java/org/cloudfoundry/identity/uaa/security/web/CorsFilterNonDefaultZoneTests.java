@@ -3,6 +3,7 @@ package org.cloudfoundry.identity.uaa.security.web;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -30,6 +31,8 @@ import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.METHOD_NOT_ALLOWED;
 import static org.springframework.http.HttpStatus.OK;
 
+@Disabled("This test is disabled since we customized the cors filter behavior and these tests no longer apply. "
+        + "Refer: https://confluence.apps.gevernova.net/devspace/pages/viewpage.action?spaceKey=RMOCM&title=CORS+policy+per+zone")
 class CorsFilterNonDefaultZoneTests {
     private IdentityZoneManager mockIdentityZoneManager;
     private IdentityZone identityZone;
@@ -44,7 +47,7 @@ class CorsFilterNonDefaultZoneTests {
         when(mockIdentityZoneManager.isCurrentZoneUaa()).thenReturn(false);
         identityZone = new IdentityZone();
         when(mockIdentityZoneManager.getCurrentIdentityZone()).thenReturn(identityZone);
-        corsFilter = new CorsFilter(mockIdentityZoneManager, false);
+        corsFilter = new CorsFilter();
 
         filterChain = newMockFilterChain();
 
@@ -306,7 +309,7 @@ class CorsFilterNonDefaultZoneTests {
 
         assertThat(response.getHeaderValue("Access-Control-Allow-Origin")).isEqualTo("example.com");
         assertThat(response.getHeaderValue("Access-Control-Allow-Methods")).isEqualTo("GET, POST, PUT, DELETE");
-        assertThat(new CorsFilter(mockIdentityZoneManager, false).
+        assertThat(new CorsFilter().
                 splitCommaDelimitedString((String) response.getHeaderValue("Access-Control-Allow-Headers"))).containsExactlyInAnyOrder("Authorization");
         assertThat(response.getHeaderValue("Access-Control-Max-Age")).isEqualTo("187000");
     }
@@ -388,7 +391,7 @@ class CorsFilterNonDefaultZoneTests {
 
     @Test
     void requestWithAllowedOriginPatternsEnforcingSystemZonePolicy() throws ServletException, IOException {
-        CorsFilter corsFilter = new CorsFilter(mockIdentityZoneManager, true);
+        CorsFilter corsFilter = new CorsFilter();
         corsFilter.setCorsXhrAllowedOrigins(List.of("example.com"));
         corsFilter.initialize();
 
@@ -406,7 +409,7 @@ class CorsFilterNonDefaultZoneTests {
 
     @Test
     void defaultCorsPreFlightRequestMethodNotAllowedEnforcingSystemZonePolicy() throws ServletException, IOException {
-        CorsFilter corsFilter = new CorsFilter(mockIdentityZoneManager, true);
+        CorsFilter corsFilter = new CorsFilter();
         corsFilter.setCorsAllowedMethods(List.of(GET.toString(), PUT.toString(), DELETE.toString()));
         corsFilter.initialize();
 

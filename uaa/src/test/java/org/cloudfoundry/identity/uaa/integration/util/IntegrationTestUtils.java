@@ -261,7 +261,8 @@ public class IntegrationTestUtils {
             fail("no ip address found for " + host, e);
             return;
         }
-        assertThat("host + \" resolves to \" + address + \" which is not a loopback address\"").isEqualTo(address.isLoopbackAddress());
+        assertThat(address.isLoopbackAddress())
+                .withFailMessage("host + \" resolves to \" + address + \" which is not a loopback address\"").isTrue();
     }
 
     public static ClientCredentialsResourceDetails getClientCredentialsResource(String url,

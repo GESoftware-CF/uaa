@@ -18,6 +18,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,8 +32,6 @@ import static jakarta.servlet.http.HttpServletResponse.SC_SERVICE_UNAVAILABLE;
 
 @Slf4j
 public class LimitedModeUaaFilter extends OncePerRequestFilter {
-    // TODO: check this To set Predix UAA limited/degraded mode, use environment variable instead of StatusFile
-
     public static final String ERROR_CODE = "uaa_unavailable";
     public static final String ERROR_MESSAGE = "UAA intentionally in limited mode, operation not permitted. Please try later.";
     public static final long STATUS_INTERVAL_MS = 5000;
@@ -40,6 +39,7 @@ public class LimitedModeUaaFilter extends OncePerRequestFilter {
     private Set<String> permittedMethods = emptySet();
     private List<AntPathRequestMatcher> endpoints = emptyList();
     private volatile boolean enabled;
+    public static final String DEGRADED = "degraded";
     @Getter
     private File statusFile;
     @Setter
@@ -52,12 +52,10 @@ public class LimitedModeUaaFilter extends OncePerRequestFilter {
             final @NonNull HttpServletResponse response,
             final @NonNull FilterChain filterChain) throws ServletException, IOException {
         if (isEnabled()) {
-            logger.debug("Degraded profile is enabled.");
+            log.info("Degraded profile is enabled.");
             if (isMethodAllowed(request) || isEndpointAllowed(request)) {
                 filterChain.doFilter(request, response);
             } else {
-                log.debug("Operation Not permitted in limited mode for URL:{} and method:{}",
-                        request.getRequestURI(), request.getMethod());
                 Map<String, String> json = getErrorData();
                 if (acceptsJson(request)) {
                     response.setStatus(SC_SERVICE_UNAVAILABLE);
@@ -113,7 +111,9 @@ public class LimitedModeUaaFilter extends OncePerRequestFilter {
     }
 
     public boolean isEnabled() {
-        if (statusFile == null) {
+        if (Arrays.asList(getEnvironment().getActiveProfiles()).contains(DEGRADED)) {
+            return true;
+        } else if (statusFile == null) {
             enabled = false;
         } else if (isTimeToCheckFileSystem()) {
             enabled = statusFile.exists();

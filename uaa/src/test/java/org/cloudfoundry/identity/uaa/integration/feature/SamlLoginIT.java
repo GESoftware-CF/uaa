@@ -802,7 +802,7 @@ public class SamlLoginIT {
         webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
         sendCredentials(testAccounts.getUserName(), "koala");
 
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Where to?");
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("You should not see this page. Set up your redirect URI.");
         webDriver.get("%s/logout.do".formatted(baseUrl));
         webDriver.get("%s/logout.do".formatted(zoneUrl));
     }
@@ -893,7 +893,7 @@ public class SamlLoginIT {
         webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
         sendCredentials(MARISSA4_USERNAME, MARISSA4_PASSWORD);
 
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Where to?");
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("You should not see this page. Set up your redirect URI.");
         webDriver.get("%s/logout.do".formatted(baseUrl));
         webDriver.get("%s/logout.do".formatted(zoneUrl));
 
@@ -984,7 +984,7 @@ public class SamlLoginIT {
         element.click();
         webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
         sendCredentials(testAccounts.getUserName(), testAccounts.getPassword());
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Where to?");
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("You should not see this page. Set up your redirect URI.");
 
         webDriver.get("%s/logout.do".formatted(baseUrl));
         webDriver.get("%s/logout.do".formatted(testZone1Url));

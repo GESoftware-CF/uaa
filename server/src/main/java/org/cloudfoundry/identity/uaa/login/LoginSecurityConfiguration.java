@@ -63,6 +63,8 @@ import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.session.DisableEncodeUrlFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.OrRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.io.IOException;
@@ -586,7 +588,11 @@ class LoginSecurityConfiguration {
                 csrfLogoutHandler,
                 cookieClearingLogoutHandlerWithHandler
         );
-        logoutFilter.setLogoutRequestMatcher(new AntPathRequestMatcher("/logout.do"));
+        RequestMatcher logoutMatcher = new OrRequestMatcher(
+                new AntPathRequestMatcher("/logout.do"),
+                new AntPathRequestMatcher("/logout")
+        );
+        logoutFilter.setLogoutRequestMatcher(logoutMatcher);
         FilterRegistrationBean<LogoutFilter> bean = new FilterRegistrationBean<>(logoutFilter);
         bean.setEnabled(false);
         return bean;

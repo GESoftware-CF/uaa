@@ -72,37 +72,37 @@ class CorsFilterDefaultZoneTests {
 
     @Test
     void xhr_default_allowed_methods() {
-        CorsFilter filter = new CorsFilter(mockIdentityZoneManager, false);
+        CorsFilter filter = new CorsFilter();
         assertThat(filter.getXhrConfiguration().getAllowedMethods()).containsExactlyInAnyOrder("GET", "OPTIONS");
     }
 
     @Test
     void non_xhr_default_allowed_methods() {
-        CorsFilter filter = new CorsFilter(mockIdentityZoneManager, false);
+        CorsFilter filter = new CorsFilter();
         assertThat(filter.getDefaultConfiguration().getAllowedMethods()).containsExactlyInAnyOrder("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH");
     }
 
     @Test
     void xhr_default_allowed_headers() {
-        CorsFilter filter = new CorsFilter(mockIdentityZoneManager, false);
+        CorsFilter filter = new CorsFilter();
         assertThat(filter.getXhrConfiguration().getAllowedHeaders()).containsExactlyInAnyOrder(ACCEPT, ACCEPT_LANGUAGE, CONTENT_TYPE, CONTENT_LANGUAGE, AUTHORIZATION, CorsFilter.X_REQUESTED_WITH);
     }
 
     @Test
     void non_xhr_default_allowed_headers() {
-        CorsFilter filter = new CorsFilter(mockIdentityZoneManager, false);
+        CorsFilter filter = new CorsFilter();
         assertThat(filter.getDefaultConfiguration().getAllowedHeaders()).containsExactlyInAnyOrder(ACCEPT, ACCEPT_LANGUAGE, CONTENT_TYPE, CONTENT_LANGUAGE, AUTHORIZATION);
     }
 
     @Test
     void xhr_default_allowed_credentials() {
-        CorsFilter filter = new CorsFilter(mockIdentityZoneManager, false);
+        CorsFilter filter = new CorsFilter();
         assertThat(filter.getXhrConfiguration().isAllowedCredentials()).isTrue();
     }
 
     @Test
     void non_xhr_default_allowed_credentials() {
-        CorsFilter filter = new CorsFilter(mockIdentityZoneManager, false);
+        CorsFilter filter = new CorsFilter();
         assertThat(filter.getDefaultConfiguration().isAllowedCredentials()).isFalse();
     }
 
@@ -370,7 +370,7 @@ class CorsFilterDefaultZoneTests {
     @Test
     void doInitializeWithNoPropertiesSet() throws ServletException, IOException {
 
-        CorsFilter corsFilter = new CorsFilter(mockIdentityZoneManager, false);
+        CorsFilter corsFilter = new CorsFilter();
 
         // We need to set the default value that Spring would otherwise set.
         List<String> allowedUris = new ArrayList<>(Collections.singletonList(".*"));
@@ -406,7 +406,7 @@ class CorsFilterDefaultZoneTests {
     @Test
     void doInitializeWithInvalidUriRegex() {
 
-        CorsFilter corsFilter = new CorsFilter(mockIdentityZoneManager, false);
+        CorsFilter corsFilter = new CorsFilter();
 
         List<String> allowedUris =
                 new ArrayList<>(Arrays.asList(new String[]{"^/uaa/userinfo(", "^/uaa/logout.do$"}));
@@ -423,7 +423,7 @@ class CorsFilterDefaultZoneTests {
     @Test
     void doInitializeWithInvalidOriginRegex() {
 
-        CorsFilter corsFilter = new CorsFilter(mockIdentityZoneManager, false);
+        CorsFilter corsFilter = new CorsFilter();
 
         List<String> allowedUris = new ArrayList<>(Arrays.asList("^/uaa/userinfo$", "^/uaa/logout.do$"));
         corsFilter.getXhrConfiguration().setAllowedUris(allowedUris);
@@ -437,7 +437,7 @@ class CorsFilterDefaultZoneTests {
     }
 
     private CorsFilter createConfiguredCorsFilter() {
-        CorsFilter corsFilter = new CorsFilter(mockIdentityZoneManager, false);
+        CorsFilter corsFilter = new CorsFilter();
 
         List<String> allowedUris = new ArrayList<>(Arrays.asList("^/uaa/userinfo$", "^/uaa/logout\\.do$"));
         corsFilter.getXhrConfiguration().setAllowedUris(allowedUris);
@@ -457,7 +457,7 @@ class CorsFilterDefaultZoneTests {
     private void assertStandardCorsPreFlightResponse(final MockHttpServletResponse response, String allowedMethods, String... allowedHeaders) {
         assertThat(response.getHeaderValue("Access-Control-Allow-Origin")).isEqualTo("*");
         assertThat(response.getHeaderValue("Access-Control-Allow-Methods")).isEqualTo(allowedMethods);
-        assertThat(new CorsFilter(mockIdentityZoneManager, false).splitCommaDelimitedString((String) response.getHeaderValue("Access-Control-Allow-Headers"))).containsExactlyInAnyOrder(allowedHeaders);
+        assertThat(new CorsFilter().splitCommaDelimitedString((String) response.getHeaderValue("Access-Control-Allow-Headers"))).containsExactlyInAnyOrder(allowedHeaders);
         assertThat(response.getHeaderValue("Access-Control-Max-Age")).isEqualTo("1728000");
     }
 

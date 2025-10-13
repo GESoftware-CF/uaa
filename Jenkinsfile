@@ -1,7 +1,7 @@
 #!/usr/bin/env groovy
 def artifactoryServer = Artifactory.server('Digital-Artifactory')
 
-def NODE = [LABEL: "dind", IMAGE: "dig-grid-artifactory.apps.ge.com/pgog-fss-iam-uaa-docker-stage/uaa-ci-testing:latest",
+def NODE = [LABEL: "dind", IMAGE: "dig-grid-artifactory.apps.ge.com/pgog-fss-iam-uaa-docker-stage/uaa-ci-image:latest",
     ARGS: "-v /var/lib/docker/.gradle:/root/.gradle", REGISTRY_URL: "https://dig-grid-artifactory.apps.ge.com",
     REGISTRY_CREDENTIALS_ID: "DIGITAL_GRID_ARTIFACTORY_CREDENTIALS"]
 
@@ -56,10 +56,10 @@ pipeline
                         dir('uaa') {
                             checkout scm
                         }
-                        dir('uaa/iam-k8s-utils') {
-                            git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
-                                url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
-                        }
+//                         dir('uaa/iam-k8s-utils') {
+//                             git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+//                                 url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
+//                         }
                         sh '''#!/bin/bash -ex
                             source uaa-cf-release/config-local/set-env.sh
                             unset HTTPS_PROXY
@@ -108,10 +108,10 @@ pipeline
                         dir('uaa') {
                             checkout scm
                         }
-                        dir('uaa/iam-k8s-utils') {
-                            git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
-                                url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
-                        }
+//                         dir('uaa/iam-k8s-utils') {
+//                             git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+//                                 url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
+//                         }
                         sh '''#!/bin/bash -ex
                                 source uaa-cf-release/config-local/set-env.sh
                                 unset HTTPS_PROXY
@@ -157,6 +157,10 @@ pipeline
                                 reportFiles: 'index.html',
                                 reportName: 'Unit Test Code Coverage'
                             ]
+                            // Stash Jacoco execution data for SonarQube analysis
+                            dir('uaa') {
+                                stash includes: '**/build/jacoco/*.exec', name: 'jacoco-server-test', allowEmpty: true
+                            }
                         }
                     }
                 }
@@ -184,10 +188,10 @@ pipeline
                         dir('uaa') {
                             checkout scm
                         }
-                        dir('uaa/iam-k8s-utils') {
-                            git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
-                                url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
-                        }
+//                         dir('uaa/iam-k8s-utils') {
+//                             git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+//                                 url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
+//                         }
                         sh '''#!/bin/bash -ex
                             source uaa-cf-release/config-local/set-env.sh
                             unset HTTPS_PROXY
@@ -225,6 +229,10 @@ pipeline
                                 reportFiles: 'index.html',
                                 reportName: 'MockMvc Test Code Coverage'
                             ]
+                            // Stash Jacoco execution data for SonarQube analysis
+                            dir('uaa') {
+                                stash includes: '**/build/jacoco/*.exec', name: 'jacoco-uaa-test', allowEmpty: true
+                            }
                         }
                     }
                 }
@@ -239,7 +247,7 @@ pipeline
                 docker {
                     image "${NODE['IMAGE']}"
                     label "${NODE['LABEL']}"
-                    args '-v /var/lib/docker/.gradle:/root/.gradle --add-host "zone-with-cors-policy.localhost testzone1.localhost testzone2.localhost int-test-zone-uaa.localhost testzone3.localhost testzone4.localhost testzonedoesnotexist.localhost testzoneinactive.localhost oidcloginit.localhost test-zone1.localhost test-zone2.localhost test-victim-zone.localhost test-platform-zone.localhost test-saml-zone.localhost test-app-zone.localhost app-zone.localhost platform-zone.localhost testsomeother2.ip.com testsomeother.ip.com uaa-acceptance-zone.localhost orchestrator-int-test-zone.localhost orchestrator-int-test-zone-port.localhost localhost samlidpzone.localhost samlspzone.localhost":127.0.0.1'
+                    args '-v /var/lib/docker/.gradle:/root/.gradle --shm-size=2g --add-host "zone-with-cors-policy.localhost testzone1.localhost testzone2.localhost int-test-zone-uaa.localhost testzone3.localhost testzone4.localhost testzonedoesnotexist.localhost testzoneinactive.localhost oidcloginit.localhost test-zone1.localhost test-zone2.localhost test-victim-zone.localhost test-platform-zone.localhost test-saml-zone.localhost test-app-zone.localhost app-zone.localhost platform-zone.localhost testsomeother2.ip.com testsomeother.ip.com uaa-acceptance-zone.localhost orchestrator-int-test-zone.localhost orchestrator-int-test-zone-port.localhost localhost samlidpzone.localhost samlspzone.localhost":127.0.0.1'
                     registryUrl "${NODE['REGISTRY_URL']}"
                     registryCredentialsId "${NODE['REGISTRY_CREDENTIALS_ID']}"
                 }
@@ -254,10 +262,10 @@ pipeline
                 dir('uaa') {
                     checkout scm
                 }
-                dir('uaa/iam-k8s-utils') {
-                    git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
-                        url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
-                }
+//                 dir('uaa/iam-k8s-utils') {
+//                     git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+//                         url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
+//                 }
 
                 sh '''#!/bin/bash -ex
 
@@ -273,10 +281,7 @@ pipeline
                     curl -v http://simplesamlphp.uaa-acceptance.cf-app.com/saml2/idp/metadata.php
 
                     ### start slapd and add entries to ldap for tests
-                    /etc/init.d/slapd start
-                    /etc/init.d/slapd status
-                    ldapadd -Y EXTERNAL -H ldapi:/// -f uaa/uaa/src/test/resources/ldap_db_init.ldif
-                    ldapadd -x -D 'cn=admin,dc=test,dc=com' -w password -f uaa/uaa/src/test/resources/ldap_init.ldif
+                    sudo /etc/init.d/slapd restart
 
                     ### run integration tests
                     pushd uaa
@@ -310,6 +315,10 @@ pipeline
                         reportFiles: 'index.html',
                         reportName: 'Integration Test Code Coverage'
                     ]
+                    // Stash Jacoco execution data for SonarQube analysis
+                    dir('uaa') {
+                        stash includes: '**/build/jacoco/*.exec', name: 'jacoco-integration-test', allowEmpty: true
+                    }
                 }
             }
         }
@@ -388,19 +397,9 @@ pipeline
                                     credentialsId: 'github.software.gevernova.com',
                                     poll: false,
                                     url: 'https://github.software.gevernova.com/pers/iam-container-config.git',
-                                    branch: 'master'
+                                    branch: 'uaa-upgrade'
                             }
                         }
-                }
-                stage('Install Docker CLI')
-                {
-                    steps
-                    {
-                        sh """
-                        apt-get update
-                        apt-get install -y docker-ce-cli
-                        """
-                    }
                 }
                 stage('Calculate image tag')
                 {
@@ -475,10 +474,10 @@ pipeline
                         dir('uaa') {
                             checkout scm
                         }
-                        dir('uaa/iam-k8s-utils') {
-                            git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
-                                url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
-                        }
+//                         dir('uaa/iam-k8s-utils') {
+//                             git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+//                                 url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
+//                         }
                         dir('uaa-k8s-deploy') {
                             git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
                                 url: 'https://github.software.gevernova.com/pers/uaa-k8s-deploy.git',
@@ -619,14 +618,36 @@ pipeline
                             dir('uaa') {
                                 checkout scm
                             }
-                            dir('uaa/iam-k8s-utils') {
-                                git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
-                                url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
+//                             dir('uaa/iam-k8s-utils') {
+//                                 git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+//                                 url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
+//                             }
+
+                            // Unstash all Jacoco execution data from test stages
+                            dir('uaa') {
+                                script {
+                                    try {
+                                        unstash 'jacoco-server-test'
+                                    } catch (Exception e) {
+                                        echo "No jacoco-server-test stash found: ${e.message}"
+                                    }
+                                    try {
+                                        unstash 'jacoco-uaa-test'
+                                    } catch (Exception e) {
+                                        echo "No jacoco-uaa-test stash found: ${e.message}"
+                                    }
+                                    try {
+                                        unstash 'jacoco-integration-test'
+                                    } catch (Exception e) {
+                                        echo "No jacoco-integration-test stash found: ${e.message}"
+                                    }
+                                }
                             }
+
                             withSonarQubeEnv('SONAR_INSTANCE') {
                                 sh """
                                     cd uaa
-                                    ./gradlew clean test jacocoRootReport sonar
+                                    ./gradlew jacocoRootReport sonar -x test
                                 """
                             } // Submitted: SonarQube taskId is automatically attached to the pipeline context
                         }

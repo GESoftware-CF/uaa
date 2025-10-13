@@ -27,19 +27,19 @@ function restart_ldap() {
 
 function generate_certs_if_needed() {
   if
-    [ ! -f /uaa/certificates/server.crt ] ||
-    [ ! -f /uaa/certificates/server.key ] ||
-    [ ! -f /uaa/certificates/CA.crt ] ||
-    [ ! -f /uaa/certificates/CA.key ]; then
-    /uaa/certificates/generate.sh
+    [ ! -f uaa/scripts/certificates/server.crt ] ||
+    [ ! -f uaa/scripts/certificates/server.key ] ||
+    [ ! -f uaa/scripts/certificates/CA.crt ] ||
+    [ ! -f uaa/scripts/certificates/CA.key ]; then
+    uaa/scripts/certificates/generate.sh
   fi
 }
 
 function configure_slapd_tls() {
-  cp /uaa/certificates/CA.key /etc/ldap/sasl2/
-  cp /uaa/certificates/CA.crt /etc/ldap/sasl2/
-  cp /uaa/certificates/server.crt /etc/ldap/sasl2/
-  cp /uaa/certificates/server.key /etc/ldap/sasl2/
+  cp uaa/scripts/certificates/CA.key /etc/ldap/sasl2/
+  cp uaa/scripts/certificates/CA.crt /etc/ldap/sasl2/
+  cp uaa/scripts/certificates/server.crt /etc/ldap/sasl2/
+  cp uaa/scripts/certificates/server.key /etc/ldap/sasl2/
   cp /etc/ssl/certs/ca-certificates.crt /etc/ldap/sasl2/
   cat /etc/ldap/sasl2/CA.crt >> /etc/ldap/sasl2/ca-certificates.crt
   chown -R openldap:openldap /etc/ldap/sasl2

@@ -14,12 +14,9 @@
 package org.cloudfoundry.identity.uaa.integration.feature;
 
 import com.dumbster.smtp.SimpleSmtpServer;
-import org.cloudfoundry.identity.uaa.ServerRunningExtension;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
 import org.cloudfoundry.identity.uaa.oauth.client.test.TestAccounts;
-import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
-import org.cloudfoundry.identity.uaa.provider.OIDCIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.test.UaaWebDriver;
 import org.cloudfoundry.identity.uaa.zone.BrandingInformation;
 import org.cloudfoundry.identity.uaa.zone.BrandingInformation.Banner;
@@ -47,16 +44,13 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
-import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.assertSupportsZoneDNS;
 import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.CSRF_PARAMETER_NAME;
-import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.USER_NAME_ATTRIBUTE_NAME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
@@ -84,11 +78,6 @@ class LoginIT {
 
     @Autowired
     SimpleSmtpServer simpleSmtpServer;
-
-    @RegisterExtension
-    private static final ServerRunningExtension serverRunning = ServerRunningExtension.connect();
-
-    String originKey = "oidc-idp";
 
     @BeforeEach
     @AfterEach
@@ -128,7 +117,7 @@ class LoginIT {
                 String.class);
         cookies = loginResponse.getHeaders().get("Set-Cookie");
         assertThat(cookies).anySatisfy(s -> assertThat(s).startsWith("JSESSIONID"))
-                .anySatisfy(s -> assertThat(s).startsWith("X-Uaa-Csrf"))
+                //.anySatisfy(s -> assertThat(s).startsWith("X-Uaa-Csrf")) // we are using session based csrf
                 .anySatisfy(s -> assertThat(s).startsWith("Current-User"));
         headers.clear();
         boolean jsessionIdValidated = false;
@@ -211,11 +200,11 @@ class LoginIT {
         String newUserEmail = createAnotherUser();
         webDriver.get(baseUrl + "/logout.do");
         webDriver.get(baseUrl + "/login");
-        assertEquals("Predix", webDriver.getTitle());
+        assertThat(webDriver.getTitle()).isEqualTo("Predix");
 
         //assert Predix logo
         assertThat(webDriver.findElement(By.id("logo-header")).getAttribute("src"))
-                .isEqualTo("GE_Vernova_Standard_RGB-White.svg");
+                .isEqualTo("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAATBJREFUeNqk008og3Ecx/HNnrJSu63kIC5qKRe7KeUiOSulTHJUTrsr0y5ycFaEgyQXElvt5KDYwU0uO2hSUy4KoR7v7/qsfmjPHvzq1e/XU8/39/3zPFHf9yP/WV7jED24nGRbxDFWUAsToM05zyKFLG60d/wmQBxWzwyOlMU1phELEyCmtPeRQRoVbKOM0VYB6q0QW+3IYQpJFFDEYFCAiMqwNY857Ko3SxjGBTbRXb+xMUamcMbWh148YwJvOHSCdyqTAdxZo72ADGwKT98C9CChcxUPQSVYLz50toae4Fy9WcAISl7AiN/RhS1N5RV5rOLxx5eom90pvGAI/VjHMm6bfspK18a1gXvsqM41XDVL052C1Tim56cYd/rR+mdSrXGluxfm5S8Z/HV9CjAAvQZLXoa5mpgAAAAASUVORK5CYII=");
 
         attemptLogin(newUserEmail, USER_PASSWORD);
         assertThat(webDriver.findElement(By.cssSelector("h1")).getText())
@@ -362,7 +351,7 @@ class LoginIT {
     }
 
     @Test
-    void accountChooserManualLogin() throws Exception {
+    void accountChooserManualLogin() {
         String zoneUrl = createDiscoveryZone();
 
         String userEmail = createAnotherUser(zoneUrl);
@@ -379,12 +368,11 @@ class LoginIT {
 
         loginThroughDiscovery(userEmail, USER_PASSWORD);
         assertThat(webDriver.findElement(By.cssSelector(".island h1")).getText()).isEqualTo("You should not see this page. Set up your redirect URI.");
-        deleteDiscoveryZoneIdentityProvider();
 
     }
 
     @Test
-    void accountChooserFlow()  throws Exception {
+    void accountChooserFlow() {
         String zoneUrl = createDiscoveryZone();
 
         String userEmail = createAnotherUser(zoneUrl);
@@ -404,10 +392,10 @@ class LoginIT {
         webDriver.findElement(By.id("password")).sendKeys(USER_PASSWORD);
         webDriver.clickAndWait(By.xpath("//input[@value='Sign in']"));
         assertThat(webDriver.findElement(By.cssSelector(".island h1")).getText()).isEqualTo("You should not see this page. Set up your redirect URI.");
-        deleteDiscoveryZoneIdentityProvider();
     }
 
     @Test
+        //@Disabled("Not available in our version of UAA")
     void accountChooserPopulatesUsernameNotEmailWhenOriginIsUAAorLDAP() throws Exception {
         String userUAA = "{\"userId\":\"1\",\"username\":\"userUAA\",\"origin\":\"uaa\",\"email\":\"user@uaa.org\"}";
         String userLDAP = "{\"userId\":\"2\",\"username\":\"userLDAP\",\"origin\":\"ldap\",\"email\":\"user@ldap.org\"}";
@@ -437,7 +425,6 @@ class LoginIT {
         assertThat(webDriver.findElement(By.id("username")).getAttribute("value")).isEqualTo("user@external.org");
 
         webDriver.manage().deleteAllCookies();
-        deleteDiscoveryZoneIdentityProvider();
     }
 
     @Test
@@ -462,7 +449,7 @@ class LoginIT {
         return IntegrationTestUtils.createAnotherUser(webDriver, USER_PASSWORD, simpleSmtpServer, url, testClient);
     }
 
-    private String createDiscoveryZone() throws Exception {
+    private String createDiscoveryZone() {
         String testzone3 = "testzone3";
 
         RestTemplate identityClient = IntegrationTestUtils.getClientCredentialsTemplate(
@@ -471,39 +458,14 @@ class LoginIT {
         IdentityZoneConfiguration config = new IdentityZoneConfiguration();
         config.setIdpDiscoveryEnabled(true);
         config.setAccountChooserEnabled(true);
+        config.getCorsPolicy().getDefaultConfiguration().setAllowedMethods(
+                List.of(GET.toString(), POST.toString()));
         config.getLinks().setSelfService(new Links.SelfService().setSignup("/create_account").setPasswd(""));
         IntegrationTestUtils.createZoneOrUpdateSubdomain(identityClient, baseUrl, testzone3, testzone3, config);
-        IdentityProvider provider = new IdentityProvider();
-        provider.setIdentityZoneId(testzone3);
-        provider.setType(OriginKeys.OIDC10);
-        provider.setActive(true);
-        provider.setOriginKey(originKey);
-        provider.setName(originKey);
-        OIDCIdentityProviderDefinition oidcConfig = new OIDCIdentityProviderDefinition();
-        oidcConfig.addAttributeMapping(USER_NAME_ATTRIBUTE_NAME, "user_name");
-        oidcConfig.setAuthUrl(new URL("https://oidc10.oms.identity.team/oauth/authorize"));
-        oidcConfig.setTokenUrl(new URL("https://oidc10.oms.identity.team/oauth/token"));
-        oidcConfig.setTokenKeyUrl(new URL("https://oidc10.oms.identity.team/token_key"));
-        oidcConfig.setShowLinkText(true);
-        oidcConfig.setLinkText("My OIDC Provider");
-        oidcConfig.setSkipSslValidation(true);
-        oidcConfig.setRelyingPartyId("identity");
-        oidcConfig.setRelyingPartySecret("identitysecret");
-        oidcConfig.setEmailDomain(Collections.singletonList("test.org"));
-        provider.setConfig(oidcConfig);
-
-        String zoneAdminToken = IntegrationTestUtils.getZoneAdminToken(baseUrl, serverRunning, testzone3);
-        IntegrationTestUtils.createOrUpdateProvider(zoneAdminToken, baseUrl, provider);
         String res = baseUrl.replace("localhost", testzone3 + ".localhost");
         webDriver.get(res + "/logout.do");
         webDriver.manage().deleteAllCookies();
         return res;
-    }
-
-    private void deleteDiscoveryZoneIdentityProvider() {
-        String testzone3 = "testzone3";
-        String zoneAdminToken = IntegrationTestUtils.getZoneAdminToken(baseUrl, serverRunning, testzone3);
-        IntegrationTestUtils.deleteProvider(zoneAdminToken, baseUrl, testzone3, originKey);
     }
 
     private void loginThroughDiscovery(String userEmail, String password) {
@@ -546,7 +508,7 @@ class LoginIT {
     @Test
     public void testSelfServiceCreateAccountLinksBehavior() {
         RestTemplate adminClient = IntegrationTestUtils.getClientCredentialsTemplate(
-            IntegrationTestUtils.getClientCredentialsResource(baseUrl, new String[0], "admin", "adminsecret"));
+                IntegrationTestUtils.getClientCredentialsResource(baseUrl, new String[0], "admin", "adminsecret"));
         String zoneId = "testzone3";
         String zoneUrl = baseUrl.replace("localhost", zoneId+".localhost");
         Links.SelfService selfService = new Links.SelfService();
