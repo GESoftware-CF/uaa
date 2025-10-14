@@ -4,7 +4,7 @@
     <meta http-equiv="refresh" th:content="86400"/>
 </head>
 <div class="login island" layout:fragment="page-content">
-    <h1 th:text="${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).uaa ? 'Welcome!':'Welcome to '+zone_name+'!'}">Welcome!</h1>
+    <h1  class="card-welcome-title" th:text="${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).uaa ? 'Welcome!':'Welcome to '+zone_name+'!'}">Welcome!</h1>
     <div class="island-content predix-uaa__login">
 
         <div th:if="${error}"
@@ -21,6 +21,15 @@
         <div th:if="${param.success}" class="alert alert-success" style="color: darkslategray">
             <p th:text="${#messages.msgOrNull('login.' + param.success[0]) ?: 'Success!'}"></p>
         </div>
+
+        <!-- Customer IDP Login Button -->
+        <div class="u-p--" style="margin-bottom: 20px;">
+            <a href="#" class="customer-idp-login-button">
+                <span>Login with customer IDP</span>
+            </a>
+        </div>
+        
+        <p>or sign in with: </p>
 
         <th:block th:if="${fieldUsernameShow}">
         <form th:action="@{/login.do}" method="post" novalidate="novalidate" accept-charset="UTF-8">
@@ -55,22 +64,34 @@
         </form>
         </th:block>
         <div class="saml-login">
-            <p th:if="${showLoginLinks==true and fieldUsernameShow}">or sign in with: </p>
+            <!-- Dynamic providers from configuration -->
             <div class="u-p--" th:each="idp : ${idpDefinitions}" th:if="${idp.showSamlLink}">
-                <a href="" th:class="${fieldUsernameShow} ? 'saml-login-link' : ''" th:href="@{saml/discovery(returnIDParam=idp,entityID=${entityID},idp=${idp.idpEntityAlias},isPassive=true)}" th:text="${idp.linkText}">Use your corporate credentials</a>
+                <a href="" th:class="${fieldUsernameShow} ? 'saml-login-link' : ''" th:href="@{saml/discovery(returnIDParam=idp,entityID=${entityID},idp=${idp.idpEntityAlias},isPassive=true)}">
+                    <svg width="21" height="20" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: inline-block; margin-right: 8px; vertical-align: middle;">
+                        <path d="M16.3333 15.8333H4.66667V4.16667H10.5V2.5H4.66667C3.74167 2.5 3 3.25 3 4.16667V15.8333C3 16.75 3.74167 17.5 4.66667 17.5H16.3333C17.25 17.5 18 16.75 18 15.8333V10H16.3333V15.8333ZM12.1667 2.5V4.16667H15.1583L6.96667 12.3583L8.14167 13.5333L16.3333 5.34167V8.33333H18V2.5H12.1667Z" fill="currentColor"/>
+                    </svg>
+                    <span th:text="${idp.linkText}">Use your corporate credentials</span>
+                </a>
             </div>
             <div class="u-p--" th:each="oauthLink : ${oauthLinks}" >
-                <a href="" th:class="${fieldUsernameShow} ? 'saml-login-link' : ''" th:href="${oauthLink.key}" th:text="${oauthLink.value}">Use your corporate credentials</a>
+                <a href="" th:class="${fieldUsernameShow} ? 'saml-login-link' : ''" th:href="${oauthLink.key}">
+                    <svg width="21" height="20" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: inline-block; margin-right: 8px; vertical-align: middle;">
+                        <path d="M16.3333 15.8333H4.66667V4.16667H10.5V2.5H4.66667C3.74167 2.5 3 3.25 3 4.16667V15.8333C3 16.75 3.74167 17.5 4.66667 17.5H16.3333C17.25 17.5 18 16.75 18 15.8333V10H16.3333V15.8333ZM12.1667 2.5V4.16667H15.1583L6.96667 12.3583L8.14167 13.5333L16.3333 5.34167V8.33333H18V2.5H12.1667Z" fill="currentColor"/>
+                    </svg>
+                    <span th:text="${oauthLink.value}">Use your corporate credentials</span>
+                </a>
             </div>
         </div>
         <div class="island-footer" th:style="${#strings.isEmpty(links['createAccountLink'])?'display:inline-block':''}">
           <th:block th:if="${linkCreateAccountShow} and not ${disableInternalUserManagement}">
-          <span th:unless="${#strings.isEmpty(links['createAccountLink'])}" class="left">
-            <a href="/create_account" th:href="@{${links['createAccountLink']}}" class="link-lowlight">Create account</a>
-        </span>
-          <span class="right" th:unless="${#strings.isEmpty(links['forgotPasswordLink'])}">
+          <div class="footer-links">
+            <div class="footer-link-item create-account" th:unless="${#strings.isEmpty(links['createAccountLink'])}">
+              <a href="/create_account" th:href="@{${links['createAccountLink']}}" class="link-lowlight">Create account</a>
+            </div>
+            <div class="footer-link-item reset-password" th:unless="${#strings.isEmpty(links['forgotPasswordLink'])}">
               <a href="/forgot_password" th:href="@{${links['forgotPasswordLink']}}" class="link-lowlight">Reset password</a>
-          </span>
+            </div>
+          </div>
           </th:block>
         </div>
     </div>
