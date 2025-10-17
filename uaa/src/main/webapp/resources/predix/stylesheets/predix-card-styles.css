@@ -671,21 +671,26 @@
   --icon-color: #1B9552;
   --border-color: #75CD96;
   
-  padding: 1.5rem;
-  border: 1px solid var(--border-color);
+  padding: 0;
+  border: 1px solid #e6e6e6;
+  border-left: 5px solid var(--border-color);
   border-radius: 4px;
-  background-color: #E6F6EC;
+  background-color: #fff;
   max-width: 72ch;
   font-size: 16px;
   display: flex;
-  align-items: baseline;
-  gap: 1rem;
+  align-items: stretch;
   margin-bottom: 1rem;
+  position: relative;
+  color: #333;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .toast__icon,
 .toast__close {
-  align-self: baseline;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .toast__icon svg,
@@ -695,41 +700,87 @@
 
 .toast__icon {
   color: var(--icon-color);
-  font-size: 1em;
+  font-size: 1.25em;
+  background-color: rgba(0,0,0,0.03);
+  padding: 1rem;
+  border-right: 1px solid rgba(0,0,0,0.05);
+  min-width: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Responsive behavior for mobile devices */
+@media (max-width: 576px) {
+  .toast__icon {
+    display: none;
+  }
+  
+  .toast {
+    border-left-width: 4px; /* Keep the colored indicator */
+  }
 }
 
 .toast__close {
-  display: inline-block;
-  margin-left: 1.5rem;
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 1.5rem;
+  height: 1.5rem;
   cursor: pointer;
+  opacity: 0.5;
   transition: opacity 0.2s ease;
+  background: transparent;
+  border: none;
+  z-index: 1; /* Ensure it's always clickable */
 }
 
 .toast__close:hover {
-  opacity: 0.7;
+  opacity: 1;
+}
+
+/* Responsive behavior for mobile devices */
+@media (max-width: 576px) {
+  .toast__close {
+    top: 0.4rem;
+    right: 0.4rem;
+    width: 1.25rem;
+    height: 1.25rem;
+  }
 }
 
 .toast__content {
-  line-height: 1.35;
+  line-height: 1.5;
+  padding: 1rem 2rem 1rem 1rem; /* Extra padding right for close button */
   display: flex;
   flex-direction: column;
   min-width: 0px;
-  gap: 16px;
+  gap: 8px;
   flex: 1;
 }
 
 .toast.inline .toast__content {
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+/* Responsive behavior for mobile devices */
+@media (max-width: 576px) {
+  .toast__content {
+    padding: 0.75rem 1.5rem 0.75rem 0.75rem; /* Slightly reduced padding for mobile */
+    width: 100%; /* Ensure content takes full width when icon is hidden */
+  }
+  
+  .toast__message {
+    width: 100%; /* Full width for message on mobile */
+  }
 }
 
 .toast__message {
-  align-self: baseline;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: block;
+  line-height: 1.5;
 }
 
 .toast.inline .toast__message {
@@ -738,12 +789,23 @@
 
 .toast__title {
   font-weight: 600;
-  flex-shrink: 0;
-  color: var(--predix-text-primary);
+  font-size: 1.1em;
+  display: inline-block;
+  margin-right: 5px;
+  color: var(--icon-color);
 }
 
 .toast__description {
-  color: var(--predix-text-secondary);
+  color: #555;
+  font-size: 0.95em;
+  display: inline;
+}
+
+/* Responsive behavior for mobile devices */
+@media (max-width: 576px) {
+  .toast__title {
+    margin-right: 3px;
+  }
 }
 
 .toast__actions {
@@ -769,34 +831,44 @@
   border-color: #999;
 }
 
+/* Success Toast Variant */
+.toast.toast--success {
+  --icon-color: #1B9552;
+  --border-color: #00986a;
+}
+
+.toast.toast--success .toast__title {
+  color: #1B9552;
+}
+
 /* Error Toast Variant */
 .toast.toast--error {
   --icon-color: #dc2626;
-  --border-color: #f87171;
-  background-color: #fef2f2;
-  border: 1px solid var(--border-color);
-}
-
-.toast.toast--error .toast__icon {
-  color: var(--icon-color);
+  --border-color: #dc2626;
 }
 
 .toast.toast--error .toast__title {
-  color: #991b1b;
+  color: #dc2626;
 }
 
-.toast.toast--error .toast__description {
-  color: #7f1d1d;
+/* Warning Toast Variant */
+.toast.toast--warning {
+  --icon-color: #f59e0b;
+  --border-color: #f59e0b;
 }
 
-.toast.toast--error .btn {
-  border-color: #dc2626;
-  color: #991b1b;
+.toast.toast--warning .toast__title {
+  color: #f59e0b;
 }
 
-.toast.toast--error .btn:hover {
-  background-color: #fee2e2;
-  border-color: #991b1b;
+/* Info Toast Variant */
+.toast.toast--info {
+  --icon-color: #00b3c8;
+  --border-color: #00b3c8;
+}
+
+.toast.toast--info .toast__title {
+  color: #00b3c8;
 }
 
 /* ============================================
