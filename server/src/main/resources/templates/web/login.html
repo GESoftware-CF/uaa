@@ -17,7 +17,7 @@
             </span>
             <span class="toast__content">
                 <span class="toast__message">
-                    <span class="toast__title">Error:</span><span class="toast__description" th:text="${#messages.msgOrNull('login.' + error) ?: 'An error occurred!'}">An error occurred!</span>
+                    <span class="toast__description" th:text="${#messages.msgOrNull('login.' + error) ?: 'An error occurred!'}">An error occurred!</span>
                 </span>
             </span>
             <span class="toast__close" aria-label="Close notification">
@@ -36,7 +36,7 @@
             </span>
             <span class="toast__content">
                 <span class="toast__message">
-                    <span class="toast__title">Error:</span><span class="toast__description" th:text="${#messages.msgOrNull('login.' + param.error[0]) ?: 'An error occurred!'}">An error occurred!</span>
+                    <span class="toast__description" th:text="${#messages.msgOrNull('login.' + param.error[0]) ?: 'An error occurred!'}">An error occurred!</span>
                 </span>
             </span>
             <span class="toast__close" aria-label="Close notification">
@@ -55,7 +55,7 @@
             </span>
             <span class="toast__content">
                 <span class="toast__message">
-                    <span class="toast__title">Success:</span><span class="toast__description" th:text="${#messages.msgOrNull('login.' + param.success[0]) ?: 'Operation completed successfully!'}">Operation completed successfully!</span>
+                    <span class="toast__description" th:text="${#messages.msgOrNull('login.' + param.success[0]) ?: 'Operation completed successfully!'}">Operation completed successfully!</span>
                 </span>
             </span>
             <span class="toast__close" aria-label="Close notification">
