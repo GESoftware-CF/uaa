@@ -1,1 +1,2 @@
-DROP TABLE IF EXISTS service_provider;
+-- NOOP
+-- DROP TABLE IF EXISTS service_provider;
