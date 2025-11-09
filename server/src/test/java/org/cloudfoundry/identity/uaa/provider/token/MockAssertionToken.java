@@ -69,8 +69,8 @@ public class MockAssertionToken {
         java.util.Base64.Encoder encoder = java.util.Base64.getEncoder();
         String encoded = encoder.encodeToString(privateKey.getEncoded());
         return "-----BEGIN PRIVATE KEY-----\n" +
-                encoded.replaceAll("(.{64})", "$1\n") +
-                "\n-----END PRIVATE KEY-----";
+               encoded.replaceAll("(.{64})", "$1\n") +
+               "\n-----END PRIVATE KEY-----";
     }
 }
 

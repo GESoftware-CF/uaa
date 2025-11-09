@@ -1,6 +1,10 @@
 package org.cloudfoundry.identity.uaa.provider.token;
 
 import com.ge.predix.pki.device.spi.DevicePublicKeyProvider;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.cloudfoundry.identity.uaa.oauth.common.util.OAuth2Utils;
 import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetailsService;
 import org.cloudfoundry.identity.uaa.oauth.provider.TokenGranter;
@@ -16,11 +20,8 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.text.ParseException;
 
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_JWT_BEARER;
 
@@ -42,8 +43,7 @@ public class JwtBearerAssertionAuthenticationFilter extends OncePerRequestFilter
     private Integer clientAssertionHeaderTTL;
     
     /**
-     * An authentication entry point that can handle unsuccessful authentication. Defaults to an
-     * {@link org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AuthenticationEntryPoint}.
+     * An authentication entry point that can handle unsuccessful authentication.
      *
      * @param authenticationEntryPoint
      *            the authenticationEntryPoint to set
@@ -77,10 +77,12 @@ public class JwtBearerAssertionAuthenticationFilter extends OncePerRequestFilter
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
 
-        } catch (AuthenticationException e) {
+        } catch (AuthenticationException | ParseException e) {
             SecurityContextHolder.clearContext();
             logger.debug("jwt-bearer authentication failed. " + e.getMessage());
-            this.oauthAuthenticationEntryPoint.commence(request, response, e);
+            if (e instanceof AuthenticationException) {
+                this.oauthAuthenticationEntryPoint.commence(request, response, (AuthenticationException) e);
+            }
             return;
         }
 
@@ -103,7 +105,7 @@ public class JwtBearerAssertionAuthenticationFilter extends OncePerRequestFilter
         this.dcsEndpointTokenGranter = dcsEndpointTokenGranter;
     }
 
-    private Authentication authenticateJwtAssertion(final HttpServletRequest request, String jwtAssertion) {
+    private Authentication authenticateJwtAssertion(final HttpServletRequest request, String jwtAssertion) throws ParseException {
         JwtBearerAssertionTokenAuthenticator tokenAuthenticator = new JwtBearerAssertionTokenAuthenticator(
                 request.getRequestURL().toString(), this.clientAssertionHeaderTTL);
         tokenAuthenticator.setClientDetailsService(this.clientDetailsService);

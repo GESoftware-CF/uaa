@@ -173,6 +173,42 @@ class IdentityZoneSecurityConfiguration {
                                     .throwOnMissingScope()
                     );
 
+                    auth.requestMatchers(HttpMethod.GET, "/identity-zones/*/key-provider-config").access(
+                            anyOf()
+                                    .isZoneAdmin()
+                                    .hasScopeWithZoneId("zones.read")
+                                    .hasScopeWithZoneId("zones.{zone.id}.read")
+                                    .hasScope("zones.write")
+                                    .throwOnMissingScope()
+                    );
+
+                    auth.requestMatchers(HttpMethod.GET, "/identity-zones/*/key-provider-config/*").access(
+                            anyOf()
+                                    .isZoneAdmin()
+                                    .hasScopeWithZoneId("zones.read")
+                                    .hasScopeWithZoneId("zones.{zone.id}.read")
+                                    .hasScope("zones.write")
+                                    .throwOnMissingScope()
+                    );
+
+                    auth.requestMatchers(HttpMethod.POST, "/identity-zones/*/key-provider-config").access(
+                            anyOf()
+                                    .isZoneAdmin()
+                                    .hasScopeWithZoneId("zones.read")
+                                    .hasScopeWithZoneId("zones.{zone.id}.read")
+                                    .hasScope("zones.write")
+                                    .throwOnMissingScope()
+                    );
+
+                    auth.requestMatchers(HttpMethod.DELETE, "/identity-zones/*/key-provider-config/*").access(
+                            anyOf()
+                                    .isZoneAdmin()
+                                    .hasScopeWithZoneId("zones.read")
+                                    .hasScopeWithZoneId("zones.{zone.id}.read")
+                                    .hasScope("zones.write")
+                                    .throwOnMissingScope()
+                    );
+
                     var canWriteIdp = anyOf()
                             .isUaaAdmin()
                             .isZoneAdmin()

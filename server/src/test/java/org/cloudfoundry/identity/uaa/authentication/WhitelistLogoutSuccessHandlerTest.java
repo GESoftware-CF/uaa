@@ -110,6 +110,7 @@ class WhitelistLogoutSuccessHandlerTest {
         assertEquals("http://testing.com/path", handler.determineTargetUrl(request, response));
     }
 
+    @Test
     void client_redirect() {
         handler.setWhitelist(Collections.singletonList("http://somethingelse.com"));
         handler.setAlwaysUseDefaultTargetUrl(false);

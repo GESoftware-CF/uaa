@@ -1,6 +1,7 @@
 package org.cloudfoundry.identity.uaa.provider;
 
 import org.cloudfoundry.identity.uaa.annotations.WithDatabaseContext;
+import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.cloudfoundry.identity.uaa.zone.KeyProviderAlreadyExistsException;
 import org.cloudfoundry.identity.uaa.zone.KeyProviderNotFoundException;
@@ -8,7 +9,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import org.springframework.security.oauth2.common.util.RandomValueStringGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
