@@ -49,9 +49,14 @@ public class CSPFilter implements Filter {
 
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
-
-httpResponse.setHeader("Content-Security-Policy",
-                       "base-uri 'self'; frame-ancestors 'none'; font-src 'self' https://cdn.predix-ui.com; img-src 'self'; frame-src 'self';");
+        httpResponse.setHeader("Content-Security-Policy",
+                "base-uri 'self'; " +
+                "frame-ancestors 'none'; " +
+                "font-src 'self' https://cdn.predix-ui.com; " +
+                "img-src 'self' data:; " +
+                "frame-src 'self'; " +
+                "style-src 'self'; " +
+                "style-src-attr 'self';");
 
         // Build report-uri part only if cspReportUri is not empty
         String reportUriPart = (cspReportUri != null && !cspReportUri.trim().isEmpty())
@@ -64,6 +69,7 @@ httpResponse.setHeader("Content-Security-Policy",
                 "default-src 'self';" +
                         "script-src 'self';" +
                         "style-src 'self';" +
+                        "style-src-attr 'self';" +
                         "object-src 'none';" +
                         "form-action 'self';" +
                         reportUriPart

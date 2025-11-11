@@ -2918,3 +2918,13 @@ form {
 .fa-fonticons:before {
   content: ""
 }
+
+/* CSP-compliant logo styling - removes need for inline styles */
+.logo-header-max-width {
+  max-width: 330px;
+}
+
+.footer-logo {
+  width: 60px;
+  margin-bottom: 20px;
+}
