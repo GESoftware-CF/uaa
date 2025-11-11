@@ -54,9 +54,13 @@ public class CSPFilter implements Filter {
                 "frame-ancestors 'none'; " +
                 "font-src 'self' https://cdn.predix-ui.com; " +
                 "img-src 'self' data:; " +
+                "default-src 'self';"  +
+                "object-src 'none';" +
                 "frame-src 'self'; " +
                 "style-src 'self'; " +
-                "style-src-attr 'self';");
+                "style-src-attr 'self'; " +
+                "script-src 'self'; " +
+                "script-src-elem 'self';");
 
         // Build report-uri part only if cspReportUri is not empty
         String reportUriPart = (cspReportUri != null && !cspReportUri.trim().isEmpty())
@@ -66,11 +70,9 @@ public class CSPFilter implements Filter {
         // Set Content-Security-Policy-Report-Only header
         httpResponse.setHeader(
                 "Content-Security-Policy-Report-Only",
-                "default-src 'self';" +
                         "script-src 'self';" +
                         "style-src 'self';" +
                         "style-src-attr 'self';" +
-                        "object-src 'none';" +
                         "form-action 'self';" +
                         reportUriPart
         );

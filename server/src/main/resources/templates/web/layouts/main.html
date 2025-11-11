@@ -54,10 +54,7 @@
       <div
         th:if="${#authentication instanceof T(org.cloudfoundry.identity.uaa.authentication.UaaAuthentication)} ">
         <div th:if="${#authentication.lastLoginSuccessTime} != null">
-          Last login <span id="last_login_time"></span>
-          <script type="text/javascript">
-                     document.getElementById("last_login_time").innerHTML = new Date([[${#authentication.lastLoginSuccessTime}]]).toLocaleString();
-          </script>
+          Last login <span id="last_login_time" th:text="${#dates.format(#dates.create(#authentication.lastLoginSuccessTime), 'MMM d, yyyy, h:mm:ss a')}"></span>
         </div>
       </div>
     </div>
