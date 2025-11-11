@@ -18,14 +18,14 @@
             <p th:text="${#messages.msgOrNull('login.' + param.error[0]) ?: 'Error!'}"></p>
         </div>
 
-        <div th:if="${param.success}" class="alert alert-success" style="color: darkslategray">
+        <div th:if="${param.success}" class="alert alert-success color-darkslategray">
             <p th:text="${#messages.msgOrNull('login.' + param.success[0]) ?: 'Success!'}"></p>
         </div>
 
         <th:block th:if="${fieldUsernameShow}">
         <form th:action="@{/login.do}" method="post" novalidate="novalidate" accept-charset="UTF-8">
 
-            <div style="text-align: left;" th:each="prompt,iter : ${prompts}">
+            <div class="text-align-left" th:each="prompt,iter : ${prompts}">
                 <label>[[${prompt.value[1]}]]</label>
                 <input th:name="${prompt.key}"
                     th:type="${prompt.value[0]}"
@@ -63,7 +63,7 @@
                 <a href="" th:class="${fieldUsernameShow} ? 'saml-login-link' : ''" th:href="${oauthLink.key}" th:text="${oauthLink.value}">Use your corporate credentials</a>
             </div>
         </div>
-        <div class="island-footer" th:style="${#strings.isEmpty(links['createAccountLink'])?'display:inline-block':''}">
+        <div th:class="'island-footer' + (${#strings.isEmpty(links['createAccountLink'])}?' display-inline-block':'')">
           <th:block th:if="${linkCreateAccountShow} and not ${disableInternalUserManagement}">
           <span th:unless="${#strings.isEmpty(links['createAccountLink'])}" class="left">
             <a href="/create_account" th:href="@{${links['createAccountLink']}}" class="link-lowlight">Create account</a>

@@ -2928,3 +2928,48 @@ form {
   width: 60px;
   margin-bottom: 20px;
 }
+
+/* Additional CSP-compliant utility classes */
+.display-inline-block {
+  display: inline-block;
+}
+
+.text-align-left {
+  text-align: left;
+}
+
+.text-align-center {
+  text-align: center;
+}
+
+.display-inline {
+  display: inline;
+}
+
+.display-none {
+  display: none;
+}
+
+.margin-auto {
+  margin: auto;
+}
+
+.color-darkslategray {
+  color: darkslategray;
+}
+
+.margin-bottom-20 {
+  margin-bottom: 20px;
+}
+
+.padding-left-1em {
+  padding-left: 1em;
+}
+
+.margin-top-20 {
+  margin-top: 20px;
+}
+
+.width-100-percent {
+  width: 100%;
+}
