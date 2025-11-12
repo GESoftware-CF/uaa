@@ -54,11 +54,13 @@
       <div
         th:if="${#authentication instanceof T(org.cloudfoundry.identity.uaa.authentication.UaaAuthentication)} ">
         <div th:if="${#authentication.lastLoginSuccessTime} != null">
-          Last login <span id="last_login_time" th:text="${#temporals.format(T(java.time.Instant).ofEpochMilli(#authentication.lastLoginSuccessTime).atZone(T(java.time.ZoneId).systemDefault()).toLocalDateTime(), 'MMM d, yyyy, h:mm:ss a')}"></span>
+          Last login <span id="last_login_time" th:attr="data-timestamp=${#authentication.lastLoginSuccessTime}"></span>
         </div>
       </div>
     </div>
   </div>
+
+  <script type="text/javascript" src="/resources/javascripts/last-login-time.js" th:src="@{/resources/javascripts/last-login-time.js}"></script>
 
   <th:block th:with="code=${@environment.getProperty('analytics.code')},domain=${@environment.getProperty('analytics.domain')}">
       <th:block th:if="${code} and ${domain}">
