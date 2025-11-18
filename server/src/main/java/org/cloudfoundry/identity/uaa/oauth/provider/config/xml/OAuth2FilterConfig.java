@@ -87,7 +87,8 @@ public class OAuth2FilterConfig {
         return tokenGranter;
     }
 
-    @Bean
+    //Commenting it since, there is a customized JWT token granter
+/*    @Bean
     public JwtTokenGranter jwtTokenGranter(@Qualifier("oauth2TokenGranter") CompositeTokenGranter compositeTokenGranter,
             @Qualifier("tokenServices") AuthorizationServerTokenServices tokenServices,
             @Qualifier("jdbcClientDetailsService") MultitenantClientServices clientDetailsService,
@@ -96,7 +97,7 @@ public class OAuth2FilterConfig {
         compositeTokenGranter.addTokenGranter(tokenGranter);
 
         return tokenGranter;
-    }
+    }*/
 
     @Bean
     public Saml2TokenGranter samlTokenGranter(@Qualifier("oauth2TokenGranter") CompositeTokenGranter compositeTokenGranter,
