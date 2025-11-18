@@ -360,8 +360,8 @@ class OauthEndpointSecurityConfiguration {
                     auth.anyRequest().denyAll();
                 })
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(getClientParameterAuthenticationFilter(), BasicAuthenticationFilter.class)
                 .addFilterBefore(jwtBearerAuthenticationFilter, BasicAuthenticationFilter.class)
+                .addFilterBefore(getClientParameterAuthenticationFilter(), BasicAuthenticationFilter.class)
                 .addFilterAt(clientAuthenticationFilter.getFilter(), BasicAuthenticationFilter.class)
                 .addFilterAfter(tokenEndpointAuthenticationFilter.getFilter(), BasicAuthenticationFilter.class)
                 .anonymous(AnonymousConfigurer::disable)
