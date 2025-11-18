@@ -33,7 +33,9 @@ public class ClientParametersAuthenticationFilter extends AbstractClientParamete
 
     @Override
     public void wrapClientCredentialLogin(HttpServletRequest req, HttpServletResponse res, Map<String, String> loginInfo, String clientId) {
-        if (!StringUtils.hasText(req.getHeader("Authorization")) && isUrlEncodedForm(req)) {
+        boolean hasClientId = StringUtils.hasText(req.getParameter(CLIENT_ID));
+        boolean hasClientAssertion = StringUtils.hasText(req.getParameter(CLIENT_ASSERTION));
+        if (!StringUtils.hasText(req.getHeader("Authorization")) && (hasClientId || hasClientAssertion) && isUrlEncodedForm(req)) {
             doClientCredentialLogin(req, loginInfo, clientId);
         }
     }
