@@ -56,10 +56,11 @@ pipeline
                         dir('uaa') {
                             checkout scm
                         }
-//                         dir('uaa/iam-k8s-utils') {
-//                             git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
-//                                 url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
-//                         }
+                        dir('uaa/iam-k8s-utils') {
+                            git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                                url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git',
+                                branch: 'java--21-upgrade'
+                        }
                         sh '''#!/bin/bash -ex
                             source uaa-cf-release/config-local/set-env.sh
                             unset HTTPS_PROXY
@@ -108,10 +109,11 @@ pipeline
                         dir('uaa') {
                             checkout scm
                         }
-//                         dir('uaa/iam-k8s-utils') {
-//                             git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
-//                                 url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
-//                         }
+                        dir('uaa/iam-k8s-utils') {
+                            git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                                url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git',
+                                branch: 'java--21-upgrade'
+                        }
                         sh '''#!/bin/bash -ex
                                 source uaa-cf-release/config-local/set-env.sh
                                 unset HTTPS_PROXY
@@ -188,10 +190,11 @@ pipeline
                         dir('uaa') {
                             checkout scm
                         }
-//                         dir('uaa/iam-k8s-utils') {
-//                             git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
-//                                 url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
-//                         }
+                        dir('uaa/iam-k8s-utils') {
+                            git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                                url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git',
+                                branch: 'java--21-upgrade'
+                        }
                         sh '''#!/bin/bash -ex
                             source uaa-cf-release/config-local/set-env.sh
                             unset HTTPS_PROXY
@@ -262,10 +265,11 @@ pipeline
                 dir('uaa') {
                     checkout scm
                 }
-//                 dir('uaa/iam-k8s-utils') {
-//                     git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
-//                         url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
-//                 }
+                dir('uaa/iam-k8s-utils') {
+                    git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                        url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git',
+                        branch: 'java--21-upgrade'
+                }
 
                 sh '''#!/bin/bash -ex
 
@@ -474,10 +478,11 @@ pipeline
                         dir('uaa') {
                             checkout scm
                         }
-//                         dir('uaa/iam-k8s-utils') {
-//                             git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
-//                                 url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
-//                         }
+                        dir('uaa/iam-k8s-utils') {
+                            git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                                url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git',
+                               branch: 'java--21-upgrade'
+                        }
                         dir('uaa-k8s-deploy') {
                             git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
                                 url: 'https://github.software.gevernova.com/pers/uaa-k8s-deploy.git',
@@ -618,10 +623,11 @@ pipeline
                             dir('uaa') {
                                 checkout scm
                             }
-//                             dir('uaa/iam-k8s-utils') {
-//                                 git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
-//                                 url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
-//                             }
+                            dir('uaa/iam-k8s-utils') {
+                                git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
+                                url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git',
+                                branch: 'java--21-upgrade'
+                            }
 
                             // Unstash all Jacoco execution data from test stages
                             dir('uaa') {

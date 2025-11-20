@@ -3,7 +3,7 @@
 pipeline {
     agent {
         docker {
-            image "dig-grid-artifactory.apps.ge.com/pgog-fss-iam-uaa-docker-stage/uaa-ci-testing:latest"
+            image "dig-grid-artifactory.apps.ge.com/pgog-fss-iam-uaa-docker-stage/uaa-ci-image:latest"
             label "dind"
             args "-v /var/lib/docker/.gradle:/root/.gradle"
             registryUrl "https://dig-grid-artifactory.apps.ge.com"
@@ -58,7 +58,8 @@ pipeline {
 
                 dir('uaa/iam-k8s-utils') {
                     git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
-                        url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
+                        url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git',
+                        branch: 'java--21-upgrade'
                 }
 
                 dir('uaa-k8s-deploy') {
@@ -114,7 +115,8 @@ pipeline {
 
                 dir('uaa/iam-k8s-utils') {
                     git changelog: false, credentialsId: 'github.software.gevernova.com', poll: false,
-                        url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git'
+                        url: 'https://github.software.gevernova.com/pers/iam-k8s-utils.git',
+                        branch: 'java--21-upgrade'
                 }
 
                 dir('uaa-k8s-deploy') {
