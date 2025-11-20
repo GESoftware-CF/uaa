@@ -88,6 +88,8 @@ public class UaaUser {
 
     private Long previousLogonTime;
 
+    private final UaaUser previousUser;
+
     public String getZoneId() {
         return zoneId;
     }
@@ -160,6 +162,7 @@ public class UaaUser {
         this.passwordChangeRequired = prototype.isPasswordChangeRequired();
         this.lastLogonTime = prototype.getLastLogonTime();
         this.previousLogonTime = prototype.getPreviousLogonTime();
+        this.previousUser = prototype.getPreviousUser();
     }
 
     public String getId() {
@@ -257,7 +260,8 @@ public class UaaUser {
                 .withVerified(verified)
                 .withZoneId(zoneId)
                 .withSalt(salt)
-                .withPasswordLastModified(passwordLastModified));
+                .withPasswordLastModified(passwordLastModified)
+                .withPreviousUser(previousUser));
     }
 
     public UaaUser modifyEmail(String email) {
@@ -278,7 +282,8 @@ public class UaaUser {
                 .withVerified(verified)
                 .withZoneId(zoneId)
                 .withSalt(salt)
-                .withPasswordLastModified(passwordLastModified));
+                .withPasswordLastModified(passwordLastModified)
+                .withPreviousUser(previousUser));
     }
 
     public UaaUser modifyOrigin(String origin) {
@@ -299,7 +304,8 @@ public class UaaUser {
                 .withVerified(verified)
                 .withZoneId(zoneId)
                 .withSalt(salt)
-                .withPasswordLastModified(passwordLastModified));
+                .withPasswordLastModified(passwordLastModified)
+                .withPreviousUser(previousUser));
     }
 
     public UaaUser modifyId(String id) {
@@ -320,7 +326,8 @@ public class UaaUser {
                 .withVerified(verified)
                 .withZoneId(zoneId)
                 .withSalt(salt)
-                .withPasswordLastModified(passwordLastModified));
+                .withPasswordLastModified(passwordLastModified)
+                .withPreviousUser(previousUser));
     }
 
     public UaaUser modifyUsername(String username) {
@@ -341,7 +348,8 @@ public class UaaUser {
                 .withVerified(verified)
                 .withZoneId(zoneId)
                 .withSalt(salt)
-                .withPasswordLastModified(passwordLastModified));
+                .withPasswordLastModified(passwordLastModified)
+                .withPreviousUser(previousUser));
     }
 
     public UaaUser modifyAttributes(String email,
@@ -366,7 +374,8 @@ public class UaaUser {
                 .withVerified(verified)
                 .withZoneId(zoneId)
                 .withSalt(salt)
-                .withPasswordLastModified(passwordLastModified));
+                .withPasswordLastModified(passwordLastModified)
+                .withPreviousUser(previousUser));
     }
 
     public boolean isVerified() {
@@ -407,5 +416,30 @@ public class UaaUser {
 
     public void setPreviousLogonTime(Long previousLogonTime) {
         this.previousLogonTime = previousLogonTime;
+    }
+
+    public UaaUser getPreviousUser() {
+        return previousUser;
+    }
+
+    public UaaUser withPreviousUser(UaaUser previousUser) {
+        return new UaaUser(new UaaUserPrototype()
+                .withEmail(email)
+                .withGivenName(givenName)
+                .withFamilyName(familyName)
+                .withPhoneNumber(phoneNumber)
+                .withModified(modified)
+                .withId(id)
+                .withUsername(username)
+                .withPassword(password)
+                .withAuthorities(authorities)
+                .withCreated(created)
+                .withOrigin(origin)
+                .withExternalId(externalId)
+                .withVerified(verified)
+                .withZoneId(zoneId)
+                .withSalt(salt)
+                .withPasswordLastModified(passwordLastModified)
+                .withPreviousUser(previousUser));
     }
 }

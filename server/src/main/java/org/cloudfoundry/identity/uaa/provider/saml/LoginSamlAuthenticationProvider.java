@@ -1,6 +1,7 @@
 package org.cloudfoundry.identity.uaa.provider.saml;
 
 import org.apache.commons.lang.StringUtils;
+import org.cloudfoundry.identity.uaa.events.UserAttributeChangedEvent;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthentication;
 import org.cloudfoundry.identity.uaa.authentication.UaaPrincipal;
 import org.cloudfoundry.identity.uaa.authentication.event.IdentityProviderAuthenticationSuccessEvent;
@@ -22,6 +23,10 @@ import org.cloudfoundry.identity.uaa.util.UaaUrlUtils;
 import org.cloudfoundry.identity.uaa.web.UaaSavedRequestAwareAuthenticationSuccessHandler;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
+import org.springframework.beans.factory.annotation.Autowired;
+// Java util imports
+import java.util.HashMap;
+import java.util.Map;
 import org.joda.time.DateTime;
 import org.opensaml.saml2.core.AuthnStatement;
 import org.opensaml.xml.XMLObject;
@@ -82,7 +87,8 @@ import static org.cloudfoundry.identity.uaa.util.UaaHttpRequestUtils.isAcceptedI
 import static org.cloudfoundry.identity.uaa.util.UaaStringUtils.retainAllMatches;
 
 /**
- * SAML Authentication Provider responsible for validating of received SAML messages
+ * SAML Authentication Provider responsible for validating of received SAML
+ * messages
  */
 @Component("samlAuthenticationProvider")
 public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider implements ApplicationEventPublisherAware {
@@ -95,6 +101,7 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
     private final ScimGroupExternalMembershipManager externalMembershipManager;
     private ApplicationEventPublisher eventPublisher;
 
+    @Autowired
     public LoginSamlAuthenticationProvider(
             final IdentityZoneManager identityZoneManager,
             final UaaUserDatabase userDatabase,
@@ -175,9 +182,12 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
         }
 
         UaaUser user = createIfMissing(samlPrincipal, addNew, authorities, userAttributes);
+        
         UaaPrincipal principal = new UaaPrincipal(user);
         UaaAuthentication resultUaaAuthentication = new LoginSamlAuthenticationToken(principal, result).getUaaAuthentication(user.getAuthorities(), filteredExternalGroups, userAttributes);
+        
         publish(new IdentityProviderAuthenticationSuccessEvent(user, resultUaaAuthentication, OriginKeys.SAML, identityZoneManager.getCurrentIdentityZoneId()));
+        
         if (samlConfig.isStoreCustomAttributes()) {
             userDatabase.storeUserInfo(user.getId(),
                     new UserInfo()
@@ -353,6 +363,7 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
         }
 
         boolean userModified = false;
+
         UaaUser userWithSamlAttributes = getUser(samlPrincipal, userAttributes);
         try {
             if (user == null) {
@@ -376,7 +387,11 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
                 }
             }
         }
+
+        UaaUser userBeforeChanges = null;
+
         if (haveUserAttributesChanged(user, userWithSamlAttributes)) {
+            userBeforeChanges = user;
             userModified = true;
             user = user.modifyAttributes(
                     StringUtils.endsWith(userWithSamlAttributes.getEmail(), '@' + UaaUser.DEFAULT_EMAIL_DOMAIN)
@@ -385,7 +400,8 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
                     userWithSamlAttributes.getFamilyName(),
                     userWithSamlAttributes.getPhoneNumber(),
                     userWithSamlAttributes.getExternalId(),
-                    user.isVerified() || userWithSamlAttributes.isVerified());
+                    user.isVerified() || userWithSamlAttributes.isVerified())
+                    .withPreviousUser(userBeforeChanges);
         }
         publish(
                 new ExternalGroupAuthorizationEvent(
@@ -395,7 +411,14 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
                         true
                 )
         );
+
         user = userDatabase.retrieveUserById(user.getId());
+        
+        // Store previousUser in the returned user object so AuthenticationSuccessListener can detect all changes
+        if (userBeforeChanges != null) {
+            user = user.withPreviousUser(userBeforeChanges);
+        }
+        
         return user;
     }
 
@@ -429,4 +452,5 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
                 !StringUtils.equals(existingUser.getEmail(), user.getEmail())||
                 !StringUtils.equals(existingUser.getExternalId(), user.getExternalId());
     }
+
 }
