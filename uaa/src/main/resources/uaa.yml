@@ -2,6 +2,11 @@
 # if any of these exist:
 # [$UAA_CONFIG_URL, $UAA_CONFIG_PATH/uaa.yml, $CLOUDFOUNDRY_CONFIG_PATH/uaa.yml]
 
+device:
+  assertion:
+    proxy-public-key: |
+      not-used
+#spring_profiles: mysql,default,ldap
 #spring_profiles: postgresql,default
 #spring_profiles: ldap,default,hsqldb
 #spring_profiles: saml
@@ -289,6 +294,8 @@ links:
 #        - https://url2.domain2.com/logout-success
 issuer:
   uri: http://localhost:8080/uaa
+deployment:
+  region: 'us-west-2'
 login:
   # Enable create account and forgot password links on the Login Server (enabled by default)
   selfServiceLinksEnabled: true

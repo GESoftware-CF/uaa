@@ -411,6 +411,16 @@ task setupDegradedTestCloud(type: Exec) {
   commandLine './setupDegradedTests.sh'
 }
 
+task setupDegradedTestsForJwtBearerCloud(type: Exec) {
+  workingDir 'scripts'
+  commandLine './setupDegradedTestsForJwtBearer.sh'
+}
+
+task setupDegradedTestsForJwtBearerLocal(type: Exec, dependsOn: rootProject.cargoStartLocal) {
+  workingDir 'scripts'
+  commandLine './setupDegradedTestsForJwtBearer.sh'
+}
+
 // task dependencies
 assemble.dependsOn(subprojects.assemble)
 test.dependsOn(subprojects.test)
@@ -454,3 +464,4 @@ task jacocoRootReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
     }
     dependsOn subprojects.test
 }
+
