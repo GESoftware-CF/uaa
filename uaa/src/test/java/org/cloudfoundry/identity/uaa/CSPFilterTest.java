@@ -168,15 +168,17 @@ class CSPFilterTest {
                 "frame-ancestors 'none'; " +
                 "font-src 'self' https://cdn.predix-ui.com; " +
                 "img-src 'self' data:; " +
+                "default-src 'self';" +
+                "object-src 'none';" +
                 "frame-src 'self'; " +
                 "style-src 'self'; " +
-                "style-src-attr 'self';");
+                "style-src-attr 'self'; " +
+                "script-src 'self'; " +
+                "script-src-elem 'self';");
         verify(response).setHeader("Content-Security-Policy-Report-Only",
-                "default-src 'self';" +
-                        "script-src 'self';" +
+                "script-src 'self';" +
                         "style-src 'self';" +
                         "style-src-attr 'self';" +
-                        "object-src 'none';" +
                         "form-action 'self';" +
                         "report-uri https://example.com/csp-report;");
         verify(filterChain).doFilter(request, response);
@@ -196,15 +198,17 @@ class CSPFilterTest {
                 "frame-ancestors 'none'; " +
                 "font-src 'self' https://cdn.predix-ui.com; " +
                 "img-src 'self' data:; " +
+                "default-src 'self';" +
+                "object-src 'none';" +
                 "frame-src 'self'; " +
                 "style-src 'self'; " +
-                "style-src-attr 'self';");
+                "style-src-attr 'self'; " +
+                "script-src 'self'; " +
+                "script-src-elem 'self';");
         verify(response).setHeader("Content-Security-Policy-Report-Only",
-                "default-src 'self';" +
-                        "script-src 'self';" +
+                "script-src 'self';" +
                         "style-src 'self';" +
                         "style-src-attr 'self';" +
-                        "object-src 'none';" +
                         "form-action 'self';");
         verify(filterChain).doFilter(request, response);
     }
@@ -218,12 +222,22 @@ class CSPFilterTest {
         cspFilter.doFilter(request, response, filterChain);
 
         // Assert
-        verify(response).setHeader("Content-Security-Policy-Report-Only",
+        verify(response).setHeader("Content-Security-Policy",
+                "base-uri 'self'; " +
+                "frame-ancestors 'none'; " +
+                "font-src 'self' https://cdn.predix-ui.com; " +
+                "img-src 'self' data:; " +
                 "default-src 'self';" +
-                        "script-src 'self';" +
+                "object-src 'none';" +
+                "frame-src 'self'; " +
+                "style-src 'self'; " +
+                "style-src-attr 'self'; " +
+                "script-src 'self'; " +
+                "script-src-elem 'self';");
+        verify(response).setHeader("Content-Security-Policy-Report-Only",
+                "script-src 'self';" +
                         "style-src 'self';" +
                         "style-src-attr 'self';" +
-                        "object-src 'none';" +
                         "form-action 'self';");
         verify(filterChain).doFilter(request, response);
     }
@@ -239,15 +253,17 @@ class CSPFilterTest {
                 "frame-ancestors 'none'; " +
                 "font-src 'self' https://cdn.predix-ui.com; " +
                 "img-src 'self' data:; " +
+                "default-src 'self';" +
+                "object-src 'none';" +
                 "frame-src 'self'; " +
                 "style-src 'self'; " +
-                "style-src-attr 'self';");
+                "style-src-attr 'self'; " +
+                "script-src 'self'; " +
+                "script-src-elem 'self';");
         verify(response).setHeader("Content-Security-Policy-Report-Only",
-                "default-src 'self';" +
-                        "script-src 'self';" +
+                "script-src 'self';" +
                         "style-src 'self';" +
                         "style-src-attr 'self';" +
-                        "object-src 'none';" +
                         "form-action 'self';");
         verify(filterChain).doFilter(request, response);
     }
@@ -261,12 +277,22 @@ class CSPFilterTest {
         cspFilter.doFilter(request, response, filterChain);
 
         // Assert
-        verify(response).setHeader("Content-Security-Policy-Report-Only",
+        verify(response).setHeader("Content-Security-Policy",
+                "base-uri 'self'; " +
+                "frame-ancestors 'none'; " +
+                "font-src 'self' https://cdn.predix-ui.com; " +
+                "img-src 'self' data:; " +
                 "default-src 'self';" +
-                        "script-src 'self';" +
+                "object-src 'none';" +
+                "frame-src 'self'; " +
+                "style-src 'self'; " +
+                "style-src-attr 'self'; " +
+                "script-src 'self'; " +
+                "script-src-elem 'self';");
+        verify(response).setHeader("Content-Security-Policy-Report-Only",
+                "script-src 'self';" +
                         "style-src 'self';" +
                         "style-src-attr 'self';" +
-                        "object-src 'none';" +
                         "form-action 'self';" +
                         "report-uri /api/csp-report;");
         verify(filterChain).doFilter(request, response);
@@ -281,12 +307,22 @@ class CSPFilterTest {
         cspFilter.doFilter(request, response, filterChain);
 
         // Assert
-        verify(response).setHeader("Content-Security-Policy-Report-Only",
+        verify(response).setHeader("Content-Security-Policy",
+                "base-uri 'self'; " +
+                "frame-ancestors 'none'; " +
+                "font-src 'self' https://cdn.predix-ui.com; " +
+                "img-src 'self' data:; " +
                 "default-src 'self';" +
-                        "script-src 'self';" +
+                "object-src 'none';" +
+                "frame-src 'self'; " +
+                "style-src 'self'; " +
+                "style-src-attr 'self'; " +
+                "script-src 'self'; " +
+                "script-src-elem 'self';");
+        verify(response).setHeader("Content-Security-Policy-Report-Only",
+                "script-src 'self';" +
                         "style-src 'self';" +
                         "style-src-attr 'self';" +
-                        "object-src 'none';" +
                         "form-action 'self';" +
                         "report-uri https://utility-dev.pss-shared.dev.usw02.15.energy/api/csp-report-uri;");
     }
@@ -326,9 +362,19 @@ class CSPFilterTest {
                 "frame-ancestors 'none'; " +
                 "font-src 'self' https://cdn.predix-ui.com; " +
                 "img-src 'self' data:; " +
+                "default-src 'self';" +
+                "object-src 'none';" +
                 "frame-src 'self'; " +
                 "style-src 'self'; " +
-                "style-src-attr 'self';");
+                "style-src-attr 'self'; " +
+                "script-src 'self'; " +
+                "script-src-elem 'self';");
+        verify(response, times(2)).setHeader("Content-Security-Policy-Report-Only",
+                "script-src 'self';" +
+                        "style-src 'self';" +
+                        "style-src-attr 'self';" +
+                        "form-action 'self';" +
+                        "report-uri https://example.com/csp-report;");
         verify(filterChain, times(2)).doFilter(request, response);
     }
 
