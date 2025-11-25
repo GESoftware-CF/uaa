@@ -3,6 +3,16 @@
 <head>
     <meta http-equiv="refresh" th:content="86400"/>
     <script th:src="@{/resources/predix/js/toast-notifications.js}" defer></script>
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        window.customerIdpWebDomains = /*[[${customerIdpWebDomains}]]*/ [];
+        window.idpDefinitions = /*[[${idpDefinitions}]]*/ [];
+        window.oauthLinks = /*[[${oauthLinks}]]*/ {};
+        console.log('Customer IDP Web Domains:', window.customerIdpWebDomains);
+        console.log('IDP Definitions:', window.idpDefinitions);
+        console.log('OAuth Links:', window.oauthLinks);
+        /*]]>*/
+    </script>
 </head>
 <div class="login island" layout:fragment="page-content">
     <h1  class="card-welcome-title" th:text="${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).uaa ? 'Welcome!':'Welcome to '+zone_name+'!'}">Welcome!</h1>
