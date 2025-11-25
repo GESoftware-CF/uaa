@@ -1429,8 +1429,8 @@ public class LoginMockMvcTests {
 
         mockMvc.perform(get("/login").accept(TEXT_HTML).with(new SetServerNameRequestPostProcessor(identityZone.getSubdomain() + ".localhost")))
                 .andExpect(status().isOk())
-                .andExpect(xpath("//a[text()='" + activeSamlIdentityProviderDefinition.getLinkText() + "']").exists())
-                .andExpect(xpath("//a[text()='" + inactiveSamlIdentityProviderDefinition.getLinkText() + "']").doesNotExist());
+                .andExpect(xpath("//a/span[text()='" + activeSamlIdentityProviderDefinition.getLinkText() + "']").exists())
+                .andExpect(xpath("//a/span[text()='" + inactiveSamlIdentityProviderDefinition.getLinkText() + "']").doesNotExist());
     }
 
     @Test
@@ -1985,14 +1985,14 @@ public class LoginMockMvcTests {
 
         mockMvc.perform(get("/login").accept(TEXT_HTML).with(new SetServerNameRequestPostProcessor(identityZone.getSubdomain() + ".localhost")))
                 .andExpect(status().isOk())
-                .andExpect(xpath("//a[text()='" + samlIdentityProviderDefinition.getLinkText() + "']").exists());
+                .andExpect(xpath("//a/span[text()='" + samlIdentityProviderDefinition.getLinkText() + "']").exists());
 
         identityProvider.setActive(false);
         jdbcIdentityProviderProvisioning.update(identityProvider, identityZone.getId());
 
         mockMvc.perform(get("/login").accept(TEXT_HTML).with(new SetServerNameRequestPostProcessor(identityZone.getSubdomain() + ".localhost")))
                 .andExpect(status().isOk())
-                .andExpect(xpath("//a[text()='" + samlIdentityProviderDefinition.getLinkText() + "']").doesNotExist());
+                .andExpect(xpath("//a/span[text()='" + samlIdentityProviderDefinition.getLinkText() + "']").doesNotExist());
     }
 
     @Test
@@ -3292,7 +3292,7 @@ public class LoginMockMvcTests {
         void hasInvalidError() throws Exception {
             mockMvc.perform(
                     get("/login?error=foobar&error=login_failure"))
-                    .andExpect(content().string(containsString("Error!")));
+                    .andExpect(content().string(containsString("An error occurred!")));
         }
 
         @Test
@@ -3306,7 +3306,7 @@ public class LoginMockMvcTests {
         void hasInvalidSuccess() throws Exception {
             mockMvc.perform(
                     get("/login?success=foobar&success=verify_success"))
-                    .andExpect(content().string(containsString("Success!")));
+                    .andExpect(content().string(containsString("Operation completed successfully!")));
         }
     }
 
