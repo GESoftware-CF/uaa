@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layouts/main}">
 <head>
     <meta http-equiv="refresh" th:content="86400"/>
-    <script th:src="@{/resources/predix/js/toast-notifications.js}" defer></script>
+    <script th:src="@{/resources/predix/js/toast-notifications.js}" defer="defer"></script>
     <script th:inline="javascript">
         /*<![CDATA[*/
         window.customerIdpWebDomains = /*[[${customerIdpWebDomains}]]*/ [];
@@ -15,7 +15,7 @@
     </script>
 </head>
 <div class="login island" layout:fragment="page-content">
-    <h1  class="card-welcome-title" th:text="${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).uaa ? 'Welcome!':'Welcome to '+zone_name+'!'}">Welcome!</h1>
+    <h1 th:text="${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).uaa ? 'Welcome!':'Welcome to '+zone_name+'!'}">Welcome!</h1>
     <div class="island-content predix-uaa__login">
 
         <!-- Error Toast Notification with enhanced structure -->
