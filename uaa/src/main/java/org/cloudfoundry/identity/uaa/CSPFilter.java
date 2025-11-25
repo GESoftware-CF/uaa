@@ -53,7 +53,7 @@ public class CSPFilter implements Filter {
                 "base-uri 'self'; " +
                 "frame-ancestors 'none'; " +
                 "font-src 'self' https://cdn.predix-ui.com; " +
-                "img-src 'self'; " +
+                "img-src 'self' data:; " +
                 "frame-src 'self';");
 
         // Build report-uri part only if cspReportUri is not empty
