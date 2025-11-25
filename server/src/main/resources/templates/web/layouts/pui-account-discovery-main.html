@@ -44,7 +44,7 @@
      <div class="predix-uaa__header">
         <div>
             <div>
-                <img class="header img-responsive logo logo-header-max-width" th:with="logo=${branding.getProductLogo()},defaultLogo=@{${assetBaseUrl+'/images/predix-word.svg'}}" th:src="${logo != null ? 'data:image/png;base64,'+logo : defaultLogo}" alt="Company Logo"/>
+                <img class="header img-responsive logo logo-header-max-width" th:with="logo=${branding.getProductLogo()},defaultLogo=@{${assetBaseUrl+'/images/predix-word.svg'}}" th:src="${logo != null ? 'data:image/png;base64,'+logo : defaultLogo}" alt="Predix Logo"/>
             </div>
             <div class="predix-uaa__content" layout:fragment="page-content"></div>
         </div>

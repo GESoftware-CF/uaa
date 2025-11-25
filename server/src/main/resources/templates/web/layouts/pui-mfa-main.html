@@ -47,7 +47,7 @@
  <div class="mfa predix-uaa__wrap u-mv++ u-p++">
     <div class="panel-body">
         <div class="text--center u-p++ predix-uaa__header">
-            <img id="logo-header" class="header img-responsive logo logo-header-max-width" th:with="logo=${branding.getProductLogo()},defaultLogo=@{${assetBaseUrl+'/images/GE_Vernova_Standard_RGB-White.svg'}}" th:src="${logo != null ? 'data:image/png;base64,'+logo : defaultLogo}" alt="Company Logo"/>
+            <img id="logo-header" class="header img-responsive logo logo-header-max-width" th:with="logo=${branding.getProductLogo()},defaultLogo=@{${assetBaseUrl+'/images/GE_Vernova_Standard_RGB-White.svg'}}" th:src="${logo != null ? 'data:image/png;base64,'+logo : defaultLogo}" alt="Predix Logo"/>
             <h1 class="header img-responsive" th:if="!${isUaa}" th:text="${zone_name}">Predix UAA</h1>
         </div>
         <div class="predix-uaa__content" layout:fragment="page-content"></div>
