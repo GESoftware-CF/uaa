@@ -4,6 +4,7 @@ import com.ge.iam.sns.service.MessageBuilder;
 import com.ge.iam.sns.service.SnsService;
 import com.google.gson.JsonObject;
 import org.apache.commons.lang.StringUtils;
+import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.events.UserAttributeChangedEvent;
 import org.cloudfoundry.identity.uaa.user.UaaUser;
 import org.slf4j.Logger;
@@ -55,6 +56,14 @@ public class UserAttributeChangesSnsHandler {
             if (existingUser == null || updatedUser == null) {
                 logger.warn("Skipping SNS publish - null user provided: existing={}, updated={}",
                         existingUser != null, updatedUser != null);
+                return;
+            }
+
+            // Skip SNS events for password-based (UAA) authentication only
+            // All other authentication methods (SAML, LDAP, OAuth, OIDC, etc.) will send SNS events
+            if (OriginKeys.UAA.equals(updatedUser.getOrigin())) {
+                logger.debug("SNS publishing skipped - user is from password-based (UAA) origin. Username: {}",
+                        updatedUser.getUsername());
                 return;
             }
 
