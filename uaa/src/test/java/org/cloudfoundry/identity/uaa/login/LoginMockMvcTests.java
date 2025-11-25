@@ -1957,7 +1957,8 @@ public class LoginMockMvcTests {
 
     @Test
     void testDeactivatedProviderIsRemovedFromSamlLoginLinks(
-            @Autowired JdbcIdentityProviderProvisioning jdbcIdentityProviderProvisioning
+            @Autowired JdbcIdentityProviderProvisioning jdbcIdentityProviderProvisioning,
+            @Autowired @Qualifier("loginInfoEndpoint") LoginInfoEndpoint loginInfoEndpoint
     ) throws Exception {
         assumeFalse(isLimitedMode(limitedModeUaaFilter), "Test only runs in non limited mode.");
         String alias = "login-saml-" + generator.generate();
@@ -1966,6 +1967,9 @@ public class LoginMockMvcTests {
 
         IdentityZoneCreationResult identityZoneCreationResult = MockMvcUtils.createOtherIdentityZoneAndReturnResult("puppy-" + new RandomValueStringGenerator().generate(), mockMvc, webApplicationContext, zoneAdminClient, IdentityZoneHolder.getCurrentZoneId());
         IdentityZone identityZone = identityZoneCreationResult.getIdentityZone();
+
+        // Set customerIdpWebDomains to include the alias
+        ReflectionTestUtils.setField(loginInfoEndpoint, "customerIdpWebDomains", Collections.singletonList(alias));
 
         String metadata = String.format(MockMvcUtils.IDP_META_DATA, new RandomValueStringGenerator().generate());
         SamlIdentityProviderDefinition samlIdentityProviderDefinition = new SamlIdentityProviderDefinition()
