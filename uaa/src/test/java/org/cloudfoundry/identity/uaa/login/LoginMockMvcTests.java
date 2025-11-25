@@ -1383,7 +1383,8 @@ public class LoginMockMvcTests {
 
     @Test
     void testSamlLoginLinksShowActiveProviders(
-            @Autowired JdbcIdentityProviderProvisioning jdbcIdentityProviderProvisioning
+            @Autowired JdbcIdentityProviderProvisioning jdbcIdentityProviderProvisioning,
+            @Autowired @Qualifier("loginInfoEndpoint") LoginInfoEndpoint loginInfoEndpoint
     ) throws Exception {
         String activeAlias = "login-saml-" + generator.generate();
         String inactiveAlias = "login-saml-" + generator.generate();
@@ -1393,6 +1394,9 @@ public class LoginMockMvcTests {
 
         IdentityZoneCreationResult identityZoneCreationResult = MockMvcUtils.createOtherIdentityZoneAndReturnResult("puppy-" + new RandomValueStringGenerator().generate(), mockMvc, webApplicationContext, zoneAdminClient, false, IdentityZoneHolder.getCurrentZoneId());
         IdentityZone identityZone = identityZoneCreationResult.getIdentityZone();
+
+        // Set customerIdpWebDomains to include the active alias
+        ReflectionTestUtils.setField(loginInfoEndpoint, "customerIdpWebDomains", Collections.singletonList(activeAlias));
 
         String metadata = String.format(MockMvcUtils.IDP_META_DATA, new RandomValueStringGenerator().generate());
         SamlIdentityProviderDefinition activeSamlIdentityProviderDefinition = new SamlIdentityProviderDefinition()
@@ -2922,7 +2926,8 @@ public class LoginMockMvcTests {
 
     @Test
     void multiple_oidc_providers_use_response_type_in_url(
-            @Autowired JdbcIdentityProviderProvisioning jdbcIdentityProviderProvisioning
+            @Autowired JdbcIdentityProviderProvisioning jdbcIdentityProviderProvisioning,
+            @Autowired @Qualifier("loginInfoEndpoint") LoginInfoEndpoint loginInfoEndpoint
     ) throws Exception {
         String subdomain = "oidc-idp-discovery-multi-" + generator.generate().toLowerCase();
         IdentityZone zone = MultitenancyFixture.identityZone(subdomain, subdomain);
@@ -2930,6 +2935,9 @@ public class LoginMockMvcTests {
 
         createOIDCProvider(jdbcIdentityProviderProvisioning, generator, zone, null);
         createOIDCProvider(jdbcIdentityProviderProvisioning, generator, zone, "code id_token");
+
+        // Set customerIdpWebDomains to include "my oidc provider" text to display OAuth links
+        ReflectionTestUtils.setField(loginInfoEndpoint, "customerIdpWebDomains", Collections.singletonList("my oidc provider"));
 
         mockMvc.perform(get("/login")
                 .header("Accept", TEXT_HTML)
