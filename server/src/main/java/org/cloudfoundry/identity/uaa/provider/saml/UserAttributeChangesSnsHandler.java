@@ -59,8 +59,6 @@ public class UserAttributeChangesSnsHandler {
                 return;
             }
 
-            // Skip SNS events for password-based (UAA) authentication only
-            // All other authentication methods (SAML, LDAP, OAuth, OIDC, etc.) will send SNS events
             if (OriginKeys.UAA.equals(updatedUser.getOrigin())) {
                 logger.debug("SNS publishing skipped - user is from password-based (UAA) origin. Username: {}",
                         updatedUser.getUsername());
