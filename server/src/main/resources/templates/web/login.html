@@ -68,7 +68,7 @@
         <!-- Customer IDP Login Button -->
         <th:block th:if="${idpDefinitions != null and !#lists.isEmpty(idpDefinitions)}" th:each="idp : ${idpDefinitions}">
             <th:block th:if="${idp.showSamlLink}">
-                <th:block th:unless="${customerIdpWebDomains != null and !customerIdpWebDomains.isEmpty()}">
+                <th:block th:if="${customerIdpWebDomains != null and !customerIdpWebDomains.isEmpty()}">
                     <th:block th:each="domain : ${customerIdpWebDomains}">
                         <div class="u-p--" style="margin-bottom: 20px;" th:if="${#strings.contains(idp.metaDataLocation, domain)}">
                             <a href="" class="customer-idp-login-button" th:class="${fieldUsernameShow} ? 'saml-login-link' : ''" th:href="@{saml/discovery(returnIDParam=idp,entityID=${entityID},idp=${idp.idpEntityAlias},isPassive=true)}">
@@ -80,7 +80,7 @@
             </th:block>
         </th:block>
         <th:block th:if="${oauthLinks != null and !oauthLinks.isEmpty()}" th:each="oauthLink : ${oauthLinks}">
-            <th:block th:unless="${customerIdpWebDomains != null and !customerIdpWebDomains.isEmpty()}">
+            <th:block th:if="${customerIdpWebDomains != null and !customerIdpWebDomains.isEmpty()}">
                 <th:block th:each="domain : ${customerIdpWebDomains}">
                     <div class="u-p--" style="margin-bottom: 20px;" th:if="${#strings.contains(oauthLink.value, domain)}">
                         <a href="" class="customer-idp-login-button" th:class="${fieldUsernameShow} ? 'saml-login-link' : ''" th:href="${oauthLink.key}">
@@ -129,7 +129,7 @@
             <!-- Dynamic providers from configuration -->
             <th:block th:if="${idpDefinitions != null and !#lists.isEmpty(idpDefinitions)}" th:each="idp : ${idpDefinitions}">
                 <th:block th:if="${idp.showSamlLink}">
-                    <th:block th:unless="${customerIdpWebDomains != null and !customerIdpWebDomains.isEmpty()}">
+                    <th:block th:if="${customerIdpWebDomains != null and !customerIdpWebDomains.isEmpty()}">
                         <th:block th:each="domain : ${customerIdpWebDomains}">
                             <div class="u-p--" th:if="${#strings.contains(idp.metaDataLocation, domain)}">
                                 <a href="" th:class="${fieldUsernameShow} ? 'saml-login-link' : ''" th:href="@{saml/discovery(returnIDParam=idp,entityID=${entityID},idp=${idp.idpEntityAlias},isPassive=true)}">
@@ -144,7 +144,7 @@
                 </th:block>
             </th:block>
             <th:block th:if="${oauthLinks != null and !oauthLinks.isEmpty()}" th:each="oauthLink : ${oauthLinks}">
-                <th:block th:unless="${customerIdpWebDomains != null and !customerIdpWebDomains.isEmpty()}">
+                <th:block th:if="${customerIdpWebDomains != null and !customerIdpWebDomains.isEmpty()}">
                     <th:block th:each="domain : ${customerIdpWebDomains}">
                         <div class="u-p--" th:if="${#strings.contains(oauthLink.value, domain)}">
                             <a href="" th:class="${fieldUsernameShow} ? 'saml-login-link' : ''" th:href="${oauthLink.key}">
