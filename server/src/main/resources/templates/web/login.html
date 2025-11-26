@@ -171,16 +171,5 @@
           </th:block>
         </div>
     </div>
-    
-    <script type="application/json" id="uaa-debug-data" th:inline="text">
-    {
-      "customerIdpWebDomains": [[${customerIdpWebDomains}]],
-      "idpDefinitions": [[${idpDefinitions}]],
-      "oauthLinks": [[${oauthLinks}]],
-      "fieldUsernameShow": [[${fieldUsernameShow}]],
-      "linkCreateAccountShow": [[${linkCreateAccountShow}]]
-    }
-    </script>
-    <script th:src="@{/resources/predix/js/login-debug.js}" defer="defer"></script>
 </div>
 </html>
