@@ -76,7 +76,7 @@
         </section>
 
         <!-- Customer IDP Login Button -->
-        <div class="u-p--" style="margin-bottom: 20px;"  th:each="idp : ${idpDefinitions}"  th:if="${idp.showSamlLink and (customerIdpWebDomains == null or customerIdpWebDomains.isEmpty() or !#lists.contains(customerIdpWebDomains, domain -> !#strings.contains(idp.metaDataLocation, domain)))}">
+        <div class="u-p--" style="margin-bottom: 20px;"  th:each="idp : ${idpDefinitions}"  th:if="${idp.showSamlLink and (customerIdpWebDomains == null and customerIdpWebDomains.isEmpty() and !#lists.contains(customerIdpWebDomains, domain -> #strings.contains(idp.metaDataLocation, domain)))}">
             <a href="" class="customer-idp-login-button" th:class="${fieldUsernameShow} ? 'saml-login-link' : ''" th:href="@{saml/discovery(returnIDParam=idp,entityID=${entityID},idp=${idp.idpEntityAlias},isPassive=true)}">
                 <span th:text="${idp.linkText}">Login with customer IDP</span>
             </a>
