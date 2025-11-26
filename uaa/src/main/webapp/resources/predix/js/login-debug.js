@@ -1,6 +1,7 @@
 /**
  * Login Page Debug Logger
  * Logs Thymeleaf variables passed from the server for debugging purposes
+ * Uses application/json script tag to avoid CSP issues
  */
 (function() {
     'use strict';
@@ -13,38 +14,35 @@
     }
     
     function logDebugInfo() {
-        const debugEl = document.getElementById('uaa-debug-data');
+        const debugScript = document.getElementById('uaa-debug-data');
         
-        if (!debugEl) {
-            console.warn('UAA Debug Data element not found');
+        if (!debugScript) {
+            console.warn('UAA Debug Data script not found');
             return;
         }
         
         try {
-            const customerIdpWebDomains = JSON.parse(debugEl.dataset.customerIdpDomains || '[]');
-            const idpDefinitions = JSON.parse(debugEl.dataset.idpDefinitions || '[]');
-            const oauthLinks = JSON.parse(debugEl.dataset.oauthLinks || '{}');
-            const fieldUsernameShow = debugEl.dataset.fieldUsernameShow === 'true';
-            const linkCreateAccountShow = debugEl.dataset.linkCreateAccountShow === 'true';
+            const data = JSON.parse(debugScript.textContent);
             
             console.log('=== Login Page Debug Info ===');
-            console.log('customerIdpWebDomains:', customerIdpWebDomains);
-            console.log('idpDefinitions:', idpDefinitions);
-            console.log('oauthLinks:', oauthLinks);
-            console.log('fieldUsernameShow:', fieldUsernameShow);
-            console.log('linkCreateAccountShow:', linkCreateAccountShow);
+            console.log('customerIdpWebDomains:', data.customerIdpWebDomains);
+            console.log('idpDefinitions:', data.idpDefinitions);
+            console.log('oauthLinks:', data.oauthLinks);
+            console.log('fieldUsernameShow:', data.fieldUsernameShow);
+            console.log('linkCreateAccountShow:', data.linkCreateAccountShow);
             console.log('==============================');
             
             // Optional: Pretty print for better readability
-            if (idpDefinitions && idpDefinitions.length > 0) {
-                console.log('IDP Definitions (formatted):', JSON.stringify(idpDefinitions, null, 2));
+            if (data.idpDefinitions && Array.isArray(data.idpDefinitions) && data.idpDefinitions.length > 0) {
+                console.log('IDP Definitions (formatted):', JSON.stringify(data.idpDefinitions, null, 2));
             }
             
-            if (oauthLinks && Object.keys(oauthLinks).length > 0) {
-                console.log('OAuth Links (formatted):', JSON.stringify(oauthLinks, null, 2));
+            if (data.oauthLinks && typeof data.oauthLinks === 'object' && Object.keys(data.oauthLinks).length > 0) {
+                console.log('OAuth Links (formatted):', JSON.stringify(data.oauthLinks, null, 2));
             }
         } catch (error) {
             console.error('Error parsing UAA debug data:', error);
+            console.error('Script content:', debugScript.textContent);
         }
     }
 })();
