@@ -79,7 +79,7 @@
                 </th:block>
             </th:block>
         </th:block>
-        <th:block th:if="${oauthLinks != null and !#oauthLinks.isEmpty(oauthLinks)}" th:each="oauthLink : ${oauthLinks}">
+        <th:block th:if="${oauthLinks != null and !oauthLinks.isEmpty()}" th:each="oauthLink : ${oauthLinks}">
             <th:block th:unless="${customerIdpWebDomains != null and !customerIdpWebDomains.isEmpty()}">
                 <th:block th:each="domain : ${customerIdpWebDomains}">
                     <div class="u-p--" style="margin-bottom: 20px;" th:if="${#strings.contains(oauthLink.value, domain)}">
@@ -172,4 +172,14 @@
         </div>
     </div>
 </div>
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    console.log('=== Login Page Debug Info ===');
+    console.log('customerIdpWebDomains:', /*[[${customerIdpWebDomains}]]*/ []);
+    console.log('idpDefinitions:', /*[[${idpDefinitions}]]*/ []);
+    console.log('oauthLinks:', /*[[${oauthLinks}]]*/ {});
+    console.log('fieldUsernameShow:', /*[[${fieldUsernameShow}]]*/ false);
+    console.log('linkCreateAccountShow:', /*[[${linkCreateAccountShow}]]*/ false);
+    /*]]>*/
+</script>
 </html>
