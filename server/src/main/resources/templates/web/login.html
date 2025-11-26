@@ -70,8 +70,8 @@
             <th:block th:if="${idp.showSamlLink}">
                 <th:block th:if="${customerIdpWebDomains != null and !customerIdpWebDomains.isEmpty()}">
                     <th:block th:each="domain : ${customerIdpWebDomains}">
-                        <div class="u-p--" style="margin-bottom: 20px;" th:if="${#strings.contains(idp.metaDataLocation, domain)}">
-                            <a href="" class="customer-idp-login-button" th:class="${fieldUsernameShow} ? 'saml-login-link' : ''" th:href="@{saml/discovery(returnIDParam=idp,entityID=${entityID},idp=${idp.idpEntityAlias},isPassive=true)}">
+                        <div class="u-p--" style="margin-bottom: 20px;" th:if="${!#strings.contains(idp.metaDataLocation, domain)}">
+                            <a href="" class="customer-idp-login-button" th:href="@{saml/discovery(returnIDParam=idp,entityID=${entityID},idp=${idp.idpEntityAlias},isPassive=true)}">
                                 <span th:text="${idp.linkText}">Login with customer IDP</span>
                             </a>
                         </div>
@@ -82,8 +82,8 @@
         <th:block th:if="${oauthLinks != null and !oauthLinks.isEmpty()}" th:each="oauthLink : ${oauthLinks}">
             <th:block th:if="${customerIdpWebDomains != null and !customerIdpWebDomains.isEmpty()}">
                 <th:block th:each="domain : ${customerIdpWebDomains}">
-                    <div class="u-p--" style="margin-bottom: 20px;" th:if="${#strings.contains(oauthLink.value, domain)}">
-                        <a href="" class="customer-idp-login-button" th:class="${fieldUsernameShow} ? 'saml-login-link' : ''" th:href="${oauthLink.key}">
+                    <div class="u-p--" style="margin-bottom: 20px;" th:if="${!#strings.contains(oauthLink.value, domain)}">
+                        <a href="" class="customer-idp-login-button"  th:href="${oauthLink.key}">
                             <span th:text="${oauthLink.value}">Login with customer IDP</span>
                         </a>
                     </div>
