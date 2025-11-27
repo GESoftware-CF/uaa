@@ -471,6 +471,21 @@ public class LoginInfoEndpoint {
                 );
         model.addAttribute(OAUTH_LINKS, oauthLinks);
         model.addAttribute("clientName", clientName);
+        
+        // Compute flags for displaying "Or sign in with:" separator
+        boolean hasCustomerIdps = samlIdentityProviders != null && !samlIdentityProviders.isEmpty() && 
+                customerIdpWebDomains != null && !customerIdpWebDomains.isEmpty() &&
+                samlIdentityProviders.values().stream().anyMatch(idp -> 
+                        idp.isShowSamlLink() && 
+                        customerIdpWebDomains.stream().anyMatch(domain -> !idp.getMetaDataLocation().contains(domain))
+                );
+        boolean hasOAuthLinks = !oauthLinks.isEmpty() && 
+                customerIdpWebDomains != null && !customerIdpWebDomains.isEmpty() &&
+                oauthLinks.values().stream().anyMatch(linkText -> 
+                        customerIdpWebDomains.stream().anyMatch(domain -> !linkText.contains(domain))
+                );
+        model.addAttribute("hasCustomerIdps", hasCustomerIdps);
+        model.addAttribute("hasOAuthLinks", hasOAuthLinks);
     }
 
     private void setJsonInfo(

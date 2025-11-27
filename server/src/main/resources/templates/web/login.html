@@ -91,9 +91,8 @@
             </th:block>
         </th:block>
         
-        <th:block th:with="hasCustomerIdps=${idpDefinitions != null and !#lists.isEmpty(idpDefinitions) and customerIdpWebDomains != null and !customerIdpWebDomains.isEmpty() and #lists.stream(idpDefinitions).anyMatch(idp -> idp.showSamlLink and #lists.stream(customerIdpWebDomains).anyMatch(domain -> !#strings.contains(idp.metaDataLocation, domain)))},
-                           hasOAuthLinks=${oauthLinks != null and !oauthLinks.isEmpty() and customerIdpWebDomains != null and !customerIdpWebDomains.isEmpty() and #lists.stream(oauthLinks).anyMatch(link -> #lists.stream(customerIdpWebDomains).anyMatch(domain -> !#strings.contains(link.value, domain)))}">
-            <p th:if="${hasCustomerIdps or hasOAuthLinks}">Or sign in with: </p>
+        <th:block th:if="${hasCustomerIdps or hasOAuthLinks}">
+            <p>Or sign in with: </p>
         </th:block>
 
         <th:block th:if="${fieldUsernameShow}">
