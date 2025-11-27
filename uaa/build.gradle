@@ -119,6 +119,8 @@ dependencies {
     testImplementation(libraries.nimbusJwt)
     testImplementation(libraries.lombok)
     testAnnotationProcessor(libraries.lombok)
+
+    testImplementation(project(":iam-k8s-utils"))
 }
 
 ext {
