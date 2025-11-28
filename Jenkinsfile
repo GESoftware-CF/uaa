@@ -277,9 +277,14 @@ pipeline
                     curl -v http://simplesamlphp.uaa-acceptance.cf-app.com/saml2/idp/metadata.php
 
                     ### start slapd and add entries to ldap for tests
-                    # Create required directories
+                    # Create necessary directories
                     mkdir -p /var/run/slapd
                     mkdir -p /var/lib/ldap
+                    
+                    # Clear any existing database to start fresh
+                    rm -rf /var/lib/ldap/*
+                    
+                    # Set ownership - will run slapd as root but keep dirs owned properly
                     chown -R openldap:openldap /var/run/slapd /var/lib/ldap
                     
                     # Check if slapd is already running
