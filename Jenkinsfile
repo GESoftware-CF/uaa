@@ -308,11 +308,24 @@ pipeline
                         sleep 2
                     else
                         echo "slapd init script failed, starting manually..."
-                        # Clear any existing slapd processes
+                        # Clear any existing slapd processes and wait for cleanup
                         pkill -9 slapd 2>/dev/null || true
+                        sleep 1
+                        
+                        # Verify no slapd is running
+                        if pgrep -x slapd > /dev/null; then
+                            echo "ERROR: slapd process still running after pkill!"
+                            ps aux | grep '[s]lapd'
+                            exit 1
+                        fi
                         
                         # Start slapd in background explicitly with debug output to file
                         echo "Starting slapd in background..."
+                        echo "Before: ulimit -a"
+                        ulimit -a
+                        echo "Checking AppArmor status..."
+                        aa-status 2>&1 || echo "AppArmor not available or not enabled"
+                        
                         nohup slapd -h ldapi:/// -d 256 > /tmp/slapd.log 2>&1 &
                         SLAPD_PID=$!
                         echo "slapd started with PID: $SLAPD_PID"
@@ -326,8 +339,10 @@ pipeline
                         else
                             echo "ERROR: slapd process died immediately!"
                             echo "=== slapd log ==="
-                            cat /tmp/slapd.log
-                            echo "================="
+                            cat /tmp/slapd.log || echo "No log file found"
+                            echo "=== Any slapd processes? ==="
+                            ps aux | grep '[s]lapd' || echo "No slapd running"
+                            echo "============================="
                             exit 1
                         fi
                         
