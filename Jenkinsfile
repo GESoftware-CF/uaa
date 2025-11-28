@@ -302,10 +302,10 @@ pipeline
                         sleep 2
                     else
                         echo "slapd init script failed, starting manually..."
-                        # Start slapd in daemon mode (without -d flag it will background itself)
-                        # Note: Only using ldapi:// to avoid port 389 permission issues
-                        echo "Starting slapd in daemon mode with ldapi only..."
-                        slapd -h ldapi:/// -u openldap -g openldap
+                        # Start slapd in daemon mode as root (removing -u/-g to avoid permission issues)
+                        # Note: Only using ldapi:// to avoid port 389 binding issues
+                        echo "Starting slapd in daemon mode as root with ldapi only..."
+                        slapd -h ldapi:///
                         
                         # Give it time to initialize and create PID file
                         sleep 5
