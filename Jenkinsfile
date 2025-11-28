@@ -308,10 +308,28 @@ pipeline
                         sleep 2
                     else
                         echo "slapd init script failed, starting manually..."
-                        # Start slapd in daemon mode as root (removing -u/-g to avoid permission issues)
-                        # Note: Only using ldapi:// to avoid port 389 binding issues
-                        echo "Starting slapd in daemon mode as root with ldapi only..."
-                        slapd -h ldapi:///
+                        # Clear any existing slapd processes
+                        pkill -9 slapd 2>/dev/null || true
+                        
+                        # Start slapd in background explicitly with debug output to file
+                        echo "Starting slapd in background..."
+                        nohup slapd -h ldapi:/// -d 256 > /tmp/slapd.log 2>&1 &
+                        SLAPD_PID=$!
+                        echo "slapd started with PID: $SLAPD_PID"
+                        
+                        # Give it time to initialize
+                        sleep 3
+                        
+                        # Check if process is still running
+                        if ps -p $SLAPD_PID > /dev/null 2>&1; then
+                            echo "Confirmed slapd process is running (PID: $SLAPD_PID)"
+                        else
+                            echo "ERROR: slapd process died immediately!"
+                            echo "=== slapd log ==="
+                            cat /tmp/slapd.log
+                            echo "================="
+                            exit 1
+                        fi
                         
                         # Give it time to initialize and create PID file
                         sleep 5
