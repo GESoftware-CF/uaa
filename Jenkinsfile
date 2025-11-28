@@ -296,7 +296,8 @@ pipeline
                     
                     # Check slapd configuration first
                     echo "Testing slapd configuration..."
-                    slapd -Tt 2>&1 || {
+                    # Use -u flag to skip database open since we cleared it
+                    slapd -Ttu 2>&1 || {
                         echo "ERROR: slapd configuration test failed!"
                         exit 1
                     }
