@@ -2977,3 +2977,9 @@ form {
 .width-100-percent {
   width: 100%;
 }
+
+.svg-icon-inline {
+  display: inline-block;
+  margin-right: 8px;
+  vertical-align: middle;
+}
