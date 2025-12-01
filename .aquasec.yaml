@@ -1,0 +1,6 @@
+version: '1.0'
+scan:
+  exclude:
+    paths:
+      - "statsd-lb/**"
+      - "uaa/slate/**"
