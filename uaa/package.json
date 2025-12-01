@@ -15,5 +15,8 @@
   "dependencies": {
     "jasmine": "^5.9.0",
     "jasmine-core": "5.9.0"
+  },
+  "overrides": {
+    "glob": ">=10.5.0"
   }
 }

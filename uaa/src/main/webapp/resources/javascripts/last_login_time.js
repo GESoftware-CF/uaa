@@ -2,7 +2,8 @@ document.addEventListener('DOMContentLoaded', function () {
     let element = document.getElementById("last_login_time");
     if (element) {
         var lastLogin = element.getAttribute("last-login-success-time");
-        document.getElementById("last_login_time").innerHTML =
+        // Use textContent instead of innerHTML to prevent XSS attacks
+        document.getElementById("last_login_time").textContent =
             new Date(Number(lastLogin)).toLocaleString();
     }
 });
