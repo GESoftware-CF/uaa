@@ -74,11 +74,11 @@ public class UserAttributeChangeEventPublisher {
                 return null;
             }
 
-            if (OriginKeys.UAA.equals(updatedUser.getOrigin())) {
-                logger.debug("SNS publishing skipped - user is from password-based (UAA) origin. Username: {}",
-                        updatedUser.getUsername());
-                return null;
-            }
+            // if (OriginKeys.UAA.equals(updatedUser.getOrigin())) {
+            //     logger.debug("SNS publishing skipped - user is from password-based (UAA) origin. Username: {}",
+            //             updatedUser.getUsername());
+            //     return null;
+            // }
 
             Map<String, Object> changedFields = getChangedFields(existingUser, updatedUser);
             
