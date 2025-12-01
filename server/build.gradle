@@ -104,7 +104,7 @@ dependencies {
         exclude(group: "org.springframework", module: "spring-aop")
         exclude(group: "org.springframework", module: "spring-context")
         exclude(group: "org.springframework.boot", module: "spring-boot-autoconfigure")
-        exclude(group: "org.springframework.security", moduel: "spring-security-crypto")
+        exclude(group: "org.springframework.security", module: "spring-security-crypto")
     }
     implementation(libraries.awsJavaSdkSts)
 

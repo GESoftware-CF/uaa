@@ -25,6 +25,10 @@ ext["flyway.version"] = "7.15.0" // the next major (v8)'s community edition drop
 ext["hsqldb.version"] = "2.7.4" // HSQL-DB used for tests but not supported for productive usage
 ext["selenium.version"] = "${versions.seleniumVersion}" // Selenium for integration tests only
 
+ext {
+    tomcatCargoVersion = "${versions.tomcatCargoVersion}"
+}
+
 // Dependencies (some rely on shared versions, some are shared between projects)
 libraries.apacheDsProtocolLdap = "org.apache.directory.server:apacheds-protocol-ldap:${versions.apacheDsVersion}"
 libraries.apacheHttpClient = "org.apache.httpcomponents.client5:httpclient5"
