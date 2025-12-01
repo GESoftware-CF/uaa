@@ -426,8 +426,11 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
             userFromDb = new UaaUser(getUserDatabase().retrieveUserPrototypeById(invitedUserId));
         }
 
+        UaaUser userBeforeChanges = null;
+
         //we must check and see if the email address has changed between authentications
         if (haveUserAttributesChanged(userFromDb, userFromRequest) && isRegisteredIdpAuthentication(request)) {
+            userBeforeChanges = userFromDb;
             logger.debug("User attributed have changed, updating them.");
             userFromDb = userFromDb.modifyAttributes(email,
                                                      userFromRequest.getGivenName(),
@@ -435,13 +438,22 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
                                                      userFromRequest.getPhoneNumber(),
                                                      userFromRequest.getExternalId(),
                                                      userFromDb.isVerified() || userFromRequest.isVerified())
-                .modifyUsername(userFromRequest.getUsername());
+                .modifyUsername(userFromRequest.getUsername())
+                .withPreviousUser(userBeforeChanges);
             userModified = true;
         }
 
         ExternalGroupAuthorizationEvent event = new ExternalGroupAuthorizationEvent(userFromDb, userModified, userFromRequest.getAuthorities(), true);
         publish(event);
-        return getUserDatabase().retrieveUserById(userFromDb.getId());
+        
+        UaaUser user = getUserDatabase().retrieveUserById(userFromDb.getId());
+        
+        // Store previousUser in the returned user object so AuthenticationSuccessListener can detect all changes
+        if (userBeforeChanges != null) {
+            user = user.withPreviousUser(userBeforeChanges);
+        }
+        
+        return user;
     }
 
     private boolean isRegisteredIdpAuthentication(Authentication request) {
