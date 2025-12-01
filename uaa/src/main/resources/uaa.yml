@@ -556,6 +556,11 @@ uaa:
 #    maxPerRoute: 2
 #    maxKeepAlive: 0
 
+# Customer IDP web domains (list of allowed domains)
+customer_idp:
+  web_domains:
+    - fssfed.ge.com
+
 #ldap:
 #  profile:
 #    file: ldap/ldap-search-and-bind.xml

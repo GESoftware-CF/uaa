@@ -49,9 +49,12 @@ public class CSPFilter implements Filter {
 
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
-
-httpResponse.setHeader("Content-Security-Policy",
-                       "base-uri 'self'; frame-ancestors 'none'; font-src 'self' https://cdn.predix-ui.com; img-src 'self'; frame-src 'self';");
+        httpResponse.setHeader("Content-Security-Policy",
+                "base-uri 'self'; " +
+                "frame-ancestors 'none'; " +
+                "font-src 'self' https://cdn.predix-ui.com; " +
+                "img-src 'self' data:; " +
+                "frame-src 'self';");
 
         // Build report-uri part only if cspReportUri is not empty
         String reportUriPart = (cspReportUri != null && !cspReportUri.trim().isEmpty())
@@ -61,11 +64,11 @@ httpResponse.setHeader("Content-Security-Policy",
         // Set Content-Security-Policy-Report-Only header
         httpResponse.setHeader(
                 "Content-Security-Policy-Report-Only",
-                "default-src 'self';" +
-                        "script-src 'self';" +
-                        "style-src 'self';" +
+                        "default-src 'self';" +
+                        "script-src 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io;" +
                         "object-src 'none';" +
-                        "form-action 'self';" +
+                        "style-src 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io;" +
+                        "form-action 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io https://*.uaa.pss.stage.usw02.15.energy;" +
                         reportUriPart
         );
 

@@ -164,13 +164,17 @@ class CSPFilterTest {
 
         // Assert
         verify(response).setHeader("Content-Security-Policy",
-                "base-uri 'self'; frame-ancestors 'none'; font-src 'self' https://cdn.predix-ui.com; img-src 'self'; frame-src 'self';");
+                "base-uri 'self'; " +
+                "frame-ancestors 'none'; " +
+                "font-src 'self' https://cdn.predix-ui.com; " +
+                "img-src 'self' data:; " +
+                "frame-src 'self';");
         verify(response).setHeader("Content-Security-Policy-Report-Only",
                 "default-src 'self';" +
-                        "script-src 'self';" +
-                        "style-src 'self';" +
+                        "script-src 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io;" +
                         "object-src 'none';" +
-                        "form-action 'self';" +
+                        "style-src 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io;" +
+                        "form-action 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io https://*.uaa.pss.stage.usw02.15.energy;" +
                         "report-uri https://example.com/csp-report;");
         verify(filterChain).doFilter(request, response);
     }
@@ -185,13 +189,17 @@ class CSPFilterTest {
 
         // Assert
         verify(response).setHeader("Content-Security-Policy",
-                "base-uri 'self'; frame-ancestors 'none'; font-src 'self' https://cdn.predix-ui.com; img-src 'self'; frame-src 'self';");
+                "base-uri 'self'; " +
+                "frame-ancestors 'none'; " +
+                "font-src 'self' https://cdn.predix-ui.com; " +
+                "img-src 'self' data:; " +
+                "frame-src 'self';");
         verify(response).setHeader("Content-Security-Policy-Report-Only",
                 "default-src 'self';" +
-                        "script-src 'self';" +
-                        "style-src 'self';" +
+                        "script-src 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io;" +
                         "object-src 'none';" +
-                        "form-action 'self';");
+                        "style-src 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io;" +
+                        "form-action 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io https://*.uaa.pss.stage.usw02.15.energy;");
         verify(filterChain).doFilter(request, response);
     }
 
@@ -204,12 +212,18 @@ class CSPFilterTest {
         cspFilter.doFilter(request, response, filterChain);
 
         // Assert
+        verify(response).setHeader("Content-Security-Policy",
+                "base-uri 'self'; " +
+                "frame-ancestors 'none'; " +
+                "font-src 'self' https://cdn.predix-ui.com; " +
+                "img-src 'self' data:; " +
+                "frame-src 'self';");
         verify(response).setHeader("Content-Security-Policy-Report-Only",
                 "default-src 'self';" +
-                        "script-src 'self';" +
-                        "style-src 'self';" +
+                        "script-src 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io;" +
                         "object-src 'none';" +
-                        "form-action 'self';");
+                        "style-src 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io;" +
+                        "form-action 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io https://*.uaa.pss.stage.usw02.15.energy;");
         verify(filterChain).doFilter(request, response);
     }
 
@@ -220,13 +234,17 @@ class CSPFilterTest {
 
         // Assert
         verify(response).setHeader("Content-Security-Policy",
-                "base-uri 'self'; frame-ancestors 'none'; font-src 'self' https://cdn.predix-ui.com; img-src 'self'; frame-src 'self';");
+                "base-uri 'self'; " +
+                "frame-ancestors 'none'; " +
+                "font-src 'self' https://cdn.predix-ui.com; " +
+                "img-src 'self' data:; " +
+                "frame-src 'self';");
         verify(response).setHeader("Content-Security-Policy-Report-Only",
                 "default-src 'self';" +
-                        "script-src 'self';" +
-                        "style-src 'self';" +
+                        "script-src 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io;" +
                         "object-src 'none';" +
-                        "form-action 'self';");
+                        "style-src 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io;" +
+                        "form-action 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io https://*.uaa.pss.stage.usw02.15.energy;");
         verify(filterChain).doFilter(request, response);
     }
 
@@ -239,12 +257,18 @@ class CSPFilterTest {
         cspFilter.doFilter(request, response, filterChain);
 
         // Assert
+        verify(response).setHeader("Content-Security-Policy",
+                "base-uri 'self'; " +
+                "frame-ancestors 'none'; " +
+                "font-src 'self' https://cdn.predix-ui.com; " +
+                "img-src 'self' data:; " +
+                "frame-src 'self';");
         verify(response).setHeader("Content-Security-Policy-Report-Only",
                 "default-src 'self';" +
-                        "script-src 'self';" +
-                        "style-src 'self';" +
+                        "script-src 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io;" +
                         "object-src 'none';" +
-                        "form-action 'self';" +
+                        "style-src 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io;" +
+                        "form-action 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io https://*.uaa.pss.stage.usw02.15.energy;" +
                         "report-uri /api/csp-report;");
         verify(filterChain).doFilter(request, response);
     }
@@ -258,12 +282,18 @@ class CSPFilterTest {
         cspFilter.doFilter(request, response, filterChain);
 
         // Assert
+        verify(response).setHeader("Content-Security-Policy",
+                "base-uri 'self'; " +
+                "frame-ancestors 'none'; " +
+                "font-src 'self' https://cdn.predix-ui.com; " +
+                "img-src 'self' data:; " +
+                "frame-src 'self';");
         verify(response).setHeader("Content-Security-Policy-Report-Only",
                 "default-src 'self';" +
-                        "script-src 'self';" +
-                        "style-src 'self';" +
+                        "script-src 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io;" +
                         "object-src 'none';" +
-                        "form-action 'self';" +
+                        "style-src 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io;" +
+                        "form-action 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io https://*.uaa.pss.stage.usw02.15.energy;" +
                         "report-uri https://utility-dev.pss-shared.dev.usw02.15.energy/api/csp-report-uri;");
     }
 
@@ -298,7 +328,18 @@ class CSPFilterTest {
 
         // Assert
         verify(response, times(2)).setHeader("Content-Security-Policy",
-                "base-uri 'self'; frame-ancestors 'none'; font-src 'self' https://cdn.predix-ui.com; img-src 'self'; frame-src 'self';");
+                "base-uri 'self'; " +
+                "frame-ancestors 'none'; " +
+                "font-src 'self' https://cdn.predix-ui.com; " +
+                "img-src 'self' data:; " +
+                "frame-src 'self';");
+        verify(response, times(2)).setHeader("Content-Security-Policy-Report-Only",
+                "default-src 'self';" +
+                        "script-src 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io;" +
+                        "object-src 'none';" +
+                        "style-src 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io;" +
+                        "form-action 'self' https://*.predix-uaa.run.aws-usw02-pr.ice.predix.io https://*.predix-uaa.run.aws-eu-central-1-pr.ice.predix.io https://*.uaa.pss.stage.usw02.15.energy;" +
+                        "report-uri https://example.com/csp-report;");
         verify(filterChain, times(2)).doFilter(request, response);
     }
 

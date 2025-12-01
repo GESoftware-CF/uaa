@@ -8,15 +8,15 @@
         <form action="/origin-chooser" th:action="@{/origin-chooser}" method="post" role="form">
             <input th:name="login_hint"
                    th:type="hidden"
-                   class="form-control" style="margin-top:20px"/>
-            <input type="submit" th:if="${defaultIdpName}" value="Sign in with default identity provider" class="btn btn-highlight btn-block btn-lg" style="margin-top:20px"/>
+                   class="form-control margin-top-20"/>
+            <input type="submit" th:if="${defaultIdpName}" value="Sign in with default identity provider" class="btn btn-highlight btn-block btn-lg margin-top-20"/>
         </form>
         <hr th:if="${defaultIdpName}" class="divider-alternate-1"/>
         <form action="/origin-chooser" th:action="@{/origin-chooser}" method="post" role="form">
             <input th:name="login_hint"
                    th:type="text"
-                   class="form-control" placeholder="Enter the origin key of your identity provider" style="margin-top:20px"/>
-            <input type="submit" value="Sign in with alternative identity provider" class="btn btn-highlight btn-block btn-lg" style="margin-top:20px"/>
+                   class="form-control margin-top-20" placeholder="Enter the origin key of your identity provider"/>
+            <input type="submit" value="Sign in with alternative identity provider" class="btn btn-highlight btn-block btn-lg margin-top-20"/>
         </form>
     </div>
     <th:block th:if="${linkCreateAccountShow}">
