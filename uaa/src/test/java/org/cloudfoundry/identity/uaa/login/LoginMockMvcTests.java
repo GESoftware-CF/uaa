@@ -1383,7 +1383,8 @@ public class LoginMockMvcTests {
 
     @Test
     void testSamlLoginLinksShowActiveProviders(
-            @Autowired JdbcIdentityProviderProvisioning jdbcIdentityProviderProvisioning
+            @Autowired JdbcIdentityProviderProvisioning jdbcIdentityProviderProvisioning,
+            @Autowired @Qualifier("loginInfoEndpoint") LoginInfoEndpoint loginInfoEndpoint
     ) throws Exception {
         String activeAlias = "login-saml-" + generator.generate();
         String inactiveAlias = "login-saml-" + generator.generate();
@@ -1393,6 +1394,9 @@ public class LoginMockMvcTests {
 
         IdentityZoneCreationResult identityZoneCreationResult = MockMvcUtils.createOtherIdentityZoneAndReturnResult("puppy-" + new RandomValueStringGenerator().generate(), mockMvc, webApplicationContext, zoneAdminClient, false, IdentityZoneHolder.getCurrentZoneId());
         IdentityZone identityZone = identityZoneCreationResult.getIdentityZone();
+
+        // Set customerIdpWebDomains to include the active alias
+        ReflectionTestUtils.setField(loginInfoEndpoint, "customerIdpWebDomains", Collections.singletonList(activeAlias));
 
         String metadata = String.format(MockMvcUtils.IDP_META_DATA, new RandomValueStringGenerator().generate());
         SamlIdentityProviderDefinition activeSamlIdentityProviderDefinition = new SamlIdentityProviderDefinition()
@@ -1425,8 +1429,8 @@ public class LoginMockMvcTests {
 
         mockMvc.perform(get("/login").accept(TEXT_HTML).with(new SetServerNameRequestPostProcessor(identityZone.getSubdomain() + ".localhost")))
                 .andExpect(status().isOk())
-                .andExpect(xpath("//a[text()='" + activeSamlIdentityProviderDefinition.getLinkText() + "']").exists())
-                .andExpect(xpath("//a[text()='" + inactiveSamlIdentityProviderDefinition.getLinkText() + "']").doesNotExist());
+                .andExpect(xpath("//a/span[text()='" + activeSamlIdentityProviderDefinition.getLinkText() + "']").exists())
+                .andExpect(xpath("//a/span[text()='" + inactiveSamlIdentityProviderDefinition.getLinkText() + "']").doesNotExist());
     }
 
     @Test
@@ -1953,7 +1957,8 @@ public class LoginMockMvcTests {
 
     @Test
     void testDeactivatedProviderIsRemovedFromSamlLoginLinks(
-            @Autowired JdbcIdentityProviderProvisioning jdbcIdentityProviderProvisioning
+            @Autowired JdbcIdentityProviderProvisioning jdbcIdentityProviderProvisioning,
+            @Autowired @Qualifier("loginInfoEndpoint") LoginInfoEndpoint loginInfoEndpoint
     ) throws Exception {
         assumeFalse(isLimitedMode(limitedModeUaaFilter), "Test only runs in non limited mode.");
         String alias = "login-saml-" + generator.generate();
@@ -1962,6 +1967,9 @@ public class LoginMockMvcTests {
 
         IdentityZoneCreationResult identityZoneCreationResult = MockMvcUtils.createOtherIdentityZoneAndReturnResult("puppy-" + new RandomValueStringGenerator().generate(), mockMvc, webApplicationContext, zoneAdminClient, IdentityZoneHolder.getCurrentZoneId());
         IdentityZone identityZone = identityZoneCreationResult.getIdentityZone();
+
+        // Set customerIdpWebDomains to include the alias
+        ReflectionTestUtils.setField(loginInfoEndpoint, "customerIdpWebDomains", Collections.singletonList(alias));
 
         String metadata = String.format(MockMvcUtils.IDP_META_DATA, new RandomValueStringGenerator().generate());
         SamlIdentityProviderDefinition samlIdentityProviderDefinition = new SamlIdentityProviderDefinition()
@@ -1981,14 +1989,14 @@ public class LoginMockMvcTests {
 
         mockMvc.perform(get("/login").accept(TEXT_HTML).with(new SetServerNameRequestPostProcessor(identityZone.getSubdomain() + ".localhost")))
                 .andExpect(status().isOk())
-                .andExpect(xpath("//a[text()='" + samlIdentityProviderDefinition.getLinkText() + "']").exists());
+                .andExpect(xpath("//a/span[text()='" + samlIdentityProviderDefinition.getLinkText() + "']").exists());
 
         identityProvider.setActive(false);
         jdbcIdentityProviderProvisioning.update(identityProvider, identityZone.getId());
 
         mockMvc.perform(get("/login").accept(TEXT_HTML).with(new SetServerNameRequestPostProcessor(identityZone.getSubdomain() + ".localhost")))
                 .andExpect(status().isOk())
-                .andExpect(xpath("//a[text()='" + samlIdentityProviderDefinition.getLinkText() + "']").doesNotExist());
+                .andExpect(xpath("//a/span[text()='" + samlIdentityProviderDefinition.getLinkText() + "']").doesNotExist());
     }
 
     @Test
@@ -2922,7 +2930,8 @@ public class LoginMockMvcTests {
 
     @Test
     void multiple_oidc_providers_use_response_type_in_url(
-            @Autowired JdbcIdentityProviderProvisioning jdbcIdentityProviderProvisioning
+            @Autowired JdbcIdentityProviderProvisioning jdbcIdentityProviderProvisioning,
+            @Autowired @Qualifier("loginInfoEndpoint") LoginInfoEndpoint loginInfoEndpoint
     ) throws Exception {
         String subdomain = "oidc-idp-discovery-multi-" + generator.generate().toLowerCase();
         IdentityZone zone = MultitenancyFixture.identityZone(subdomain, subdomain);
@@ -2930,6 +2939,9 @@ public class LoginMockMvcTests {
 
         createOIDCProvider(jdbcIdentityProviderProvisioning, generator, zone, null);
         createOIDCProvider(jdbcIdentityProviderProvisioning, generator, zone, "code id_token");
+
+        // Set customerIdpWebDomains to include "my oidc provider" text to display OAuth links
+        ReflectionTestUtils.setField(loginInfoEndpoint, "customerIdpWebDomains", Collections.singletonList("my oidc provider"));
 
         mockMvc.perform(get("/login")
                 .header("Accept", TEXT_HTML)
@@ -3284,7 +3296,7 @@ public class LoginMockMvcTests {
         void hasInvalidError() throws Exception {
             mockMvc.perform(
                     get("/login?error=foobar&error=login_failure"))
-                    .andExpect(content().string(containsString("Error!")));
+                    .andExpect(content().string(containsString("An error occurred!")));
         }
 
         @Test
@@ -3298,7 +3310,7 @@ public class LoginMockMvcTests {
         void hasInvalidSuccess() throws Exception {
             mockMvc.perform(
                     get("/login?success=foobar&success=verify_success"))
-                    .andExpect(content().string(containsString("Success!")));
+                    .andExpect(content().string(containsString("Operation completed successfully!")));
         }
     }
 

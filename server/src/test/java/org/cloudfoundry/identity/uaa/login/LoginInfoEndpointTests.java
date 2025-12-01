@@ -1878,7 +1878,8 @@ class LoginInfoEndpointTests {
                 "",
                 globalLinks,
                 clientDetailsService,
-                mockSamlIdentityProviderConfigurator);
+                mockSamlIdentityProviderConfigurator,
+                Collections.emptyList());
         if(identityZone.getConfig() != null) {
             identityZone.getConfig().setPrompts(prompts);
         }

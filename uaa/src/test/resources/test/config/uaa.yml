@@ -2,6 +2,11 @@ uaa:
   url: http://localhost:8080/uaa
 issuer:
   uri: http://localhost:8080/uaa
+
+# Deployment region configuration for AWS services
+deployment:
+  region: us-west-2
+
 encryption:
   active_key_label: key-1
   encryption_keys:
@@ -48,3 +53,8 @@ login:
     footerLegalText: Legal text
     footerLinks:
       terms of service: http://terms.of.service/
+
+# Customer IDP web domains (list of allowed domains)
+customer_idp:
+  web_domains:
+    - fssfed.ge.com
