@@ -17,7 +17,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Component
-@ConditionalOnProperty(name = "sns.events.enabled", havingValue = "true", matchIfMissing = false)
+@ConditionalOnProperty(name = "sns.enabled", havingValue = "true", matchIfMissing = false)
 public class UserAttributeChangeEventPublisher {
 
     private static final Logger logger = LoggerFactory.getLogger(UserAttributeChangeEventPublisher.class);
