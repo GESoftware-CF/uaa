@@ -39,7 +39,7 @@ public class AuthenticationSuccessListener implements ApplicationListener<Abstra
     private final ScimUserProvisioning scimUserProvisioning;
     private final UaaUserDatabase userDatabase;
     private final MfaChecker checker;
-    private final UserAttributeChangeEventPublisher userAttributeChangeEventPublisher;
+    private final UserAttributeChangeEventPublisher userAttributeChangeEventPublisher; // Can be null if SNS is disabled
     private ApplicationEventPublisher publisher;
 
     public AuthenticationSuccessListener(ScimUserProvisioning scimUserProvisioning,
@@ -49,7 +49,7 @@ public class AuthenticationSuccessListener implements ApplicationListener<Abstra
         this.scimUserProvisioning = scimUserProvisioning;
         this.userDatabase = userDatabase;
         this.checker = checker;
-        this.userAttributeChangeEventPublisher = userAttributeChangeEventPublisher;
+        this.userAttributeChangeEventPublisher = userAttributeChangeEventPublisher; // Can be null
     }
 
     @Override
@@ -94,8 +94,9 @@ public class AuthenticationSuccessListener implements ApplicationListener<Abstra
         scimUserProvisioning.updateLastLogonTime(user.getId(), zoneId);
         UaaUser userAfterLastLogonUpdate = userDatabase.retrieveUserById(user.getId());
     
-        if (userAfterLastLogonUpdate != null) {
+        if (userAfterLastLogonUpdate != null && userAttributeChangeEventPublisher != null) {
             // Now this will capture BOTH SAML attribute changes AND lastLogonTime change in a single event
+            // Only publish if userAttributeChangeEventPublisher is available (SNS enabled)
             userAttributeChangeEventPublisher.publishUserAttributeChangeEventAsync(this, userBeforeLastLogonUpdate, userAfterLastLogonUpdate);
         }
     }
