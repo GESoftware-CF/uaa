@@ -1,0 +1,4 @@
+# Exclude specific paths
+exclude:
+  - "statsd-lb/**"
+  - "uaa/slate/**"
