@@ -1,4 +1,3 @@
-/*
 package org.cloudfoundry.identity.uaa.orchestrator;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -18,7 +17,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
 import org.cloudfoundry.identity.uaa.oauth.client.OAuth2RestTemplate;
 import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneResponse;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.slf4j.Logger;
@@ -202,7 +200,7 @@ public class OrchestratorClaimAT {
     // end region Negative Tests
 
     private boolean createZone(final String claimName, final UaaRequest uaaRequest)
-            throws ServiceInstanceProviderException {
+            throws ServiceInstanceProviderException, ApiException {
         try {
             orchestratorUtil.createService(claimName, ServiceName.UAA, OBJECT_MAPPER.valueToTree(uaaRequest), ApiEnvironment.valueOf(environment));
             return true;
@@ -277,4 +275,3 @@ public class OrchestratorClaimAT {
         }
     }
 }
-*/
