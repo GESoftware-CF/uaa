@@ -152,21 +152,11 @@ public class JwtBearerGrantAT {
     @Test
     public void testJwtBearerGrantAndClientGrantSuccess() throws Exception {
         logger.info("=== Starting testJwtBearerGrantAndClientGrantSuccess ===");
-        logger.info("Acceptance Zone URL: {}", this.acceptanceZoneUrl);
-        logger.info("Device Client ID: {}", DEVICE_CLIENT_ID);
-        logger.info("Device ID: {}", DEVICE_ID);
-        logger.info("Tenant ID: {}", TENANT_ID);
+        logger.info("Testing Client Credentials Grant (using Basic Authentication only)");
+        logger.info("This test validates authentication using client credentials without JWT assertion");
 
-        HttpHeaders headers = getHttpHeaders();
-        logger.info("Initial headers created with Predix-Client-Assertion");
-
-        String clientCreds = "admin:acceptance-test";
-        String base64ClientCreds = Base64.getEncoder().encodeToString(clientCreds.getBytes());
-        headers.add("Authorization", "Basic " + base64ClientCreds);
-        logger.info("Added Basic Authorization header for admin:acceptance-test");
-        logger.info("Request headers: {}", headers.keySet());
-
-        doJwtBearerGrantRequest(headers, this.acceptanceZoneUrl, this.identityClient, new MockAssertionToken());
+        // Test client credentials grant using Basic auth (no Predix-Client-Assertion)
+        doClientCredentialsGrantRequest(this.acceptanceZoneUrl);
         logger.info("=== testJwtBearerGrantAndClientGrantSuccess completed successfully ===");
     }
 
@@ -239,6 +229,62 @@ public class JwtBearerGrantAT {
         logger.info("Check token response status: {}", checkTokenResponse.getStatusCode());
         assertEquals(HttpStatus.OK, checkTokenResponse.getStatusCode());
         logger.info("=== doJwtBearerGrantRequest completed successfully ===");
+    }
+
+    private void doClientCredentialsGrantRequest(final String uaaUrl) throws Exception {
+        logger.info("=== doClientCredentialsGrantRequest started ===");
+        logger.info("UAA URL: {}", uaaUrl);
+        logger.info("Using Basic Authentication with admin credentials");
+
+        // Create headers with ONLY Basic authentication (no Predix-Client-Assertion)
+        HttpHeaders headers = new HttpHeaders();
+        String clientCreds = "admin:acceptance-test";
+        String base64ClientCreds = Base64.getEncoder().encodeToString(clientCreds.getBytes());
+        headers.add("Authorization", "Basic " + base64ClientCreds);
+        logger.info("Created Basic Authorization header for client credentials grant");
+
+        // Prepare form data for client_credentials grant type
+        LinkedMultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
+        formData.add(OAuth2Utils.GRANT_TYPE, "client_credentials");
+        logger.info("Form data prepared - grant_type: client_credentials");
+
+        HttpEntity<LinkedMultiValueMap<String, String>> requestEntity = new HttpEntity<>(formData, headers);
+
+        OAuth2AccessToken accessToken;
+        logger.info("Sending POST request to: {}/oauth/token", uaaUrl);
+        try {
+            ResponseEntity<OAuth2AccessToken> response = this.tokenRestTemplate.postForEntity(uaaUrl + "/oauth/token",
+                    requestEntity, OAuth2AccessToken.class);
+            logger.info("Received response with status: {}", response.getStatusCode());
+
+            accessToken = response.getBody();
+            logger.info("Access token retrieved: {}", accessToken != null ? "present" : "null");
+            if (accessToken != null) {
+                logger.info("Access token type: {}", accessToken.getTokenType());
+                logger.info("Access token expires in: {} seconds", accessToken.getExpiresIn());
+
+                // Verify token
+                Jwt decodedToken = JwtHelper.decode(accessToken.getValue());
+                logger.info("Token decoded successfully");
+                Map<String, Object> claims = JsonUtils.readValue(decodedToken.getClaims(),
+                        new TypeReference<Map<String, Object>>() {});
+                logger.info("Token claims - client_id: {}, grant_type: {}",
+                        claims.get(ClaimConstants.CLIENT_ID),
+                        claims.get(ClaimConstants.GRANT_TYPE));
+
+                assertEquals("admin", claims.get(ClaimConstants.CLIENT_ID));
+                assertEquals("client_credentials", claims.get(ClaimConstants.GRANT_TYPE));
+                assertEquals("bearer", accessToken.getTokenType());
+                logger.info("Client credentials grant assertions passed");
+            }
+        } catch (Exception e) {
+            logger.error("Failed to get access token from {}/oauth/token", uaaUrl, e);
+            logger.error("Request headers were: {}", headers);
+            logger.error("Form data was: grant_type=client_credentials");
+            throw e;
+        }
+
+        logger.info("=== doClientCredentialsGrantRequest completed successfully ===");
     }
 
     private void assertAccessToken(final OAuth2AccessToken accessToken) {
