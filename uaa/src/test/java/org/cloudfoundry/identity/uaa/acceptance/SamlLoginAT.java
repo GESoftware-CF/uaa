@@ -25,6 +25,7 @@ import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerato
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.SamlIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
+import org.cloudfoundry.identity.uaa.test.UaaWebDriver;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
@@ -32,7 +33,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.openqa.selenium.By;
-import org.openqa.selenium.WebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,7 +65,7 @@ public class SamlLoginAT {
     RestOperations restOperations;
 
     @Autowired
-    WebDriver webDriver;
+    UaaWebDriver webDriver;
     
     protected final static Logger logger = LoggerFactory.getLogger(SamlLoginAT.class);
 
@@ -134,7 +134,6 @@ public class SamlLoginAT {
         assertEquals(this.GESSOUsername, this.webDriver.findElement(By.id("username")).getAttribute("value"));
         this.webDriver.findElement(By.id("password")).sendKeys(this.GESSOPassword);
         this.webDriver.findElement(By.id("shared-computer-login-button")).click();
-
         assertTrue(this.webDriver.findElement(By.cssSelector("h1")).getText().contains(lookfor));
     }
 
