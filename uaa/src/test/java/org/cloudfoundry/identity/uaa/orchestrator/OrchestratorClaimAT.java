@@ -17,22 +17,19 @@ import org.apache.commons.lang3.StringUtils;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
 import org.cloudfoundry.identity.uaa.oauth.client.OAuth2RestTemplate;
 import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneResponse;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Random;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
-@RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = OrchestratorIntegrationTestConfig.class)
+@SpringJUnitConfig(classes = OrchestratorIntegrationTestConfig.class)
 @Slf4j
 public class OrchestratorClaimAT {
     protected static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -166,7 +163,7 @@ public class OrchestratorClaimAT {
         try {
             isClaimCreated = createZone(claimName, uaaRequest);
             Claim claim = getZone(claimName, ServiceName.UAA);
-            assertNull("Orchestrator should not create UAA instance for Bad Input", claim);
+            assertNull(claim, "Orchestrator should not create UAA instance for Bad Input");
         } catch (Exception e) {
             assertTrue(e.getMessage().contains("Kubernetes API Exception occurred during Claim creation"));
         } finally {
@@ -181,7 +178,7 @@ public class OrchestratorClaimAT {
         String dummyClaimName = (UAA_CLAIM_NAME_PREFIX + "Non_existent_run_id_12345").toLowerCase();
         try {
             Claim claim = getZone(dummyClaimName, ServiceName.UAA);
-            assertNull("Orchestrator should return null for Non existing zone", claim);
+            assertNull(claim, "Orchestrator should return null for Non existing zone");
         } catch (Exception e) {
             assertTrue(e.getMessage().contains("Service claim " + dummyClaimName + " does not exist"));
         }
@@ -258,8 +255,8 @@ public class OrchestratorClaimAT {
             ResponseEntity<OrchestratorZoneResponse> responseEntity = tenantRestTemplate.exchange(url, method, request, OrchestratorZoneResponse.class);
             log.trace("HTTP Response: {}", responseEntity);
             assertNotNull(responseEntity);
-            assertEquals("Unexpected response: " + responseEntity.getBody(),
-                    expectedStatusCode, responseEntity.getStatusCode());
+            assertEquals(expectedStatusCode, responseEntity.getStatusCode(),
+                    "Unexpected response: " + responseEntity.getBody());
             OrchestratorZoneResponse restResponse = responseEntity.getBody();
             assertNotNull(restResponse);
             String message = restResponse.getMessage();
@@ -270,7 +267,8 @@ public class OrchestratorClaimAT {
             ResponseEntity<String> response = tenantRestTemplate.exchange(url, method, request, String.class);
             log.debug("Response: {}", response);
             assertNotNull(response);
-            assertEquals("Unexpected response: " + response.getBody(), expectedStatusCode, response.getStatusCode());
+            assertEquals(expectedStatusCode, response.getStatusCode(),
+                    "Unexpected response: " + response.getBody());
             return response.getBody();
         }
     }
