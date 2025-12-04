@@ -25,15 +25,14 @@ import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerato
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.SamlIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
+import org.cloudfoundry.identity.uaa.test.UaaWebDriver;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
-import org.hamcrest.Matchers;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.openqa.selenium.By;
-import org.openqa.selenium.WebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,9 +50,9 @@ import org.springframework.web.client.RestTemplate;
 import java.io.File;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 @SpringJUnitConfig(classes = DefaultIntegrationTestConfig.class)
@@ -66,7 +65,7 @@ public class SamlLoginAT {
     RestOperations restOperations;
 
     @Autowired
-    WebDriver webDriver;
+    UaaWebDriver webDriver;
     
     protected final static Logger logger = LoggerFactory.getLogger(SamlLoginAT.class);
 
@@ -90,7 +89,7 @@ public class SamlLoginAT {
     
     String zoneAdminToken;
 
-    @BeforeClass
+    @BeforeAll
     public static void setupSamlUtils() {
     }
 
@@ -98,8 +97,16 @@ public class SamlLoginAT {
         return String.format(MockMvcUtils.IDP_META_DATA, new RandomValueStringGenerator().generate());
     }
 
-    @Before
+    @BeforeEach
     public void clearWebDriverOfCookies() throws Exception {
+        // Skip tests if required configuration is not provided
+        Assumptions.assumeTrue(baseUrl != null && !baseUrl.trim().isEmpty() && baseUrl.trim().startsWith("http"),
+                "ACCEPTANCE_ZONE_URL must be set and start with http");
+        Assumptions.assumeTrue(GESSOUsername != null && !GESSOUsername.trim().isEmpty(),
+                "SAML_IDP_USER must be set");
+        Assumptions.assumeTrue(GESSOPassword != null && !GESSOPassword.trim().isEmpty(),
+                "SAML_IDP_USER_PW must be set");
+
         this.zoneAdminToken = IntegrationTestUtils.getClientCredentialsToken(this.baseUrl, "admin", "acceptance-test");
     }
 
@@ -113,7 +120,7 @@ public class SamlLoginAT {
     }
 
     private void testGESSOLogin(String firstUrl, String lookfor) throws Exception {
-        Assert.assertTrue("Expected acceptance zone subdomain to exist", findZoneInUaa());
+        assertTrue(findZoneInUaa(), "Expected acceptance zone subdomain to exist");
 
         IdentityProvider<SamlIdentityProviderDefinition> provider = createGESSOIdentityProvider(SAML_ENTITY_ID);
         this.webDriver.get(this.baseUrl + firstUrl);
@@ -127,8 +134,7 @@ public class SamlLoginAT {
         assertEquals(this.GESSOUsername, this.webDriver.findElement(By.id("username")).getAttribute("value"));
         this.webDriver.findElement(By.id("password")).sendKeys(this.GESSOPassword);
         this.webDriver.findElement(By.id("shared-computer-login-button")).click();
-
-        assertThat(this.webDriver.findElement(By.cssSelector("h1")).getText(), Matchers.containsString(lookfor));
+        assertTrue(this.webDriver.findElement(By.cssSelector("h1")).getText().contains(lookfor));
     }
 
     private boolean findZoneInUaa() {

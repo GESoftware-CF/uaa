@@ -102,7 +102,7 @@ pipeline {
                 }
             }
             environment {
-                FUNCTIONAL_USER = credentials("AWS_ECR_SSO_CREDENTIALS")
+                FUNCTIONAL_USER = credentials("FUNCTIONAL_USER")
             }
             steps {
                 script {
