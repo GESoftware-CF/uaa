@@ -37,7 +37,7 @@ class UserAttributeChangeEventPublisherTest {
 
     @BeforeEach
     void setUp() {
-        publisher = new UserAttributeChangeEventPublisher(mockSnsService, snsTopicArn);
+        publisher = new UserAttributeChangeEventPublisher(mockSnsService, snsTopicArn, false);
         source = new Object();
         
         UaaUserPrototype prototype = new UaaUserPrototype()
@@ -328,6 +328,271 @@ class UserAttributeChangeEventPublisherTest {
         verify(mockSnsService, timeout(1000).atLeast(2)).publishAsync(
                 anyString(),
                 anyString(),
+                any(MessageBuilder.class),
+                any()
+        );
+    }
+
+    @Test
+    void testFilterUaaOrigin_whenFalse_shouldPublishForUaaOrigin() {
+        // Arrange - filterUaaOrigin is false (default)
+        publisher = new UserAttributeChangeEventPublisher(mockSnsService, snsTopicArn, false);
+        
+        UaaUserPrototype beforePrototype = new UaaUserPrototype()
+                .withId("uaa-user-1")
+                .withUsername("uaa.user")
+                .withEmail("uaa@example.com")
+                .withGivenName("UAA")
+                .withFamilyName("User")
+                .withOrigin(OriginKeys.UAA)
+                .withLastLogonSuccess(1000L);
+        
+        UaaUserPrototype afterPrototype = beforePrototype
+                .withEmail("uaa.new@example.com")
+                .withLastLogonSuccess(2000L);
+
+        UaaUser before = new UaaUser(beforePrototype);
+        UaaUser after = new UaaUser(afterPrototype);
+
+        // Act
+        publisher.publishUserAttributeChangeEventAsync(source, before, after);
+
+        // Allow async execution
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Assert - SNS should be called even for UAA origin
+        verify(mockSnsService, timeout(1000).times(1)).publishAsync(
+                eq(snsTopicArn),
+                eq("UAA User Event"),
+                any(MessageBuilder.class),
+                any()
+        );
+    }
+
+    @Test
+    void testFilterUaaOrigin_whenTrue_shouldSkipUaaOrigin() {
+        // Arrange - filterUaaOrigin is true
+        publisher = new UserAttributeChangeEventPublisher(mockSnsService, snsTopicArn, true);
+        
+        UaaUserPrototype beforePrototype = new UaaUserPrototype()
+                .withId("uaa-user-2")
+                .withUsername("uaa.filtered")
+                .withEmail("filtered@example.com")
+                .withGivenName("Filtered")
+                .withFamilyName("User")
+                .withOrigin(OriginKeys.UAA)
+                .withLastLogonSuccess(1000L);
+        
+        UaaUserPrototype afterPrototype = beforePrototype
+                .withEmail("filtered.new@example.com")
+                .withLastLogonSuccess(2000L);
+
+        UaaUser before = new UaaUser(beforePrototype);
+        UaaUser after = new UaaUser(afterPrototype);
+
+        // Act
+        publisher.publishUserAttributeChangeEventAsync(source, before, after);
+
+        // Allow async execution
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Assert - SNS should be called, but message builder returns null for UAA origin
+        verify(mockSnsService, timeout(1000).times(1)).publishAsync(
+                eq(snsTopicArn),
+                eq("UAA User Event"),
+                any(MessageBuilder.class),
+                any()
+        );
+    }
+
+    @Test
+    void testFilterUaaOrigin_whenTrue_shouldPublishForNonUaaOrigin() {
+        // Arrange - filterUaaOrigin is true, but user has SAML origin
+        publisher = new UserAttributeChangeEventPublisher(mockSnsService, snsTopicArn, true);
+        
+        UaaUserPrototype beforePrototype = new UaaUserPrototype()
+                .withId("saml-user-3")
+                .withUsername("saml.user")
+                .withEmail("saml@example.com")
+                .withGivenName("SAML")
+                .withFamilyName("User")
+                .withOrigin(OriginKeys.SAML)
+                .withLastLogonSuccess(1000L);
+        
+        UaaUserPrototype afterPrototype = beforePrototype
+                .withEmail("saml.new@example.com")
+                .withLastLogonSuccess(2000L);
+
+        UaaUser before = new UaaUser(beforePrototype);
+        UaaUser after = new UaaUser(afterPrototype);
+
+        // Act
+        publisher.publishUserAttributeChangeEventAsync(source, before, after);
+
+        // Allow async execution
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Assert - SNS should be called for SAML origin even with filter enabled
+        verify(mockSnsService, timeout(1000).times(1)).publishAsync(
+                eq(snsTopicArn),
+                eq("UAA User Event"),
+                any(MessageBuilder.class),
+                any()
+        );
+    }
+
+    @Test
+    void testFilterUaaOrigin_whenTrue_shouldPublishForOidcOrigin() {
+        // Arrange - filterUaaOrigin is true, but user has OIDC origin
+        publisher = new UserAttributeChangeEventPublisher(mockSnsService, snsTopicArn, true);
+        
+        UaaUserPrototype beforePrototype = new UaaUserPrototype()
+                .withId("oidc-user-4")
+                .withUsername("oidc.user")
+                .withEmail("oidc@example.com")
+                .withGivenName("OIDC")
+                .withFamilyName("User")
+                .withOrigin(OriginKeys.OIDC10)
+                .withLastLogonSuccess(1000L);
+        
+        UaaUserPrototype afterPrototype = beforePrototype
+                .withEmail("oidc.new@example.com")
+                .withLastLogonSuccess(2000L);
+
+        UaaUser before = new UaaUser(beforePrototype);
+        UaaUser after = new UaaUser(afterPrototype);
+
+        // Act
+        publisher.publishUserAttributeChangeEventAsync(source, before, after);
+
+        // Allow async execution
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Assert - SNS should be called for OIDC origin even with filter enabled
+        verify(mockSnsService, timeout(1000).times(1)).publishAsync(
+                eq(snsTopicArn),
+                eq("UAA User Event"),
+                any(MessageBuilder.class),
+                any()
+        );
+    }
+
+    @Test
+    void testFilterUaaOrigin_whenTrue_multipleUaaUsers_shouldSkipAll() {
+        // Arrange - filterUaaOrigin is true
+        publisher = new UserAttributeChangeEventPublisher(mockSnsService, snsTopicArn, true);
+        
+        // Create multiple UAA origin users
+        UaaUserPrototype proto1 = new UaaUserPrototype()
+                .withId("uaa-user-5")
+                .withUsername("uaa.user1")
+                .withEmail("user1@example.com")
+                .withOrigin(OriginKeys.UAA)
+                .withLastLogonSuccess(1000L);
+        
+        UaaUserPrototype proto2 = new UaaUserPrototype()
+                .withId("uaa-user-6")
+                .withUsername("uaa.user2")
+                .withEmail("user2@example.com")
+                .withOrigin(OriginKeys.UAA)
+                .withLastLogonSuccess(1000L);
+
+        UaaUser before1 = new UaaUser(proto1);
+        UaaUser after1 = new UaaUser(proto1.withEmail("user1.new@example.com").withLastLogonSuccess(2000L));
+        
+        UaaUser before2 = new UaaUser(proto2);
+        UaaUser after2 = new UaaUser(proto2.withEmail("user2.new@example.com").withLastLogonSuccess(2000L));
+
+        // Act
+        publisher.publishUserAttributeChangeEventAsync(source, before1, after1);
+        publisher.publishUserAttributeChangeEventAsync(source, before2, after2);
+
+        // Allow async execution
+        try {
+            Thread.sleep(200);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Assert - SNS should be called twice, but both messages filtered
+        verify(mockSnsService, timeout(1000).times(2)).publishAsync(
+                eq(snsTopicArn),
+                eq("UAA User Event"),
+                any(MessageBuilder.class),
+                any()
+        );
+    }
+
+    @Test
+    void testFilterUaaOrigin_whenTrue_mixedOrigins_shouldOnlySkipUaa() {
+        // Arrange - filterUaaOrigin is true, test with mixed origins
+        publisher = new UserAttributeChangeEventPublisher(mockSnsService, snsTopicArn, true);
+        
+        // UAA origin user
+        UaaUserPrototype uaaProto = new UaaUserPrototype()
+                .withId("uaa-user-7")
+                .withUsername("uaa.mixed")
+                .withEmail("uaa@example.com")
+                .withOrigin(OriginKeys.UAA)
+                .withLastLogonSuccess(1000L);
+        
+        // SAML origin user
+        UaaUserPrototype samlProto = new UaaUserPrototype()
+                .withId("saml-user-7")
+                .withUsername("saml.mixed")
+                .withEmail("saml@example.com")
+                .withOrigin(OriginKeys.SAML)
+                .withLastLogonSuccess(1000L);
+        
+        // LDAP origin user
+        UaaUserPrototype ldapProto = new UaaUserPrototype()
+                .withId("ldap-user-7")
+                .withUsername("ldap.mixed")
+                .withEmail("ldap@example.com")
+                .withOrigin(OriginKeys.LDAP)
+                .withLastLogonSuccess(1000L);
+
+        UaaUser uaaBefore = new UaaUser(uaaProto);
+        UaaUser uaaAfter = new UaaUser(uaaProto.withEmail("uaa.new@example.com"));
+        
+        UaaUser samlBefore = new UaaUser(samlProto);
+        UaaUser samlAfter = new UaaUser(samlProto.withEmail("saml.new@example.com"));
+        
+        UaaUser ldapBefore = new UaaUser(ldapProto);
+        UaaUser ldapAfter = new UaaUser(ldapProto.withEmail("ldap.new@example.com"));
+
+        // Act - publish events for all three users
+        publisher.publishUserAttributeChangeEventAsync(source, uaaBefore, uaaAfter);
+        publisher.publishUserAttributeChangeEventAsync(source, samlBefore, samlAfter);
+        publisher.publishUserAttributeChangeEventAsync(source, ldapBefore, ldapAfter);
+
+        // Allow async execution
+        try {
+            Thread.sleep(300);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Assert - SNS should be called 3 times (UAA filtered, SAML and LDAP published)
+        verify(mockSnsService, timeout(1000).times(3)).publishAsync(
+                eq(snsTopicArn),
+                eq("UAA User Event"),
                 any(MessageBuilder.class),
                 any()
         );

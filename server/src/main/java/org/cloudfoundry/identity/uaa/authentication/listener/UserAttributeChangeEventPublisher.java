@@ -24,12 +24,15 @@ public class UserAttributeChangeEventPublisher {
 
     private final SnsService snsService;
     private final String snsTopicArn;
+    private final boolean filterUaaOrigin;
 
     @Autowired
     public UserAttributeChangeEventPublisher(SnsService snsService, 
-                                            @Value("${sns.topic.arn:}") String snsTopicArn) {
+                                            @Value("${sns.topic.arn:}") String snsTopicArn,
+                                            @Value("${sns.filter.origin.uaa:false}") boolean filterUaaOrigin) {
         this.snsService = snsService;
         this.snsTopicArn = snsTopicArn;
+        this.filterUaaOrigin = filterUaaOrigin;
     }
 
     public void publishUserAttributeChangeEventAsync(Object source, 
@@ -74,11 +77,11 @@ public class UserAttributeChangeEventPublisher {
                 return null;
             }
 
-            // if (OriginKeys.UAA.equals(updatedUser.getOrigin())) {
-            //     logger.debug("SNS publishing skipped - user is from password-based (UAA) origin. Username: {}",
-            //             updatedUser.getUsername());
-            //     return null;
-            // }
+            if (filterUaaOrigin && OriginKeys.UAA.equals(updatedUser.getOrigin())) {
+                logger.debug("SNS publishing skipped - user is from password-based (UAA) origin. Username: {}",
+                        updatedUser.getUsername());
+                return null;
+            }
 
             Map<String, Object> changedFields = getChangedFields(existingUser, updatedUser);
             
