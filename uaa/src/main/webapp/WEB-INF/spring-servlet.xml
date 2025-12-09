@@ -510,7 +510,6 @@
         <constructor-arg name="scimUserProvisioning" ref="scimUserProvisioning"/>
         <constructor-arg name="userDatabase" ref="userDatabase"/>
         <constructor-arg name="checker" ref="mfaChecker"/>
-        <constructor-arg name="userAttributeChangeEventPublisher" ref="userAttributeChangeEventPublisher"/>
     </bean>
 
     <bean id="autologinAuthenticationManager"
