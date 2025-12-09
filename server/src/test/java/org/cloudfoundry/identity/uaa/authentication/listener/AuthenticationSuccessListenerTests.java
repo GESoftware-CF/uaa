@@ -39,7 +39,8 @@ class AuthenticationSuccessListenerTests {
         mockScimUserProvisioning = mock(ScimUserProvisioning.class);
         mockUaaUserDatabase = mock(UaaUserDatabase.class);
         mockUserAttributeChangeEventPublisher = mock(UserAttributeChangeEventPublisher.class);
-        listener = new AuthenticationSuccessListener(mockScimUserProvisioning, mockUaaUserDatabase, mockMfaChecker, mockUserAttributeChangeEventPublisher);
+        listener = new AuthenticationSuccessListener(mockScimUserProvisioning, mockUaaUserDatabase, mockMfaChecker);
+        listener.setUserAttributeChangeEventPublisher(mockUserAttributeChangeEventPublisher);
         listener.setApplicationEventPublisher(mockApplicationEventPublisher);
         id = "user-id";
         userPrototype = new UaaUserPrototype()
