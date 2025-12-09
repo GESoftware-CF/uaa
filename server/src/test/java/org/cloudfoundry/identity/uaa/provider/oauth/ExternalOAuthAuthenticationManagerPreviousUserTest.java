@@ -64,8 +64,7 @@ class ExternalOAuthAuthenticationManagerPreviousUserTest {
     @Mock
     private ApplicationEventPublisher eventPublisher;
     
-    @Mock
-    private Authentication mockAuthentication;
+    private ExternalOAuthCodeToken mockAuthentication;
 
     private ExternalOAuthAuthenticationManager authManager;
     private IdentityProvider<OIDCIdentityProviderDefinition> provider;
@@ -79,6 +78,9 @@ class ExternalOAuthAuthenticationManagerPreviousUserTest {
         IdentityZone zone = new IdentityZone();
         zone.setId(zoneId);
         IdentityZoneHolder.set(zone);
+
+        // Create mock authentication token
+        mockAuthentication = mock(ExternalOAuthCodeToken.class);
 
         // Create authentication manager
         authManager = new ExternalOAuthAuthenticationManager(
