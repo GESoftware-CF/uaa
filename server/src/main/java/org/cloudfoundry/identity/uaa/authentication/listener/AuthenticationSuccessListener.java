@@ -26,6 +26,7 @@ import org.cloudfoundry.identity.uaa.user.UaaUserDatabase;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
@@ -39,16 +40,19 @@ public class AuthenticationSuccessListener implements ApplicationListener<Abstra
     private final ScimUserProvisioning scimUserProvisioning;
     private final UaaUserDatabase userDatabase;
     private final MfaChecker checker;
-    private final UserAttributeChangeEventPublisher userAttributeChangeEventPublisher;
+    private UserAttributeChangeEventPublisher userAttributeChangeEventPublisher; // Can be null if SNS is disabled
     private ApplicationEventPublisher publisher;
 
     public AuthenticationSuccessListener(ScimUserProvisioning scimUserProvisioning,
                                          UaaUserDatabase userDatabase,
-                                         MfaChecker checker,
-                                         UserAttributeChangeEventPublisher userAttributeChangeEventPublisher) {
+                                         MfaChecker checker) {
         this.scimUserProvisioning = scimUserProvisioning;
         this.userDatabase = userDatabase;
         this.checker = checker;
+    }
+
+    @Autowired(required = false)
+    public void setUserAttributeChangeEventPublisher(UserAttributeChangeEventPublisher userAttributeChangeEventPublisher) {
         this.userAttributeChangeEventPublisher = userAttributeChangeEventPublisher;
     }
 
@@ -94,8 +98,9 @@ public class AuthenticationSuccessListener implements ApplicationListener<Abstra
         scimUserProvisioning.updateLastLogonTime(user.getId(), zoneId);
         UaaUser userAfterLastLogonUpdate = userDatabase.retrieveUserById(user.getId());
     
-        if (userAfterLastLogonUpdate != null) {
+        if (userAfterLastLogonUpdate != null && userAttributeChangeEventPublisher != null) {
             // Now this will capture BOTH SAML attribute changes AND lastLogonTime change in a single event
+            // Only publish if userAttributeChangeEventPublisher is available (SNS enabled)
             userAttributeChangeEventPublisher.publishUserAttributeChangeEventAsync(this, userBeforeLastLogonUpdate, userAfterLastLogonUpdate);
         }
     }

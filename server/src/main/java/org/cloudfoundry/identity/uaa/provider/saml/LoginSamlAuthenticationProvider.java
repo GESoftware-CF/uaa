@@ -1,7 +1,6 @@
 package org.cloudfoundry.identity.uaa.provider.saml;
 
 import org.apache.commons.lang.StringUtils;
-import org.cloudfoundry.identity.uaa.events.UserAttributeChangedEvent;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthentication;
 import org.cloudfoundry.identity.uaa.authentication.UaaPrincipal;
 import org.cloudfoundry.identity.uaa.authentication.event.IdentityProviderAuthenticationSuccessEvent;

@@ -1,59 +1,223 @@
-/*
- *  Cloud Foundry
- *  Copyright (c) [2009-2018] Pivotal Software, Inc. All Rights Reserved.
- *  <p/>
- *  This product is licensed to you under the Apache License, Version 2.0 (the "License").
- *  You may not use this product except in compliance with the License.
- *  <p/>
- *  This product includes a number of subcomponents with
- *  separate copyright notices and license terms. Your use of these
- *  subcomponents is subject to the terms and conditions of the
- *  subcomponent's license, as noted in the LICENSE file
- */
-
 package org.cloudfoundry.identity.uaa.authentication.listener;
 
-import org.cloudfoundry.identity.uaa.events.UserAttributeChangedEvent;
+import com.ge.iam.sns.service.MessageBuilder;
+import com.ge.iam.sns.service.SnsService;
+import com.google.gson.JsonObject;
+import org.apache.commons.lang.StringUtils;
+import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.user.UaaUser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-/**
- * Helper class to handle publishing of user attribute change events.
- * This class is separate to make merging easier when getting latest from UAA.
- */
+import java.util.HashMap;
+import java.util.Map;
+
 @Component
+@ConditionalOnProperty(name = "sns.enabled", havingValue = "true", matchIfMissing = false)
 public class UserAttributeChangeEventPublisher {
 
-    private final static Logger logger = LoggerFactory.getLogger(UserAttributeChangeEventPublisher.class);
+    private static final Logger logger = LoggerFactory.getLogger(UserAttributeChangeEventPublisher.class);
 
-    private final ApplicationEventPublisher publisher;
+    private final SnsService snsService;
+    private final String snsTopicArn;
+    private final boolean filterUaaOrigin;
 
     @Autowired
-    public UserAttributeChangeEventPublisher(ApplicationEventPublisher publisher) {
-        this.publisher = publisher;
+    public UserAttributeChangeEventPublisher(SnsService snsService, 
+                                            @Value("${sns.topic.arn:}") String snsTopicArn,
+                                            @Value("${sns.filter.origin.uaa:false}") boolean filterUaaOrigin) {
+        this.snsService = snsService;
+        this.snsTopicArn = snsTopicArn;
+        this.filterUaaOrigin = filterUaaOrigin;
     }
 
-    @Async
-    public void publishUserAttributeChangeEventAsync(Object source, UaaUser userBeforeLastLogonUpdate,
+    public void publishUserAttributeChangeEventAsync(Object source, 
+                                                     UaaUser userBeforeLastLogonUpdate,
                                                      UaaUser userAfterLastLogonUpdate) {
-        try {
-            // Use the parameters directly - don't rely on getPreviousUser()
-            // The caller already provides both the before and after users correctly
-            UaaUser userBeforeChanges = userBeforeLastLogonUpdate;
+        Map<String, Object> context = createContext(userBeforeLastLogonUpdate, userAfterLastLogonUpdate);
+        MessageBuilder userEventMessageBuilder = this::buildUserEventMessage;
 
-            UserAttributeChangedEvent event = new UserAttributeChangedEvent(source, userBeforeChanges,
-                    userAfterLastLogonUpdate);
-            
-            if (publisher != null) {
-                publisher.publishEvent(event);
-            }
+        try {
+            snsService.publishAsync(snsTopicArn, "UAA User Event", userEventMessageBuilder, context)
+                .whenComplete((publishResponse, throwable) -> {
+                    if (throwable != null) {
+                        logger.error("Failed to publish user event to SNS. " +
+                                "This failure will not affect application functionality.", throwable);
+                    } else {
+                        logger.info("User event published to SNS successfully");
+                    }
+                });
         } catch (Exception e) {
-            logger.error("Failed to publish user attribute change event asynchronously", e);
+            logger.error("Failed to initiate SNS publish", e);
         }
+    }
+
+    private Map<String, Object> createContext(UaaUser existingUser, UaaUser updatedUser) {
+        Map<String, Object> context = new HashMap<>();
+        context.put("existingUser", existingUser);
+        context.put("updatedUser", updatedUser);
+        return context;
+    }
+
+    private JsonObject buildUserEventMessage(Object ctx) {
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> eventContext = (Map<String, Object>) ctx;
+            
+            UaaUser existingUser = (UaaUser) eventContext.get("existingUser");
+            UaaUser updatedUser = (UaaUser) eventContext.get("updatedUser");
+
+            if (existingUser == null || updatedUser == null) {
+                logger.warn("Skipping SNS publish - null user provided: existing={}, updated={}",
+                        existingUser != null, updatedUser != null);
+                return null;
+            }
+
+            if (filterUaaOrigin && OriginKeys.UAA.equals(updatedUser.getOrigin())) {
+                logger.debug("SNS publishing skipped - user is from password-based (UAA) origin. Username: {}",
+                        updatedUser.getUsername());
+                return null;
+            }
+
+            Map<String, Object> changedFields = getChangedFields(existingUser, updatedUser);
+            
+            if (changedFields.isEmpty()) {
+                logger.debug("No changes detected during message building, skipping publish");
+                return null;
+            }
+
+            logger.debug("Processing user attribute change event: {} field(s) changed", changedFields.keySet());
+
+            Map<String, Object> messageMap = createUserEventMessage(updatedUser, changedFields);
+            return convertToJsonObject(messageMap);
+            
+        } catch (Exception e) {
+            logger.error("Error building message for user event", e);
+            return null;
+        }
+    }
+
+    private JsonObject convertToJsonObject(Map<String, Object> messageMap) {
+        JsonObject jsonMessage = new JsonObject();
+        messageMap.forEach((key, value) -> addPropertyToJson(jsonMessage, key, value));
+        return jsonMessage;
+    }
+
+    private void addPropertyToJson(JsonObject jsonObject, String key, Object value) {
+        if (value instanceof String) {
+            jsonObject.addProperty(key, (String) value);
+        } else if (value instanceof Number) {
+            jsonObject.addProperty(key, (Number) value);
+        } else if (value instanceof Boolean) {
+            jsonObject.addProperty(key, (Boolean) value);
+        } else if (value instanceof Map) {
+            jsonObject.add(key, convertMapToJsonObject((Map<?, ?>) value));
+        } else if (value != null) {
+            jsonObject.addProperty(key, value.toString());
+        }
+    }
+
+    private JsonObject convertMapToJsonObject(Map<?, ?> map) {
+        JsonObject nestedObject = new JsonObject();
+        map.forEach((nestedKey, nestedValue) -> {
+            if (nestedValue instanceof String) {
+                nestedObject.addProperty(nestedKey.toString(), (String) nestedValue);
+            } else if (nestedValue instanceof Number) {
+                nestedObject.addProperty(nestedKey.toString(), (Number) nestedValue);
+            } else if (nestedValue instanceof Boolean) {
+                nestedObject.addProperty(nestedKey.toString(), (Boolean) nestedValue);
+            } else if (nestedValue != null) {
+                nestedObject.addProperty(nestedKey.toString(), nestedValue.toString());
+            }
+        });
+        return nestedObject;
+    }
+
+    private Map<String, Object> getChangedFields(UaaUser existingUser, UaaUser user) {
+        Map<String, Object> changedFields = new HashMap<>();
+
+        if (isFirstTimeLogin(existingUser)) {
+            return getFirstTimeLoginFields(user);
+        }
+
+        addIfChanged(changedFields, "email", existingUser.getEmail(), user.getEmail());
+        addNameChangesIfNotSwapped(changedFields, existingUser, user);
+        addIfChanged(changedFields, "phoneNumber", existingUser.getPhoneNumber(), user.getPhoneNumber());
+        addIfChanged(changedFields, "username", existingUser.getUsername(), user.getUsername());
+        
+        if (!java.util.Objects.equals(existingUser.getLastLogonTime(), user.getLastLogonTime())) {
+            changedFields.put("lastLogonTime", user.getLastLogonTime());
+        }
+
+        return changedFields;
+    }
+
+    private boolean isFirstTimeLogin(UaaUser existingUser) {
+        return existingUser.getLastLogonTime() == null;
+    }
+
+    private Map<String, Object> getFirstTimeLoginFields(UaaUser user) {
+        Map<String, Object> fields = new HashMap<>();
+        
+        addIfNotNull(fields, "email", user.getEmail());
+        addIfNotNull(fields, "givenName", user.getGivenName());
+        addIfNotNull(fields, "familyName", user.getFamilyName());
+        addIfNotNull(fields, "phoneNumber", user.getPhoneNumber());
+        fields.put("lastLogonTime", user.getLastLogonTime());
+        
+        return fields;
+    }
+
+    private void addIfNotNull(Map<String, Object> fields, String key, Object value) {
+        if (value != null) {
+            fields.put(key, value);
+        }
+    }
+
+    private void addIfChanged(Map<String, Object> fields, String key, String oldValue, String newValue) {
+        if (!StringUtils.equals(oldValue, newValue)) {
+            fields.put(key, newValue);
+        }
+    }
+
+    private void addNameChangesIfNotSwapped(Map<String, Object> changedFields, UaaUser existingUser, UaaUser user) {
+        boolean givenNameChanged = !StringUtils.equals(existingUser.getGivenName(), user.getGivenName());
+        boolean familyNameChanged = !StringUtils.equals(existingUser.getFamilyName(), user.getFamilyName());
+
+        boolean isNameSwap = StringUtils.equals(existingUser.getGivenName(), user.getFamilyName()) &&
+                StringUtils.equals(existingUser.getFamilyName(), user.getGivenName());
+
+        if (givenNameChanged && !isNameSwap) {
+            changedFields.put("givenName", user.getGivenName());
+        }
+
+        if (familyNameChanged && !isNameSwap) {
+            changedFields.put("familyName", user.getFamilyName());
+        }
+    }
+
+    private Map<String, Object> createUserEventMessage(UaaUser user, Map<String, Object> changedFields) {
+        Map<String, Object> message = new HashMap<>();
+
+        String eventType = determineEventType(changedFields);
+        message.put("eventType", eventType);
+        message.put("source", "uaa-saml-provider");
+        message.put("version", "1.0");
+        message.put("username", user.getUsername());
+        message.put("instanceZoneId", user.getZoneId());
+        message.put("changedFields", changedFields);
+
+        return message;
+    }
+
+    private String determineEventType(Map<String, Object> changedFields) {
+        if (changedFields.size() == 1 && changedFields.containsKey("lastLogonTime")) {
+            return "LOGIN_TIME_UPDATED";
+        }
+        return "USER_DATA_UPDATED";
     }
 }
