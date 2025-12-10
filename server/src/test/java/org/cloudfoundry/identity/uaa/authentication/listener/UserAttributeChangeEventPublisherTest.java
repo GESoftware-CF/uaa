@@ -52,7 +52,7 @@ class UserAttributeChangeEventPublisherTest {
         userAfter = new UaaUser(prototype.withLastLogonSuccess(System.currentTimeMillis()));
 
         // Mock SNS service to return completed future
-        when(mockSnsService.publishAsync(anyString(), anyString(), any(MessageBuilder.class), any()))
+        lenient().when(mockSnsService.publishAsync(anyString(), anyString(), any(MessageBuilder.class), any()))
                 .thenReturn(CompletableFuture.completedFuture(null));
     }
 
