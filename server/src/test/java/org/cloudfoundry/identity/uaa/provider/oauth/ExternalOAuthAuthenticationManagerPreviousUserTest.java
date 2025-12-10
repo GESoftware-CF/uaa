@@ -104,7 +104,7 @@ class ExternalOAuthAuthenticationManagerPreviousUserTest {
         provider.setType(OriginKeys.OIDC10);
         provider.setConfig(config);
 
-        when(providerProvisioning.retrieveByOrigin(origin, zoneId)).thenReturn(provider);
+        lenient().when(providerProvisioning.retrieveByOrigin(origin, zoneId)).thenReturn(provider);
     }
 
     @AfterEach
