@@ -28,7 +28,9 @@ dependencies {
     implementation(libraries.springSecurityWeb)
     implementation(libraries.springSecurityConfig)
     implementation(libraries.springBootStarterMail)
-    implementation(libraries.openSamlApi)
+    implementation(libraries.openSamlApi) {
+        exclude(module: "xmlsec")
+    }
     implementation(libraries.springSecuritySamlServiceProvider)
     implementation(libraries.jodaTime)
     implementation(libraries.xmlSecurity)
@@ -94,9 +96,16 @@ dependencies {
         exclude(group: 'ch.qos.logback')
         exclude(group: 'org.springframework')
         exclude(group: 'org.apache.logging.log4j')
+        exclude(group: 'com.fasterxml.jackson.core', module: 'jackson-databind')
     }
 
-    implementation(libraries.springAwsSecretsManager)
+    implementation(libraries.springAwsSecretsManager) {
+        exclude(group: "org.springframework", module: "spring-beans")
+        exclude(group: "org.springframework", module: "spring-aop")
+        exclude(group: "org.springframework", module: "spring-context")
+        exclude(group: "org.springframework.boot", module: "spring-boot-autoconfigure")
+        exclude(group: "org.springframework.security", module: "spring-security-crypto")
+    }
     implementation(libraries.awsJavaSdkSts)
 
     testImplementation(project(":cloudfoundry-identity-model").sourceSets.test.output)
