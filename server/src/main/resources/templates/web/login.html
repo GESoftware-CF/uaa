@@ -68,8 +68,8 @@
         <!-- Customer IDP Login Button -->
         <th:block th:if="${idpDefinitions != null and !#lists.isEmpty(idpDefinitions)}" th:each="idp : ${idpDefinitions}">
             <th:block th:if="${idp.showSamlLink}">
-                <th:block th:if="${customerIdpWebDomains != null and !customerIdpWebDomains.isEmpty()}">
-                    <th:block th:each="domain : ${customerIdpWebDomains}">
+                <th:block th:if="${@customerIdpService.hasCustomerIdpWebDomains()}">
+                    <th:block th:each="domain : ${@customerIdpService.getCustomerIdpWebDomains()}">
                         <div class="u-p--" style="margin-bottom: 20px;" th:if="${!#strings.contains(idp.metaDataLocation, domain)}">
                             <a href="" class="customer-idp-login-button" th:href="@{saml/discovery(returnIDParam=idp,entityID=${entityID},idp=${idp.idpEntityAlias},isPassive=true)}">
                                 <span th:text="${idp.linkText}">Login with customer IDP</span>
@@ -80,8 +80,8 @@
             </th:block>
         </th:block>
         <th:block th:if="${oauthLinks != null and !oauthLinks.isEmpty()}" th:each="oauthLink : ${oauthLinks}">
-            <th:block th:if="${customerIdpWebDomains != null and !customerIdpWebDomains.isEmpty()}">
-                <th:block th:each="domain : ${customerIdpWebDomains}">
+            <th:block th:if="${@customerIdpService.hasCustomerIdpWebDomains()}">
+                <th:block th:each="domain : ${@customerIdpService.getCustomerIdpWebDomains()}">
                     <div class="u-p--" style="margin-bottom: 20px;" th:if="${!#strings.contains(oauthLink.value, domain)}">
                         <a href="" class="customer-idp-login-button"  th:href="${oauthLink.key}">
                             <span th:text="${oauthLink.value}">Login with customer IDP</span>
@@ -91,7 +91,7 @@
             </th:block>
         </th:block>
         
-        <th:block th:if="${hasCustomerIdps or hasOAuthLinks}">
+        <th:block th:if="${@customerIdpService.hasCustomerIdpWebDomains()}">
             <p>Or sign in with: </p>
         </th:block>
 
@@ -131,8 +131,8 @@
             <!-- Dynamic providers from configuration -->
             <th:block th:if="${idpDefinitions != null and !#lists.isEmpty(idpDefinitions)}" th:each="idp : ${idpDefinitions}">
                 <th:block th:if="${idp.showSamlLink}">
-                    <th:block th:if="${customerIdpWebDomains != null and !customerIdpWebDomains.isEmpty()}">
-                        <th:block th:each="domain : ${customerIdpWebDomains}">
+                    <th:block th:if="${@customerIdpService.hasCustomerIdpWebDomains()}">
+                        <th:block th:each="domain : ${@customerIdpService.getCustomerIdpWebDomains()}">
                             <div class="u-p--" th:if="${#strings.contains(idp.metaDataLocation, domain)}">
                                 <a href="" th:class="${fieldUsernameShow} ? 'saml-login-link' : ''" th:href="@{saml/discovery(returnIDParam=idp,entityID=${entityID},idp=${idp.idpEntityAlias},isPassive=true)}">
                                     <svg width="21" height="20" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: inline-block; margin-right: 8px; vertical-align: middle;">
@@ -146,8 +146,8 @@
                 </th:block>
             </th:block>
             <th:block th:if="${oauthLinks != null and !oauthLinks.isEmpty()}" th:each="oauthLink : ${oauthLinks}">
-                <th:block th:if="${customerIdpWebDomains != null and !customerIdpWebDomains.isEmpty()}">
-                    <th:block th:each="domain : ${customerIdpWebDomains}">
+                <th:block th:if="${@customerIdpService.hasCustomerIdpWebDomains()}">
+                    <th:block th:each="domain : ${@customerIdpService.getCustomerIdpWebDomains()}">
                         <div class="u-p--" th:if="${#strings.contains(oauthLink.value, domain)}">
                             <a href="" th:class="${fieldUsernameShow} ? 'saml-login-link' : ''" th:href="${oauthLink.key}">
                                 <svg width="21" height="20" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: inline-block; margin-right: 8px; vertical-align: middle;">

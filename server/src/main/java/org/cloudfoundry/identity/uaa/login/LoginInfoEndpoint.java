@@ -122,7 +122,6 @@ public class LoginInfoEndpoint {
     private final Links globalLinks;
     private final MfaChecker mfaChecker;
     private final String entityID;
-    private final List<String> customerIdpWebDomains;
 
     private static final Duration CODE_EXPIRATION = Duration.ofMinutes(5L);
     private static final MapCollector<IdentityProvider, String, AbstractExternalOAuthIdentityProviderDefinition> idpsMapCollector =
@@ -142,8 +141,7 @@ public class LoginInfoEndpoint {
             final @Qualifier("samlEntityID") String entityID,
             final @Qualifier("globalLinks") Links globalLinks,
             final @Qualifier("jdbcClientDetailsService") MultitenantClientServices clientDetailsService,
-            final @Qualifier("metaDataProviders") SamlIdentityProviderConfigurator idpDefinitions,
-            final @Value("${customer_idp.web_domains:}") List<String> customerIdpWebDomains) {
+            final @Qualifier("metaDataProviders") SamlIdentityProviderConfigurator idpDefinitions) {
         this.authenticationManager = authenticationManager;
         this.expiringCodeStore = expiringCodeStore;
         this.externalLoginUrl = externalLoginUrl;
@@ -155,7 +153,6 @@ public class LoginInfoEndpoint {
         this.globalLinks = globalLinks;
         this.clientDetailsService = clientDetailsService;
         this.idpDefinitions = idpDefinitions;
-        this.customerIdpWebDomains = customerIdpWebDomains != null ? customerIdpWebDomains : Collections.emptyList();
         gitProperties = tryLoadAllProperties("git.properties");
         buildProperties = tryLoadAllProperties("build.properties");
     }
@@ -456,7 +453,6 @@ public class LoginInfoEndpoint {
         model.addAttribute(LINK_CREATE_ACCOUNT_SHOW, linkCreateAccountShow);
         model.addAttribute(FIELD_USERNAME_SHOW, fieldUsernameShow);
         model.addAttribute(IDP_DEFINITIONS, samlIdentityProviders.values());
-        model.addAttribute("customerIdpWebDomains", customerIdpWebDomains);
         Map<String, String> oauthLinks = new HashMap<>();
         ofNullable(oauthIdentityProviders).orElse(emptyMap()).entrySet().stream()
                 .filter(e -> e.getValue().isShowLinkText())
@@ -471,21 +467,6 @@ public class LoginInfoEndpoint {
                 );
         model.addAttribute(OAUTH_LINKS, oauthLinks);
         model.addAttribute("clientName", clientName);
-        
-        // Compute flags for displaying "Or sign in with:" separator
-        boolean hasCustomerIdps = samlIdentityProviders != null && !samlIdentityProviders.isEmpty() && 
-                customerIdpWebDomains != null && !customerIdpWebDomains.isEmpty() &&
-                samlIdentityProviders.values().stream().anyMatch(idp -> 
-                        idp.isShowSamlLink() && 
-                        customerIdpWebDomains.stream().anyMatch(domain -> !idp.getMetaDataLocation().contains(domain))
-                );
-        boolean hasOAuthLinks = !oauthLinks.isEmpty() && 
-                customerIdpWebDomains != null && !customerIdpWebDomains.isEmpty() &&
-                oauthLinks.values().stream().anyMatch(linkText -> 
-                        customerIdpWebDomains.stream().anyMatch(domain -> !linkText.contains(domain))
-                );
-        model.addAttribute("hasCustomerIdps", hasCustomerIdps);
-        model.addAttribute("hasOAuthLinks", hasOAuthLinks);
     }
 
     private void setJsonInfo(
