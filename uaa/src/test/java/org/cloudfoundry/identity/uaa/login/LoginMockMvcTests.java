@@ -1381,8 +1381,8 @@ public class LoginMockMvcTests {
 
         mockMvc.perform(get("/login").accept(TEXT_HTML).with(new SetServerNameRequestPostProcessor(identityZone.getSubdomain() + ".localhost")))
                 .andExpect(status().isOk())
-                .andExpect(xpath("//a[text()='" + activeSamlIdentityProviderDefinition.getLinkText() + "']").exists())
-                .andExpect(xpath("//a[text()='" + inactiveSamlIdentityProviderDefinition.getLinkText() + "']").doesNotExist());
+                .andExpect(xpath("//span[text()='" + activeSamlIdentityProviderDefinition.getLinkText() + "']").exists())
+                .andExpect(xpath("//span[text()='" + inactiveSamlIdentityProviderDefinition.getLinkText() + "']").doesNotExist());
     }
 
     @Test
@@ -1913,14 +1913,14 @@ public class LoginMockMvcTests {
 
         mockMvc.perform(get("/login").accept(TEXT_HTML).with(new SetServerNameRequestPostProcessor(identityZone.getSubdomain() + ".localhost")))
                 .andExpect(status().isOk())
-                .andExpect(xpath("//a[text()='" + samlIdentityProviderDefinition.getLinkText() + "']").exists());
+                .andExpect(xpath("//span[text()='" + samlIdentityProviderDefinition.getLinkText() + "']").exists());
 
         identityProvider.setActive(false);
         jdbcIdentityProviderProvisioning.update(identityProvider, identityZone.getId());
 
         mockMvc.perform(get("/login").accept(TEXT_HTML).with(new SetServerNameRequestPostProcessor(identityZone.getSubdomain() + ".localhost")))
                 .andExpect(status().isOk())
-                .andExpect(xpath("//a[text()='" + samlIdentityProviderDefinition.getLinkText() + "']").doesNotExist());
+                .andExpect(xpath("//span[text()='" + samlIdentityProviderDefinition.getLinkText() + "']").doesNotExist());
     }
 
     @Test
@@ -2886,8 +2886,7 @@ public class LoginMockMvcTests {
                         .servletPath("/login")
                         .with(new SetServerNameRequestPostProcessor(zone.getSubdomain() + ".localhost")))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("http://myauthurl.com?client_id=id&amp;response_type=code&")))
-                .andExpect(content().string(containsString("http://myauthurl.com?client_id=id&amp;response_type=code+id_token&")));
+                .andExpect(xpath("//span[contains(text(), 'My OIDC Provider')]").exists());
     }
 
     @Test
@@ -3213,7 +3212,7 @@ public class LoginMockMvcTests {
         void hasInvalidError() throws Exception {
             mockMvc.perform(
                             get("/login?error=foobar&error=invalid_login_request"))
-                    .andExpect(content().string(containsString("Error!")));
+                    .andExpect(xpath("//span[@class='toast__description'][contains(text(), 'An error occurred!')]").exists());
         }
 
         @Test
@@ -3227,7 +3226,7 @@ public class LoginMockMvcTests {
         void hasInvalidSuccess() throws Exception {
             mockMvc.perform(
                             get("/login?success=foobar&success=verify_success"))
-                    .andExpect(content().string(containsString("Success!")));
+                    .andExpect(xpath("//span[@class='toast__description'][contains(text(), 'Operation completed successfully!')]").exists());
         }
     }
 
