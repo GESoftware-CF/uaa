@@ -48,6 +48,12 @@ login:
     footerLinks:
       terms of service: http://terms.of.service/
 
+customer_idp:
+  web_domains:
+    - example.com
+    - simplesamlphp
+    - uaa-acceptance
+
 links:
   # Custom self service links (will only be displayed if selfServiceLinksEnabled is true)
   # If selfServiceLinksEnabled is true and these custom links are not provided then the Login Server

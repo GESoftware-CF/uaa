@@ -22,7 +22,7 @@ import org.openqa.selenium.WebDriver;
 public class SamlServerConfig {
     private static final String SAML_AUTH_SOURCE = "example-userpass";
     private static final String SIMPLESAMLPHP_UAA_ACCEPTANCE = "http://simplesamlphp.uaa-acceptance.cf-app.com";
-    private static final String SIMPLESAMLPHP_LOGIN_PROMPT_XPATH_EXPR = "//%s[contains(text(), 'Enter your username and password')]";
+    private static final String SIMPLESAMLPHP_LOGIN_PROMPT_XPATH_EXPR = "//%s[contains(text(), 'Welcome')]";
 
     private String serverUrl;
 
