@@ -48,11 +48,10 @@ login:
     footerLinks:
       terms of service: http://terms.of.service/
 
+# Customer IDP web domains (list of allowed domains)
 customer_idp:
   web_domains:
-    - example.com
-    - simplesamlphp
-    - uaa-acceptance
+    - fssfed.ge.com
 
 links:
   # Custom self service links (will only be displayed if selfServiceLinksEnabled is true)
