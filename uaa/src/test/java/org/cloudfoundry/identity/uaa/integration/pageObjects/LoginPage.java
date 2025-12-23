@@ -129,11 +129,45 @@ public class LoginPage extends Page {
         return pathStart > 0 ? currentUrl.substring(0, pathStart) : currentUrl;
     }
 
+    /**
+     * Perform UAA login and expect to go to home page.
+     */
+    public HomePage assertThatLogin_goesToHomePage(String username, String password) {
+        performUaaLogin(username, password);
+        return new HomePage(driver, baseUrl);
+    }
+    
+    /**
+     * Perform UAA login and expect to go to passcode page.
+     */
+    public PasscodePage assertThatLogin_goesToPasscodePage(String username, String password) {
+        performUaaLogin(username, password);
+        return new PasscodePage(driver);
+    }
+    
+    /**
+     * Perform UAA login and expect to go to SAML error page.
+     */
+    public SamlErrorPage assertThatLogin_goesToSamlErrorPage(String username, String password) {
+        performUaaLogin(username, password);
+        return new SamlErrorPage(driver);
+    }
+    
+    /**
+     * Perform login on UAA login page.
+     */
+    private void performUaaLogin(String username, String password) {
+        driver.findElement(By.name("username")).clear();
+        driver.findElement(By.name("username")).sendKeys(username);
+        driver.findElement(By.name("password")).clear();
+        driver.findElement(By.name("password")).sendKeys(password);
+        // Click the Sign in button
+        ((UaaWebDriver) driver).clickAndWait(By.xpath("//input[@value='Sign in']"));
+    }
+
     public HomePage sendLoginCredentials(String username, String password) {
         driver.get(baseUrl + "/login");
-        driver.findElement(By.name("username")).sendKeys(username);
-        driver.findElement(By.name("password")).sendKeys(password);
-        ((UaaWebDriver) driver).clickAndWait(By.xpath("//input[@value='Sign in']"));
+        performUaaLogin(username, password);
         return new HomePage(driver, baseUrl);
     }
 
