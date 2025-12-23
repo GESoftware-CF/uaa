@@ -14,6 +14,7 @@
 
 package org.cloudfoundry.identity.uaa.integration.feature;
 
+import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 
 /**
