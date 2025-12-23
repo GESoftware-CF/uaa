@@ -161,8 +161,28 @@ public class LoginPage extends Page {
         driver.findElement(By.name("username")).sendKeys(username);
         driver.findElement(By.name("password")).clear();
         driver.findElement(By.name("password")).sendKeys(password);
-        // Click the Sign in button
-        ((UaaWebDriver) driver).clickAndWait(By.xpath("//input[@value='Sign in']"));
+        
+        // Try multiple selectors for the Sign in button to handle different page versions
+        boolean submitted = false;
+        for (By selector : new By[]{
+                By.xpath("//input[@value='Sign in']"),
+                By.xpath("//button[contains(text(), 'Sign in')]"),
+                By.cssSelector("button[type='submit']"),
+                By.cssSelector("input[type='submit']"),
+                By.xpath("//input[@type='submit']"),
+                By.xpath("//button[@type='submit']")
+        }) {
+            try {
+                ((UaaWebDriver) driver).clickAndWait(selector);
+                submitted = true;
+                break;
+            } catch (org.openqa.selenium.NoSuchElementException e) {
+                // Try next selector
+            }
+        }
+        if (!submitted) {
+            throw new RuntimeException("Could not find submit button on UAA login page");
+        }
     }
 
     public HomePage sendLoginCredentials(String username, String password) {
