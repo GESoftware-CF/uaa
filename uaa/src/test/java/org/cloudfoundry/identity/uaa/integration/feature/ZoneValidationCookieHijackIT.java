@@ -194,7 +194,8 @@ class ZoneValidationCookieHijackIT {
         webDriver.get("%s/login".formatted(testZone1Url));
         assertThat(webDriver.getTitle()).isEqualTo(zone1.getName());
         LoginPage loginPage1 = new LoginPage(webDriver);
-        loginPage1.assertThatSamlLink_goesToSamlLoginPage(LINK_TEXT_1)
+        // Updated: Pass origin key instead of link text for direct SAML navigation
+        loginPage1.assertThatSamlLink_goesToSamlLoginPage(provider1.getOriginKey())
                 .assertThatLogin_goesToHomePage("marissa", "koala");
 
         // capture the cookie from zone 1

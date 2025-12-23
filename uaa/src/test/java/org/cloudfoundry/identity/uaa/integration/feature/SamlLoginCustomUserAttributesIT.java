@@ -308,6 +308,14 @@ class SamlLoginCustomUserAttributesIT {
     }
 
     private void sendCredentials(String username, String password) {
-        sendCredentials(username, password, By.id("submit_button"));
+        webDriver.findElement(byUsername).clear();
+        webDriver.findElement(byUsername).sendKeys(username);
+        webDriver.findElement(byPassword).sendKeys(password);
+        // Updated: Handle both old and new SimpleSAMLphp versions
+        try {
+            webDriver.clickAndWait(By.id("submit_button"));
+        } catch (org.openqa.selenium.NoSuchElementException e) {
+            webDriver.clickAndWait(By.cssSelector("button[type='submit']"));
+        }
     }
 }

@@ -43,6 +43,11 @@ public class SamlLoginPage extends Page {
         usernameElement.clear();
         usernameElement.sendKeys(username);
         driver.findElement(By.name("password")).sendKeys(password);
-        driver.findElement(By.id("submit_button")).click();
+        // Try multiple selectors for different SimpleSAMLphp versions
+        try {
+            driver.findElement(By.id("submit_button")).click();
+        } catch (org.openqa.selenium.NoSuchElementException e) {
+            driver.findElement(By.cssSelector("button[type='submit']")).click();
+        }
     }
 }

@@ -255,7 +255,7 @@ public class InvitationsIT {
         webDriver.findElement(By.name("username")).clear();
         webDriver.findElement(By.name("username")).sendKeys("user_only_for_invitations_test");
         webDriver.findElement(By.name("password")).sendKeys("saml");
-        webDriver.clickAndWait(By.id("submit_button"));
+        webDriver.clickAndWait(samlServerConfig.getSubmitButtonSelector());
         //now we land on the /app
         //simulate a redirect from /app to /uaa
         webDriver.get(baseUrl + "/oauth/authorize?client_id=app&redirect_uri=http://localhost:8080/app/&response_type=code&state=iknaID");

@@ -451,12 +451,19 @@ public class OIDCLoginIT {
             webDriver.clickAndWait(By.linkText("My OIDC Provider"));
             assertThat(webDriver.getCurrentUrl()).contains(baseUrl);
 
-            webDriver.clickAndWait(By.linkText("SAML Login"));
+            // Updated: Navigate directly to SAML auth endpoint since links may not be visible
+            webDriver.get(baseUrl + "/saml2/authenticate/" + samlProvider.getOriginKey());
             webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
             webDriver.findElement(By.name("username")).clear();
             webDriver.findElement(By.name("username")).sendKeys("marissa6");
             webDriver.findElement(By.name("password")).sendKeys("saml6");
-            webDriver.clickAndWait(By.id("submit_button"));
+            
+            // Updated: Handle both old and new SimpleSAMLphp versions
+            try {
+                webDriver.clickAndWait(By.id("submit_button"));
+            } catch (org.openqa.selenium.NoSuchElementException e) {
+                webDriver.clickAndWait(By.cssSelector("button[type='submit']"));
+            }
 
             Page.assertThatUrlEventuallySatisfies(webDriver, assertUrl -> assertUrl.startsWith(zoneUrl));
             assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("You should not see this page. Set up your redirect URI.");

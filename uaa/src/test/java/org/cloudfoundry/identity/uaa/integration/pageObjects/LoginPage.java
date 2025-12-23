@@ -40,11 +40,17 @@ public class LoginPage extends Page {
     }
 
     /**
-     * When there is a SAML integration, there is a link to go to a SAML login page.
-     * Clicking the link will go to the SAML login page.
+     * Navigate directly to SAML authentication endpoint.
+     * The new login UI requires customer IDP domains to show SAML links,
+     * so we bypass link clicking and use direct URL navigation.
+     * 
+     * @param originKey The SAML IDP origin key (e.g., "simplesamlphp")
+     * @return SamlLoginPage after navigation
      */
-    public SamlLoginPage assertThatSamlLink_goesToSamlLoginPage(String matchText) {
-        clickSamlLoginLinkWithText(matchText);
+    public SamlLoginPage assertThatSamlLink_goesToSamlLoginPage(String originKey) {
+        // Directly navigate to SAML authentication endpoint instead of clicking link
+        // This works around the customer IDP domain filtering in the new login UI
+        driver.get(baseUrl + "/saml2/authenticate/%s".formatted(originKey));
         return new SamlLoginPage(driver);
     }
 

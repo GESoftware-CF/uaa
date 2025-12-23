@@ -58,4 +58,10 @@ public class SamlServerConfig {
         return isUpgraded() ? "module.php/core/frontpage_welcome.php" : "module.php/core/welcome";
     }
 
+    public By getSubmitButtonSelector() {
+        return isUpgraded() ?
+                By.cssSelector("button[type='submit']") :
+                By.id("submit_button");
+    }
+
 }
