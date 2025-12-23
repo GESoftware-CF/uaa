@@ -44,10 +44,23 @@ public class SamlLoginPage extends Page {
         usernameElement.sendKeys(username);
         driver.findElement(By.name("password")).sendKeys(password);
         // Try multiple selectors for different SimpleSAMLphp versions
-        try {
-            driver.findElement(By.id("submit_button")).click();
-        } catch (org.openqa.selenium.NoSuchElementException e) {
-            driver.findElement(By.cssSelector("button[type='submit']")).click();
+        boolean submitted = false;
+        for (By selector : new By[]{
+                By.id("submit_button"),
+                By.cssSelector("button[type='submit']"),
+                By.xpath("//input[@type='submit']"),
+                By.cssSelector("input[type='submit']")
+        }) {
+            try {
+                driver.findElement(selector).click();
+                submitted = true;
+                break;
+            } catch (org.openqa.selenium.NoSuchElementException e) {
+                // Try next selector
+            }
+        }
+        if (!submitted) {
+            throw new RuntimeException("Could not find submit button on SAML login page");
         }
     }
 }

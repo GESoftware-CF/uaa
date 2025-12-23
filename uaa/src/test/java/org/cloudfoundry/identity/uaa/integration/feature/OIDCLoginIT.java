@@ -464,11 +464,24 @@ public class OIDCLoginIT {
             webDriver.findElement(By.name("username")).sendKeys("marissa6");
             webDriver.findElement(By.name("password")).sendKeys("saml6");
             
-            // Updated: Handle both old and new SimpleSAMLphp versions
-            try {
-                webDriver.clickAndWait(By.id("submit_button"));
-            } catch (org.openqa.selenium.NoSuchElementException e) {
-                webDriver.clickAndWait(By.cssSelector("button[type='submit']"));
+            // Updated: Handle different SimpleSAMLphp versions with multiple button selectors
+            boolean submitted = false;
+            for (By selector : new By[]{
+                    By.id("submit_button"),
+                    By.cssSelector("button[type='submit']"),
+                    By.xpath("//input[@type='submit']"),
+                    By.cssSelector("input[type='submit']")
+            }) {
+                try {
+                    webDriver.clickAndWait(selector);
+                    submitted = true;
+                    break;
+                } catch (org.openqa.selenium.NoSuchElementException e) {
+                    // Try next selector
+                }
+            }
+            if (!submitted) {
+                throw new RuntimeException("Could not find submit button on SAML login page");
             }
 
             Page.assertThatUrlEventuallySatisfies(webDriver, assertUrl -> assertUrl.startsWith(zoneUrl));
