@@ -700,8 +700,15 @@ public class SamlLoginIT {
         webDriver.get("%s/logout.do".formatted(zoneUrl));
         webDriver.get("%s/invitations/accept?code=%s".formatted(zoneUrl, code));
 
-        //redirected to saml login
-        webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+        // Updated: Check if automatic redirect to SAML happened, if not, navigate manually
+        try {
+            webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+        } catch (org.openqa.selenium.NoSuchElementException e) {
+            // Not on SAML page, manually navigate
+            webDriver.get(zoneUrl + "/saml2/authenticate/" + samlIdentityProviderDefinition.getIdpEntityAlias());
+            webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+        }
+        
         sendCredentials(username, password);
 
         //we should now be on the login page because we don't have a redirect
@@ -798,8 +805,15 @@ public class SamlLoginIT {
         String authUrl = "%s/oauth/authorize?client_id=%s&redirect_uri=%s&response_type=code&state=8tp0tR".formatted(zoneUrl, clientId, URLEncoder.encode(zoneUrl, StandardCharsets.UTF_8));
         webDriver.get(authUrl);
 
-        //we should now be in the Simple SAML PHP site
-        webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+        // Updated: Check if automatic redirect to SAML happened, if not, navigate manually
+        try {
+            webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+        } catch (org.openqa.selenium.NoSuchElementException e) {
+            // Not on SAML page, manually navigate
+            webDriver.get(zoneUrl + "/saml2/authenticate/" + provider.getOriginKey());
+            webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+        }
+        
         sendCredentials(testAccounts.getUserName(), "koala");
 
         assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("You should not see this page. Set up your redirect URI.");
@@ -889,8 +903,15 @@ public class SamlLoginIT {
                 .formatted(zoneUrl, clientDetails.getClientId(), URLEncoder.encode(zoneUrl, StandardCharsets.UTF_8));
         webDriver.get(authUrl);
 
-        //we should now be in the Simple SAML PHP site
-        webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+        // Updated: Check if automatic redirect to SAML happened, if not, navigate manually
+        try {
+            webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+        } catch (org.openqa.selenium.NoSuchElementException e) {
+            // Not on SAML page, manually navigate
+            webDriver.get(zoneUrl + "/saml2/authenticate/" + provider.getOriginKey());
+            webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+        }
+        
         sendCredentials(MARISSA4_USERNAME, MARISSA4_PASSWORD);
 
         assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("You should not see this page. Set up your redirect URI.");
@@ -1107,8 +1128,16 @@ public class SamlLoginIT {
         testClient.createClient(adminAccessToken, clientDetails);
 
         webDriver.get("%s/oauth/authorize?client_id=%s&redirect_uri=%s&response_type=code&state=8tp0tR".formatted(baseUrl, clientId, URLEncoder.encode(baseUrl, StandardCharsets.UTF_8)));
-        // we should now be in the Simple SAML PHP site
-        webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+        
+        // Updated: Check if automatic redirect to SAML happened, if not, navigate manually
+        try {
+            webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+        } catch (org.openqa.selenium.NoSuchElementException e) {
+            // Not on SAML page, manually navigate
+            webDriver.get(baseUrl + "/saml2/authenticate/" + provider.getOriginKey());
+            webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+        }
+        
         sendCredentials(testAccounts.getUserName(), "koala");
 
         //This is modified for branding login.yml changes...

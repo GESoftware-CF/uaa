@@ -48,9 +48,9 @@ public class LoginPage extends Page {
      * @return SamlLoginPage after navigation
      */
     public SamlLoginPage assertThatSamlLink_goesToSamlLoginPage(String originKey) {
-        // Directly navigate to SAML authentication endpoint instead of clicking link
-        // This works around the customer IDP domain filtering in the new login UI
-        driver.get(baseUrl + "/saml2/authenticate/%s".formatted(originKey));
+        // Get baseUrl from current URL if not set
+        String urlToUse = getBaseUrlForNavigation();
+        driver.get(urlToUse + "/saml2/authenticate/%s".formatted(originKey));
         return new SamlLoginPage(driver);
     }
 
@@ -61,8 +61,20 @@ public class LoginPage extends Page {
      * the app back in automatically and immediately redirect to the post-login page.
      */
     public HomePage assertThatSamlLink_goesToHomePage(String originKey) {
-        driver.get(baseUrl + "/saml2/authenticate/%s".formatted(originKey));
-        return new HomePage(driver, baseUrl);
+        String urlToUse = getBaseUrlForNavigation();
+        driver.get(urlToUse + "/saml2/authenticate/%s".formatted(originKey));
+        return new HomePage(driver, urlToUse);
+    }
+    
+    private String getBaseUrlForNavigation() {
+        if (baseUrl != null) {
+            return baseUrl;
+        }
+        // Extract base URL from current page URL
+        String currentUrl = driver.getCurrentUrl();
+        // Remove path and query parameters to get base URL
+        int pathStart = currentUrl.indexOf('/', currentUrl.indexOf("://") + 3);
+        return pathStart > 0 ? currentUrl.substring(0, pathStart) : currentUrl;
     }
 
     public HomePage sendLoginCredentials(String username, String password) {

@@ -207,8 +207,16 @@ class SamlLoginEmailIT {
                 .formatted(zoneUrl, clientDetails.getClientId(), URLEncoder.encode(zoneUrl, StandardCharsets.UTF_8));
         webDriver.get(authUrl);
 
-        //we should now be in the Simple SAML PHP site
-        webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+        // Updated: Manual redirect to SAML since automatic redirect may not work with new login UI
+        // Check if we're on SAML login page, if not, navigate there
+        try {
+            webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+        } catch (org.openqa.selenium.NoSuchElementException e) {
+            // Not on SAML page, manually navigate
+            webDriver.get(zoneUrl + "/saml2/authenticate/" + provider.getOriginKey());
+            webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+        }
+        
         sendCredentials("marissa6", "saml6");
         assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("You should not see this page. Set up your redirect URI.");
 

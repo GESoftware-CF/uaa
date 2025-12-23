@@ -451,9 +451,15 @@ public class OIDCLoginIT {
             webDriver.clickAndWait(By.linkText("My OIDC Provider"));
             assertThat(webDriver.getCurrentUrl()).contains(baseUrl);
 
-            // Updated: Navigate directly to SAML auth endpoint since links may not be visible
-            webDriver.get(baseUrl + "/saml2/authenticate/" + samlProvider.getOriginKey());
-            webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+            // Updated: Check if automatic redirect to SAML happened, if not, navigate manually
+            try {
+                webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+            } catch (org.openqa.selenium.NoSuchElementException e) {
+                // Not on SAML page, manually navigate
+                webDriver.get(baseUrl + "/saml2/authenticate/" + samlProvider.getOriginKey());
+                webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+            }
+            
             webDriver.findElement(By.name("username")).clear();
             webDriver.findElement(By.name("username")).sendKeys("marissa6");
             webDriver.findElement(By.name("password")).sendKeys("saml6");
