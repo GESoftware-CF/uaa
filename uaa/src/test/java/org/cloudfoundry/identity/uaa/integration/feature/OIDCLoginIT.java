@@ -452,8 +452,11 @@ public class OIDCLoginIT {
             assertThat(webDriver.getCurrentUrl()).contains(baseUrl);
 
             // After clicking OIDC provider, we're on UAA login page
-            // Click the SAML link to authenticate via SAML (preserves OIDC RelayState)
-            webDriver.clickAndWait(By.linkText("SAML Login"));
+            // Navigate to SAML endpoint to authenticate via SAML
+            // (Direct navigation works even if link is hidden by customer IDP filtering)
+            String currentUrl = webDriver.getCurrentUrl();
+            String samlAuthUrl = baseUrl + "/saml2/authenticate/" + samlProvider.getOriginKey();
+            webDriver.get(samlAuthUrl);
             
             // Now we should be on the SAML login page
             // Wait for SAML page to load
