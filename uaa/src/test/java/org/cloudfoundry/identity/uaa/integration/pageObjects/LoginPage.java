@@ -70,7 +70,7 @@ public class LoginPage extends Page {
         
         // Wait for SAML page to load and perform login
         Page.assertThatUrlEventuallySatisfies((UaaWebDriver) driver,
-            url -> url.containsAnyOf("/module.php/core/loginuserpass", "localhost"));
+            url -> url.contains("/module.php/core/loginuserpass") || url.contains("localhost"));
         
         // Perform SAML login
         performSamlLogin(username, password);

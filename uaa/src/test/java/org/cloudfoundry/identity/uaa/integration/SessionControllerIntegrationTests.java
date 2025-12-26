@@ -51,12 +51,13 @@ class SessionControllerIntegrationTests {
         webDriver.get(baseUrl +
                 "/session_management?clientId=admin&messageOrigin=http://localhost:8080");
 
+        // Wait for DOM to be ready and read values from hidden inputs
         Object clientId = webDriver.getJavascriptExecutor().executeScript(
-                "return clientId;");
+                "return document.getElementById('clientId').value;");
         assertThat(clientId).hasToString("admin");
 
         Object origin = webDriver.getJavascriptExecutor().executeScript(
-                "return messageOrigin;");
+                "return document.getElementById('messageOrigin').value;");
         assertThat(origin).hasToString("http://localhost:8080");
     }
 }
