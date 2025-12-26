@@ -56,6 +56,33 @@ public class LoginPage extends Page {
     }
     
     /**
+     * Navigate to SAML authentication endpoint, perform SAML login, and wait to return to UAA.
+     * This is a complete flow that handles the SAML redirect and login.
+     * 
+     * @param originKey The SAML IDP origin key (e.g., "simplesamlphp")
+     * @param username SAML username
+     * @param password SAML password
+     * @return LoginPage after SAML authentication completes and redirects back to UAA
+     */
+    public LoginPage assertThatSamlLink_performsLogin(String originKey, String username, String password) {
+        String urlToUse = getBaseUrlForNavigation();
+        driver.get(String.format("%s/saml2/authenticate/%s", urlToUse, originKey));
+        
+        // Wait for SAML page to load and perform login
+        Page.assertThatUrlEventuallySatisfies((UaaWebDriver) driver,
+            url -> url.contains("/module.php/core/loginuserpass") || url.contains("localhost"));
+        
+        // Perform SAML login
+        performSamlLogin(username, password);
+        
+        // Wait for redirect back to UAA
+        Page.assertThatUrlEventuallySatisfies((UaaWebDriver) driver,
+            url -> url.contains(urlToUse));
+        
+        return this;
+    }
+    
+    /**
      * Navigate to SAML authentication endpoint and perform login on SimpleSAMLphp IDP,
      * then return to UAA home page.
      */

@@ -451,20 +451,20 @@ public class OIDCLoginIT {
             webDriver.clickAndWait(By.linkText("My OIDC Provider"));
             assertThat(webDriver.getCurrentUrl()).contains(baseUrl);
 
-            // Updated: Check if automatic redirect to SAML happened, if not, navigate manually
-            try {
-                webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
-            } catch (org.openqa.selenium.NoSuchElementException e) {
-                // Not on SAML page, manually navigate
-                webDriver.get(baseUrl + "/saml2/authenticate/" + samlProvider.getOriginKey());
-                webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
-            }
+            // After clicking OIDC provider, we're on UAA login page
+            // Click the SAML link to authenticate via SAML (preserves OIDC RelayState)
+            webDriver.clickAndWait(By.linkText("SAML Login"));
+            
+            // Now we should be on the SAML login page
+            // Wait for SAML page to load
+            Page.assertThatUrlEventuallySatisfies(webDriver, 
+                assertUrl -> assertUrl.contains("/module.php/core/loginuserpass"));
             
             webDriver.findElement(By.name("username")).clear();
             webDriver.findElement(By.name("username")).sendKeys("marissa6");
             webDriver.findElement(By.name("password")).sendKeys("saml6");
             
-            // Updated: Handle different SimpleSAMLphp versions with multiple button selectors
+            // Handle different SimpleSAMLphp versions with multiple button selectors
             boolean submitted = false;
             for (By selector : new By[]{
                     By.id("submit_button"),
