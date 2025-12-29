@@ -339,6 +339,8 @@ public class UaaConfiguration {
             addPropertyAlias("refresh-token-validity", OAuthClient.class, "refreshTokenValidity");
             addPropertyAlias("user.override", Scim.class, "userOverride");
             addPropertyAlias("use-bcrypt-prefix", OAuthClient.class, "useBcryptPrefix");
+            addPropertyAlias("customer_idp", UaaConfiguration.class, "customer_idp");
+
         }
 
         @Override
