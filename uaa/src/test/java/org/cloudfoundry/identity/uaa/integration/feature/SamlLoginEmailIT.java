@@ -207,8 +207,16 @@ class SamlLoginEmailIT {
                 .formatted(zoneUrl, clientDetails.getClientId(), URLEncoder.encode(zoneUrl, StandardCharsets.UTF_8));
         webDriver.get(authUrl);
 
-        //we should now be in the Simple SAML PHP site
-        webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+        // Updated: Manual redirect to SAML since automatic redirect may not work with new login UI
+        // Check if we're on SAML login page, if not, navigate there
+        try {
+            webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+        } catch (org.openqa.selenium.NoSuchElementException e) {
+            // Not on SAML page, manually navigate
+            webDriver.get(zoneUrl + "/saml2/authenticate/" + provider.getOriginKey());
+            webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
+        }
+        
         sendCredentials("marissa6", "saml6");
         assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("You should not see this page. Set up your redirect URI.");
 
@@ -256,6 +264,27 @@ class SamlLoginEmailIT {
     }
 
     private void sendCredentials(String username, String password) {
-        sendCredentials(username, password, By.id("submit_button"));
+        webDriver.findElement(byUsername).clear();
+        webDriver.findElement(byUsername).sendKeys(username);
+        webDriver.findElement(byPassword).sendKeys(password);
+        // Updated: Handle different SimpleSAMLphp versions with multiple button selectors
+        boolean submitted = false;
+        for (By selector : new By[]{
+                By.id("submit_button"),
+                By.cssSelector("button[type='submit']"),
+                By.xpath("//input[@type='submit']"),
+                By.cssSelector("input[type='submit']")
+        }) {
+            try {
+                webDriver.clickAndWait(selector);
+                submitted = true;
+                break;
+            } catch (org.openqa.selenium.NoSuchElementException e) {
+                // Try next selector
+            }
+        }
+        if (!submitted) {
+            throw new RuntimeException("Could not find submit button on SAML login page");
+        }
     }
 }

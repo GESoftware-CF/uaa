@@ -14,6 +14,7 @@
 
 package org.cloudfoundry.identity.uaa.integration.feature;
 
+import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 
 /**
@@ -22,7 +23,9 @@ import org.openqa.selenium.WebDriver;
 public class SamlServerConfig {
     private static final String SAML_AUTH_SOURCE = "example-userpass";
     private static final String SIMPLESAMLPHP_UAA_ACCEPTANCE = "http://simplesamlphp.uaa-acceptance.cf-app.com";
-    private static final String SIMPLESAMLPHP_LOGIN_PROMPT_XPATH_EXPR = "//%s[contains(text(), 'Enter your username and password')]";
+    // Updated: Check for login form instead of "Welcome" text to handle different SimpleSAMLphp versions
+    // Different versions may have different headings or no heading at all
+    private static final String SIMPLESAMLPHP_LOGIN_PROMPT_XPATH_EXPR = "//input[@name='username']";
 
     private String serverUrl;
 
@@ -39,9 +42,9 @@ public class SamlServerConfig {
     }
 
     public String getLoginPromptXpathExpr() {
-        return isUpgraded() ?
-                SIMPLESAMLPHP_LOGIN_PROMPT_XPATH_EXPR.formatted("h2") :
-                SIMPLESAMLPHP_LOGIN_PROMPT_XPATH_EXPR.formatted("h1");
+        // Updated: Return the same XPath for all versions since we're checking for form elements
+        // The username input field is present in all SimpleSAMLphp versions
+        return SIMPLESAMLPHP_LOGIN_PROMPT_XPATH_EXPR;
     }
 
     public void logOut(WebDriver webDriver) {
@@ -56,6 +59,12 @@ public class SamlServerConfig {
 
     public String getWelcomePath() {
         return isUpgraded() ? "module.php/core/frontpage_welcome.php" : "module.php/core/welcome";
+    }
+
+    public By getSubmitButtonSelector() {
+        return isUpgraded() ?
+                By.cssSelector("button[type='submit']") :
+                By.id("submit_button");
     }
 
 }
