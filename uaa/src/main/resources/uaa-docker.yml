@@ -601,6 +601,11 @@ encryption:
   - label: CHANGE-THIS-KEY
     passphrase: CHANGEME
 
+# Customer IDP web domains (list of allowed domains)
+customer_idp:
+  web_domains:
+    - fssfed.ge.com
+
 #The secret that an external login server will use to authenticate to the uaa using the id `login`
 LOGIN_SECRET: loginsecret
 
