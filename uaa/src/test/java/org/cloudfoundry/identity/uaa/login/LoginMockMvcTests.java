@@ -1381,7 +1381,7 @@ public class LoginMockMvcTests {
 
         mockMvc.perform(get("/login").accept(TEXT_HTML).with(new SetServerNameRequestPostProcessor(identityZone.getSubdomain() + ".localhost")))
                 .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString(activeSamlIdentityProviderDefinition.getLinkText()))))
+                .andExpect(content().string(containsString(activeSamlIdentityProviderDefinition.getLinkText())))
                 .andExpect(content().string(not(containsString(inactiveSamlIdentityProviderDefinition.getLinkText()))));
     }
 
@@ -1911,9 +1911,11 @@ public class LoginMockMvcTests {
         identityProvider.setOriginKey(alias);
         identityProvider = createIdentityProvider(jdbcIdentityProviderProvisioning, identityZone, identityProvider);
 
+
+        // When active, the SAML provider link should be present
         mockMvc.perform(get("/login").accept(TEXT_HTML).with(new SetServerNameRequestPostProcessor(identityZone.getSubdomain() + ".localhost")))
                 .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString(samlIdentityProviderDefinition.getLinkText()))));
+                .andExpect(content().string(containsString(samlIdentityProviderDefinition.getLinkText())));
 
         identityProvider.setActive(false);
         jdbcIdentityProviderProvisioning.update(identityProvider, identityZone.getId());
