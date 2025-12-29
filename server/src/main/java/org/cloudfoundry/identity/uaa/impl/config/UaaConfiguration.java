@@ -120,6 +120,30 @@ public class UaaConfiguration {
     public Integer clientMaxCount;
     public RateLimit ratelimit;
 
+    // --- Added for customer_idp YAML mapping ---
+    @Valid
+    private CustomerIdp customer_idp;
+
+    public CustomerIdp getCustomer_idp() {
+        return customer_idp;
+    }
+
+    public void setCustomer_idp(CustomerIdp customer_idp) {
+        this.customer_idp = customer_idp;
+    }
+
+    public static class CustomerIdp {
+        private List<String> web_domains;
+
+        public List<String> getWeb_domains() {
+            return web_domains;
+        }
+
+        public void setWeb_domains(List<String> web_domains) {
+            this.web_domains = web_domains;
+        }
+    }
+
     public static class Zones {
         @Valid
         public InternalZone internal;
