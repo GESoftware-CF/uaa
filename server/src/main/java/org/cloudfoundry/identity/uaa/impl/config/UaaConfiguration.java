@@ -120,6 +120,30 @@ public class UaaConfiguration {
     public Integer clientMaxCount;
     public RateLimit ratelimit;
 
+    // --- Added for external_idp YAML mapping ---
+    @Valid
+    private ExternalIdp external_idp;
+
+    public ExternalIdp getExternal_idp() {
+        return external_idp;
+    }
+
+    public void setExternal_idp(ExternalIdp external_idp) {
+        this.external_idp = external_idp;
+    }
+
+    public static class ExternalIdp {
+        private List<String> web_domains;
+
+        public List<String> getWeb_domains() {
+            return web_domains;
+        }
+
+        public void setWeb_domains(List<String> web_domains) {
+            this.web_domains = web_domains;
+        }
+    }
+
     public static class Zones {
         @Valid
         public InternalZone internal;
@@ -339,6 +363,8 @@ public class UaaConfiguration {
             addPropertyAlias("refresh-token-validity", OAuthClient.class, "refreshTokenValidity");
             addPropertyAlias("user.override", Scim.class, "userOverride");
             addPropertyAlias("use-bcrypt-prefix", OAuthClient.class, "useBcryptPrefix");
+            addPropertyAlias("external_idp", UaaConfiguration.class, "external_idp");
+
         }
 
         @Override

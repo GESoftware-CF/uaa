@@ -184,7 +184,7 @@ class ResetPasswordIT {
         webDriver.clickAndWait(By.xpath("//input[@value='Create new password']"));
 
         assertThat(webDriver.getCurrentUrl()).isEqualTo(baseUrl + "/login?success=password_reset");
-        assertThat(webDriver.findElement(By.cssSelector(".alert-success")).getText()).contains("Password reset successful");
+        assertThat(webDriver.findElement(By.cssSelector(".toast__description")).getText()).contains("Password reset successful");
         webDriver.findElement(By.name("username")).sendKeys(username);
         webDriver.findElement(By.name("password")).sendKeys("new_password");
         webDriver.clickAndWait(By.xpath("//input[@value='Sign in']"));

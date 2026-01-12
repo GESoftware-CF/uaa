@@ -33,3 +33,5 @@ server:
     key-store-type: "PKCS12"
     key-alias: "uaa_ssl_cert"
     key-store-password: "k0*l*s3cur1tyr0ck$"
+externalIdpWebDomains:
+  - fssfed.ge.com

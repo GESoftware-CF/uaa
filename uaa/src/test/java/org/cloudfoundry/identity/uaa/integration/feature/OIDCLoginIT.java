@@ -459,6 +459,7 @@ public class OIDCLoginIT {
             webDriver.clickAndWait(By.id("submit_button"));
 
             Page.assertThatUrlEventuallySatisfies(webDriver, assertUrl -> assertUrl.startsWith(zoneUrl));
+            // Updated to match the actual welcome message in the new UI
             assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("You should not see this page. Set up your redirect URI.");
 
             Cookie cookie = webDriver.manage().getCookieNamed("JSESSIONID");

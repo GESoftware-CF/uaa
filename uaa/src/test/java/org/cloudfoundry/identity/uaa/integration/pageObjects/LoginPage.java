@@ -72,11 +72,28 @@ public class LoginPage extends Page {
      */
     private void clickSamlLoginLinkWithText(String matchText) {
         final AtomicReference<WebElement> matchingElement = new AtomicReference<>();
+        // First try to find links with saml-login-link class by text content
         driver.findElements(By.className("saml-login-link")).forEach(webElement -> {
             if (webElement.getText().contains(matchText)) {
                 matchingElement.compareAndSet(null, webElement);
             }
         });
+        // If not found, try customer-idp-login-button class
+        if (matchingElement.get() == null) {
+            driver.findElements(By.className("customer-idp-login-button")).forEach(webElement -> {
+                if (webElement.getText().contains(matchText)) {
+                    matchingElement.compareAndSet(null, webElement);
+                }
+            });
+        }
+        // If still not found, search all anchor tags in the saml-login div
+        if (matchingElement.get() == null) {
+            driver.findElements(By.cssSelector(".saml-login a")).forEach(webElement -> {
+                if (webElement.getText().contains(matchText)) {
+                    matchingElement.compareAndSet(null, webElement);
+                }
+            });
+        }
         if (matchingElement.get() == null) {
             throw new RuntimeException("No element with text " + matchText + " found");
         }

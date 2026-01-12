@@ -1,0 +1,1008 @@
+/* ============================================
+   PREDIX CARD STYLES
+   ============================================ */
+
+/* CSS Custom Properties (Variables) */
+:root {
+  /* Colors */
+  --predix-primary: #1f4e79;
+  --predix-primary-hover: #2c5aa0;
+  --predix-secondary: #f8f9fa;
+  --predix-text-primary: #333;
+  --predix-text-secondary: #666;
+  --predix-border: #e0e0e0;
+  --predix-white: #ffffff;
+  
+  /* Spacing */
+  --spacing-xs: 10px;
+  --spacing-sm: 15px;
+  --spacing-md: 20px;
+  --spacing-lg: 30px;
+  --spacing-xl: 40px;
+  --spacing-xxl: 50px;
+  
+  /* Font sizes */
+  --font-size-sm: 12px;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.5rem;
+  --font-size-xxl: 1.75rem;
+  --font-size-xxxl: 2rem;
+  
+  /* Font weights */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  
+  /* Line heights */
+  --line-height-tight: 1.5;
+  --line-height-normal: 1.6;
+  --line-height-relaxed: 1.7;
+  
+  /* Transitions */
+  --transition-fast: 0.3s ease;
+  
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.15);
+  
+  /* Border radius */
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+  
+  /* Card dimensions */
+  --card-width-tablet: 750px;
+  --card-width-desktop: 640px;
+  --card-width-xl: 640px;
+  --card-height-desktop: 527.9970092773438px;
+  
+  /* Breakpoints */
+  --breakpoint-mobile: 767px;
+  --breakpoint-tablet: 768px;
+  --breakpoint-desktop: 1025px;
+  --breakpoint-xl: 1440px;
+}
+
+/* ============================================
+   BASE CARD STYLES
+   ============================================ */
+
+.predix-uaa__card {
+  padding: var(--spacing-md);
+  margin: var(--spacing-md) auto;
+  max-width: 600px;
+}
+
+.predix-card {
+  overflow: hidden;
+  -webkit-transition: box-shadow var(--transition-fast);
+  -moz-transition: box-shadow var(--transition-fast);
+  transition: box-shadow var(--transition-fast);
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -ms-flex-direction: column;
+  flex-direction: column;
+  -webkit-box-pack: space-between;
+  -ms-flex-pack: space-between;
+  justify-content: space-between;
+  -webkit-box-align: center;
+  -ms-flex-align: center;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.predix-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+/* ============================================
+   CARD COMPONENTS
+   ============================================ */
+
+/* Card Header */
+.predix-card .card-header {
+  background: linear-gradient(135deg, var(--predix-primary), var(--predix-primary-hover));
+  color: var(--predix-white);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--predix-border);
+  width: 100%;
+  text-align: center;
+}
+
+.predix-card .card-title {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  font-family: 'GE Inspira', sans-serif;
+  color: var(--predix-white);
+}
+
+/* Card Welcome Title */
+.card-welcome-title {
+  margin: 0 0 var(--spacing-md) 0;
+  font-size: var(--font-size-xxl);
+  font-weight: var(--font-weight-semibold);
+  font-family: 'GE Inspira', sans-serif;
+  color: var(--predix-primary);
+  text-align: center;
+  line-height: var(--line-height-tight);
+  flex-shrink: 0; /* Prevent title from shrinking */
+}
+
+/* Card Body */
+.predix-card .card-body {
+  padding: var(--spacing-xs);
+  width: 100%;
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+.predix-card .card-text {
+  margin-bottom: var(--spacing-xs);
+  color: var(--predix-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-tight);
+  text-align: center;
+}
+
+/* Compact login content for fixed height */
+.predix-uaa__login {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  flex: 1;
+  overflow: hidden;
+  justify-content: space-between;
+}
+
+.predix-uaa__login .u-p-- {
+  margin-bottom: var(--spacing-xs) !important;
+}
+
+.predix-uaa__login p {
+  margin: var(--spacing-xs) 0;
+  font-size: var(--font-size-sm);
+}
+
+/* Card Actions */
+.predix-card .card-actions {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  gap: var(--spacing-xs);
+  -ms-flex-wrap: wrap;
+  flex-wrap: wrap;
+  -webkit-box-pack: center;
+  -ms-flex-pack: center;
+  justify-content: center;
+  width: 100%;
+}
+
+/* ============================================
+   BUTTON STYLES
+   ============================================ */
+
+.predix-card .btn {
+  padding: var(--spacing-xs) var(--spacing-md);
+  border: none;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: var(--font-weight-medium);
+  -webkit-transition: all var(--transition-fast);
+  -moz-transition: all var(--transition-fast);
+  transition: all var(--transition-fast);
+  display: inline-block;
+}
+
+.predix-card .btn:focus {
+  outline: 2px solid var(--predix-primary);
+  outline-offset: 2px;
+}
+
+.predix-card .btn:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.predix-card .btn:focus-visible {
+  outline: 3px solid var(--predix-primary);
+  outline-offset: 2px;
+}
+
+/* Button Variants */
+.predix-card .btn-primary {
+  background: var(--predix-primary);
+  color: var(--predix-white);
+}
+
+.predix-card .btn-primary:hover {
+  background: var(--predix-primary-hover);
+  color: var(--predix-white);
+}
+
+.predix-card .btn-secondary {
+  background: var(--predix-secondary);
+  color: var(--predix-primary);
+  border: 1px solid var(--predix-primary);
+}
+
+.predix-card .btn-secondary:hover {
+  background: var(--predix-primary);
+  color: var(--predix-white);
+}
+
+/* Customer IDP Button */
+.customer-idp-login-button {
+  display: inline-block !important;
+  width: 100% !important;
+  padding: 8px 12px !important;
+  background-color: #C8FF08 !important;
+  color: #000 !important;
+  text-decoration: none !important;
+  border-radius: 4px !important;
+  text-align: center !important;
+  font-weight: 500 !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: background-color 0.2s ease !important;
+  box-sizing: border-box;
+  font-size: 14px !important;
+}
+
+.customer-idp-login-button:hover {
+  background-color: #B8EF00 !important;
+  color: #000 !important;
+}
+
+.customer-idp-login-button:focus {
+  outline: 2px solid #000;
+  outline-offset: 2px;
+}
+
+.customer-idp-login-button span {
+  color: #000 !important;
+}
+
+.customer-idp-login-button svg {
+  display: inline-block;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+/* ============================================
+   CARD CONTENT STYLES
+   ============================================ */
+
+.predix-card__header {
+  text-align: center;
+  width: 100%;
+}
+
+.predix-card__title {
+  color: var(--predix-primary);
+  font-size: var(--font-size-xl);
+  margin: 0;
+  font-weight: var(--font-weight-semibold);
+}
+
+.predix-card__content {
+  color: var(--predix-text-secondary);
+  text-align: center;
+  width: 100%;
+  line-height: var(--line-height-normal);
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+/* Mobile First Approach (≤767px) */
+@media screen and (max-width: 767px) {
+  .predix-card {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+    max-width: none;
+    gap: 0;
+  }
+  
+  .predix-card:hover {
+    box-shadow: none;
+  }
+  
+  /* Mobile-optimized buttons */
+  .predix-card .btn {
+    min-height: 44px; /* Touch-friendly size */
+    padding: 12px 24px;
+    font-size: 16px; /* Prevents iOS zoom */
+    min-width: 120px;
+  }
+  
+  /* Enhanced typography for mobile */
+  .predix-card__title,
+  .predix-card .card-title {
+    font-size: var(--font-size-xxl);
+  }
+  
+  /* Mobile card welcome title */
+  .card-welcome-title {
+    font-size: var(--font-size-xl); /* Smaller on mobile: 1.5rem */
+    margin: 0 0 var(--spacing-sm) 0; /* Reduced margin */
+    padding: 0 var(--spacing-sm); /* Side padding for narrow screens */
+  }
+  
+  /* Mobile footer layout */
+  .footer-links {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-md);
+    padding: 0;
+    width: 100%;
+    text-align: center;
+  }
+  
+  .footer-link-item {
+    width: 100%;
+    text-align: center;
+    display: flex;
+    justify-content: center;
+  }
+  
+  .footer-link-item a {
+    text-align: center;
+    display: block;
+    width: auto;
+  }
+  
+  .footer-link-item.create-account {
+    order: 1;
+  }
+  
+  .footer-link-item.reset-password {
+    order: 2;
+  }
+  
+  /* Mobile copyright styling */
+  .footer .copyright div {
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-md);
+    text-align: center;
+    font-family: Roboto;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-normal);
+    line-height: 16px;
+    letter-spacing: 0.24px;
+    margin-bottom: -16px;
+    background: transparent;
+  }
+}
+
+/* Tablet Styles (768px - 1024px) */
+@media screen and (min-width: 768px) and (max-width: 1024px) {
+  .predix-card {
+    background: rgba(0, 0, 0, 0.6) !important;
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow-sm);
+    padding: var(--spacing-sm);
+    margin: var(--spacing-sm) auto var(--spacing-md);
+    max-width: var(--card-width-tablet);
+    gap: var(--spacing-sm);
+    overflow: hidden;
+  }
+  
+  .predix-card:hover {
+    box-shadow: var(--shadow-md);
+  }
+  
+  /* Tablet card welcome title */
+  .card-welcome-title {
+    font-size: var(--font-size-lg);
+    margin: 0 0 var(--spacing-xs) 0;
+    padding: 0;
+    line-height: 1.2;
+  }
+
+  .card-body {
+    padding: var(--spacing-xs);
+    overflow: hidden;
+  }
+  
+  .footer-links {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    padding: var(--spacing-xs) 0;
+    flex-wrap: wrap;
+  }
+  
+  .footer-link-item.create-account,
+  .footer-link-item.reset-password {
+    text-align: center !important;
+  }
+  
+  .footer-link-item.create-account a,
+  .footer-link-item.reset-password a {
+    text-align: center !important;
+  }
+  
+  .footer .copyright div {
+    text-align: center;
+    font-family: Roboto, -webkit-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-normal);
+    line-height: 16px;
+    letter-spacing: 0.24px;
+    margin-bottom: var(--spacing-sm);
+    padding: var(--spacing-xs);
+    background: transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+  }
+}
+
+/* Desktop Styles (1025px - 1439px) */
+@media screen and (min-width: 1025px) and (max-width: 1439px) {
+  .predix-card {
+    background: rgba(0, 0, 0, 0.4) !important;
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow-sm);
+    padding: var(--spacing-xs);
+    margin: var(--spacing-md) auto var(--spacing-xl); /* Added bottom margin */
+    width: var(--card-width-desktop);
+    max-width: var(--card-width-desktop);
+    min-height: var(--card-height-desktop);
+    gap: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  
+  .predix-card:hover {
+    box-shadow: var(--shadow-md);
+  }
+  
+  /* Desktop card welcome title */
+  .card-welcome-title {
+    font-size: var(--font-size-lg); /* Smaller size to fit content */
+    margin: 0 0 var(--spacing-xs) 0; /* Minimal margin */
+    padding: 0;
+    line-height: 1.2;
+  }
+
+  .card-body {
+    padding: var(--spacing-xs);
+    overflow-x: hidden;
+    overflow-y: visible;
+    flex: 1;
+  }
+  
+  .footer-links {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 109px;
+    margin-bottom: var(--spacing-lg); /* Added margin for footer visibility */
+  }
+  
+  .footer-link-item.create-account,
+  .footer-link-item.reset-password {
+    text-align: center !important;
+  }
+  
+  .footer-link-item.create-account a,
+  .footer-link-item.reset-password a {
+    text-align: center !important;
+  }
+  
+  .footer .copyright div {
+    text-align: center;
+    font-family: Roboto, -webkit-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-normal);
+    line-height: 16px;
+    letter-spacing: 0.24px;
+    /* margin-bottom: var(--spacing-lg); */ /* Changed from -16px to positive margin */
+    /* padding-bottom: var(--spacing-md); */ /* Added padding for safe area */
+    background: gray;
+    background: -webkit-linear-gradient(gray, gray);
+    background: -moz-linear-gradient(gray, gray);
+    background: -o-linear-gradient(gray, gray);
+    background: linear-gradient(gray, gray);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+  }
+}
+
+/* Extra Large Screens (≥1440px) */
+@media screen and (min-width: 1440px) {
+  .predix-card {
+    background: rgba(0, 0, 0, 0.4) !important;
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow-sm);
+    width: var(--card-width-xl);
+    max-width: var(--card-width-xl);
+    min-height: var(--card-height-desktop);
+    padding: var(--spacing-xs);
+    margin: var(--spacing-md) auto var(--spacing-xl); /* Added bottom margin */
+    gap: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  
+  .predix-card:hover {
+    box-shadow: var(--shadow-md);
+  }
+  
+  /* XL Desktop card welcome title */
+  .card-welcome-title {
+    font-size: var(--font-size-lg); /* Smaller size to fit content */
+    margin: 0 0 var(--spacing-xs) 0; /* Minimal margin */
+    padding: 0;
+    line-height: 1.2;
+    letter-spacing: 0.5px; /* Subtle letter spacing for large screens */
+  }
+
+  .card-body {
+    padding: var(--spacing-xs);
+    overflow-x: hidden;
+    overflow-y: visible;
+    flex: 1;
+  }
+  
+  /* Enhanced typography for large screens */
+  .predix-card__title,
+  .predix-card .card-title {
+    font-size: var(--font-size-xxxl);
+  }
+  
+  .predix-card .card-text,
+  .predix-card__content {
+    font-size: var(--font-size-lg);
+    line-height: var(--line-height-relaxed);
+  }
+  
+  .footer-links {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 109px;
+    margin-bottom: var(--spacing-xl); /* Added larger margin for extra large screens */
+  }
+  
+  .footer-link-item.create-account,
+  .footer-link-item.reset-password {
+    text-align: center !important;
+  }
+  
+  .footer-link-item.create-account a,
+  .footer-link-item.reset-password a {
+    text-align: center !important;
+  }
+  
+  .footer .copyright div {
+    text-align: center;
+    font-family: Roboto, -webkit-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-normal);
+    line-height: 16px;
+    letter-spacing: 0.24px;
+    /* margin-bottom: var(--spacing-xl); */ /* Changed from -16px to positive margin */
+    /* padding-bottom: var(--spacing-lg); */ /* Added larger padding for extra large screens */
+    background: gray;
+    background: -webkit-linear-gradient(gray, gray);
+    background: -moz-linear-gradient(gray, gray);
+    background: -o-linear-gradient(gray, gray);
+    background: linear-gradient(gray, gray);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+  }
+}
+
+/* ============================================
+   ACCESSIBILITY & PREFERENCE SUPPORT
+   ============================================ */
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .predix-card,
+  .predix-card .btn {
+    -webkit-transition: none;
+    -moz-transition: none;
+    transition: none;
+  }
+}
+
+
+
+/* Dark Mode Support (Future Enhancement) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --predix-text-primary: #e0e0e0;
+    --predix-text-secondary: #b0b0b0;
+    --predix-border: #404040;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .predix-card {
+    background: var(--predix-white) !important;
+    box-shadow: none !important;
+    border: 1px solid var(--predix-border);
+  }
+  
+  .predix-card .btn {
+    background: var(--predix-white) !important;
+    color: var(--predix-primary) !important;
+    border: 1px solid var(--predix-primary);
+  }
+}
+
+/* ============================================
+   ENHANCED TOAST STYLES (New Design)
+   ============================================ */
+
+.toast {
+  --icon-color: #7FAF1C;
+  --border-color: #7FAF1C;
+  
+  padding: 0;
+  /* border: 1px solid #e6e6e6; */
+  /* border-left: 5px solid var(--border-color); */
+  border-radius: 4px;
+  background-color: #fff;
+  max-width: 72ch;
+  font-size: 16px;
+  display: flex;
+  align-items: stretch;
+  margin-bottom: 1rem;
+  position: relative;
+  color: #333;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.toast__icon,
+.toast__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toast__icon svg,
+.toast__close svg {
+  vertical-align: middle;
+}
+
+.toast__icon {
+  color: #ffffff;
+  font-size: 1.25em;
+  background-color: var(--icon-color);
+  padding: 1rem;
+  border-right: 1px solid rgba(0,0,0,0.05);
+  min-width: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Responsive behavior for mobile devices */
+@media (max-width: 576px) {
+  .toast__icon {
+    display: none;
+  }
+  
+  .toast {
+    border-left-width: 4px; /* Keep the colored indicator */
+  }
+}
+
+.toast__close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+  background: transparent;
+  border: none;
+  z-index: 1; /* Ensure it's always clickable */
+}
+
+.toast__close:hover {
+  opacity: 1;
+}
+
+/* Responsive behavior for mobile devices */
+@media (max-width: 576px) {
+  .toast__close {
+    top: 0.4rem;
+    right: 0.4rem;
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+}
+
+.toast__content {
+  line-height: 1.5;
+  padding: 1rem 2rem 1rem 1rem; /* Extra padding right for close button */
+  display: flex;
+  flex-direction: column;
+  min-width: 0px;
+  gap: 8px;
+  flex: 1;
+  text-align: left;
+}
+
+.toast.inline .toast__content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+/* Responsive behavior for mobile devices */
+@media (max-width: 576px) {
+  .toast__content {
+    padding: 0.75rem 1.5rem 0.75rem 0.75rem; /* Slightly reduced padding for mobile */
+    width: 100%; /* Ensure content takes full width when icon is hidden */
+  }
+  
+  .toast__message {
+    width: 100%; /* Full width for message on mobile */
+  }
+}
+
+.toast__message {
+  display: block;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.toast.inline .toast__message {
+  display: block;
+}
+
+
+
+.toast__description {
+  color: #555;
+  font-size: 16px;
+  font-weight: 400;
+  display: inline;
+  text-align: left;
+  font-family: Roboto, -webkit-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+
+
+.toast__actions {
+  align-self: baseline;
+  margin-left: 0.75rem;
+}
+
+.toast .btn {
+  background: transparent;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  padding: 8px 12px;
+  text-wrap: nowrap;
+  font-size: 14px;
+  font-weight: 500;
+  vertical-align: middle;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toast .btn:hover {
+  background-color: #f5f5f5;
+  border-color: #999;
+}
+
+/* Success Toast Variant */
+.toast.toast--success {
+  --icon-color: #7FAF1C;
+  --border-color: #7FAF1C;
+}
+
+.toast.toast--success .toast__icon {
+  background-color: #7FAF1C !important;
+  color: #ffffff;
+}
+
+/* Error Toast Variant */
+.toast.toast--error {
+  --icon-color: #B40000;
+  --border-color: #B40000;
+}
+
+.toast.toast--error .toast__icon {
+  background-color: #B40000 !important;
+  color: #ffffff;
+}
+
+/* Warning Toast Variant */
+.toast.toast--warning {
+  --icon-color: #f59e0b;
+  --border-color: #f59e0b;
+}
+
+.toast.toast--warning .toast__icon {
+  background-color: #f59e0b !important;
+  color: #ffffff;
+}
+
+/* Info Toast Variant */
+.toast.toast--info {
+  --icon-color: #00b3c8;
+  --border-color: #00b3c8;
+}
+
+.toast.toast--info .toast__icon {
+  background-color: #00b3c8 !important;
+  color: #ffffff;
+}
+
+/* ============================================
+   RESPONSIVE TOAST STYLES FOR MOBILE/TABLET
+   ============================================ */
+
+/* Tablet responsive design */
+@media (max-width: 1024px) {
+  .toast {
+    font-size: 15px;
+    padding: 1.25rem;
+    max-width: calc(100vw - 2rem);
+    margin: 0 1rem 1rem 1rem;
+  }
+  
+  .toast__description {
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.4;
+  }
+  
+  .toast__icon {
+    font-size: 1.1em;
+  }
+  
+  .toast .btn {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+}
+
+/* Mobile responsive design */
+@media (max-width: 768px) {
+  .toast {
+    font-size: 16px;
+    padding: 1.5rem 1rem;
+    max-width: calc(100vw - 1rem);
+    margin: 0 0.5rem 1rem 0.5rem;
+    gap: 0.75rem;
+    border-radius: 8px;
+  }
+  
+  .toast.inline .toast__content {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .toast__description {
+    font-size: 16px;
+    line-height: 1.5;
+    color: inherit;
+  }
+  
+  .toast__icon {
+    font-size: 1.2em;
+    align-self: flex-start;
+  }
+  
+  .toast__close {
+    margin-left: 0;
+    padding: 8px;
+    align-self: flex-start;
+  }
+  
+  .toast .btn {
+    padding: 12px 16px;
+    font-size: 15px;
+    min-width: 80px;
+    align-self: flex-start;
+  }
+  
+  /* Stack content vertically on mobile */
+  .toast__message {
+    gap: 8px;
+  }
+  
+  .toast__actions {
+    margin-left: 0;
+    margin-top: 8px;
+  }
+}
+
+/* Small mobile devices */
+@media (max-width: 480px) {
+  .toast {
+    font-size: 16px;
+    padding: 1.25rem 0.75rem;
+    max-width: calc(100vw - 0.5rem);
+    margin: 0 0.25rem 1rem 0.25rem;
+    gap: 0.5rem;
+  }
+  
+  .toast__description {
+    font-size: 14px;
+    line-height: 1.6;
+    word-break: break-word;
+    hyphens: auto;
+  }
+  
+  .toast__icon {
+    font-size: 1.1em;
+  }
+  
+  .toast__close {
+    padding: 6px;
+  }
+  
+  .toast .btn {
+    padding: 10px 14px;
+    font-size: 14px;
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* Enhanced contrast and readability */
+@media (max-width: 768px) {
+  .toast.toast--error .toast__description {
+    color: #555;
+    font-weight: 400;
+  }
+  
+  .toast.toast--success .toast__description {
+    color: #555;
+    font-weight: 500;
+  }
+  
+  .toast .toast__description {
+    color: #555;
+    font-weight: 500;
+  }
+}
+
+/* Touch-friendly interactions */
+@media (hover: none) and (pointer: coarse) {
+  .toast__close {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .toast .btn {
+    min-height: 44px;
+    padding: 12px 20px;
+  }
+}
