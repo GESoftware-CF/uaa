@@ -596,3 +596,8 @@ uaa:
 #    autoAdd: true
 #  externalGroupsWhitelist:
 #    - '*'
+
+# External IDP web domains (list of allowed domains)
+external_idp:
+  web_domains:
+    - fssfed.ge.com

@@ -222,7 +222,7 @@ class LoginIT {
         assertThat(webDriver.getTitle()).isEqualTo("Predix");
         assertThat(webDriver.getPageSource()).doesNotContain("or sign in with:");
         attemptLogin(newUserEmail, USER_PASSWORD);
-        assertThat(webDriver.findElement(By.className("alert-error")).getText()).contains("Provided credentials are invalid. Please try again.");
+        assertThat(webDriver.findElement(By.cssSelector(".toast__description")).getText()).contains("Provided credentials are invalid. Please try again.");
 
         String uaaLoginHint = URLEncoder.encode("{\"origin\":\"uaa\"}", StandardCharsets.UTF_8);
         webDriver.get(baseUrl + "/login?login_hint=" + uaaLoginHint);
@@ -271,7 +271,7 @@ class LoginIT {
 
         attemptLogin(testAccounts.getUserName(), "invalidpassword");
 
-        assertThat(webDriver.findElement(By.cssSelector("p")).getText()).contains("Provided credentials are invalid. Please try again.");
+        assertThat(webDriver.findElement(By.cssSelector(".toast__description")).getText()).contains("Provided credentials are invalid. Please try again.");
     }
 
     @Test
@@ -333,7 +333,7 @@ class LoginIT {
         }
 
         attemptLogin(userEmail, USER_PASSWORD);
-        assertThat(webDriver.findElement(By.cssSelector(".alert-error")).getText()).contains("Your account has been locked because of too many failed attempts to login.");
+        assertThat(webDriver.findElement(By.cssSelector(".toast__description")).getText()).contains("Your account has been locked because of too many failed attempts to login.");
     }
 
     public void attemptLogin(String username, String password) {

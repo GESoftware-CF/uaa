@@ -1381,8 +1381,8 @@ public class LoginMockMvcTests {
 
         mockMvc.perform(get("/login").accept(TEXT_HTML).with(new SetServerNameRequestPostProcessor(identityZone.getSubdomain() + ".localhost")))
                 .andExpect(status().isOk())
-                .andExpect(xpath("//a[text()='" + activeSamlIdentityProviderDefinition.getLinkText() + "']").exists())
-                .andExpect(xpath("//a[text()='" + inactiveSamlIdentityProviderDefinition.getLinkText() + "']").doesNotExist());
+                .andExpect(content().string(containsString(activeSamlIdentityProviderDefinition.getLinkText())))
+                .andExpect(content().string(not(containsString(inactiveSamlIdentityProviderDefinition.getLinkText()))));
     }
 
     @Test
@@ -1911,16 +1911,18 @@ public class LoginMockMvcTests {
         identityProvider.setOriginKey(alias);
         identityProvider = createIdentityProvider(jdbcIdentityProviderProvisioning, identityZone, identityProvider);
 
+
+        // When active, the SAML provider link should be present
         mockMvc.perform(get("/login").accept(TEXT_HTML).with(new SetServerNameRequestPostProcessor(identityZone.getSubdomain() + ".localhost")))
                 .andExpect(status().isOk())
-                .andExpect(xpath("//a[text()='" + samlIdentityProviderDefinition.getLinkText() + "']").exists());
+                .andExpect(content().string(containsString(samlIdentityProviderDefinition.getLinkText())));
 
         identityProvider.setActive(false);
         jdbcIdentityProviderProvisioning.update(identityProvider, identityZone.getId());
 
         mockMvc.perform(get("/login").accept(TEXT_HTML).with(new SetServerNameRequestPostProcessor(identityZone.getSubdomain() + ".localhost")))
                 .andExpect(status().isOk())
-                .andExpect(xpath("//a[text()='" + samlIdentityProviderDefinition.getLinkText() + "']").doesNotExist());
+                .andExpect(content().string(not(containsString(samlIdentityProviderDefinition.getLinkText()))));
     }
 
     @Test
@@ -3213,7 +3215,7 @@ public class LoginMockMvcTests {
         void hasInvalidError() throws Exception {
             mockMvc.perform(
                             get("/login?error=foobar&error=invalid_login_request"))
-                    .andExpect(content().string(containsString("Error!")));
+                    .andExpect(xpath("//span[@class='toast__description'][contains(text(), 'An error occurred!')]").exists());
         }
 
         @Test
@@ -3227,7 +3229,7 @@ public class LoginMockMvcTests {
         void hasInvalidSuccess() throws Exception {
             mockMvc.perform(
                             get("/login?success=foobar&success=verify_success"))
-                    .andExpect(content().string(containsString("Success!")));
+                    .andExpect(xpath("//span[@class='toast__description'][contains(text(), 'Operation completed successfully!')]").exists());
         }
     }
 
