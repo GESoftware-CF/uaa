@@ -1006,3 +1006,7 @@
     padding: 12px 20px;
   }
 }
+
+a.customer-idp-login-button {
+    color: black !important;
+}
