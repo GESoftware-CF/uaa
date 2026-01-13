@@ -383,3 +383,7 @@ oauth:
       - roles
       - user_attributes
       - uaa.offline_token
+# External IDP web domains (list of allowed domains)
+external_idp:
+  web_domains:
+    - fssfed.ge.com

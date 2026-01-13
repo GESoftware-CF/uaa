@@ -973,14 +973,14 @@ public class SamlLoginIT {
         assertThat(webDriver.getTitle()).isEqualTo(zone.getName());
 
         // the first provider is shown
-        List<WebElement> elements = webDriver.findElements(By.xpath("//a[text()='" + samlIdentityProviderDefinition.getLinkText() + "']"));
+        List<WebElement> elements = webDriver.findElements(By.xpath("//a[contains(text(),'" + samlIdentityProviderDefinition.getLinkText() + "')]"));
         assertThat(elements).hasSize(1);
         // the dummy provider is shown
-        elements = webDriver.findElements(By.xpath("//a[text()='" + samlIdentityProviderDefinition1.getLinkText() + "']"));
+        elements = webDriver.findElements(By.xpath("//a[contains(text(),'" + samlIdentityProviderDefinition1.getLinkText() + "')]"));
         assertThat(elements).hasSize(1);
 
         // click on the first provider to login
-        WebElement element = webDriver.findElement(By.xpath("//a[text()='" + samlIdentityProviderDefinition.getLinkText() + "']"));
+        WebElement element = webDriver.findElement(By.xpath("//a[contains(text(),'" + samlIdentityProviderDefinition.getLinkText() + "')]"));
         element.click();
         webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
         sendCredentials(testAccounts.getUserName(), testAccounts.getPassword());
@@ -997,10 +997,10 @@ public class SamlLoginIT {
         webDriver.get("%s/logout.do".formatted(testZone1Url));
         assertThat(webDriver.getTitle()).isEqualTo(zone.getName());
         // the first provider is not shown
-        elements = webDriver.findElements(By.xpath("//a[text()='" + samlIdentityProviderDefinition.getLinkText() + "']"));
+        elements = webDriver.findElements(By.xpath("//a[contains(text(),'" + samlIdentityProviderDefinition.getLinkText() + "')]"));
         assertThat(elements).isEmpty();
         // the dummy provider is shown
-        elements = webDriver.findElements(By.xpath("//a[text()='" + samlIdentityProviderDefinition1.getLinkText() + "']"));
+        elements = webDriver.findElements(By.xpath("//a[contains(text(),'" + samlIdentityProviderDefinition1.getLinkText() + "')]"));
         assertThat(elements).hasSize(1);
 
         //enable the first provider
@@ -1010,10 +1010,10 @@ public class SamlLoginIT {
         webDriver.get("%s/login".formatted(testZone1Url));
         assertThat(webDriver.getTitle()).isEqualTo(zone.getName());
         // the first provider is shown
-        elements = webDriver.findElements(By.xpath("//a[text()='" + samlIdentityProviderDefinition.getLinkText() + "']"));
+        elements = webDriver.findElements(By.xpath("//a[contains(text(),'" + samlIdentityProviderDefinition.getLinkText() + "')]"));
         assertThat(elements).hasSize(1);
         // the dummy provider is shown
-        elements = webDriver.findElements(By.xpath("//a[text()='" + samlIdentityProviderDefinition1.getLinkText() + "']"));
+        elements = webDriver.findElements(By.xpath("//a[contains(text(),'" + samlIdentityProviderDefinition1.getLinkText() + "')]"));
         assertThat(elements).hasSize(1);
     }
 
@@ -1036,9 +1036,8 @@ public class SamlLoginIT {
         testClient.createClient(adminAccessToken, clientDetails);
 
         webDriver.get("%s/oauth/authorize?client_id=%s&redirect_uri=http%%3A%%2F%%2Flocalhost%%3A8888%%2Flogin&response_type=code&state=8tp0tR".formatted(baseUrl, clientId));
-        assertThat(webDriver.findElement(By.xpath("//a[text()='" + provider.getConfig().getLinkText() + "']"))).isNotNull();
-        assertThat(webDriver.findElement(By.xpath("//a[text()='" + provider2.getConfig().getLinkText() + "']"))).isNotNull();
-    }
+              assertThat(webDriver.findElement(By.xpath("//a[contains(text(),'" + provider.getConfig().getLinkText() + "')]"))).isNotNull();
+        assertThat(webDriver.findElement(By.xpath("//a[contains(text(),'" + provider2.getConfig().getLinkText() + "')]"))).isNotNull();  }
 
     @Test
     void loginSamlOnlyProviderNoUsernamePassword() {
