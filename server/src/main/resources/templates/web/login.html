@@ -87,7 +87,7 @@
             </th:block>
         </th:block>
         
-        <th:block th:if="${@externalIdpService.hasExternalIdpWebDomains()}">
+        <th:block th:if="${@externalIdpService.hasCustomerIdps(idpDefinitions, oauthLinks)}">
             <p>Or sign in with: </p>
         </th:block>
 
