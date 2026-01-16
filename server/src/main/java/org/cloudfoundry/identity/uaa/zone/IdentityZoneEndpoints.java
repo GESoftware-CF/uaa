@@ -408,7 +408,7 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
     public ResponseEntity<? extends ClientDetails> deleteClient(
             @PathVariable String identityZoneId, @PathVariable String clientId) {
         if (identityZoneId == null) {
-            throw new ZoneDoesNotExistsException(identityZoneId);
+            throw new ZoneDoesNotExistsException(null);
         }
         if (!IdentityZoneHolder.isUaa() && !identityZoneId.equals(IdentityZoneHolder.get().getId())) {
             throw new AccessDeniedException("Zone admins can only delete their own zone.");
@@ -426,7 +426,7 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
         }
     }
 
-    @RequestMapping(method = POST, value = "{identityZoneId}/key-provider-config")
+    @PostMapping("{identityZoneId}/key-provider-config")
     public ResponseEntity<KeyProviderConfig> createKeyProviderConfig(@RequestBody KeyProviderConfig body, @PathVariable String identityZoneId) throws KeyProviderValidator.KeyProviderValidatorException {
         validateZoneId(identityZoneId);
         body.setIdentityZoneId(identityZoneId);
@@ -435,19 +435,19 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
         return new ResponseEntity<>(keyProvider, CREATED);
     }
 
-    @RequestMapping(method = GET, value="{identityZoneId}/key-provider-config/{keyProviderId}")
+    @GetMapping("{identityZoneId}/key-provider-config/{keyProviderId}")
     public ResponseEntity<KeyProviderConfig> retrieveKeyProviderConfig(@PathVariable String identityZoneId, @PathVariable String keyProviderId) {
         validateZoneId(identityZoneId);
         return new ResponseEntity<>(keyProviderProvisioning.retrieve(keyProviderId), OK);
     }
 
-    @RequestMapping(method = GET, value="{identityZoneId}/key-provider-config")
+    @GetMapping("{identityZoneId}/key-provider-config")
     public ResponseEntity<KeyProviderConfig> findKeyProviderConfigs(@PathVariable String identityZoneId) {
         validateZoneId(identityZoneId);
         return new ResponseEntity<>(keyProviderProvisioning.findActive(), OK);
     }
 
-    @RequestMapping(method = DELETE, value="{identityZoneId}/key-provider-config/{keyProviderId}")
+    @DeleteMapping("{identityZoneId}/key-provider-config/{keyProviderId}")
     public ResponseEntity<KeyProviderConfig> deleteKeyProviderConfig(@PathVariable String identityZoneId, @PathVariable String keyProviderId) {
         validateZoneId(identityZoneId);
         int deleted = keyProviderProvisioning.delete(keyProviderId);

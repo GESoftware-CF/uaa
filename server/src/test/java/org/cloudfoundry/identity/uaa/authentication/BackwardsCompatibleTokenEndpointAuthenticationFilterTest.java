@@ -222,7 +222,7 @@ class BackwardsCompatibleTokenEndpointAuthenticationFilterTest {
     }
 
     @Test
-    @Disabled("GE Fork has its own JWT-bearer implementation")
+    @Disabled("GE Fork: proxied JWT bearer flow not invoking externalOAuthAuthenticationManager.authenticate()")
     void attemptJwtTokenProxiedAuthentication() throws Exception {
         support = new TokenTestSupport(null, null);
         String idToken = support.getIdTokenAsString(Collections.singletonList(OPENID));

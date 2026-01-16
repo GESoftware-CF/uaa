@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DefaultTestContext
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 @TestPropertySource(properties = {"server.http.port = 8081"})
+@SuppressWarnings("removal")
 class UaaBootServerCustomizerTest {
 
     @SpyBean

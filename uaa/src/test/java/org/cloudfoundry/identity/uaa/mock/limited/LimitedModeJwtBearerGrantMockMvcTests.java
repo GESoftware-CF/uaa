@@ -29,7 +29,7 @@ import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.resetLimitedM
 import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.setLimitedModeStatusFile;
 
 @Disabled("GE Fork has its own JWT-bearer implementation")
-class LimitedModeJwtBearerGrantMockMvcTests extends JwtBearerGrantMockMvcTests {
+public class LimitedModeJwtBearerGrantMockMvcTests extends JwtBearerGrantMockMvcTests {
     private File existingStatusFile;
 
     @Autowired

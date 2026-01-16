@@ -76,4 +76,24 @@ class IdentityZoneAopConfig {
         idpEventPublisher.idpModified(identityProvider);
     }
 
+    @Before(value = "execution(* org.cloudfoundry.identity.uaa.zone.IdentityZoneEndpoints.createKeyProviderConfig(..)) && args(*,identityZoneId)", argNames = "identityZoneId")
+    public void beforeCreateKeyProviderConfig(String identityZoneId) {
+        denyAccessToUaaAdvice.checkIdentityZoneId(identityZoneId);
+    }
+
+    @Before(value = "execution(* org.cloudfoundry.identity.uaa.zone.IdentityZoneEndpoints.retrieveKeyProviderConfig(..)) && args(identityZoneId, *)", argNames = "identityZoneId")
+    public void beforeRetrieveKeyProviderConfig(String identityZoneId) {
+        denyAccessToUaaAdvice.checkIdentityZoneId(identityZoneId);
+    }
+
+    @Before(value = "execution(* org.cloudfoundry.identity.uaa.zone.IdentityZoneEndpoints.findKeyProviderConfigs(..)) && args(identityZoneId)", argNames = "identityZoneId")
+    public void beforeFindKeyProviderConfigs(String identityZoneId) {
+        denyAccessToUaaAdvice.checkIdentityZoneId(identityZoneId);
+    }
+
+    @Before(value = "execution(* org.cloudfoundry.identity.uaa.zone.IdentityZoneEndpoints.deleteKeyProviderConfig(..)) && args(identityZoneId, *)", argNames = "identityZoneId")
+    public void beforeDeleteKeyProviderConfig(String identityZoneId) {
+        denyAccessToUaaAdvice.checkIdentityZoneId(identityZoneId);
+    }
+
 }
