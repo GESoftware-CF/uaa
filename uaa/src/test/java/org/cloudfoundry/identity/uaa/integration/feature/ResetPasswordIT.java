@@ -214,7 +214,7 @@ class ResetPasswordIT {
         webDriver.findElement(By.name("password")).sendKeys("newsecret");
         webDriver.findElement(By.name("password_confirmation")).sendKeys("");
         webDriver.clickAndWait(By.xpath("//input[@value='Create new password']"));
-        assertThat(webDriver.findElement(By.cssSelector(".error-message")).getText()).contains("Passwords must match and not be empty.");
+        assertThat(webDriver.findElement(By.cssSelector(".toast__description")).getText()).contains("Passwords must match and not be empty.");
     }
 
     @Test
@@ -227,7 +227,7 @@ class ResetPasswordIT {
         // Attempt to use same code again
         webDriver.get(link);
 
-        assertThat(webDriver.findElement(By.cssSelector(".error-message")).getText()).contains("Sorry, your reset password link is no longer valid. You can request another one below.");
+        assertThat(webDriver.findElement(By.cssSelector(".toast__description")).getText()).contains("Sorry, your reset password link is no longer valid. You can request another one below.");
     }
 
     @Test
@@ -241,7 +241,7 @@ class ResetPasswordIT {
         webDriver.findElement(By.name("password")).sendKeys(newPassword);
         webDriver.findElement(By.name("password_confirmation")).sendKeys(newPassword);
         webDriver.clickAndWait(By.xpath("//input[@value='Create new password']"));
-        assertThat(webDriver.findElement(By.cssSelector(".error-message")).getText()).contains("Password must be no more than 255 characters in length.");
+        assertThat(webDriver.findElement(By.cssSelector(".toast__description")).getText()).contains("Password must be no more than 255 characters in length.");
     }
 
     @Test
@@ -253,7 +253,7 @@ class ResetPasswordIT {
         webDriver.findElement(By.name("password")).sendKeys("secr3T");
         webDriver.findElement(By.name("password_confirmation")).sendKeys("secr3T");
         webDriver.clickAndWait(By.xpath("//input[@value='Create new password']"));
-        assertThat(webDriver.findElement(By.cssSelector(".error-message")).getText()).contains("Your new password cannot be the same as the old password.");
+        assertThat(webDriver.findElement(By.cssSelector(".toast__description")).getText()).contains("Your new password cannot be the same as the old password.");
     }
 
     private void beginPasswordReset(String username) {

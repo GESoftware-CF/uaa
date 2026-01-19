@@ -38,6 +38,7 @@ import org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AccessDeniedHand
 import org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AuthenticationEntryPoint;
 import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
 import org.cloudfoundry.identity.uaa.provider.oauth.ExternalOAuthAuthenticationFilter;
+import org.cloudfoundry.identity.uaa.provider.token.JwtBearerAssertionAuthenticationFilter;
 import org.cloudfoundry.identity.uaa.security.IsSelfCheck;
 import org.cloudfoundry.identity.uaa.security.web.UaaRequestMatcher;
 import org.cloudfoundry.identity.uaa.user.UaaUserDatabase;
@@ -221,6 +222,10 @@ class OauthEndpointSecurityConfiguration {
     @Qualifier("uaaAuthorizationEndpoint")
     UaaAuthorizationEndpoint uaaAuthorizationEndpoint;
 
+    @Autowired
+    @Qualifier("jwtBearerAuthenticationFilter")
+    JwtBearerAssertionAuthenticationFilter jwtBearerAuthenticationFilter;
+
     ClientParametersAuthenticationFilter clientParameterAuthenticationFilter;
     private synchronized ClientParametersAuthenticationFilter getClientParameterAuthenticationFilter() {
         if (this.clientParameterAuthenticationFilter == null) {
@@ -355,6 +360,7 @@ class OauthEndpointSecurityConfiguration {
                     auth.anyRequest().denyAll();
                 })
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(jwtBearerAuthenticationFilter, BasicAuthenticationFilter.class)
                 .addFilterBefore(getClientParameterAuthenticationFilter(), BasicAuthenticationFilter.class)
                 .addFilterAt(clientAuthenticationFilter.getFilter(), BasicAuthenticationFilter.class)
                 .addFilterAfter(tokenEndpointAuthenticationFilter.getFilter(), BasicAuthenticationFilter.class)

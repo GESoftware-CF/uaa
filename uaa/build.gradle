@@ -24,7 +24,7 @@ war {
 }
 
 repositories {
-    maven { url("https://repo.spring.io/milestone") }
+    maven { url("https://repo.spring.io/libs-milestone") }
     maven { url "https://build.shibboleth.net/nexus/content/repositories/releases/" }
 }
 
@@ -128,6 +128,7 @@ ext {
 }
 
 test {
+    useJUnitPlatform()
     exclude 'org/cloudfoundry/identity/uaa/integration/*.class'
     exclude '**/*IT.class'
     exclude '**/*AT.class'
@@ -228,6 +229,7 @@ tasks.named('bootBuildImage') {
 }
 
 integrationTest {
+    useJUnitPlatform()
     exclude '**/*AT.class'
     exclude 'org/cloudfoundry/identity/uaa/degraded/*.class'
     exclude 'org/cloudfoundry/identity/uaa/jwt/degraded/*.class'
@@ -247,6 +249,7 @@ integrationTest {
 }
 
 task acceptanceTest(type: Test) {
+    useJUnitPlatform()
     // Don't let tests be 'UP-TO-DATE' and not run
     outputs.upToDateWhen { false }
     include "org/cloudfoundry/identity/uaa/acceptance/*.class"
@@ -285,6 +288,7 @@ task degradedJwtTestLocal(type: Test) {
 }
 
 task orchestratorIntegrationTest(type: Test) {
+    useJUnitPlatform()
     // Don't let tests be 'UP-TO-DATE' and not run
     outputs.upToDateWhen { false }
     include "org/cloudfoundry/identity/uaa/orchestrator/*.class"

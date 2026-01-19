@@ -94,7 +94,7 @@ public class ChangePasswordIT {
         signIn(userEmail, PASSWORD);
 
         changePassword(PASSWORD, NEW_PASSWORD, "new");
-        WebElement errorMessage = webDriver.findElement(By.className("error-message"));
+        WebElement errorMessage = webDriver.findElement(By.className("toast__description"));
         assertThat(errorMessage.isDisplayed()).isTrue();
         assertThat(errorMessage.getText()).isEqualTo("Passwords must match and not be empty.");
 
@@ -114,7 +114,7 @@ public class ChangePasswordIT {
         signIn(userEmail, PASSWORD);
 
         changePassword(PASSWORD, newPassword, newPassword);
-        WebElement errorMessage = webDriver.findElement(By.className("error-message"));
+        WebElement errorMessage = webDriver.findElement(By.className("toast__description"));
         assertThat(errorMessage.isDisplayed()).isTrue();
         assertThat(errorMessage.getText()).isEqualTo("Password must be no more than 255 characters in length.");
     }
