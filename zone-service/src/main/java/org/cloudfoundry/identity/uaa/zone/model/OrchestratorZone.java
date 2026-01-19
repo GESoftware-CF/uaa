@@ -13,6 +13,7 @@ import lombok.Getter;
 import lombok.ToString;
 import lombok.experimental.FieldDefaults;
 
+
 import static org.cloudfoundry.identity.uaa.zone.ErrorMessageUtil.ADMIN_CLIENT_CREDENTIALS_CANNOT_CONTAIN_SPACES_OR_BLANK;
 import static org.cloudfoundry.identity.uaa.zone.ErrorMessageUtil.ADMIN_CLIENT_CREDENTIALS_VALIDATION_MESSAGE;
 import static org.cloudfoundry.identity.uaa.zone.ErrorMessageUtil.ADMIN_CLIENT_CREDENTIALS_VALIDATION_PATTERN;
@@ -42,12 +43,16 @@ public class OrchestratorZone {
             message = IMPORTED_SERVICE_INSTANCE_GUID_VALIDATION_MESSAGE)
     private final String importedServiceInstanceGuid;
 
+    private final String additionalParameters;
+
     @JsonCreator
     public OrchestratorZone(@JsonProperty("adminClientSecret") String adminClientSecret,
                             @JsonProperty("subdomain") String subdomain,
-                            @JsonProperty("importedServiceInstanceGuid") String importedServiceInstanceGuid) {
+                            @JsonProperty("importedServiceInstanceGuid") String importedServiceInstanceGuid,
+                            @JsonProperty("additionalParameters") String additionalParameters) {
         this.adminClientSecret = adminClientSecret;
         this.subdomain = subdomain;
         this.importedServiceInstanceGuid = importedServiceInstanceGuid;
+        this.additionalParameters = additionalParameters;
     }
 }
