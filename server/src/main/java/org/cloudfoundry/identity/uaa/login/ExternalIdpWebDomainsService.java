@@ -141,6 +141,55 @@ public class ExternalIdpWebDomainsService {
     }
 
     /**
+     * Checks if there are any customer (non-external) IDPs that should be displayed
+     * with the "Or sign in with:" separator.
+     * This method can be called directly from templates.
+     *
+     * @param samlIdpDefinitions List of SAML IDP definitions from the model
+     * @param oauthLinks List of OAuth link entries from the model
+     * @return true if there are customer IDPs to display
+     */
+    public boolean hasCustomerIdps(List<?> samlIdpDefinitions, List<?> oauthLinks) {
+        logger.debug("hasCustomerIdps() called with {} SAML IDPs and {} OAuth links",
+                     samlIdpDefinitions != null ? samlIdpDefinitions.size() : 0,
+                     oauthLinks != null ? oauthLinks.size() : 0);
+
+        if (!hasExternalIdpWebDomains()) {
+            logger.debug("No external IDP web domains configured, returning false");
+            return false;
+        }
+
+        // Check SAML IDPs
+        if (samlIdpDefinitions != null && !samlIdpDefinitions.isEmpty()) {
+            for (Object obj : samlIdpDefinitions) {
+                if (obj instanceof SamlIdentityProviderDefinition idp) {
+                    if (idp.isShowSamlLink() &&
+                        externalIdpWebDomains.stream().noneMatch(domain -> idp.getMetaDataLocation().contains(domain))) {
+                        logger.debug("Found customer SAML IDP: {}", idp.getLinkText());
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // Check OAuth links
+        if (oauthLinks != null && !oauthLinks.isEmpty()) {
+            for (Object obj : oauthLinks) {
+                if (obj instanceof java.util.Map.Entry<?, ?> entry) {
+                    String linkText = entry.getValue() != null ? entry.getValue().toString() : "";
+                    if (externalIdpWebDomains.stream().noneMatch(linkText::contains)) {
+                        logger.debug("Found customer OAuth link: {}", linkText);
+                        return true;
+                    }
+                }
+            }
+        }
+
+        logger.debug("No customer IDPs found");
+        return false;
+    }
+
+    /**
      * DTO class to hold IDP information for the login page.
      */
     public static class LoginPageIdpInfo {
