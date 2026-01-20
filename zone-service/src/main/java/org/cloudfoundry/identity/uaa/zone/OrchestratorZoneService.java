@@ -29,8 +29,6 @@ import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZone;
 import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneHeader;
 import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneRequest;
 import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneResponse;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -415,36 +413,30 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
     }
 
     /**
-     * Extracts redirect URLs from the additionalParameters JSON string.
+     * Extracts redirect URLs from the additionalParameters map.
      * The redirect_url key can contain either a single URL string or a list of URL strings.
      *
-     * @param additionalParameters JSON string containing additional parameters
-     * @return List of redirect URLs, or empty list if none found or parsing fails
+     * @param additionalParameters Map containing additional parameters
+     * @return List of redirect URLs, or empty list if none found
      */
-    private List<String> extractRedirectUrls(String additionalParameters) {
+    private List<String> extractRedirectUrls(java.util.Map<String, Object> additionalParameters) {
         if (additionalParameters == null || additionalParameters.isEmpty()) {
             return Collections.emptyList();
         }
 
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            java.util.Map<String, Object> params = objectMapper.readValue(additionalParameters, new TypeReference<java.util.Map<String, Object>>() {});
-            Object redirectUrlValue = params.get("redirect_url");
+        Object redirectUrlValue = additionalParameters.get("redirect_url");
 
-            if (redirectUrlValue == null) {
-                return Collections.emptyList();
-            }
+        if (redirectUrlValue == null) {
+            return Collections.emptyList();
+        }
 
-            if (redirectUrlValue instanceof String) {
-                return Collections.singletonList((String) redirectUrlValue);
-            } else if (redirectUrlValue instanceof List) {
-                return ((List<?>) redirectUrlValue).stream()
-                        .filter(obj -> obj instanceof String)
-                        .map(obj -> (String) obj)
-                        .collect(java.util.stream.Collectors.toList());
-            }
-        } catch (Exception e) {
-            logger.warn("Failed to parse additionalParameters for redirect URLs", e);
+        if (redirectUrlValue instanceof String) {
+            return Collections.singletonList((String) redirectUrlValue);
+        } else if (redirectUrlValue instanceof List) {
+            return ((List<?>) redirectUrlValue).stream()
+                    .filter(obj -> obj instanceof String)
+                    .map(obj -> (String) obj)
+                    .collect(java.util.stream.Collectors.toList());
         }
 
         return Collections.emptyList();
