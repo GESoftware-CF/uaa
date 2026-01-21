@@ -394,6 +394,107 @@ public class OrchestratorZoneControllerIntegrationTests {
     }
 
     @Test
+    public void testCreateZone_WithSingleRedirectUrl() throws Exception {
+        assertSupportsZoneDNS();
+
+        String zoneName = getName();
+        String subDomain = zoneName;
+        Map<String, Object> additionalParameters = new java.util.LinkedHashMap<>();
+        additionalParameters.put("logout_redirect_url_whitelist", "https://app.example.com/logout");
+
+        OrchestratorZone orchestratorZone = new OrchestratorZone(ADMIN_CLIENT_SECRET, subDomain, null, additionalParameters);
+        OrchestratorZoneRequest orchestratorZoneRequest = new OrchestratorZoneRequest();
+        orchestratorZoneRequest.setName(zoneName);
+        orchestratorZoneRequest.setParameters(orchestratorZone);
+
+        String requestBody = JsonUtils.writeValueAsString(orchestratorZoneRequest);
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Accept", MediaType.APPLICATION_JSON_VALUE);
+        headers.add("Content-Type", MediaType.APPLICATION_JSON_VALUE);
+
+        ResponseEntity<OrchestratorZoneResponse> postResponse = client.postForEntity(
+                serverRunning.getUrl(ORCHESTRATOR_ZONES_APIS_ENDPOINT),
+                new HttpEntity<>(requestBody, headers),
+                OrchestratorZoneResponse.class);
+
+        assertEquals(HttpStatus.ACCEPTED, postResponse.getStatusCode());
+
+        // Fetch zone to get zone ID
+        ResponseEntity<OrchestratorZoneResponse> getResponse = client.getForEntity(
+                serverRunning.getUrl(ORCHESTRATOR_ZONES_APIS_ENDPOINT) + "?name=" + zoneName,
+                OrchestratorZoneResponse.class);
+
+        String zoneId = getResponse.getBody().getConnectionDetails().getZone().getHttpHeaderValue();
+
+        // Validate zone configuration includes the redirect URL
+        OAuth2RestTemplate adminClient = (OAuth2RestTemplate) IntegrationTestUtils.getClientCredentialsTemplate(
+                IntegrationTestUtils.getClientCredentialsResource(serverRunning.getBaseUrl(), new String[0],
+                        ADMIN_CLIENT_NAME, SUPER_ADMIN_CLIENT_SECRET));
+
+        ResponseEntity<IdentityZone> identityZoneResponse = adminClient.getForEntity(
+                serverRunning.getUrl(NATIVE_ZONES_APIS_ENDPOINT + "/" + zoneId), IdentityZone.class);
+
+        IdentityZoneConfiguration config = identityZoneResponse.getBody().getConfig();
+        List<String> whitelist = config.getLinks().getLogout().getWhitelist();
+        assertTrue(whitelist.contains("https://app.example.com/logout"));
+        assertTrue(whitelist.contains("http*://**localhost") || whitelist.stream().anyMatch(url -> url.startsWith("http*://**")));
+    }
+
+    @Test
+    public void testCreateZone_WithMultipleRedirectUrls() throws Exception {
+        assertSupportsZoneDNS();
+
+        String zoneName = getName();
+        String subDomain = zoneName;
+        Map<String, Object> additionalParameters = new java.util.LinkedHashMap<>();
+        List<String> redirectUrls = Arrays.asList(
+                "https://app1.example.com/logout",
+                "https://app2.example.com/logout",
+                "https://app3.example.com/callback"
+        );
+        additionalParameters.put("logout_redirect_url_whitelist", redirectUrls);
+
+        OrchestratorZone orchestratorZone = new OrchestratorZone(ADMIN_CLIENT_SECRET, subDomain, null, additionalParameters);
+        OrchestratorZoneRequest orchestratorZoneRequest = new OrchestratorZoneRequest();
+        orchestratorZoneRequest.setName(zoneName);
+        orchestratorZoneRequest.setParameters(orchestratorZone);
+
+        String requestBody = JsonUtils.writeValueAsString(orchestratorZoneRequest);
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Accept", MediaType.APPLICATION_JSON_VALUE);
+        headers.add("Content-Type", MediaType.APPLICATION_JSON_VALUE);
+
+        ResponseEntity<OrchestratorZoneResponse> postResponse = client.postForEntity(
+                serverRunning.getUrl(ORCHESTRATOR_ZONES_APIS_ENDPOINT),
+                new HttpEntity<>(requestBody, headers),
+                OrchestratorZoneResponse.class);
+
+        assertEquals(HttpStatus.ACCEPTED, postResponse.getStatusCode());
+
+        // Fetch zone to get zone ID
+        ResponseEntity<OrchestratorZoneResponse> getResponse = client.getForEntity(
+                serverRunning.getUrl(ORCHESTRATOR_ZONES_APIS_ENDPOINT) + "?name=" + zoneName,
+                OrchestratorZoneResponse.class);
+
+        String zoneId = getResponse.getBody().getConnectionDetails().getZone().getHttpHeaderValue();
+
+        // Validate zone configuration includes all redirect URLs
+        OAuth2RestTemplate adminClient = (OAuth2RestTemplate) IntegrationTestUtils.getClientCredentialsTemplate(
+                IntegrationTestUtils.getClientCredentialsResource(serverRunning.getBaseUrl(), new String[0],
+                        ADMIN_CLIENT_NAME, SUPER_ADMIN_CLIENT_SECRET));
+
+        ResponseEntity<IdentityZone> identityZoneResponse = adminClient.getForEntity(
+                serverRunning.getUrl(NATIVE_ZONES_APIS_ENDPOINT + "/" + zoneId), IdentityZone.class);
+
+        IdentityZoneConfiguration config = identityZoneResponse.getBody().getConfig();
+        List<String> whitelist = config.getLinks().getLogout().getWhitelist();
+        assertTrue(whitelist.contains("https://app1.example.com/logout"));
+        assertTrue(whitelist.contains("https://app2.example.com/logout"));
+        assertTrue(whitelist.contains("https://app3.example.com/callback"));
+        assertTrue(whitelist.contains("http*://**localhost") || whitelist.stream().anyMatch(url -> url.startsWith("http*://**")));
+    }
+
+    @Test
     public void testCreateZone_Duplicate_Subdomain_Returns_409_Conflict() {
         String subDomain = createZoneGetZoneName();
         String name = getName();
