@@ -51,9 +51,16 @@ public class OrchestratorZone {
                             @JsonProperty("subdomain") String subdomain,
                             @JsonProperty("importedServiceInstanceGuid") String importedServiceInstanceGuid,
                             @JsonProperty("additionalParameters") Map<String, Object> additionalParameters) {
+
         this.adminClientSecret = adminClientSecret;
         this.subdomain = subdomain;
         this.importedServiceInstanceGuid = importedServiceInstanceGuid;
         this.additionalParameters = additionalParameters;
+    }
+
+    public OrchestratorZone(String adminClientSecret,
+                            String subdomain,
+                            String importedServiceInstanceGuid) {
+        this(adminClientSecret, subdomain, importedServiceInstanceGuid, null);
     }
 }
