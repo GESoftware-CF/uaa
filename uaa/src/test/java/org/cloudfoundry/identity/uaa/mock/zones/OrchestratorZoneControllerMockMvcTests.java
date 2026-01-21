@@ -470,6 +470,143 @@ public class OrchestratorZoneControllerMockMvcTests {
                 orchestratorZonesWriteToken, status().isAccepted());
     }
 
+    @Test
+    void testCreateZone_WithSingleRedirectUrl() throws Exception {
+        String zoneName = "zone-with-single-redirect";
+        String subDomain = zoneName;
+        Map<String, Object> additionalParameters = new HashMap<>();
+        additionalParameters.put("logout_redirect_url_whitelist", "https://app.example.com/logout");
+
+        OrchestratorZoneRequest orchestratorZoneRequest =
+                getOrchestratorZoneRequestWithAdditionalParams(zoneName, ADMIN_CLIENT_SECRET, subDomain, additionalParameters);
+
+        OrchestratorZoneResponse expectedResponse = new OrchestratorZoneResponse();
+        expectedResponse.setName(zoneName);
+        expectedResponse.setMessage(ZONE_CREATED_MESSAGE);
+        expectedResponse.setState(OrchestratorState.CREATE_IN_PROGRESS.toString());
+
+        performMockMvcCallAndAssertResponse(
+                post("/orchestrator/zones")
+                        .contentType(APPLICATION_JSON)
+                        .content(JsonUtils.writeValueAsString(orchestratorZoneRequest)),
+                orchestratorZonesWriteToken,
+                status().isAccepted(), expectedResponse);
+
+        // Verify the zone was created with the redirect URL in the whitelist
+        MvcResult getResult = mockMvc.perform(
+                        get("/identity-zones/" + subDomain)
+                                .header("Authorization", "Bearer " + getUaaAdminToken()))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        IdentityZone createdZone = JsonUtils.readValue(getResult.getResponse().getContentAsString(), IdentityZone.class);
+        assertNotNull(createdZone.getConfig().getLinks().getLogout().getWhitelist());
+        assertTrue(createdZone.getConfig().getLinks().getLogout().getWhitelist().contains("https://app.example.com/logout"));
+
+        // Clean up
+        performMockMvcCall(delete("/orchestrator/zones").param("name", zoneName),
+                orchestratorZonesWriteToken, status().isAccepted());
+    }
+
+    @Test
+    void testCreateZone_WithMultipleRedirectUrls() throws Exception {
+        String zoneName = "zone-with-multiple-redirects";
+        String subDomain = zoneName;
+        Map<String, Object> additionalParameters = new HashMap<>();
+        additionalParameters.put("logout_redirect_url_whitelist",
+                java.util.Arrays.asList(
+                        "https://app1.example.com/logout",
+                        "https://app2.example.com/logout",
+                        "https://app3.example.com/callback"
+                ));
+
+        OrchestratorZoneRequest orchestratorZoneRequest =
+                getOrchestratorZoneRequestWithAdditionalParams(zoneName, ADMIN_CLIENT_SECRET, subDomain, additionalParameters);
+
+        OrchestratorZoneResponse expectedResponse = new OrchestratorZoneResponse();
+        expectedResponse.setName(zoneName);
+        expectedResponse.setMessage(ZONE_CREATED_MESSAGE);
+        expectedResponse.setState(OrchestratorState.CREATE_IN_PROGRESS.toString());
+
+        performMockMvcCallAndAssertResponse(
+                post("/orchestrator/zones")
+                        .contentType(APPLICATION_JSON)
+                        .content(JsonUtils.writeValueAsString(orchestratorZoneRequest)),
+                orchestratorZonesWriteToken,
+                status().isAccepted(), expectedResponse);
+
+        // Verify the zone was created with all redirect URLs in the whitelist
+        MvcResult getResult = mockMvc.perform(
+                        get("/identity-zones/" + subDomain)
+                                .header("Authorization", "Bearer " + getUaaAdminToken()))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        IdentityZone createdZone = JsonUtils.readValue(getResult.getResponse().getContentAsString(), IdentityZone.class);
+        assertNotNull(createdZone.getConfig().getLinks().getLogout().getWhitelist());
+        assertTrue(createdZone.getConfig().getLinks().getLogout().getWhitelist().contains("https://app1.example.com/logout"));
+        assertTrue(createdZone.getConfig().getLinks().getLogout().getWhitelist().contains("https://app2.example.com/logout"));
+        assertTrue(createdZone.getConfig().getLinks().getLogout().getWhitelist().contains("https://app3.example.com/callback"));
+
+        // Clean up
+        performMockMvcCall(delete("/orchestrator/zones").param("name", zoneName),
+                orchestratorZonesWriteToken, status().isAccepted());
+    }
+
+    @Test
+    void testCreateZone_WithoutRedirectUrls() throws Exception {
+        String zoneName = "zone-without-redirects";
+        String subDomain = zoneName;
+
+        OrchestratorZoneRequest orchestratorZoneRequest =
+                getOrchestratorZoneRequest(zoneName, ADMIN_CLIENT_SECRET, subDomain, null);
+
+        OrchestratorZoneResponse expectedResponse = new OrchestratorZoneResponse();
+        expectedResponse.setName(zoneName);
+        expectedResponse.setMessage(ZONE_CREATED_MESSAGE);
+        expectedResponse.setState(OrchestratorState.CREATE_IN_PROGRESS.toString());
+
+        performMockMvcCallAndAssertResponse(
+                post("/orchestrator/zones")
+                        .contentType(APPLICATION_JSON)
+                        .content(JsonUtils.writeValueAsString(orchestratorZoneRequest)),
+                orchestratorZonesWriteToken,
+                status().isAccepted(), expectedResponse);
+
+        // Verify the zone was created with only deployment-specific whitelist
+        MvcResult getResult = mockMvc.perform(
+                        get("/identity-zones/" + subDomain)
+                                .header("Authorization", "Bearer " + getUaaAdminToken()))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        IdentityZone createdZone = JsonUtils.readValue(getResult.getResponse().getContentAsString(), IdentityZone.class);
+        assertNotNull(createdZone.getConfig().getLinks().getLogout().getWhitelist());
+        // Should only contain deployment-specific whitelist pattern(s)
+        assertTrue(createdZone.getConfig().getLinks().getLogout().getWhitelist().stream()
+                .anyMatch(url -> url.startsWith("http*://**")));
+
+        // Clean up
+        performMockMvcCall(delete("/orchestrator/zones").param("name", zoneName),
+                orchestratorZonesWriteToken, status().isAccepted());
+    }
+
+    private OrchestratorZoneRequest getOrchestratorZoneRequestWithAdditionalParams(String name, String adminClientSecret,
+                                                                                   String subdomain, Map<String, Object> additionalParameters) {
+        OrchestratorZone orchestratorZone = new OrchestratorZone(adminClientSecret, subdomain, null, additionalParameters);
+        OrchestratorZoneRequest orchestratorZoneRequest = new OrchestratorZoneRequest();
+        orchestratorZoneRequest.setName(name);
+        orchestratorZoneRequest.setParameters(orchestratorZone);
+        return orchestratorZoneRequest;
+    }
+
+    private String getUaaAdminToken() throws Exception {
+        if (uaaAdminClientToken == null) {
+            configureIdentiyZoneClient();
+        }
+        return uaaAdminClientToken;
+    }
+
     private void createOrchestratorZoneAndAssert() throws Exception {
         OrchestratorZoneRequest orchestratorZoneRequest =
                 getOrchestratorZoneRequest(ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, null);
