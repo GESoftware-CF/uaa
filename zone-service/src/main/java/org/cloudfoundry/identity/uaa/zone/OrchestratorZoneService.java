@@ -64,6 +64,7 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
     public static final String GENERATED_KEY_ID = "generated-saml-key";
     public static final String BEGIN_CERT = "-----BEGIN CERTIFICATE-----";
     public static final String END_CERT = "-----END CERTIFICATE-----";
+    public static final String LOGOUT_REDIRECT_URL_WHITELIST_KEY = "logout_redirect_url_whitelist";
 
     public static final String CLIENT_ID = "admin";
     public static final String ZONE_AUTHORITIES =
@@ -414,7 +415,7 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
 
     /**
      * Extracts redirect URLs from the additionalParameters map.
-     * The redirect_url key can contain either a single URL string or a list of URL strings.
+     * The logout_redirect_url_whitelist key can contain either a single URL string or a list of URL strings.
      *
      * @param additionalParameters Map containing additional parameters
      * @return List of redirect URLs, or empty list if none found
@@ -424,7 +425,7 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
             return Collections.emptyList();
         }
 
-        Object redirectUrlValue = additionalParameters.get("redirect_url");
+        Object redirectUrlValue = additionalParameters.get(LOGOUT_REDIRECT_URL_WHITELIST_KEY);
 
         if (redirectUrlValue == null) {
             return Collections.emptyList();

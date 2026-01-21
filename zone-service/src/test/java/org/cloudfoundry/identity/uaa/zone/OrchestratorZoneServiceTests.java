@@ -311,7 +311,7 @@ public class OrchestratorZoneServiceTests {
         GeneralIdentityZoneValidator validator = new GeneralIdentityZoneValidator(configValidator);
 
         Map<String, Object> additionalParameters = new HashMap<>();
-        additionalParameters.put("redirect_url", "https://example.com/logout");
+        additionalParameters.put("logout_redirect_url_whitelist", "https://example.com/logout");
         OrchestratorZone orchestratorZone = new OrchestratorZone(ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, null, additionalParameters);
         IdentityZone identityZone = zoneService.generateIdentityZone(ZONE_NAME, SUB_DOMAIN_NAME, UUID.randomUUID().toString(), orchestratorZone);
 
@@ -330,7 +330,7 @@ public class OrchestratorZoneServiceTests {
         GeneralIdentityZoneValidator validator = new GeneralIdentityZoneValidator(configValidator);
 
         Map<String, Object> additionalParameters = new HashMap<>();
-        additionalParameters.put("redirect_url", java.util.Arrays.asList("https://example1.com/logout", "https://example2.com/logout"));
+        additionalParameters.put("logout_redirect_url_whitelist", java.util.Arrays.asList("https://example1.com/logout", "https://example2.com/logout"));
         OrchestratorZone orchestratorZone = new OrchestratorZone(ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, null, additionalParameters);
         IdentityZone identityZone = zoneService.generateIdentityZone(ZONE_NAME, SUB_DOMAIN_NAME, UUID.randomUUID().toString(), orchestratorZone);
 
@@ -385,7 +385,7 @@ public class OrchestratorZoneServiceTests {
         Security.addProvider(new BouncyCastleFipsProvider());
 
         Map<String, Object> additionalParameters = new HashMap<>();
-        additionalParameters.put("redirect_url", java.util.Arrays.asList("https://app1.example.com", "https://app2.example.com"));
+        additionalParameters.put("logout_redirect_url_whitelist", java.util.Arrays.asList("https://app1.example.com", "https://app2.example.com"));
         OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
             ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, additionalParameters);
 
