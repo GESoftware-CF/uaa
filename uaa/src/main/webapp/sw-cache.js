@@ -1,7 +1,7 @@
 // Service Worker for caching static resources
-const CACHE_NAME = 'uaa-static-cache-v1';
+const CACHE_NAME = 'uaa-static-cache-v2';
 const urlsToCache = [
-    '/resources/predix/images/background-image.png',
+    '/resources/predix/images/background-image.jpg',
     '/resources/predix/stylesheets/predix-styles.css',
     '/resources/predix/stylesheets/roboto.css',
     '/resources/predix/stylesheets/predix-card-styles.css'
