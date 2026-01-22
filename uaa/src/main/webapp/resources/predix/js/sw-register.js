@@ -1,7 +1,7 @@
 // Register Service Worker for caching
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
-        navigator.serviceWorker.register('/sw-cache.js')
+        navigator.serviceWorker.register('/resources/sw-cache.js', { scope: '/' })
             .then(function(registration) {
                 console.log('Service Worker registered successfully');
             })
