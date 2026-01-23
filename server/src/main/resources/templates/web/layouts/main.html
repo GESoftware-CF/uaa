@@ -15,6 +15,8 @@
 <head>
     <title th:text="${!companyName.isEmpty() ? companyName : zoneName}" th:inline="text"></title>
     <link href='/resources/oss/images/square-logo.png' th:with="icon=${branding.getSquareLogo()}" th:href="@{${icon != null and !icon.isEmpty() ? 'data:image/png;base64,'+icon : (assetBaseUrl + '/images/square-logo.png')}}" rel='shortcut icon' />
+    <link rel="preload" as="image" th:href="@{${assetBaseUrl}+'/images/background-image.png'}" type="image/png" />
+    
     <meta charset='utf-8' />
     <meta name='author' th:content="|${companyName}|" />
     <meta name='copyright' th:content="|${copyright}|" />
@@ -55,11 +57,7 @@
       th:title="|Version: ${@buildInfo.version}, Commit: ${@buildInfo.commitId}, Timestamp: ${@buildInfo.timestamp}, UAA: ${@buildInfo.uaaUrl}|">
       <img style="width: 60px;margin-bottom:20px;" src="/resources/predix/images/predix-word.svg"/>
       <div>[[${copyright}]][[${copyright2}]]</div>
-      <th:block th:each="link,iter : ${links}">
-        <th:block th:if="${!iter.first}"> &mdash;</th:block>
-        <a href="/" th:href="${link.value}">[[${link.key}]]</a>
-      </th:block>
-      <div
+       <div
         th:if="${#authentication instanceof T(org.cloudfoundry.identity.uaa.authentication.UaaAuthentication)} ">
         <div th:if="${#authentication.lastLoginSuccessTime} != null">
           Last login <span id="last_login_time"th:attr="last-login-success-time=${#authentication.lastLoginSuccessTime}"></span>

@@ -128,7 +128,7 @@ class ResetPasswordIT {
 
         webDriver.findElement(By.name("username")).sendKeys(username);
         webDriver.clickAndWait(By.xpath("//input[@value='Send reset password link']"));
-        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Instructions Sent");
+        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Instructions sent");
 
         assertThat(simpleSmtpServer.getReceivedEmailSize()).isEqualTo(receivedEmailSize + 1);
         Iterator<SmtpMessage> receivedEmail = simpleSmtpServer.getReceivedEmail();
@@ -162,7 +162,7 @@ class ResetPasswordIT {
 
         webDriver.findElement(By.name("username")).sendKeys(username);
         webDriver.clickAndWait(By.xpath("//input[@value='Send reset password link']"));
-        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Instructions Sent");
+        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Instructions sent");
 
         assertThat(simpleSmtpServer.getReceivedEmailSize()).isEqualTo(receivedEmailSize + 1);
         Iterator<SmtpMessage> receivedEmail = simpleSmtpServer.getReceivedEmail();
@@ -265,7 +265,7 @@ class ResetPasswordIT {
         // Enter email address
         webDriver.findElement(By.name("username")).sendKeys(username);
         webDriver.clickAndWait(By.xpath("//input[@value='Send reset password link']"));
-        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Instructions Sent");
+        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Instructions sent");
     }
 
     private String getPasswordResetLink(String email) {

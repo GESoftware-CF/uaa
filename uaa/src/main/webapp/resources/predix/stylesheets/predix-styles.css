@@ -190,7 +190,7 @@ h1 {
       -webkit-box-pack: initial;
       -ms-flex-pack: initial;
       justify-content: initial;
-      background: rgb(0 0 0 / 37%) !important;
+      background: rgb(0 0 0 / 2%) !important;
       } }
   .predix-uaa__header h1 {
     margin-bottom: 1rem; }
