@@ -1801,9 +1801,92 @@ a.link--plain:hover {
     background-color: transparent!important
 }
 
-.nav .user{
-    color: #fff;
+/* Navigation Dropdown Styles - ID-based selectors for maximum safety */
+.nav {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-pack: end;
+    -ms-flex-pack: end;
+    justify-content: flex-end;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    padding: 0.5rem 1rem 0rem 31rem;
 }
+
+.nav .user{
+    color: #0e0e0e;
+}
+
+.nav-dropdown-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+#nav-dropdown-button {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #fff;
+    padding: 8px 12px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#nav-dropdown-button .chevron {
+    font-size: 10px;
+    display: inline-block;
+    transition: opacity 0.2s ease;
+}
+
+#nav-dropdown-content {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    list-style: none;
+    padding: 8px 0;
+    margin: 0;
+    min-width: 180px;
+    display: none !important;
+    z-index: 9999;
+    visibility: hidden;
+    opacity: 0;
+}
+
+#nav-dropdown-content.open {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+#nav-dropdown-content li {
+    padding: 0;
+    margin: 0;
+}
+
+#nav-dropdown-content a {
+    color: #000 !important;
+    display: block;
+    padding: 10px 16px;
+    text-decoration: none;
+    transition: background-color 0.2s, opacity 0.2s;
+    font-size: 14px;
+    background-color: rgba(255, 255, 255, 0.95);
+}
+
+#nav-dropdown-content a:hover {
+    background-color: rgba(245, 245, 245, 0.98) !important;
+    color: #000 !important;
+    opacity: 0.9;
+}
+/* End Navigation Dropdown Styles */
 
 .btn[disabled],
 .btn[disabled]:active,

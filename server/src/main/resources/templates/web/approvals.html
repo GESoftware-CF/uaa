@@ -5,6 +5,7 @@
       layout:decorate="~{layouts/main}">
 <head>
     <th:block layout:insert="~{nav :: head}"></th:block>
+    <script th:src="@{/resources/predix/js/toast-notifications.js}" defer="defer"></script>
     <script type="text/javascript" src="/resources/javascripts/approvals/click_actions.js" th:src="@{'/resources/javascripts/approvals/click_actions.js'}"></script>
 </head>
 <div layout:fragment="page-nav">
@@ -12,12 +13,46 @@
 </div>
 <div class="panel-container" layout:fragment="page-content">
     <div class="panel">
-        <div th:if="${param.success_message_code}" class="alert alert-success">
-            <p th:text="#{${param.success_message_code[0]}}">Success Message</p>
-        </div>
-        <div th:if="${param.error_message_code}" class="alert alert-error">
-            <p th:text="#{${param.error_message_code[0]}}">Error Message</p>
-        </div>
+        <!-- Success message toast -->
+        <section th:if="${param.success_message_code != null and !param.success_message_code.isEmpty()}" 
+                 class="toast inline toast--success" role="alert" aria-live="polite">
+            <span class="toast__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" width="1.5em" height="auto">
+                    <path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM369 209L241 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L335 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z"/>
+                </svg>
+            </span>
+            <span class="toast__content">
+                <span class="toast__message">
+                    <span class="toast__description" th:text="#{${'approvals.' + param.success_message_code[0]}}">Success!</span>
+                </span>
+            </span>
+            <span class="toast__close" aria-label="Close notification">
+                <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 384 512">
+                    <path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/>
+                </svg>
+            </span>
+        </section>
+        
+        <!-- Error message toast -->
+        <section th:if="${param.error_message_code != null and !param.error_message_code.isEmpty()}" 
+                 class="toast inline toast--error" role="alert" aria-live="polite">
+            <span class="toast__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" width="1.5em" height="auto">
+                    <path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-384c13.3 0 24 10.7 24 24V264c0 13.3-10.7 24-24 24s-24-10.7-24-24V152c0-13.3 10.7-24 24-24zM232 368a24 24 0 1 1 48 0 24 24 0 1 1 -48 0z"/>
+                </svg>
+            </span>
+            <span class="toast__content">
+                <span class="toast__message">
+                    <span class="toast__description" th:text="#{${'approvals.' + param.error_message_code[0]}}">An error occurred!</span>
+                </span>
+            </span>
+            <span class="toast__close" aria-label="Close notification">
+                <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 384 512">
+                    <path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/>
+                </svg>
+            </span>
+        </section>
+        
         <h1>Account Settings</h1>
         <div class="panel-content">
             <h2>Profile</h2>
