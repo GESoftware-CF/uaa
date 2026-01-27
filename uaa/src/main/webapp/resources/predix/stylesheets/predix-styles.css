@@ -239,9 +239,21 @@ img.img-responsive {
   display: -ms-flexbox;
   display: flex;
   -webkit-box-pack: justify;
-      -ms-flex-pack: justify;
-          justify-content: space-between;
-  padding: 0.5rem 1rem; }
+  -ms-flex-pack: justify;
+  justify-content: space-between;
+  }
+  /* Mobile nav */
+  @media only screen and (max-width: 1023px) {
+    .nav {
+      padding: 0rem 3rem;
+    }
+  }
+  /* Web/Desktop nav */
+  @media only screen and (min-width: 1024px) {
+    .nav {
+      padding: 0.5rem 30rem;
+    }
+  }
   .nav ul {
     margin: 0;
     padding: 0;
