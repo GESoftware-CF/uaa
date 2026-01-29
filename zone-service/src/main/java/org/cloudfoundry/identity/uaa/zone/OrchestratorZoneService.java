@@ -416,6 +416,7 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
     /**
      * Extracts redirect URLs from the additionalParameters map.
      * The logout_redirect_url_whitelist key can contain either a single URL string or a list of URL strings.
+     * Empty or blank strings are filtered out.
      *
      * @param additionalParameters Map containing additional parameters
      * @return List of redirect URLs, or empty list if none found
@@ -432,11 +433,13 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
         }
 
         if (redirectUrlValue instanceof String) {
-            return Collections.singletonList((String) redirectUrlValue);
+            String url = (String) redirectUrlValue;
+            return hasText(url) ? Collections.singletonList(url) : Collections.emptyList();
         } else if (redirectUrlValue instanceof List) {
             return ((List<?>) redirectUrlValue).stream()
                     .filter(obj -> obj instanceof String)
                     .map(obj -> (String) obj)
+                    .filter(url -> hasText(url))
                     .collect(java.util.stream.Collectors.toList());
         }
 
