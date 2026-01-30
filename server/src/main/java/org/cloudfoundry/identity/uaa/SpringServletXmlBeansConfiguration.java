@@ -31,6 +31,8 @@ import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimUserProvisioning;
 import org.cloudfoundry.identity.uaa.security.ContextSensitiveOAuth2WebSecurityExpressionHandler;
 import org.cloudfoundry.identity.uaa.security.beans.SecurityContextAccessor;
 import org.cloudfoundry.identity.uaa.user.JdbcUaaUserDatabase;
+import org.cloudfoundry.identity.uaa.util.TimeService;
+import org.cloudfoundry.identity.uaa.util.TimeServiceImpl;
 import org.cloudfoundry.identity.uaa.web.beans.UaaRequestRejectedHandler;
 import org.cloudfoundry.identity.uaa.zone.ClientSecretPolicy;
 import org.cloudfoundry.identity.uaa.zone.ClientSecretValidator;
@@ -345,10 +347,16 @@ public class SpringServletXmlBeansConfiguration {
     }
 
     @Bean
+    TimeService timeService() {
+        return new TimeServiceImpl();
+    }
+
+    @Bean
     AuthenticationSuccessListener authenticationSuccessListener(
-            @Qualifier("scimUserProvisioning") JdbcScimUserProvisioning scimUserProvisioning
-    ) {
-        return new AuthenticationSuccessListener(scimUserProvisioning);
+            @Qualifier("scimUserProvisioning") JdbcScimUserProvisioning scimUserProvisioning, 
+            @Qualifier("userDatabase") JdbcUaaUserDatabase userDatabase,
+            TimeService timeService) {
+        return new AuthenticationSuccessListener(scimUserProvisioning, userDatabase, timeService);
     }
 
     @Bean

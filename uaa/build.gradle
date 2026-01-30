@@ -120,7 +120,11 @@ dependencies {
     testImplementation(libraries.lombok)
     testAnnotationProcessor(libraries.lombok)
 
-    testImplementation(project(":iam-k8s-utils"))
+    testImplementation(project(":iam-k8s-utils")) {
+        exclude(group: "org.bouncycastle", module: "bcpkix-jdk18on")
+        exclude(group: "org.bouncycastle", module: "bcprov-jdk18on")
+        exclude(group: "org.bouncycastle", module: "bcutil-jdk18on")
+    }
 }
 
 ext {
