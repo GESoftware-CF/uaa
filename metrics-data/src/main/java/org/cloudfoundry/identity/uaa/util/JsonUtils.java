@@ -21,6 +21,9 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.cfg.CoercionAction;
+import com.fasterxml.jackson.databind.cfg.CoercionInputShape;
+import com.fasterxml.jackson.databind.type.LogicalType;
 
 import java.io.IOException;
 import java.io.Serial;
@@ -28,7 +31,16 @@ import java.util.Date;
 import java.util.Map;
 
 public class JsonUtils {
-    private static final ObjectMapper objectMapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    private static final ObjectMapper objectMapper = createObjectMapper();
+    
+    private static ObjectMapper createObjectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        // Configure Jackson to accept empty strings as null for Maps
+        mapper.coercionConfigFor(LogicalType.Map)
+              .setCoercion(CoercionInputShape.EmptyString, CoercionAction.AsNull);
+        return mapper;
+    }
 
     private JsonUtils() {
         throw new UnsupportedOperationException("This is a utility class and cannot be instantiated");
