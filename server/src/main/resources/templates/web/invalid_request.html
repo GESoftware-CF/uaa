@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layouts/main}">
+<head>
+    <script th:src="@{/resources/predix/js/toast-notifications.js}" defer="defer"></script>
+</head>
 <div class="island" layout:fragment="page-content">
     <div class="island-content">
-        <div class="alert alert-error">
-            <p>Warning: Invalid Request Error</p>
-        </div>
+        <div th:replace="~{fragments/toast :: errorMessage('Warning: Invalid Request Error')}"></div>
         <img src="/resources/images/sad_cloud.png" th:src="@{/resources/images/sad_cloud.png}" role="presentation" />
     </div>
     <h2>

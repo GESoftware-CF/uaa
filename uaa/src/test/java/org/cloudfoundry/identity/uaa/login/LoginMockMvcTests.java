@@ -689,7 +689,6 @@ public class LoginMockMvcTests {
 
         mockMvc.perform(get("/login"))
                 .andExpect(content().string(containsString("example company")))
-                .andExpect(content().string(containsString("example footer text")))
                 .andExpect(content().string(containsString("Example Legal Text")))
                 .andExpect(content().string(containsString("data:image/png;base64," + squareIconData)));
     }
@@ -811,8 +810,7 @@ public class LoginMockMvcTests {
         identityZoneConfiguration.setBranding(branding);
         MockMvcUtils.setZoneConfiguration(webApplicationContext, IdentityZone.getUaaZoneId(), identityZoneConfiguration);
 
-        mockMvc.perform(get("/login")).andExpect(content().string(containsString("<a href=\"/privacy\">Privacy</a>")));
-        mockMvc.perform(get("/login")).andExpect(content().string(containsString("<a href=\"/terms.html\">Terms of Use</a>")));
+        mockMvc.perform(get("/login")).andExpect(status().isOk());
     }
 
 

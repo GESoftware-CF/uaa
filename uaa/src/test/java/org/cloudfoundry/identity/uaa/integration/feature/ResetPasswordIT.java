@@ -122,13 +122,13 @@ class ResetPasswordIT {
     @Test
     void resetPassword_with_clientRedirect() {
         webDriver.get(baseUrl + "/forgot_password?client_id=" + scimClientId + "&redirect_uri=http://example.redirect.com");
-        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Reset Password");
+        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Reset password");
 
         int receivedEmailSize = simpleSmtpServer.getReceivedEmailSize();
 
         webDriver.findElement(By.name("username")).sendKeys(username);
         webDriver.clickAndWait(By.xpath("//input[@value='Send reset password link']"));
-        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Instructions Sent");
+        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Instructions sent");
 
         assertThat(simpleSmtpServer.getReceivedEmailSize()).isEqualTo(receivedEmailSize + 1);
         Iterator<SmtpMessage> receivedEmail = simpleSmtpServer.getReceivedEmail();
@@ -156,13 +156,13 @@ class ResetPasswordIT {
     void notAutoLoginAfterResetPassword() {
         webDriver.get(baseUrl + "/oauth/authorize?client_id=" + authCodeClientId + "&redirect_uri=https://www.google.com&grant_type=authorization_code&response_type=code");
         webDriver.clickAndWait(By.linkText("Reset password"));
-        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Reset Password");
+        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Reset password");
 
         int receivedEmailSize = simpleSmtpServer.getReceivedEmailSize();
 
         webDriver.findElement(By.name("username")).sendKeys(username);
         webDriver.clickAndWait(By.xpath("//input[@value='Send reset password link']"));
-        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Instructions Sent");
+        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Instructions sent");
 
         assertThat(simpleSmtpServer.getReceivedEmailSize()).isEqualTo(receivedEmailSize + 1);
         Iterator<SmtpMessage> receivedEmail = simpleSmtpServer.getReceivedEmail();
@@ -260,12 +260,12 @@ class ResetPasswordIT {
         webDriver.get(baseUrl + "/login");
         assertThat(webDriver.getTitle()).isEqualTo("Predix");
         webDriver.clickAndWait(By.linkText("Reset password"));
-        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Reset Password");
+        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Reset password");
 
         // Enter email address
         webDriver.findElement(By.name("username")).sendKeys(username);
         webDriver.clickAndWait(By.xpath("//input[@value='Send reset password link']"));
-        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Instructions Sent");
+        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Instructions sent");
     }
 
     private String getPasswordResetLink(String email) {
