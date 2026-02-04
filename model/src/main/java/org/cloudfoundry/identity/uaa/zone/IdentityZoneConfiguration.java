@@ -21,7 +21,9 @@ import org.cloudfoundry.identity.uaa.login.Prompt;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -47,6 +49,7 @@ public class IdentityZoneConfiguration {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private String issuer;
     private String defaultIdentityProvider;
+    private Map<String, Object> additionalParameters = new HashMap<>();
 
     public IdentityZoneConfiguration() {
     }

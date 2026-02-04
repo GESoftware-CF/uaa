@@ -117,6 +117,7 @@ public class LoginInfoEndpoint {
     private static final String SHOW_LOGIN_LINKS = "showLoginLinks";
     private static final String LINKS = "links";
     private static final String ZONE_NAME = "zone_name";
+    private static final String TENANT_ALIAS = "tenant_alias";
     private static final String ENTITY_ID = "entityID";
     private static final String IDP_DEFINITIONS = "idpDefinitions";
     private static final String OAUTH_LINKS = "oauthLinks";
@@ -416,6 +417,8 @@ public class LoginInfoEndpoint {
         model.addAttribute(LINKS, links);
         setCommitInfo(model);
         model.addAttribute(ZONE_NAME, IdentityZoneHolder.get().getName());
+        // Add tenant alias from additional parameters if present
+        addTenantAliasToModel(model);
         // Entity ID to start the discovery
         model.addAttribute(ENTITY_ID, zonifiedEntityID);
 
@@ -1008,6 +1011,24 @@ public class LoginInfoEndpoint {
             }
         }
         return selfServiceLinks;
+    }
+
+    /**
+     * Adds tenant alias to the model from the identity zone's additional parameters.
+     * Falls back to zone name if tenant_alias is not present.
+     */
+    private void addTenantAliasToModel(Model model) {
+        IdentityZone currentZone = IdentityZoneHolder.get();
+        String tenantAlias = currentZone.getName(); // default to zone name
+
+        if (currentZone.getConfig() != null && currentZone.getConfig().getAdditionalParameters() != null) {
+            Object tenantAliasValue = currentZone.getConfig().getAdditionalParameters().get(TENANT_ALIAS);
+            if (tenantAliasValue instanceof String && hasText((String) tenantAliasValue)) {
+                tenantAlias = (String) tenantAliasValue;
+            }
+        }
+
+        model.addAttribute(TENANT_ALIAS, tenantAlias);
     }
 
     static class SavedAccountOptionModel extends SavedAccountOption {

@@ -309,6 +309,10 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
         identityZone.getConfig().getLinks().getSelfService().setSelfServiceCreateAccountEnabled(false);
         identityZone.getConfig().getLinks().getSelfService().setSignup("");
         identityZone.getConfig().getLinks().getSelfService().setSelfServiceResetPasswordEnabled(true);
+        // Copy additionalParameters to IdentityZoneConfiguration for access in login page
+        if (orchestratorZone != null && orchestratorZone.getAdditionalParameters() != null) {
+            identityZone.getConfig().setAdditionalParameters(orchestratorZone.getAdditionalParameters());
+        }
         return identityZone;
     }
 
