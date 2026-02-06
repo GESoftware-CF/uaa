@@ -583,7 +583,7 @@ public class OrchestratorZoneControllerMockMvcTests {
         expectedResponse.setMessage(ZONE_CREATED_MESSAGE);
         expectedResponse.setState(OrchestratorState.CREATE_IN_PROGRESS.toString());
 
-        OrchestratorZoneResponse actualResponse = performMockMvcCallAndAssertResponse(
+        performMockMvcCallAndAssertResponse(
                 post("/orchestrator/zones")
                         .contentType(APPLICATION_JSON)
                         .content(JsonUtils.writeValueAsString(orchestratorZoneRequest)),

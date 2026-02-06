@@ -1035,10 +1035,10 @@ public class OrchestratorZoneControllerIntegrationTests {
 
         // Verify that tenant alias is displayed in the login page
         assertNotNull(loginPageContent);
-        assertTrue("Login page should contain tenant alias",
-                loginPageContent.contains("Welcome to " + tenantAlias + "!"));
-        assertFalse("Login page should not contain zone name",
-                loginPageContent.contains("Welcome to " + zoneName + "!"));
+        assertTrue(loginPageContent.contains("Welcome to " + tenantAlias + "!"),
+                "Login page should contain tenant alias");
+        assertFalse(loginPageContent.contains("Welcome to " + zoneName + "!"),
+                "Login page should not contain zone name");
     }
 
     @Test
