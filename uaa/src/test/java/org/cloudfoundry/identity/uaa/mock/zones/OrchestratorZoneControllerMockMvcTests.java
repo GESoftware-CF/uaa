@@ -149,6 +149,14 @@ public class OrchestratorZoneControllerMockMvcTests {
                 "orchestrator-zone-provisioner-" + RandomString.make(5).toLowerCase(),
                 "pr0visioner",
                 "orchestrator.zones.read,orchestrator.zones.write");
+
+        // Initialize uaaAdminClientToken for tests that need to access identity-zones API
+        uaaAdminClientToken = getAccessToken(
+                clientRegistrationService,
+                testClient,
+                "uaa-admin-" + RandomString.make(5).toLowerCase(),
+                "adminsecret",
+                "uaa.admin");
     }
 
     private String getAccessToken(ClientRegistrationService clientRegistrationService,
