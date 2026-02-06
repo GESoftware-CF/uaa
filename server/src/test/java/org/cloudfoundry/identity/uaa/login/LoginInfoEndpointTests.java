@@ -1865,7 +1865,7 @@ class LoginInfoEndpointTests {
 
         extendedModelMap = new ExtendedModelMap();
 
-        LoginInfoEndpoint endpoint = getEndpoint(HTTP_LOCALHOST_8080_UAA, null, IdentityZoneHolder.get());
+        LoginInfoEndpoint endpoint = getEndpoint(zone);
         endpoint.loginForHtml(extendedModelMap, null, request, Collections.singletonList(MediaType.TEXT_HTML));
 
         // Verify tenant_alias is in the model
@@ -1886,7 +1886,7 @@ class LoginInfoEndpointTests {
 
         extendedModelMap = new ExtendedModelMap();
 
-        LoginInfoEndpoint endpoint = getEndpoint(HTTP_LOCALHOST_8080_UAA, null, IdentityZoneHolder.get());
+        LoginInfoEndpoint endpoint = getEndpoint(zone);
         endpoint.loginForHtml(extendedModelMap, null, request, Collections.singletonList(MediaType.TEXT_HTML));
 
         // Verify tenant_alias falls back to zone name
@@ -1910,7 +1910,7 @@ class LoginInfoEndpointTests {
 
         extendedModelMap = new ExtendedModelMap();
 
-        LoginInfoEndpoint endpoint = getEndpoint(HTTP_LOCALHOST_8080_UAA, null, IdentityZoneHolder.get());
+        LoginInfoEndpoint endpoint = getEndpoint(zone);
         endpoint.loginForHtml(extendedModelMap, null, request, Collections.singletonList(MediaType.TEXT_HTML));
 
         // Verify tenant_alias falls back to zone name when empty
@@ -1932,7 +1932,7 @@ class LoginInfoEndpointTests {
 
         extendedModelMap = new ExtendedModelMap();
 
-        LoginInfoEndpoint endpoint = getEndpoint(HTTP_LOCALHOST_8080_UAA, null, IdentityZoneHolder.get());
+        LoginInfoEndpoint endpoint = getEndpoint(zone);
         endpoint.loginForHtml(extendedModelMap, null, request, Collections.singletonList(MediaType.TEXT_HTML));
 
         // Verify tenant_alias falls back to zone name
@@ -1956,7 +1956,7 @@ class LoginInfoEndpointTests {
 
         extendedModelMap = new ExtendedModelMap();
 
-        LoginInfoEndpoint endpoint = getEndpoint(HTTP_LOCALHOST_8080_UAA, null, IdentityZoneHolder.get());
+        LoginInfoEndpoint endpoint = getEndpoint(zone);
         endpoint.loginForHtml(extendedModelMap, null, request, Collections.singletonList(MediaType.TEXT_HTML));
 
         // Verify tenant_alias is in the model with whitespace preserved (hasText checks for non-blank)
