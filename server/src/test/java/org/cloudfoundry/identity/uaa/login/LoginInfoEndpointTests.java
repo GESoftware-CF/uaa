@@ -1848,4 +1848,121 @@ class LoginInfoEndpointTests {
         assertThat(returnedPrompts.get("password")[1]).isEqualTo("Password");
         assertThat(returnedPrompts.get("passcode")).isNull();
     }
+
+    @Test
+    void testTenantAliasFromAdditionalParameters() throws Exception {
+        // Setup zone with tenant_alias in additionalParameters
+        IdentityZone zone = MultitenancyFixture.identityZone("test-zone", "test-zone");
+        IdentityZoneConfiguration config = new IdentityZoneConfiguration();
+        Map<String, Object> additionalParams = new java.util.HashMap<>();
+        additionalParams.put("tenant_alias", "My Custom Company");
+        config.setAdditionalParameters(additionalParams);
+        zone.setConfig(config);
+        IdentityZoneHolder.set(zone);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRequestURI("/login");
+
+        extendedModelMap = new ExtendedModelMap();
+
+        LoginInfoEndpoint endpoint = getEndpoint(HTTP_LOCALHOST_8080_UAA, null, IdentityZoneHolder.get());
+        endpoint.loginForHtml(extendedModelMap, null, request, Collections.singletonList(MediaType.TEXT_HTML));
+
+        // Verify tenant_alias is in the model
+        assertThat(extendedModelMap).containsKey("tenant_alias");
+        assertThat(extendedModelMap.get("tenant_alias")).isEqualTo("My Custom Company");
+    }
+
+    @Test
+    void testTenantAliasNotPresent_UsesZoneName() throws Exception {
+        // Setup zone without tenant_alias
+        IdentityZone zone = MultitenancyFixture.identityZone("test-zone", "test-zone");
+        IdentityZoneConfiguration config = new IdentityZoneConfiguration();
+        zone.setConfig(config);
+        IdentityZoneHolder.set(zone);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRequestURI("/login");
+
+        extendedModelMap = new ExtendedModelMap();
+
+        LoginInfoEndpoint endpoint = getEndpoint(HTTP_LOCALHOST_8080_UAA, null, IdentityZoneHolder.get());
+        endpoint.loginForHtml(extendedModelMap, null, request, Collections.singletonList(MediaType.TEXT_HTML));
+
+        // Verify tenant_alias falls back to zone name
+        assertThat(extendedModelMap).containsKey("tenant_alias");
+        assertThat(extendedModelMap.get("tenant_alias")).isEqualTo("test-zone");
+    }
+
+    @Test
+    void testTenantAliasEmpty_UsesZoneName() throws Exception {
+        // Setup zone with empty tenant_alias
+        IdentityZone zone = MultitenancyFixture.identityZone("test-zone", "test-zone");
+        IdentityZoneConfiguration config = new IdentityZoneConfiguration();
+        Map<String, Object> additionalParams = new java.util.HashMap<>();
+        additionalParams.put("tenant_alias", "");
+        config.setAdditionalParameters(additionalParams);
+        zone.setConfig(config);
+        IdentityZoneHolder.set(zone);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRequestURI("/login");
+
+        extendedModelMap = new ExtendedModelMap();
+
+        LoginInfoEndpoint endpoint = getEndpoint(HTTP_LOCALHOST_8080_UAA, null, IdentityZoneHolder.get());
+        endpoint.loginForHtml(extendedModelMap, null, request, Collections.singletonList(MediaType.TEXT_HTML));
+
+        // Verify tenant_alias falls back to zone name when empty
+        assertThat(extendedModelMap).containsKey("tenant_alias");
+        assertThat(extendedModelMap.get("tenant_alias")).isEqualTo("test-zone");
+    }
+
+    @Test
+    void testTenantAliasNull_UsesZoneName() throws Exception {
+        // Setup zone with null additionalParameters
+        IdentityZone zone = MultitenancyFixture.identityZone("test-zone", "test-zone");
+        IdentityZoneConfiguration config = new IdentityZoneConfiguration();
+        config.setAdditionalParameters(null);
+        zone.setConfig(config);
+        IdentityZoneHolder.set(zone);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRequestURI("/login");
+
+        extendedModelMap = new ExtendedModelMap();
+
+        LoginInfoEndpoint endpoint = getEndpoint(HTTP_LOCALHOST_8080_UAA, null, IdentityZoneHolder.get());
+        endpoint.loginForHtml(extendedModelMap, null, request, Collections.singletonList(MediaType.TEXT_HTML));
+
+        // Verify tenant_alias falls back to zone name
+        assertThat(extendedModelMap).containsKey("tenant_alias");
+        assertThat(extendedModelMap.get("tenant_alias")).isEqualTo("test-zone");
+    }
+
+    @Test
+    void testTenantAliasWithWhitespace_UsesTrimmedValue() throws Exception {
+        // Setup zone with tenant_alias that has whitespace
+        IdentityZone zone = MultitenancyFixture.identityZone("test-zone", "test-zone");
+        IdentityZoneConfiguration config = new IdentityZoneConfiguration();
+        Map<String, Object> additionalParams = new java.util.HashMap<>();
+        additionalParams.put("tenant_alias", "   Acme Corporation   ");
+        config.setAdditionalParameters(additionalParams);
+        zone.setConfig(config);
+        IdentityZoneHolder.set(zone);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRequestURI("/login");
+
+        extendedModelMap = new ExtendedModelMap();
+
+        LoginInfoEndpoint endpoint = getEndpoint(HTTP_LOCALHOST_8080_UAA, null, IdentityZoneHolder.get());
+        endpoint.loginForHtml(extendedModelMap, null, request, Collections.singletonList(MediaType.TEXT_HTML));
+
+        // Verify tenant_alias is in the model with whitespace preserved (hasText checks for non-blank)
+        assertThat(extendedModelMap).containsKey("tenant_alias");
+        assertThat(extendedModelMap.get("tenant_alias")).isEqualTo("   Acme Corporation   ");
+    }
 }
+
+

@@ -989,4 +989,208 @@ public class OrchestratorZoneControllerIntegrationTests {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
     }
+
+    @Test
+    public void testCreateZone_WithTenantAlias_DisplaysInLoginPage() {
+        String zoneName = getName();
+        String tenantAlias = "My Custom Tenant Name";
+
+        // Create zone with tenant_alias in additionalParameters
+        Map<String, Object> additionalParameters = new java.util.HashMap<>();
+        additionalParameters.put("tenant_alias", tenantAlias);
+
+        OrchestratorZone orchestratorZone = new OrchestratorZone(ADMIN_CLIENT_SECRET, zoneName, null, additionalParameters);
+        OrchestratorZoneRequest orchestratorZoneRequest = new OrchestratorZoneRequest();
+        orchestratorZoneRequest.setName(zoneName);
+        orchestratorZoneRequest.setParameters(orchestratorZone);
+
+        String requestBody = JsonUtils.writeValueAsString(orchestratorZoneRequest);
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Accept", MediaType.APPLICATION_JSON_VALUE);
+        headers.add("Content-Type", MediaType.APPLICATION_JSON_VALUE);
+
+        ResponseEntity<OrchestratorZoneResponse> createZoneResponse = client.postForEntity(
+                serverRunning.getUrl(ORCHESTRATOR_ZONES_APIS_ENDPOINT),
+                new HttpEntity<>(requestBody, headers), OrchestratorZoneResponse.class);
+
+        assertEquals(HttpStatus.ACCEPTED, createZoneResponse.getStatusCode());
+
+        // Wait for zone to be created
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Access the login page for the zone
+        String zoneUrl = "http://" + zoneName + ".localhost:8080/uaa/login";
+        HttpHeaders loginHeaders = new HttpHeaders();
+        loginHeaders.setAccept(Collections.singletonList(MediaType.TEXT_HTML));
+
+        ResponseEntity<String> loginResponse = new RestTemplate().exchange(
+                zoneUrl, HttpMethod.GET, new HttpEntity<>(loginHeaders), String.class);
+
+        assertEquals(HttpStatus.OK, loginResponse.getStatusCode());
+        String loginPageContent = loginResponse.getBody();
+
+        // Verify that tenant alias is displayed in the login page
+        assertNotNull(loginPageContent);
+        assertTrue("Login page should contain tenant alias",
+                loginPageContent.contains("Welcome to " + tenantAlias + "!"));
+        assertFalse("Login page should not contain zone name",
+                loginPageContent.contains("Welcome to " + zoneName + "!"));
+    }
+
+    @Test
+    public void testCreateZone_WithoutTenantAlias_DisplaysZoneName() {
+        String zoneName = getName();
+
+        // Create zone without tenant_alias in additionalParameters
+        ResponseEntity<OrchestratorZoneResponse> createZoneResponse = createZone(zoneName);
+        assertEquals(HttpStatus.ACCEPTED, createZoneResponse.getStatusCode());
+
+        // Wait for zone to be created
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Access the login page for the zone
+        String zoneUrl = "http://" + zoneName + ".localhost:8080/uaa/login";
+        HttpHeaders loginHeaders = new HttpHeaders();
+        loginHeaders.setAccept(Collections.singletonList(MediaType.TEXT_HTML));
+
+        ResponseEntity<String> loginResponse = new RestTemplate().exchange(
+                zoneUrl, HttpMethod.GET, new HttpEntity<>(loginHeaders), String.class);
+
+        assertEquals(HttpStatus.OK, loginResponse.getStatusCode());
+        String loginPageContent = loginResponse.getBody();
+
+        // Verify that zone name is displayed in the login page (since no tenant_alias)
+        assertNotNull(loginPageContent);
+        assertTrue("Login page should contain zone name when tenant_alias is not provided",
+                loginPageContent.contains("Welcome to " + zoneName + "!"));
+    }
+
+    @Test
+    public void testCreateZone_WithEmptyTenantAlias_DisplaysZoneName() {
+        String zoneName = getName();
+
+        // Create zone with empty tenant_alias in additionalParameters
+        Map<String, Object> additionalParameters = new java.util.HashMap<>();
+        additionalParameters.put("tenant_alias", "");
+
+        OrchestratorZone orchestratorZone = new OrchestratorZone(ADMIN_CLIENT_SECRET, zoneName, null, additionalParameters);
+        OrchestratorZoneRequest orchestratorZoneRequest = new OrchestratorZoneRequest();
+        orchestratorZoneRequest.setName(zoneName);
+        orchestratorZoneRequest.setParameters(orchestratorZone);
+
+        String requestBody = JsonUtils.writeValueAsString(orchestratorZoneRequest);
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Accept", MediaType.APPLICATION_JSON_VALUE);
+        headers.add("Content-Type", MediaType.APPLICATION_JSON_VALUE);
+
+        ResponseEntity<OrchestratorZoneResponse> createZoneResponse = client.postForEntity(
+                serverRunning.getUrl(ORCHESTRATOR_ZONES_APIS_ENDPOINT),
+                new HttpEntity<>(requestBody, headers), OrchestratorZoneResponse.class);
+
+        assertEquals(HttpStatus.ACCEPTED, createZoneResponse.getStatusCode());
+
+        // Wait for zone to be created
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Access the login page for the zone
+        String zoneUrl = "http://" + zoneName + ".localhost:8080/uaa/login";
+        HttpHeaders loginHeaders = new HttpHeaders();
+        loginHeaders.setAccept(Collections.singletonList(MediaType.TEXT_HTML));
+
+        ResponseEntity<String> loginResponse = new RestTemplate().exchange(
+                zoneUrl, HttpMethod.GET, new HttpEntity<>(loginHeaders), String.class);
+
+        assertEquals(HttpStatus.OK, loginResponse.getStatusCode());
+        String loginPageContent = loginResponse.getBody();
+
+        // Verify that zone name is displayed (since tenant_alias is empty)
+        assertNotNull(loginPageContent);
+        assertTrue("Login page should contain zone name when tenant_alias is empty",
+                loginPageContent.contains("Welcome to " + zoneName + "!"));
+    }
+
+    @Test
+    public void testCreateZone_WithTenantAliasAndLogoutRedirectUrl() {
+        String zoneName = getName();
+        String tenantAlias = "Acme Corporation";
+
+        // Create zone with both tenant_alias and logout_redirect_url_whitelist
+        Map<String, Object> additionalParameters = new java.util.HashMap<>();
+        additionalParameters.put("tenant_alias", tenantAlias);
+        additionalParameters.put("logout_redirect_url_whitelist", Arrays.asList(
+                "https://acme.com/logout",
+                "https://acme.com/goodbye"
+        ));
+
+        OrchestratorZone orchestratorZone = new OrchestratorZone(ADMIN_CLIENT_SECRET, zoneName, null, additionalParameters);
+        OrchestratorZoneRequest orchestratorZoneRequest = new OrchestratorZoneRequest();
+        orchestratorZoneRequest.setName(zoneName);
+        orchestratorZoneRequest.setParameters(orchestratorZone);
+
+        String requestBody = JsonUtils.writeValueAsString(orchestratorZoneRequest);
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Accept", MediaType.APPLICATION_JSON_VALUE);
+        headers.add("Content-Type", MediaType.APPLICATION_JSON_VALUE);
+
+        ResponseEntity<OrchestratorZoneResponse> createZoneResponse = client.postForEntity(
+                serverRunning.getUrl(ORCHESTRATOR_ZONES_APIS_ENDPOINT),
+                new HttpEntity<>(requestBody, headers), OrchestratorZoneResponse.class);
+
+        assertEquals(HttpStatus.ACCEPTED, createZoneResponse.getStatusCode());
+
+        // Wait for zone to be created
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Verify zone was created and tenant alias is in login page
+        String zoneUrl = "http://" + zoneName + ".localhost:8080/uaa/login";
+        HttpHeaders loginHeaders = new HttpHeaders();
+        loginHeaders.setAccept(Collections.singletonList(MediaType.TEXT_HTML));
+
+        ResponseEntity<String> loginResponse = new RestTemplate().exchange(
+                zoneUrl, HttpMethod.GET, new HttpEntity<>(loginHeaders), String.class);
+
+        assertEquals(HttpStatus.OK, loginResponse.getStatusCode());
+        String loginPageContent = loginResponse.getBody();
+
+        assertNotNull(loginPageContent);
+        assertTrue("Login page should contain tenant alias",
+                loginPageContent.contains("Welcome to " + tenantAlias + "!"));
+
+        // Verify zone configuration has both parameters
+        ResponseEntity<IdentityZone> zoneResponse = client.exchange(
+                serverRunning.getUrl(NATIVE_ZONES_APIS_ENDPOINT + "/" + createZoneResponse.getBody().getConnectionDetails().getZone().getHttpHeaderValue()),
+                HttpMethod.GET,
+                null,
+                IdentityZone.class);
+
+        assertEquals(HttpStatus.OK, zoneResponse.getStatusCode());
+        IdentityZone zone = zoneResponse.getBody();
+        assertNotNull(zone);
+        assertNotNull(zone.getConfig());
+        assertNotNull(zone.getConfig().getAdditionalParameters());
+        assertEquals(tenantAlias, zone.getConfig().getAdditionalParameters().get("tenant_alias"));
+
+        // Verify logout redirect URLs are also set
+        assertNotNull(zone.getConfig().getLinks());
+        assertNotNull(zone.getConfig().getLinks().getLogout());
+        assertNotNull(zone.getConfig().getLinks().getLogout().getWhitelist());
+        assertTrue(zone.getConfig().getLinks().getLogout().getWhitelist().contains("https://acme.com/logout"));
+        assertTrue(zone.getConfig().getLinks().getLogout().getWhitelist().contains("https://acme.com/goodbye"));
+    }
 }
