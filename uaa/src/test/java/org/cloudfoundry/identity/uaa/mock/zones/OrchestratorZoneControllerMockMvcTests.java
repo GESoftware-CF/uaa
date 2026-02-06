@@ -603,7 +603,7 @@ public class OrchestratorZoneControllerMockMvcTests {
         String zoneId = getResponse.getConnectionDetails().getZone().getHttpHeaderValue();
         MvcResult zoneResult = mockMvc.perform(
                 get("/identity-zones/" + zoneId)
-                        .header("Authorization", "Bearer " + orchestratorZonesReadToken))
+                        .header("Authorization", "Bearer " + uaaAdminClientToken))
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -686,7 +686,7 @@ public class OrchestratorZoneControllerMockMvcTests {
         String zoneId = getResponse.getConnectionDetails().getZone().getHttpHeaderValue();
         MvcResult zoneResult = mockMvc.perform(
                 get("/identity-zones/" + zoneId)
-                        .header("Authorization", "Bearer " + orchestratorZonesReadToken))
+                        .header("Authorization", "Bearer " + uaaAdminClientToken))
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -740,7 +740,7 @@ public class OrchestratorZoneControllerMockMvcTests {
         String zoneId = getResponse.getConnectionDetails().getZone().getHttpHeaderValue();
         MvcResult zoneResult = mockMvc.perform(
                 get("/identity-zones/" + zoneId)
-                        .header("Authorization", "Bearer " + orchestratorZonesReadToken))
+                        .header("Authorization", "Bearer " + uaaAdminClientToken))
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -799,7 +799,7 @@ public class OrchestratorZoneControllerMockMvcTests {
         String zoneId = getResponse.getConnectionDetails().getZone().getHttpHeaderValue();
         MvcResult zoneResult = mockMvc.perform(
                 get("/identity-zones/" + zoneId)
-                        .header("Authorization", "Bearer " + orchestratorZonesReadToken))
+                        .header("Authorization", "Bearer " + uaaAdminClientToken))
                 .andExpect(status().isOk())
                 .andReturn();
 
