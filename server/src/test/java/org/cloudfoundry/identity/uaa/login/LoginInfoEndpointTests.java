@@ -1877,6 +1877,7 @@ class LoginInfoEndpointTests {
     void testTenantAliasNotPresent_UsesZoneName() throws Exception {
         // Setup zone without tenant_alias
         IdentityZone zone = MultitenancyFixture.identityZone("test-zone", "test-zone");
+        zone.setName("test-zone"); // Explicitly set name for testing fallback
         IdentityZoneConfiguration config = new IdentityZoneConfiguration();
         zone.setConfig(config);
         IdentityZoneHolder.set(zone);
@@ -1898,6 +1899,7 @@ class LoginInfoEndpointTests {
     void testTenantAliasEmpty_UsesZoneName() throws Exception {
         // Setup zone with empty tenant_alias
         IdentityZone zone = MultitenancyFixture.identityZone("test-zone", "test-zone");
+        zone.setName("test-zone"); // Explicitly set name for testing fallback
         IdentityZoneConfiguration config = new IdentityZoneConfiguration();
         Map<String, Object> additionalParams = new java.util.HashMap<>();
         additionalParams.put("tenant_alias", "");
@@ -1922,6 +1924,7 @@ class LoginInfoEndpointTests {
     void testTenantAliasNull_UsesZoneName() throws Exception {
         // Setup zone with null additionalParameters
         IdentityZone zone = MultitenancyFixture.identityZone("test-zone", "test-zone");
+        zone.setName("test-zone"); // Explicitly set name for testing fallback
         IdentityZoneConfiguration config = new IdentityZoneConfiguration();
         config.setAdditionalParameters(null);
         zone.setConfig(config);
