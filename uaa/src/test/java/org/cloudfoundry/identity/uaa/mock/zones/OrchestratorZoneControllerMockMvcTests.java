@@ -500,6 +500,27 @@ public class OrchestratorZoneControllerMockMvcTests {
                 orchestratorZonesWriteToken,
                 status().isAccepted(), expectedResponse);
 
+        // Verify the zone was created and retrieve it to check logout redirect URLs
+        OrchestratorZoneResponse getResponse = performMockMvcCall(
+                get("/orchestrator/zones").param("name", zoneName),
+                orchestratorZonesReadToken,
+                status().isOk());
+
+        assertNotNull(getResponse);
+        assertNotNull(getResponse.getConnectionDetails());
+
+        // Get the identity zone directly to verify logout redirect URL whitelist
+        String zoneId = getResponse.getConnectionDetails().getZone().getHttpHeaderValue();
+        MvcResult zoneResult = mockMvc.perform(
+                get("/identity-zones/" + zoneId)
+                        .header("Authorization", "Bearer " + uaaAdminClientToken))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        IdentityZone zone = JsonUtils.readValue(zoneResult.getResponse().getContentAsString(), IdentityZone.class);
+        assertNotNull(zone.getConfig());
+        assertNotNull(zone.getConfig().getLinks().getLogout().getWhitelist());
+        assertTrue(zone.getConfig().getLinks().getLogout().getWhitelist().contains("https://app.example.com/logout"));
 
         // Clean up
         performMockMvcCall(delete("/orchestrator/zones").param("name", zoneName),
@@ -533,6 +554,29 @@ public class OrchestratorZoneControllerMockMvcTests {
                 orchestratorZonesWriteToken,
                 status().isAccepted(), expectedResponse);
 
+        // Verify the zone was created and retrieve it to check logout redirect URLs
+        OrchestratorZoneResponse getResponse = performMockMvcCall(
+                get("/orchestrator/zones").param("name", zoneName),
+                orchestratorZonesReadToken,
+                status().isOk());
+
+        assertNotNull(getResponse);
+        assertNotNull(getResponse.getConnectionDetails());
+
+        // Get the identity zone directly to verify logout redirect URL whitelist
+        String zoneId = getResponse.getConnectionDetails().getZone().getHttpHeaderValue();
+        MvcResult zoneResult = mockMvc.perform(
+                get("/identity-zones/" + zoneId)
+                        .header("Authorization", "Bearer " + uaaAdminClientToken))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        IdentityZone zone = JsonUtils.readValue(zoneResult.getResponse().getContentAsString(), IdentityZone.class);
+        assertNotNull(zone.getConfig());
+        assertNotNull(zone.getConfig().getLinks().getLogout().getWhitelist());
+        assertTrue(zone.getConfig().getLinks().getLogout().getWhitelist().contains("https://app1.example.com/logout"));
+        assertTrue(zone.getConfig().getLinks().getLogout().getWhitelist().contains("https://app2.example.com/logout"));
+        assertTrue(zone.getConfig().getLinks().getLogout().getWhitelist().contains("https://app3.example.com/callback"));
 
         // Clean up
         performMockMvcCall(delete("/orchestrator/zones").param("name", zoneName),
@@ -559,6 +603,27 @@ public class OrchestratorZoneControllerMockMvcTests {
                 orchestratorZonesWriteToken,
                 status().isAccepted(), expectedResponse);
 
+        // Verify the zone was created and retrieve it
+        OrchestratorZoneResponse getResponse = performMockMvcCall(
+                get("/orchestrator/zones").param("name", zoneName),
+                orchestratorZonesReadToken,
+                status().isOk());
+
+        assertNotNull(getResponse);
+        assertNotNull(getResponse.getConnectionDetails());
+
+        // Get the identity zone directly to verify default logout redirect URL whitelist is set
+        String zoneId = getResponse.getConnectionDetails().getZone().getHttpHeaderValue();
+        MvcResult zoneResult = mockMvc.perform(
+                get("/identity-zones/" + zoneId)
+                        .header("Authorization", "Bearer " + uaaAdminClientToken))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        IdentityZone zone = JsonUtils.readValue(zoneResult.getResponse().getContentAsString(), IdentityZone.class);
+        assertNotNull(zone.getConfig());
+        // When no redirect URLs are provided, the default whitelist should be set
+        assertNotNull(zone.getConfig().getLinks().getLogout().getWhitelist());
 
         // Clean up
         performMockMvcCall(delete("/orchestrator/zones").param("name", zoneName),
