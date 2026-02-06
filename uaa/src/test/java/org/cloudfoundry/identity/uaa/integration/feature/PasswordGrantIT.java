@@ -91,6 +91,131 @@ class PasswordGrantIT {
     }
 
     @Test
+    void userLoginViaPasswordGrantWithClientWithoutSecret() {
+        // Create a public client (no secret required) for password grant
+        String adminAccessToken = testClient.getOAuthAccessToken("admin", "adminsecret", "client_credentials",
+                "clients.read clients.write clients.secret clients.admin");
+
+        String clientId = "no-secret-client-" + new SecureRandom().nextInt(1000000);
+        createClientWithoutSecret(adminAccessToken, clientId);
+
+        try {
+            // Test password grant with client credentials in request body (not in Authorization header)
+            // This is an alternative way to authenticate public clients
+            HttpHeaders headers = new HttpHeaders();
+            headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            LinkedMultiValueMap<String, String> postBody = new LinkedMultiValueMap<>();
+            postBody.add("client_id", clientId);
+            postBody.add("grant_type", "password");
+            postBody.add("username", testAccounts.getUserName());
+            postBody.add("password", testAccounts.getPassword());
+
+            ResponseEntity<Void> responseEntity = restOperations.exchange(baseUrl + "/oauth/token",
+                    HttpMethod.POST,
+                    new HttpEntity<>(postBody, headers),
+                    Void.class);
+
+            assertThat(responseEntity.getStatusCode()).isEqualTo(HttpStatus.OK);
+        } finally {
+            // Clean up the client
+            deleteClient(adminAccessToken, clientId);
+        }
+    }
+
+    @Test
+    void userLoginViaPasswordGrantWithClientWithEmptySecret() {
+        // Create a public client (with empty secret) for password grant
+        String adminAccessToken = testClient.getOAuthAccessToken("admin", "adminsecret", "client_credentials",
+                "clients.read clients.write clients.secret clients.admin");
+
+        String clientId = "empty-secret-client-" + new SecureRandom().nextInt(1000000);
+        createClientWithEmptySecret(adminAccessToken, clientId);
+
+        try {
+            // Test password grant with client credentials in Authorization header (Basic auth with empty password)
+            HttpHeaders headers = new HttpHeaders();
+            headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+            headers.add("Authorization", ((UaaTestAccounts) testAccounts).getAuthorizationHeader(clientId, ""));
+
+            LinkedMultiValueMap<String, String> postBody = new LinkedMultiValueMap<>();
+            postBody.add("grant_type", "password");
+            postBody.add("username", testAccounts.getUserName());
+            postBody.add("password", testAccounts.getPassword());
+
+            ResponseEntity<Void> responseEntity = restOperations.exchange(baseUrl + "/oauth/token",
+                    HttpMethod.POST,
+                    new HttpEntity<>(postBody, headers),
+                    Void.class);
+
+            assertThat(responseEntity.getStatusCode()).isEqualTo(HttpStatus.OK);
+        } finally {
+            // Clean up the client
+            deleteClient(adminAccessToken, clientId);
+        }
+    }
+
+    private void createClient(String adminToken, String clientId, boolean withEmptySecret) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.add("Authorization", "Bearer " + adminToken);
+
+        String clientJson;
+        if (withEmptySecret) {
+            clientJson = String.format("""
+                {
+                    "client_id": "%s",
+                    "client_secret": "",
+                    "authorized_grant_types": ["password", "refresh_token"],
+                    "scope": ["openid", "uaa.user"],
+                    "authorities": ["uaa.resource"],
+                    "resource_ids": ["none"]
+                }
+                """, clientId);
+        } else {
+            clientJson = String.format("""
+                {
+                    "client_id": "%s",
+                    "authorized_grant_types": ["password", "refresh_token"],
+                    "scope": ["openid", "uaa.user"],
+                    "authorities": ["uaa.resource"],
+                    "resource_ids": ["none"]
+                }
+                """, clientId);
+        }
+
+        restOperations.exchange(baseUrl + "/oauth/clients",
+                HttpMethod.POST,
+                new HttpEntity<>(clientJson, headers),
+                String.class);
+    }
+
+    private void createClientWithoutSecret(String adminToken, String clientId) {
+        createClient(adminToken, clientId, false);
+    }
+
+    private void createClientWithEmptySecret(String adminToken, String clientId) {
+        createClient(adminToken, clientId, true);
+    }
+
+    private void deleteClient(String adminToken, String clientId) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Authorization", "Bearer " + adminToken);
+
+        try {
+            restOperations.exchange(baseUrl + "/oauth/clients/" + clientId,
+                    HttpMethod.DELETE,
+                    new HttpEntity<>(headers),
+                    Void.class);
+        } catch (Exception e) {
+            // Ignore cleanup errors
+        }
+    }
+
+    @Test
     void userLoginViaPasswordGrantLoginHintUaa() {
         HttpHeaders headers = new HttpHeaders();
         headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
@@ -344,3 +469,4 @@ class PasswordGrantIT {
         IntegrationTestUtils.createOrUpdateProvider(clientCredentialsToken, baseUrl, identityProvider);
     }
 }
+
