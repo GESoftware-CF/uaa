@@ -76,6 +76,10 @@ public class ClientDetailsAuthenticationProvider extends DaoAuthenticationProvid
                             error = new BadCredentialsException("Bad client_assertion type");
                         }
                         break;
+                    } else if (isLegacyNoSecretFlowAllowed(authentication.getDetails())) {
+                        // Allow legacy clients without secrets for password grant type
+                        setAuthenticationMethod(authentication, CLIENT_AUTH_EMPTY);
+                        break;
                     } else {
                         // set internally empty as client_auth_method e.g. cf client
                         setAuthenticationMethod(authentication, CLIENT_AUTH_EMPTY);
@@ -106,7 +110,24 @@ public class ClientDetailsAuthenticationProvider extends DaoAuthenticationProvid
     private static boolean isPublicGrantTypeUsageAllowed(Object uaaAuthenticationDetails) {
         UaaAuthenticationDetails authenticationDetails = getUaaAuthenticationDetails(uaaAuthenticationDetails);
         Map<String, String[]> requestParameters = getRequestParameters(authenticationDetails);
-        return isPublicTokenRequest(authenticationDetails) && (isAuthorizationWithPkce(requestParameters) || isRefreshFlow(requestParameters));
+        // allowPublic is intended for authorization_code with PKCE, refresh_token, and password grants
+        // client_credentials is handled separately via isLegacyNoSecretFlowAllowed for backward compatibility
+        return isPublicTokenRequest(authenticationDetails) && (isAuthorizationWithPkce(requestParameters) || isRefreshFlow(requestParameters) || isPasswordFlow(requestParameters));
+    }
+
+    private static boolean isPasswordFlow(Map<String, String[]> requestParameters) {
+        // Note: username and password are filtered from parameterMap in UaaAuthenticationDetails,
+        // so we only check for client_id and grant_type=password
+        return StringUtils.hasText(getSafeParameterValue(requestParameters.get("client_id")))
+                && TokenConstants.GRANT_TYPE_PASSWORD.equals(getSafeParameterValue(requestParameters.get(ClaimConstants.GRANT_TYPE)));
+    }
+
+    private static boolean isLegacyNoSecretFlowAllowed(Object uaaAuthenticationDetails) {
+        UaaAuthenticationDetails authenticationDetails = getUaaAuthenticationDetails(uaaAuthenticationDetails);
+        Map<String, String[]> requestParameters = getRequestParameters(authenticationDetails);
+        // Legacy support: only password grant is allowed without client secret
+        // Password grant validates user credentials, so client secret is optional for backward compatibility
+        return isPublicTokenRequest(authenticationDetails) && isPasswordFlow(requestParameters);
     }
 
     private static boolean isPublicTokenRequest(UaaAuthenticationDetails authenticationDetails) {
