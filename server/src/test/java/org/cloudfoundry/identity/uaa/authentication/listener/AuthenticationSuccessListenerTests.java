@@ -106,8 +106,7 @@ class AuthenticationSuccessListenerTests {
         IdentityProviderAuthenticationSuccessEvent event = new IdentityProviderAuthenticationSuccessEvent(
                 user,
                 mockUaaAuthentication,
-                OriginKeys.UAA, IdentityZoneHolder.getCurrentZoneId()
-        );
+                OriginKeys.UAA, IdentityZoneHolder.getCurrentZoneId());
         listener.onApplicationEvent(event);
         verify(mockApplicationEventPublisher, times(1)).publishEvent(isA(UserAuthenticationSuccessEvent.class));
     }
@@ -124,7 +123,7 @@ class AuthenticationSuccessListenerTests {
         listener.onApplicationEvent(event);
 
         verify(mockUserAttributeChangeEventPublisher, times(1))
-                .publishUserAttributeChangeEventAsync(eq(listener), any(UaaUser.class));
+                .publishUserAttributeChangeEventAsync(any(UaaUser.class));
     }
 
     @Test
@@ -141,7 +140,7 @@ class AuthenticationSuccessListenerTests {
 
         // Publisher should still be called because the user from the event is not null
         verify(mockUserAttributeChangeEventPublisher, times(1))
-                .publishUserAttributeChangeEventAsync(any(), any(UaaUser.class));
+                .publishUserAttributeChangeEventAsync(any(UaaUser.class));
     }
 
     private UserAuthenticationSuccessEvent getEvent() {

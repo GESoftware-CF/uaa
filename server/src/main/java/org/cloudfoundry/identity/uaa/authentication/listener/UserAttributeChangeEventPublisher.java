@@ -20,9 +20,7 @@ import java.util.Collections;
 
 /**
  * Publishes user attribute change events to SNS.
- * This class is conditionally created by UaaSnsConfig when sns.enabled=true.
- * DO NOT add @Component annotation - it will cause class loading failures when
- * SNS library is not available.
+ * This class is conditionally created when sns.enabled=true.
  */
 @Component
 @ConditionalOnProperty(name = "sns.enabled", havingValue = "true", matchIfMissing = false)
@@ -43,7 +41,7 @@ public class UserAttributeChangeEventPublisher {
         this.filterUaaOrigin = filterUaaOrigin;
     }
 
-    public void publishUserAttributeChangeEventAsync(Object source, UaaUser user) {
+    public void publishUserAttributeChangeEventAsync(UaaUser user) {
         // Filter out UAA origin users if configured
         if (filterUaaOrigin && OriginKeys.UAA.equals(user.getOrigin())) {
             logger.debug("SNS publishing skipped - user is from password-based (UAA) origin. Username: {}",
@@ -60,7 +58,7 @@ public class UserAttributeChangeEventPublisher {
         MessageBuilder userEventMessageBuilder = this::buildUserEventMessage;
 
         try {
-            snsService.publishAsync(snsTopicArn, "UAA User Event", userEventMessageBuilder, context)
+            snsService.publishAsync(snsTopicArn, "UAA User Update Event", userEventMessageBuilder, context)
                     .whenComplete((result, throwable) -> {
                         if (throwable != null) {
                             logger.error("Failed to publish user event to SNS. " +
@@ -212,8 +210,8 @@ public class UserAttributeChangeEventPublisher {
 
         String eventType = determineEventType(changedFields);
         message.put("eventType", eventType);
-        message.put("source", "uaa-saml-provider");
-        message.put("version", "1.0");
+        message.put("source", user.getUsername());
+        message.put("version", "updated");
         message.put("username", user.getUsername());
         message.put("instanceZoneId", user.getZoneId());
         message.put("changedFields", changedFields);

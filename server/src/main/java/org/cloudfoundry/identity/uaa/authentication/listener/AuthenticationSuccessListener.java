@@ -56,27 +56,17 @@ public class AuthenticationSuccessListener
 
     @Override
     public void onApplicationEvent(AbstractUaaAuthenticationEvent event) {
-        logger.info("AuthenticationSuccessListener received event: {}", event.getClass().getSimpleName());
         if (event instanceof UserAuthenticationSuccessEvent successEvent) {
-            logger.info("Processing UserAuthenticationSuccessEvent for user: {}", successEvent.getUser().getUsername());
-            onApplicationEvent(successEvent, event.getIdentityZoneId());
         } else if (event instanceof IdentityProviderAuthenticationSuccessEvent passwordAuthEvent) {
-            logger.info(
-                    "Converting IdentityProviderAuthenticationSuccessEvent to UserAuthenticationSuccessEvent for user: {}",
-                    passwordAuthEvent.getUser().getUsername());
             UserAuthenticationSuccessEvent userEvent = new UserAuthenticationSuccessEvent(
                     passwordAuthEvent.getUser(),
                     (Authentication) passwordAuthEvent.getSource(), IdentityZoneHolder.getCurrentZoneId());
             publisher.publishEvent(userEvent);
-            logger.info("Published UserAuthenticationSuccessEvent for user: {}",
-                    passwordAuthEvent.getUser().getUsername());
         }
     }
 
     protected void onApplicationEvent(UserAuthenticationSuccessEvent event, String zoneId) {
         UaaUser user = event.getUser();
-        logger.info("Processing user authentication success for user: {} with origin: {}", user.getUsername(),
-                user.getOrigin());
         if (user.isLegacyVerificationBehavior() && !user.isVerified()) {
             scimUserProvisioning.verifyUser(user.getId(), -1, zoneId);
         }
@@ -87,12 +77,12 @@ public class AuthenticationSuccessListener
         scimUserProvisioning.updateLastLogonTime(user, zoneId);
 
         if (userAttributeChangeEventPublisher != null) {
-            logger.info(
+            logger.debug(
                     "UserAttributeChangeEventPublisher is available, calling publishUserAttributeChangeEventAsync for user: {}",
                     user.getUsername());
-            userAttributeChangeEventPublisher.publishUserAttributeChangeEventAsync(this, user);
+            userAttributeChangeEventPublisher.publishUserAttributeChangeEventAsync(user);
         } else {
-            logger.warn("UserAttributeChangeEventPublisher is NULL - SNS publishing is disabled or not configured");
+            logger.error("UserAttributeChangeEventPublisher is NULL - SNS publishing is disabled or not configured");
         }
     }
 
