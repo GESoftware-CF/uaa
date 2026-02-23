@@ -121,8 +121,7 @@ public class SamlUaaAuthenticationUserManager implements ApplicationEventPublish
             userBeforeChanges = user;
             context.setUserModified(true);
             user = user.modifyAttributes(
-                    StringUtils.endsWith(userWithSamlAttributes.getEmail(), '@' + UaaUser.DEFAULT_EMAIL_DOMAIN)
-                            ? user.getEmail() : userWithSamlAttributes.getEmail(),
+                    userWithSamlAttributes.getEmail(),
                     userWithSamlAttributes.getGivenName(),
                     userWithSamlAttributes.getFamilyName(),
                     userWithSamlAttributes.getPhoneNumber(),
