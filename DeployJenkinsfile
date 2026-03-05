@@ -39,10 +39,10 @@ pipeline
                 {
                     agent{
                         docker {
-                            image "dig-grid-artifactory.apps.ge.com/pgog-fss-iam-uaa-docker-stage/uaa-ci-testing:latest"
+                            image "gart.software.gevernova.com/pgog-fss-iam-uaa-docker-stage/uaa-ci-testing:latest"
                             label "dind"
                             args "-v /var/lib/docker/.gradle:/root/.gradle"
-                            registryUrl "https://dig-grid-artifactory.apps.ge.com"
+                            registryUrl "https://gart.software.gevernova.com"
                             registryCredentialsId "DIGITAL_GRID_ARTIFACTORY_CREDENTIALS"
                         }
                     }
