@@ -1,8 +1,8 @@
 #!/usr/bin/env groovy
 def artifactoryServer = Artifactory.server('Digital-Artifactory')
 
-def NODE = [LABEL: "dind", IMAGE: "dig-grid-artifactory.apps.ge.com/pgog-fss-iam-uaa-docker-stage/uaa-ci-testing:latest",
-    ARGS: "-v /var/lib/docker/.gradle:/root/.gradle", REGISTRY_URL: "https://dig-grid-artifactory.apps.ge.com",
+def NODE = [LABEL: "dind", IMAGE: "gart.software.gevernova.com/pgog-fss-iam-uaa-docker-stage/uaa-ci-testing:latest",
+    ARGS: "-v /var/lib/docker/.gradle:/root/.gradle", REGISTRY_URL: "https://gart.software.gevernova.com",
     REGISTRY_CREDENTIALS_ID: "DIGITAL_GRID_ARTIFACTORY_CREDENTIALS"]
 
 def imagePath
@@ -14,7 +14,7 @@ pipeline
     agent none
     environment {
         COMPLIANCEENABLED = true
-        GRID_ARTIFACTORY_URL = "dig-grid-artifactory.apps.ge.com"
+        GRID_ARTIFACTORY_URL = "gart.software.gevernova.com"
         ARTIFACTORY_CREDENTIALS = credentials("DIGITAL_GRID_ARTIFACTORY_CREDENTIALS")
     }
     options {
@@ -437,7 +437,7 @@ pipeline
                         }
                         script {
                             String OTEL_JAR_NAME = "splunk-otel-javaagent.jar"
-                            String OTEL_EXTENSION_REPO = "dig-grid-artifactory.apps.ge.com"
+                            String OTEL_EXTENSION_REPO = "gart.software.gevernova.com"
                             String OTEL_EXTENSION_VERSION = "2.0.0.RELEASE"
                             String OTEL_EXTENSION_PATH = "/artifactory/apm-devops-virtual/com/ge/apm/ged-opentelemetry-java-extension/${OTEL_EXTENSION_VERSION}/"
                             String OTEL_EXTENSION_JAR_NAME="ged-opentelemetry-java-extension-${OTEL_EXTENSION_VERSION}.jar"

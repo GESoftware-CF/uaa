@@ -58,7 +58,7 @@ allprojects {
                 username geArtifactoryReader
                 password geArtifactoryReaderPassword
             }
-            url 'https://dig-grid-artifactory.apps.ge.com/artifactory/pgog-fss-iam-uaa-mvn-virtual'
+            url 'https://gart.software.gevernova.com/artifactory/pgog-fss-iam-uaa-mvn-virtual'
         }
         // shibboleth.net is not reachable from the Jenkins nodes due to GE selling "3.0.0.0/8 address space" to Amazon.
         // Now, within GE, when Propel sends the wget command to the 3.213.250.186 address that shibboleth has,
@@ -167,7 +167,7 @@ subprojects {
                 username geArtifactoryReader
                 password geArtifactoryReaderPassword
             }
-            url 'https://dig-grid-artifactory.apps.ge.com/artifactory/pgog-fss-iam-uaa-mvn-virtual'
+            url 'https://gart.software.gevernova.com/artifactory/pgog-fss-iam-uaa-mvn-virtual'
         }
     }
 
