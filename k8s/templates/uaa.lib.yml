@@ -32,4 +32,5 @@ oauth:
     admin:
       authorized-grant-types: client_credentials
       authorities: "clients.read,clients.write,clients.secret,uaa.admin,scim.read,scim.write,password.write"
+
 #@ end
