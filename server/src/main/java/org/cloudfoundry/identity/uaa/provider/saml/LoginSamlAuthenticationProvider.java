@@ -376,8 +376,7 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
                 }
             }
         }
-
-        if ( haveUserAttributesChanged(user, userWithSamlAttributes)) {
+        if (haveUserAttributesChanged(user, userWithSamlAttributes)) {
             userModified = true;
             user = user.modifyAttributes(
                     StringUtils.endsWith(userWithSamlAttributes.getEmail(), '@' + UaaUser.DEFAULT_EMAIL_DOMAIN)
@@ -388,10 +387,6 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
                     userWithSamlAttributes.getExternalId(),
                     user.isVerified() || userWithSamlAttributes.isVerified());
         }
-        boolean isNameChanged = !StringUtils.equals(user.getGivenName(), userWithSamlAttributes.getGivenName()) ||
-                !StringUtils.equals(user.getFamilyName(), userWithSamlAttributes.getFamilyName());
-        boolean isEmailChanged = !StringUtils.equals(user.getEmail(), userWithSamlAttributes.getEmail());
-        publishUserLoginSuccessEvent(user, isNameChanged, isEmailChanged);
         publish(
                 new ExternalGroupAuthorizationEvent(
                         user,
@@ -433,10 +428,5 @@ public class LoginSamlAuthenticationProvider extends SAMLAuthenticationProvider 
                 !StringUtils.equals(existingUser.getPhoneNumber(), user.getPhoneNumber()) ||
                 !StringUtils.equals(existingUser.getEmail(), user.getEmail())||
                 !StringUtils.equals(existingUser.getExternalId(), user.getExternalId());
-    }
-    protected void publishUserLoginSuccessEvent(UaaUser user, boolean isNameChanged, boolean isEmailChanged) {
-        if (eventPublisher != null) {
-            eventPublisher.publishEvent(new UserLoginSuccessEvent(this, user, isNameChanged, isEmailChanged));
-        }
     }
 }
