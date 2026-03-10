@@ -101,7 +101,9 @@ class PasswordGrantIT {
 
         try {
             // Test password grant with client credentials in request body (not in Authorization header)
-            // This is an alternative way to authenticate public clients
+            // Password grant without client secret is only allowed for whitelisted zone IDs
+            // (controlled by UAA_LEGACY_NOSECRET_ALLOWED_ZONE_IDS environment variable).
+            // By default, no zone IDs are whitelisted, so this should be rejected.
             HttpHeaders headers = new HttpHeaders();
             headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
             headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
@@ -112,12 +114,15 @@ class PasswordGrantIT {
             postBody.add("username", testAccounts.getUserName());
             postBody.add("password", testAccounts.getPassword());
 
-            ResponseEntity<Void> responseEntity = restOperations.exchange(baseUrl + "/oauth/token",
-                    HttpMethod.POST,
-                    new HttpEntity<>(postBody, headers),
-                    Void.class);
-
-            assertThat(responseEntity.getStatusCode()).isEqualTo(HttpStatus.OK);
+            try {
+                restOperations.exchange(baseUrl + "/oauth/token",
+                        HttpMethod.POST,
+                        new HttpEntity<>(postBody, headers),
+                        Void.class);
+                fail("Expected password grant without client secret to be rejected when zone is not whitelisted");
+            } catch (HttpClientErrorException e) {
+                assertThat(e.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+            }
         } finally {
             // Clean up the client
             deleteClient(adminAccessToken, clientId);

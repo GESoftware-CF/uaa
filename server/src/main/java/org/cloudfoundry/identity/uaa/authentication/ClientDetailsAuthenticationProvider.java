@@ -29,9 +29,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
+
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.CLIENT_AUTH_EMPTY;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.CLIENT_AUTH_NONE;
@@ -41,12 +46,28 @@ import static org.cloudfoundry.identity.uaa.util.UaaStringUtils.getSafeParameter
 public class ClientDetailsAuthenticationProvider extends DaoAuthenticationProvider {
 
     private final JwtClientAuthentication jwtClientAuthentication;
+    private final Set<String> legacyNoSecretAllowedZoneIds;
 
     public ClientDetailsAuthenticationProvider(UserDetailsService userDetailsService, PasswordEncoder encoder, JwtClientAuthentication jwtClientAuthentication) {
+        this(userDetailsService, encoder, jwtClientAuthentication, Collections.emptySet());
+    }
+
+    public ClientDetailsAuthenticationProvider(UserDetailsService userDetailsService, PasswordEncoder encoder, JwtClientAuthentication jwtClientAuthentication, Set<String> legacyNoSecretAllowedZoneIds) {
         super();
         setUserDetailsService(userDetailsService);
         setPasswordEncoder(encoder);
         this.jwtClientAuthentication = jwtClientAuthentication;
+        this.legacyNoSecretAllowedZoneIds = legacyNoSecretAllowedZoneIds != null ? legacyNoSecretAllowedZoneIds : Collections.emptySet();
+    }
+
+    public static Set<String> parseZoneIds(String commaSeparatedZoneIds) {
+        if (commaSeparatedZoneIds == null || commaSeparatedZoneIds.isBlank()) {
+            return Collections.emptySet();
+        }
+        return Arrays.stream(commaSeparatedZoneIds.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toSet());
     }
 
     @Override
@@ -76,8 +97,8 @@ public class ClientDetailsAuthenticationProvider extends DaoAuthenticationProvid
                             error = new BadCredentialsException("Bad client_assertion type");
                         }
                         break;
-                    } else if (isLegacyNoSecretFlowAllowed(authentication.getDetails())) {
-                        // Allow legacy clients without secrets for password grant type
+                    } else if (isLegacyNoSecretFlowAllowed(authentication.getDetails(), legacyNoSecretAllowedZoneIds)) {
+                        // Allow legacy clients without secrets for password grant type only for whitelisted zone IDs
                         setAuthenticationMethod(authentication, CLIENT_AUTH_EMPTY);
                         break;
                     } else {
@@ -122,11 +143,19 @@ public class ClientDetailsAuthenticationProvider extends DaoAuthenticationProvid
                 && TokenConstants.GRANT_TYPE_PASSWORD.equals(getSafeParameterValue(requestParameters.get(ClaimConstants.GRANT_TYPE)));
     }
 
-    private static boolean isLegacyNoSecretFlowAllowed(Object uaaAuthenticationDetails) {
+    private static boolean isLegacyNoSecretFlowAllowed(Object uaaAuthenticationDetails, Set<String> allowedZoneIds) {
+        if (allowedZoneIds.isEmpty()) {
+            return false;
+        }
+        String currentZoneId = IdentityZoneHolder.getCurrentZoneId();
+        if (!allowedZoneIds.contains(currentZoneId)) {
+            return false;
+        }
         UaaAuthenticationDetails authenticationDetails = getUaaAuthenticationDetails(uaaAuthenticationDetails);
         Map<String, String[]> requestParameters = getRequestParameters(authenticationDetails);
         // Legacy support: only password grant is allowed without client secret
         // Password grant validates user credentials, so client secret is optional for backward compatibility
+        // This is restricted to whitelisted identity zone IDs only
         return isPublicTokenRequest(authenticationDetails) && isPasswordFlow(requestParameters);
     }
 
