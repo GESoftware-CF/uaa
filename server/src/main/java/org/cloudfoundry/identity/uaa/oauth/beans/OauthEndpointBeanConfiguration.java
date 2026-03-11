@@ -446,12 +446,14 @@ public class OauthEndpointBeanConfiguration {
     ClientDetailsAuthenticationProvider clientAuthenticationProvider(
             @Qualifier("clientDetailsUserService") UserDetailsService clientDetailsUserService,
             @Qualifier("cachingPasswordEncoder") PasswordEncoder cachingPasswordEncoder,
-            @Qualifier("jwtClientAuthentication") JwtClientAuthentication jwtClientAuthentication
+            @Qualifier("jwtClientAuthentication") JwtClientAuthentication jwtClientAuthentication,
+            @Value("${UAA_LEGACY_NOSECRET_ALLOWED_ZONE_IDS:}") String legacyNoSecretAllowedZoneIds
     ) {
         return new ClientDetailsAuthenticationProvider(
                 clientDetailsUserService,
                 cachingPasswordEncoder,
-                jwtClientAuthentication
+                jwtClientAuthentication,
+                ClientDetailsAuthenticationProvider.parseZoneIds(legacyNoSecretAllowedZoneIds)
         );
     }
 

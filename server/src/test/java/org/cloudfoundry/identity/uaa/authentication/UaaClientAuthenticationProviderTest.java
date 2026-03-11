@@ -30,6 +30,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -278,5 +279,114 @@ class UaaClientAuthenticationProviderTest {
         authenticationProvider.additionalAuthenticationChecks(
                 new UaaClient("client", "secret", Collections.emptyList(), client.getAdditionalInformation(), null), a);
         assertThat(a).isNotNull();
+    }
+
+    // --- Tests for parseZoneIds utility ---
+
+    @Test
+    void parseZoneIds_null_returns_empty() {
+        assertThat(ClientDetailsAuthenticationProvider.parseZoneIds(null)).isEmpty();
+    }
+
+    @Test
+    void parseZoneIds_blank_returns_empty() {
+        assertThat(ClientDetailsAuthenticationProvider.parseZoneIds("  ")).isEmpty();
+    }
+
+    @Test
+    void parseZoneIds_empty_string_returns_empty() {
+        assertThat(ClientDetailsAuthenticationProvider.parseZoneIds("")).isEmpty();
+    }
+
+    @Test
+    void parseZoneIds_single_value() {
+        assertThat(ClientDetailsAuthenticationProvider.parseZoneIds("zone1")).containsExactly("zone1");
+    }
+
+    @Test
+    void parseZoneIds_multiple_values_with_whitespace() {
+        assertThat(ClientDetailsAuthenticationProvider.parseZoneIds("zone1, zone2 , zone3"))
+                .containsExactlyInAnyOrder("zone1", "zone2", "zone3");
+    }
+
+    @Test
+    void parseZoneIds_trailing_comma_ignored() {
+        assertThat(ClientDetailsAuthenticationProvider.parseZoneIds("zone1,zone2,"))
+                .containsExactlyInAnyOrder("zone1", "zone2");
+    }
+
+    // --- Tests for zone-restricted legacy no-secret password grant ---
+
+    @Test
+    void provider_password_grant_without_secret_allowed_for_whitelisted_zone() {
+        // Create provider with current zone whitelisted
+        String currentZoneId = IdentityZoneHolder.getCurrentZoneId();
+        UaaClientDetailsUserDetailsService clientDetailsService = new UaaClientDetailsUserDetailsService(jdbcClientDetailsService);
+        ClientDetailsAuthenticationProvider whitelistedProvider = new ClientDetailsAuthenticationProvider(
+                clientDetailsService, passwordEncoder, jwtClientAuthentication,
+                Set.of(currentZoneId));
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+        request.addParameter("client_id", "testclient");
+        request.addParameter("grant_type", "password");
+        UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+        // Client with no password - should be allowed for whitelisted zone
+        UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+        whitelistedProvider.additionalAuthenticationChecks(uaaClient, a);
+        assertThat(a).isNotNull();
+    }
+
+    @Test
+    void provider_password_grant_without_secret_rejected_for_non_whitelisted_zone() {
+        // Create provider with a different zone whitelisted (not the current one)
+        UaaClientDetailsUserDetailsService clientDetailsService = new UaaClientDetailsUserDetailsService(jdbcClientDetailsService);
+        ClientDetailsAuthenticationProvider restrictedProvider = new ClientDetailsAuthenticationProvider(
+                clientDetailsService, passwordEncoder, jwtClientAuthentication,
+                Set.of("some-other-zone-id"));
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+        request.addParameter("client_id", "testclient");
+        request.addParameter("grant_type", "password");
+        UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+        UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+        assertThatThrownBy(() -> restrictedProvider.additionalAuthenticationChecks(uaaClient, a))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Missing credentials");
+    }
+
+    @Test
+    void provider_password_grant_without_secret_rejected_when_no_zones_whitelisted() {
+        // Default provider has empty whitelist (no zones allowed)
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+        request.addParameter("client_id", "testclient");
+        request.addParameter("grant_type", "password");
+        UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+        UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+        assertThatThrownBy(() -> authenticationProvider.additionalAuthenticationChecks(uaaClient, a))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Missing credentials");
+    }
+
+    @Test
+    void provider_client_credentials_without_secret_rejected_even_for_whitelisted_zone() {
+        // Legacy no-secret flow should only work for password grant, not client_credentials
+        String currentZoneId = IdentityZoneHolder.getCurrentZoneId();
+        UaaClientDetailsUserDetailsService clientDetailsService = new UaaClientDetailsUserDetailsService(jdbcClientDetailsService);
+        ClientDetailsAuthenticationProvider whitelistedProvider = new ClientDetailsAuthenticationProvider(
+                clientDetailsService, passwordEncoder, jwtClientAuthentication,
+                Set.of(currentZoneId));
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+        request.addParameter("client_id", "testclient");
+        request.addParameter("grant_type", "client_credentials");
+        UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+        UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+        assertThatThrownBy(() -> whitelistedProvider.additionalAuthenticationChecks(uaaClient, a))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Missing credentials");
     }
 }
