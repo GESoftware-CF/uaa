@@ -447,13 +447,13 @@ public class OauthEndpointBeanConfiguration {
             @Qualifier("clientDetailsUserService") UserDetailsService clientDetailsUserService,
             @Qualifier("cachingPasswordEncoder") PasswordEncoder cachingPasswordEncoder,
             @Qualifier("jwtClientAuthentication") JwtClientAuthentication jwtClientAuthentication,
-            @Value("${UAA_LEGACY_NOSECRET_ALLOWED_ZONE_IDS:}") String legacyNoSecretAllowedZoneIds
+            @Value("${UAA_LEGACY_NOSECRET_ALLOWED_ZONE_CLIENT_IDS:}") String legacyNoSecretAllowedZoneClientIds
     ) {
         return new ClientDetailsAuthenticationProvider(
                 clientDetailsUserService,
                 cachingPasswordEncoder,
                 jwtClientAuthentication,
-                ClientDetailsAuthenticationProvider.parseZoneIds(legacyNoSecretAllowedZoneIds)
+                ClientDetailsAuthenticationProvider.parseZoneClientIdMapping(legacyNoSecretAllowedZoneClientIds)
         );
     }
 
