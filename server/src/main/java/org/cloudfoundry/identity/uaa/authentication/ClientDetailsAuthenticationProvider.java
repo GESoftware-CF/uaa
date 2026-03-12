@@ -33,6 +33,7 @@ import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -46,28 +47,46 @@ import static org.cloudfoundry.identity.uaa.util.UaaStringUtils.getSafeParameter
 public class ClientDetailsAuthenticationProvider extends DaoAuthenticationProvider {
 
     private final JwtClientAuthentication jwtClientAuthentication;
-    private final Set<String> legacyNoSecretAllowedZoneIds;
+    private final Map<String, Set<String>> legacyNoSecretAllowedZoneClientIds;
 
     public ClientDetailsAuthenticationProvider(UserDetailsService userDetailsService, PasswordEncoder encoder, JwtClientAuthentication jwtClientAuthentication) {
-        this(userDetailsService, encoder, jwtClientAuthentication, Collections.emptySet());
+        this(userDetailsService, encoder, jwtClientAuthentication, Collections.emptyMap());
     }
 
-    public ClientDetailsAuthenticationProvider(UserDetailsService userDetailsService, PasswordEncoder encoder, JwtClientAuthentication jwtClientAuthentication, Set<String> legacyNoSecretAllowedZoneIds) {
+    public ClientDetailsAuthenticationProvider(UserDetailsService userDetailsService, PasswordEncoder encoder, JwtClientAuthentication jwtClientAuthentication, Map<String, Set<String>> legacyNoSecretAllowedZoneClientIds) {
         super();
         setUserDetailsService(userDetailsService);
         setPasswordEncoder(encoder);
         this.jwtClientAuthentication = jwtClientAuthentication;
-        this.legacyNoSecretAllowedZoneIds = legacyNoSecretAllowedZoneIds != null ? legacyNoSecretAllowedZoneIds : Collections.emptySet();
+        this.legacyNoSecretAllowedZoneClientIds = legacyNoSecretAllowedZoneClientIds != null ? legacyNoSecretAllowedZoneClientIds : Collections.emptyMap();
     }
 
-    public static Set<String> parseZoneIds(String commaSeparatedZoneIds) {
-        if (commaSeparatedZoneIds == null || commaSeparatedZoneIds.isBlank()) {
-            return Collections.emptySet();
+
+    /**
+     * Parses zone-to-client mapping from environment variable.
+     * Format: "zone1:client1,zone1:client2,zone2:client3"
+     * This allows multiple clients per zone.
+     *
+     * @param commaSeparatedZoneClientMapping comma-separated zone:clientId pairs
+     * @return Map of zone IDs to Set of allowed client IDs
+     */
+    public static Map<String, Set<String>> parseZoneClientIdMapping(String commaSeparatedZoneClientMapping) {
+        if (commaSeparatedZoneClientMapping == null || commaSeparatedZoneClientMapping.isBlank()) {
+            return Collections.emptyMap();
         }
-        return Arrays.stream(commaSeparatedZoneIds.split(","))
+        Map<String, Set<String>> mapping = new HashMap<>();
+        Arrays.stream(commaSeparatedZoneClientMapping.split(","))
                 .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .collect(Collectors.toSet());
+                .filter(s -> s.contains(":"))
+                .forEach(entry -> {
+                    String[] parts = entry.split(":", 2);
+                    String zoneId = parts[0].trim();
+                    String clientId = parts[1].trim();
+                    if (!zoneId.isEmpty() && !clientId.isEmpty()) {
+                        mapping.computeIfAbsent(zoneId, k -> new java.util.HashSet<>()).add(clientId);
+                    }
+                });
+        return mapping;
     }
 
     @Override
@@ -97,8 +116,9 @@ public class ClientDetailsAuthenticationProvider extends DaoAuthenticationProvid
                             error = new BadCredentialsException("Bad client_assertion type");
                         }
                         break;
-                    } else if (isLegacyNoSecretFlowAllowed(authentication.getDetails(), legacyNoSecretAllowedZoneIds)) {
-                        // Allow legacy clients without secrets for password grant type only for whitelisted zone IDs
+                    } else if (isLegacyNoSecretFlowAllowed(authentication.getDetails(), legacyNoSecretAllowedZoneClientIds)) {
+                        // Allow legacy clients without secrets for password grant type only for whitelisted zone IDs and client IDs
+                        // Additional security: restricts to specific client IDs per zone
                         setAuthenticationMethod(authentication, CLIENT_AUTH_EMPTY);
                         break;
                     } else {
@@ -143,20 +163,21 @@ public class ClientDetailsAuthenticationProvider extends DaoAuthenticationProvid
                 && TokenConstants.GRANT_TYPE_PASSWORD.equals(getSafeParameterValue(requestParameters.get(ClaimConstants.GRANT_TYPE)));
     }
 
-    private static boolean isLegacyNoSecretFlowAllowed(Object uaaAuthenticationDetails, Set<String> allowedZoneIds) {
-        if (allowedZoneIds.isEmpty()) {
-            return false;
-        }
+    private boolean isLegacyNoSecretFlowAllowed(Object uaaAuthenticationDetails, Map<String, Set<String>> allowedZoneClientIds) {
         String currentZoneId = IdentityZoneHolder.getCurrentZoneId();
-        if (!allowedZoneIds.contains(currentZoneId)) {
-            return false;
-        }
         UaaAuthenticationDetails authenticationDetails = getUaaAuthenticationDetails(uaaAuthenticationDetails);
         Map<String, String[]> requestParameters = getRequestParameters(authenticationDetails);
+
+        if (!isPublicTokenRequest(authenticationDetails) || !isPasswordFlow(requestParameters)) {
+            return false;
+        }
+
+        // Check if both zone and client ID are whitelisted
         // Legacy support: only password grant is allowed without client secret
         // Password grant validates user credentials, so client secret is optional for backward compatibility
-        // This is restricted to whitelisted identity zone IDs only
-        return isPublicTokenRequest(authenticationDetails) && isPasswordFlow(requestParameters);
+        // This is restricted to whitelisted zone + client ID pairs for security
+        return allowedZoneClientIds.containsKey(currentZoneId) &&
+                allowedZoneClientIds.get(currentZoneId).contains(getSafeParameterValue(requestParameters.get("client_id")));
     }
 
     private static boolean isPublicTokenRequest(UaaAuthenticationDetails authenticationDetails) {
