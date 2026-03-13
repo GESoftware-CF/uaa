@@ -18,6 +18,8 @@ import org.cloudfoundry.identity.uaa.oauth.jwt.JwtClientAuthentication;
 import org.cloudfoundry.identity.uaa.oauth.pkce.PkceValidationService;
 import org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants;
 import org.cloudfoundry.identity.uaa.oauth.token.TokenConstants;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -37,7 +39,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.CLIENT_AUTH_EMPTY;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.CLIENT_AUTH_NONE;
@@ -45,6 +46,7 @@ import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.CLIENT_AU
 import static org.cloudfoundry.identity.uaa.util.UaaStringUtils.getSafeParameterValue;
 
 public class ClientDetailsAuthenticationProvider extends DaoAuthenticationProvider {
+
 
     private final JwtClientAuthentication jwtClientAuthentication;
     private final Map<String, Set<String>> legacyNoSecretAllowedZoneClientIds;
@@ -168,16 +170,39 @@ public class ClientDetailsAuthenticationProvider extends DaoAuthenticationProvid
         UaaAuthenticationDetails authenticationDetails = getUaaAuthenticationDetails(uaaAuthenticationDetails);
         Map<String, String[]> requestParameters = getRequestParameters(authenticationDetails);
 
-        if (!isPublicTokenRequest(authenticationDetails) || !isPasswordFlow(requestParameters)) {
+        // Check request path is /oauth/token (regardless of Authorization header presence)
+        // Legacy clients may send Basic auth with empty password: Authorization: Basic base64(clientId:)
+        if (!isTokenEndpoint(authenticationDetails)) {
             return false;
+        }
+
+        if (!isPasswordGrantType(requestParameters)) {
+            return false;
+        }
+
+        // Resolve client_id: from request parameter or from UaaAuthenticationDetails
+        // When client sends Basic auth header, client_id may not be in the form parameters
+        // but is available in UaaAuthenticationDetails.getClientId()
+        String requestClientId = getSafeParameterValue(requestParameters.get("client_id"));
+        if (!StringUtils.hasText(requestClientId)) {
+            requestClientId = authenticationDetails.getClientId();
         }
 
         // Check if both zone and client ID are whitelisted
         // Legacy support: only password grant is allowed without client secret
         // Password grant validates user credentials, so client secret is optional for backward compatibility
         // This is restricted to whitelisted zone + client ID pairs for security
-        return allowedZoneClientIds.containsKey(currentZoneId) &&
-                allowedZoneClientIds.get(currentZoneId).contains(getSafeParameterValue(requestParameters.get("client_id")));
+        boolean zoneWhitelisted = allowedZoneClientIds.containsKey(currentZoneId);
+        boolean clientWhitelisted = zoneWhitelisted && allowedZoneClientIds.get(currentZoneId).contains(requestClientId);
+        return clientWhitelisted;
+    }
+
+    private static boolean isTokenEndpoint(UaaAuthenticationDetails authenticationDetails) {
+        return "/oauth/token".equals(authenticationDetails.getRequestPath());
+    }
+
+    private static boolean isPasswordGrantType(Map<String, String[]> requestParameters) {
+        return TokenConstants.GRANT_TYPE_PASSWORD.equals(getSafeParameterValue(requestParameters.get(ClaimConstants.GRANT_TYPE)));
     }
 
     private static boolean isPublicTokenRequest(UaaAuthenticationDetails authenticationDetails) {
