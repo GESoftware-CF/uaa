@@ -97,6 +97,8 @@ import org.springframework.web.client.RestTemplate;
 
 import jakarta.servlet.http.HttpSession;
 import java.security.NoSuchAlgorithmException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -110,6 +112,8 @@ import static java.util.Map.entry;
 
 @Configuration
 public class OauthEndpointBeanConfiguration {
+
+    private static final Logger log = LoggerFactory.getLogger(OauthEndpointBeanConfiguration.class);
 
     @Autowired
     @Qualifier("jdbcClientDetailsService")
@@ -449,11 +453,12 @@ public class OauthEndpointBeanConfiguration {
             @Qualifier("jwtClientAuthentication") JwtClientAuthentication jwtClientAuthentication,
             @Value("${UAA_LEGACY_NOSECRET_ALLOWED_ZONE_CLIENT_IDS:}") String legacyNoSecretAllowedZoneClientIds
     ) {
+        Map<String, Set<String>> mapping = ClientDetailsAuthenticationProvider.parseZoneClientIdMapping(legacyNoSecretAllowedZoneClientIds);
         return new ClientDetailsAuthenticationProvider(
                 clientDetailsUserService,
                 cachingPasswordEncoder,
                 jwtClientAuthentication,
-                ClientDetailsAuthenticationProvider.parseZoneClientIdMapping(legacyNoSecretAllowedZoneClientIds)
+                mapping
         );
     }
 

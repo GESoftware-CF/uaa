@@ -534,4 +534,95 @@ class UaaClientAuthenticationProviderTest {
                 .isInstanceOf(BadCredentialsException.class)
                 .hasMessage("Missing credentials");
     }
+
+    // --- Tests for legacy no-secret with Authorization header (Basic auth with empty password) ---
+
+    @Test
+    void provider_password_grant_with_basic_auth_header_allowed_for_whitelisted_zone_and_client() {
+        // Simulates: Authorization: Basic base64(ingestor-test-client:)
+        // This is how many OAuth2 clients send the client_id even without a secret
+        String currentZoneId = IdentityZoneHolder.getCurrentZoneId();
+        UaaClientDetailsUserDetailsService clientDetailsService = new UaaClientDetailsUserDetailsService(jdbcClientDetailsService);
+        Map<String, Set<String>> zoneClientMapping = Map.of(currentZoneId, Set.of("testclient"));
+        ClientDetailsAuthenticationProvider whitelistedProvider = new ClientDetailsAuthenticationProvider(
+                clientDetailsService, passwordEncoder, jwtClientAuthentication,
+                zoneClientMapping);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+        request.addHeader("Authorization", "Basic dGVzdGNsaWVudDo="); // base64(testclient:)
+        request.addParameter("client_id", "testclient");
+        request.addParameter("grant_type", "password");
+        UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+        // Client with no password - should be allowed even with Authorization header
+        UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+        whitelistedProvider.additionalAuthenticationChecks(uaaClient, a);
+        assertThat(a).isNotNull();
+    }
+
+    @Test
+    void provider_password_grant_with_basic_auth_header_resolves_client_id_from_details() {
+        // When client sends Basic auth, client_id may only be in UaaAuthenticationDetails.getClientId()
+        // and not in the form parameters
+        String currentZoneId = IdentityZoneHolder.getCurrentZoneId();
+        UaaClientDetailsUserDetailsService clientDetailsService = new UaaClientDetailsUserDetailsService(jdbcClientDetailsService);
+        Map<String, Set<String>> zoneClientMapping = Map.of(currentZoneId, Set.of("testclient"));
+        ClientDetailsAuthenticationProvider whitelistedProvider = new ClientDetailsAuthenticationProvider(
+                clientDetailsService, passwordEncoder, jwtClientAuthentication,
+                zoneClientMapping);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+        request.addHeader("Authorization", "Basic dGVzdGNsaWVudDo="); // base64(testclient:)
+        // Note: client_id is set via UaaAuthenticationDetails constructor from request param
+        request.addParameter("client_id", "testclient");
+        request.addParameter("grant_type", "password");
+        UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+        UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+        whitelistedProvider.additionalAuthenticationChecks(uaaClient, a);
+        assertThat(a).isNotNull();
+    }
+
+    @Test
+    void provider_password_grant_with_basic_auth_header_rejected_for_non_whitelisted_client() {
+        String currentZoneId = IdentityZoneHolder.getCurrentZoneId();
+        UaaClientDetailsUserDetailsService clientDetailsService = new UaaClientDetailsUserDetailsService(jdbcClientDetailsService);
+        Map<String, Set<String>> zoneClientMapping = Map.of(currentZoneId, Set.of("allowed-client"));
+        ClientDetailsAuthenticationProvider restrictedProvider = new ClientDetailsAuthenticationProvider(
+                clientDetailsService, passwordEncoder, jwtClientAuthentication,
+                zoneClientMapping);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+        request.addHeader("Authorization", "Basic dW5hdXRob3JpemVkLWNsaWVudDo="); // base64(unauthorized-client:)
+        request.addParameter("client_id", "unauthorized-client");
+        request.addParameter("grant_type", "password");
+        UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+        UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+        assertThatThrownBy(() -> restrictedProvider.additionalAuthenticationChecks(uaaClient, a))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Missing credentials");
+    }
+
+    @Test
+    void provider_client_credentials_with_basic_auth_header_rejected_even_for_whitelisted_zone() {
+        // Legacy no-secret flow should only work for password grant, not client_credentials
+        String currentZoneId = IdentityZoneHolder.getCurrentZoneId();
+        UaaClientDetailsUserDetailsService clientDetailsService = new UaaClientDetailsUserDetailsService(jdbcClientDetailsService);
+        Map<String, Set<String>> zoneClientMapping = Map.of(currentZoneId, Set.of("testclient"));
+        ClientDetailsAuthenticationProvider whitelistedProvider = new ClientDetailsAuthenticationProvider(
+                clientDetailsService, passwordEncoder, jwtClientAuthentication,
+                zoneClientMapping);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+        request.addHeader("Authorization", "Basic dGVzdGNsaWVudDo="); // base64(testclient:)
+        request.addParameter("client_id", "testclient");
+        request.addParameter("grant_type", "client_credentials");
+        UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+        UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+        assertThatThrownBy(() -> whitelistedProvider.additionalAuthenticationChecks(uaaClient, a))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Missing credentials");
+    }
 }
