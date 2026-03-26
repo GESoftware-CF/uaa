@@ -53,8 +53,8 @@ public class SamlUaaAuthenticationAttributesConverter {
 
         if (definition != null && definition.getAttributeMappings() != null) {
             definition.getAttributeMappings().forEach((key, attributeKey) -> {
-                if (attributeKey instanceof String && userAttributes.get(attributeKey) != null) {
-                    userAttributes.addAll(key, userAttributes.get(attributeKey));
+                if (attributeKey instanceof String && userAttributes.get((String) attributeKey) != null) {
+                    userAttributes.put(key, userAttributes.get((String) attributeKey));
                 }
             });
         }

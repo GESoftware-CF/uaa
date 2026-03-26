@@ -644,6 +644,39 @@ class OpenSaml4AuthenticationProviderUaaTests {
     }
 
     @Test
+    void shouldUseMappedEmailWhenIdpSendsBothRawEmailAndMappedAttribute() {
+        // Simulate IDP sending both 'email' (old) and 'gevemail' (new) attributes,
+        // similar to a corporate IDP transitioning email domains (e.g., ge.com -> gevernova.com)
+        String oldEmail = "user@ge.com";
+        String newEmail = "user@gevernova.com";
+
+        Map<String, String> samlAttributes = new HashMap<>();
+        samlAttributes.put("firstName", "John");
+        samlAttributes.put("lastName", "Doe");
+        samlAttributes.put("email", oldEmail);       // raw 'email' attribute from IDP
+        samlAttributes.put("gevemail", newEmail);     // new email attribute from IDP
+        samlAttributes.put("phone", "123-456-7890");
+
+        Map<String, Object> attributeMappings = new HashMap<>();
+        attributeMappings.put("given_name", "firstName");
+        attributeMappings.put("family_name", "lastName");
+        attributeMappings.put("email", "gevemail");   // map UAA email to 'gevemail'
+        attributeMappings.put("phone_number", "phone");
+        providerDefinition.setAttributeMappings(attributeMappings);
+        provider.setConfig(providerDefinition);
+        providerProvisioning.update(provider, identityZoneManager.getCurrentIdentityZone().getId());
+
+        authenticate(authenticationToken(null, attributeStatements(samlAttributes)));
+
+        UaaUser user = userDatabase.retrieveUserByName(TEST_USERNAME, OriginKeys.SAML);
+        assertThat(user)
+                .returns("John", UaaUser::getGivenName)
+                .returns("Doe", UaaUser::getFamilyName)
+                .returns(newEmail, UaaUser::getEmail)
+                .returns("123-456-7890", UaaUser::getPhoneNumber);
+    }
+
+    @Test
     void setStoreCustomAttributesInProviderDefinitionFalse() {
         providerDefinition.setStoreCustomAttributes(false);
         provider.setConfig(providerDefinition);
