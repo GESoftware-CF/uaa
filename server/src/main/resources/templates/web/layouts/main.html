@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" dir="ltr" lang="en"
       th:with="assetBaseUrl=${@environment.getProperty('assetBaseUrl','/resources/oss')},
                 isUaa=${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).isUaa()},
-                zoneName=${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).get().getName()},
+                zoneName=${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).get()?.getName()},
                 branding=${T(org.cloudfoundry.identity.uaa.zone.MergedZoneBrandingInformation).resolveBranding()},
                 companyName=${branding.getZoneCompanyName() ?: ''},
                 copyrightCompanyName=${branding.getCompanyName() ?: 'GE Vernova'},
@@ -13,7 +13,7 @@
                 fallbackLogo=${assetBaseUrl+'/images/predix-word.svg'},
                 logo=${brandingLogo != null and !brandingLogo.isEmpty() ? 'data:image/png;base64,'+#strings.replace(#strings.replace(brandingLogo,'\r',''),'\n','') : fallbackLogo}" >
 <head>
-    <title th:text="${!companyName.isEmpty() ? companyName : zoneName}" th:inline="text"></title>
+    <title th:text="${(companyName != null and !companyName.isEmpty()) ? companyName : zoneName}" th:inline="text"></title>
     <link href='/resources/oss/images/square-logo.png' th:with="icon=${branding.getSquareLogo()}" th:href="@{${icon != null and !icon.isEmpty() ? 'data:image/png;base64,'+icon : (assetBaseUrl + '/images/square-logo.png')}}" rel='shortcut icon' />
     <link rel="preload" as="image" th:href="@{${assetBaseUrl}+'/images/background-image.png'}" type="image/png" />
     
@@ -57,12 +57,13 @@
       th:title="|Version: ${@buildInfo.version}, Commit: ${@buildInfo.commitId}, Timestamp: ${@buildInfo.timestamp}, UAA: ${@buildInfo.uaaUrl}|">
       <img style="width: 60px;margin-bottom:20px;" src="/resources/predix/images/predix-word.svg"/>
       <div>[[${copyright}]][[${copyright2}]]</div>
-       <div
-        th:if="${#authentication instanceof T(org.cloudfoundry.identity.uaa.authentication.UaaAuthentication)} ">
-        <div th:if="${#authentication.lastLoginSuccessTime} != null">
-          Last login <span id="last_login_time"th:attr="last-login-success-time=${#authentication.lastLoginSuccessTime}"></span>
+       <th:block th:with="auth=${T(org.springframework.security.core.context.SecurityContextHolder).getContext()?.getAuthentication()}">
+        <div th:if="${auth instanceof T(org.cloudfoundry.identity.uaa.authentication.UaaAuthentication)}">
+          <div th:if="${auth.lastLoginSuccessTime} != null">
+            Last login <span id="last_login_time" th:attr="last-login-success-time=${auth.lastLoginSuccessTime}"></span>
+          </div>
         </div>
-      </div>
+       </th:block>
     </div>
   </div>
 
