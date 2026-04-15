@@ -7,20 +7,26 @@ import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.scim.ScimUserProvisioning;
 import org.cloudfoundry.identity.uaa.user.UaaUser;
+import org.cloudfoundry.identity.uaa.user.UaaUserDatabase;
 import org.cloudfoundry.identity.uaa.user.UaaUserPrototype;
+import org.cloudfoundry.identity.uaa.util.TimeService;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class AuthenticationSuccessListenerTests {
 
     private AuthenticationSuccessListener listener;
     private ScimUserProvisioning mockScimUserProvisioning;
+    private UaaUserDatabase mockUaaUserDatabase;
     private UaaAuthentication mockUaaAuthentication;
     private ApplicationEventPublisher mockApplicationEventPublisher;
+    private UserAttributeChangeEventPublisher mockUserAttributeChangeEventPublisher;
+    private TimeService mockTimeService;
     private String id;
     private UaaUserPrototype userPrototype;
     private UaaUser user;
@@ -30,8 +36,13 @@ class AuthenticationSuccessListenerTests {
         mockUaaAuthentication = mock(UaaAuthentication.class);
         mockApplicationEventPublisher = mock(ApplicationEventPublisher.class);
         mockScimUserProvisioning = mock(ScimUserProvisioning.class);
-        listener = new AuthenticationSuccessListener(mockScimUserProvisioning);
+        mockUaaUserDatabase = mock(UaaUserDatabase.class);
+        mockUserAttributeChangeEventPublisher = mock(UserAttributeChangeEventPublisher.class);
+        mockTimeService = mock(TimeService.class);
+        when(mockTimeService.getCurrentTimeMillis()).thenReturn(System.currentTimeMillis());
+        listener = new AuthenticationSuccessListener(mockScimUserProvisioning, mockUaaUserDatabase, mockTimeService);
         listener.setApplicationEventPublisher(mockApplicationEventPublisher);
+        listener.setUserAttributeChangeEventPublisher(mockUserAttributeChangeEventPublisher);
         id = "user-id";
         userPrototype = new UaaUserPrototype()
                 .withId(id)
@@ -75,7 +86,7 @@ class AuthenticationSuccessListenerTests {
 
         when(mockScimUserProvisioning.retrieve(id, zoneId)).thenReturn(getScimUser(event.getUser()));
         listener.onApplicationEvent(event);
-        verify(mockScimUserProvisioning, times(1)).updateLastLogonTime(id, zoneId);
+        verify(mockScimUserProvisioning, times(1)).updateLastLogonTime(any(UaaUser.class), eq(zoneId));
     }
 
     @Test
@@ -99,6 +110,38 @@ class AuthenticationSuccessListenerTests {
         );
         listener.onApplicationEvent(event);
         verify(mockApplicationEventPublisher, times(1)).publishEvent(isA(UserAuthenticationSuccessEvent.class));
+    }
+
+    @Test
+    void userAttributeChangeEventPublisher_is_called_when_user_logs_in() {
+        UserAuthenticationSuccessEvent event = getEvent();
+        final String zoneId = event.getIdentityZoneId();
+
+        UaaUser updatedUser = new UaaUser(userPrototype.withLastLogonSuccess(System.currentTimeMillis()));
+        when(mockScimUserProvisioning.retrieve(id, zoneId)).thenReturn(getScimUser(event.getUser()));
+        when(mockUaaUserDatabase.retrieveUserById(id)).thenReturn(updatedUser);
+
+        listener.onApplicationEvent(event);
+
+        verify(mockUserAttributeChangeEventPublisher, times(1))
+                .publishUserAttributeChangeEventAsync(eq(listener), any(UaaUser.class));
+    }
+
+    @Test
+    void userAttributeChangeEventPublisher_is_called_even_when_database_returns_null() {
+        // This test verifies that publisher is called with the user from the event,
+        // even if database retrieval returns null (database retrieval is not used)
+        UserAuthenticationSuccessEvent event = getEvent();
+        final String zoneId = event.getIdentityZoneId();
+
+        when(mockScimUserProvisioning.retrieve(id, zoneId)).thenReturn(getScimUser(event.getUser()));
+        when(mockUaaUserDatabase.retrieveUserById(id)).thenReturn(null);
+
+        listener.onApplicationEvent(event);
+
+        // Publisher should still be called because the user from the event is not null
+        verify(mockUserAttributeChangeEventPublisher, times(1))
+                .publishUserAttributeChangeEventAsync(any(), any(UaaUser.class));
     }
 
     private UserAuthenticationSuccessEvent getEvent() {
