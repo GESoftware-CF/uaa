@@ -176,7 +176,7 @@ public class ExternalIdpWebDomainsService {
         if (oauthLinks != null && !oauthLinks.isEmpty()) {
             for (Object obj : oauthLinks) {
                 if (obj instanceof java.util.Map.Entry<?, ?> entry) {
-                    String linkText = entry.getValue() != null ? entry.getValue().toString() : "";
+                    String linkText = entry.getKey() != null ? entry.getKey().toString() : "";
                     if (externalIdpWebDomains.stream().noneMatch(linkText::contains)) {
                         logger.debug("Found customer OAuth link: {}", linkText);
                         return true;
