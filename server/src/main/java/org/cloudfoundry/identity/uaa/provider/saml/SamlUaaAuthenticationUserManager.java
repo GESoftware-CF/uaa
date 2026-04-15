@@ -115,19 +115,30 @@ public class SamlUaaAuthenticationUserManager implements ApplicationEventPublish
             }
         }
 
+        UaaUser userBeforeChanges = null;
+
         if (haveUserAttributesChanged(user, userWithSamlAttributes)) {
+            userBeforeChanges = user;
             context.setUserModified(true);
-            user = user.modifyAttributes(userWithSamlAttributes.getEmail(),
+            user = user.modifyAttributes(
+                    userWithSamlAttributes.getEmail(),
                     userWithSamlAttributes.getGivenName(),
                     userWithSamlAttributes.getFamilyName(),
                     userWithSamlAttributes.getPhoneNumber(),
                     userWithSamlAttributes.getExternalId(),
-                    user.isVerified() || userWithSamlAttributes.isVerified());
+                    user.isVerified() || userWithSamlAttributes.isVerified())
+                    .withPreviousUser(userBeforeChanges);
         }
 
         publish(new ExternalGroupAuthorizationEvent(user, context.isUserModified(), authorities, true));
 
         user = userDatabase.retrieveUserById(user.getId());
+        
+        // Store previousUser in the returned user object so AuthenticationSuccessListener can detect all changes
+        if (userBeforeChanges != null) {
+            user = user.withPreviousUser(userBeforeChanges);
+        }
+        
         return user;
     }
 

@@ -18,6 +18,7 @@ import org.cloudfoundry.identity.uaa.resources.ResourceManager;
 import org.cloudfoundry.identity.uaa.scim.exception.InvalidPasswordException;
 import org.cloudfoundry.identity.uaa.scim.exception.InvalidScimResourceException;
 import org.cloudfoundry.identity.uaa.scim.exception.ScimResourceNotFoundException;
+import org.cloudfoundry.identity.uaa.user.UaaUser;
 
 import java.util.List;
 
@@ -56,6 +57,6 @@ public interface ScimUserProvisioning extends ResourceManager<ScimUser>, Queryab
 
     boolean checkPasswordChangeIndividuallyRequired(String id, String zoneId) throws ScimResourceNotFoundException;
 
-    void updateLastLogonTime(String id, String zoneId);
+    void updateLastLogonTime(UaaUser user, String zoneId);
 }
 

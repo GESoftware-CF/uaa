@@ -17,6 +17,8 @@ import org.cloudfoundry.identity.uaa.scim.exception.InvalidScimResourceException
 import org.cloudfoundry.identity.uaa.scim.exception.ScimResourceAlreadyExistsException;
 import org.cloudfoundry.identity.uaa.scim.exception.ScimResourceNotFoundException;
 import org.cloudfoundry.identity.uaa.user.UaaAuthority;
+import org.cloudfoundry.identity.uaa.user.UaaUser;
+import org.cloudfoundry.identity.uaa.user.UaaUserPrototype;
 import org.cloudfoundry.identity.uaa.util.TimeServiceImpl;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
@@ -1406,7 +1408,20 @@ class JdbcScimUserProvisioningTests {
         ScimUser user = jdbcScimUserProvisioning.retrieve(joeId, currentIdentityZoneId);
         Long timeStampBeforeUpdate = user.getLastLogonTime();
         assertThat(timeStampBeforeUpdate).isNull();
-        jdbcScimUserProvisioning.updateLastLogonTime(joeId, currentIdentityZoneId);
+        
+        // Create a UaaUser with lastLogonTime for the update
+        Long currentTime = System.currentTimeMillis();
+        UaaUser uaaUser = new UaaUser(
+                new UaaUserPrototype()
+                        .withId(joeId)
+                        .withUsername(user.getUserName())
+                        .withEmail(user.getPrimaryEmail())
+                        .withGivenName(user.getGivenName())
+                        .withFamilyName(user.getFamilyName())
+                        .withLastLogonSuccess(currentTime)
+        );
+        
+        jdbcScimUserProvisioning.updateLastLogonTime(uaaUser, currentIdentityZoneId);
         user = jdbcScimUserProvisioning.retrieve(joeId, currentIdentityZoneId);
         assertThat(user.getLastLogonTime()).isNotNull();
     }
