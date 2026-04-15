@@ -173,6 +173,7 @@ public class ExternalIdpWebDomainsService {
         }
 
         // Check OAuth links
+        //with key as link text and value as URL
         if (oauthLinks != null && !oauthLinks.isEmpty()) {
             for (Object obj : oauthLinks) {
                 if (obj instanceof java.util.Map.Entry<?, ?> entry) {
