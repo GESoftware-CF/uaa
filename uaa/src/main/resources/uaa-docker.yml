@@ -605,6 +605,7 @@ encryption:
 external_idp:
   web_domains:
     - fssfed.ge.com
+    - fssfed.stage.ge.com
 
 #The secret that an external login server will use to authenticate to the uaa using the id `login`
 LOGIN_SECRET: loginsecret
