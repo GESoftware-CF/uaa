@@ -13,6 +13,7 @@ import org.springframework.web.context.ContextLoaderListener;
 import org.springframework.web.context.support.StandardServletEnvironment;
 
 import jakarta.servlet.FilterRegistration;
+import jakarta.servlet.MultipartConfigElement;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRegistration;
@@ -27,6 +28,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class UaaWebApplicationInitializerTest {
+
+    private static final String TEST_MAX_UPLOAD_BYTES = "5242880";
+
     private UaaWebApplicationInitializer initializer;
     private ConfigurableWebApplicationContext context;
     private StandardServletEnvironment environment;
@@ -39,7 +43,16 @@ class UaaWebApplicationInitializerTest {
 
     @BeforeEach
     void setup() {
-        initializer = new UaaWebApplicationInitializer();
+        // Subclass overrides getEnvVar() so no real env var is required during tests
+        initializer = new UaaWebApplicationInitializer() {
+            @Override
+            String getEnvVar(String name) {
+                if ("BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES".equals(name)) {
+                    return TEST_MAX_UPLOAD_BYTES;
+                }
+                return System.getenv(name);
+            }
+        };
         context = mock(ConfigurableWebApplicationContext.class);
         environment = new StandardServletEnvironment();
         servletContext = mock(ServletContext.class);
@@ -74,6 +87,35 @@ class UaaWebApplicationInitializerTest {
         assertThat(listeners.size()).isEqualTo(2);
         assertThat(listeners.getFirst()).isInstanceOf(HttpSessionEventPublisher.class);
         assertThat(listeners.get(1)).isInstanceOf(ContextLoaderListener.class);
+    }
+
+    @Test
+    void shouldConfigureMultipartWithMaxFileSizeFromEnvVar() throws ServletException {
+        initializer.onStartup(servletContext);
+
+        ArgumentCaptor<MultipartConfigElement> multipartCaptor =
+                ArgumentCaptor.forClass(MultipartConfigElement.class);
+        verify(servletRegistration).setMultipartConfig(multipartCaptor.capture());
+
+        MultipartConfigElement config = multipartCaptor.getValue();
+        assertThat(config.getMaxFileSize()).isEqualTo(Long.parseLong(TEST_MAX_UPLOAD_BYTES));
+        assertThat(config.getMaxRequestSize()).isEqualTo(Long.parseLong(TEST_MAX_UPLOAD_BYTES));
+        assertThat(config.getFileSizeThreshold()).isZero();
+    }
+
+    @Test
+    void shouldNotRequireMultipartEnvVarDuringStartup() throws ServletException {
+        initializer = new UaaWebApplicationInitializer() {
+            @Override
+            String getEnvVar(String name) {
+                return null;
+            }
+        };
+
+        initializer.onStartup(servletContext);
+
+        Mockito.verify(servletRegistration, Mockito.never())
+                .setMultipartConfig(ArgumentMatchers.any(MultipartConfigElement.class));
     }
 
 }

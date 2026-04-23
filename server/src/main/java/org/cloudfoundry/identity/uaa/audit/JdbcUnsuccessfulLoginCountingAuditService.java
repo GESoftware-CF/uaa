@@ -1,7 +1,6 @@
 package org.cloudfoundry.identity.uaa.audit;
 
 import org.cloudfoundry.identity.uaa.util.TimeService;
-import org.cloudfoundry.identity.uaa.util.TimeServiceImpl;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -44,6 +43,9 @@ public class JdbcUnsuccessfulLoginCountingAuditService extends JdbcAuditService 
                 break;
             case UserAuthenticationFailure:
                 periodicDelete();
+                super.log(auditEvent, zoneId);
+                break;
+            case BackgroundImageUploadedEvent, BackgroundImageDeletedEvent:
                 super.log(auditEvent, zoneId);
                 break;
             default:

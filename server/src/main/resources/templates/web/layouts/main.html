@@ -2,6 +2,8 @@
 <html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" dir="ltr" lang="en"
       th:with="assetBaseUrl=${@environment.getProperty('assetBaseUrl','/resources/oss')},
                 predixBaseUrl=${@environment.getProperty('predixBaseUrl','/resources/predix')},
+                modelUrl=${backgroundImageUrl},
+                staticBaseUrl=${predixBaseUrl},
                 isUaa=${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).isUaa()},
                 zoneName=${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).get()?.getName()},
                 branding=${T(org.cloudfoundry.identity.uaa.zone.MergedZoneBrandingInformation).resolveBranding()},
@@ -17,8 +19,18 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title th:text="${(companyName != null and !companyName.isEmpty()) ? companyName : zoneName}" th:inline="text"></title>
     <link href='/resources/oss/images/square-logo.png' th:with="icon=${branding.getSquareLogo()}" th:href="@{${icon != null and !icon.isEmpty() ? 'data:image/png;base64,'+icon : (assetBaseUrl + '/images/square-logo.png')}}" rel='shortcut icon' />
-    <link rel="preload" as="image" th:href="@{${assetBaseUrl}+'/images/background-image.png'}" type="image/png" />
-    
+
+    <th:block th:fragment="background(modelUrl, staticBaseUrl)"
+          th:with="resolved=${modelUrl != null ? modelUrl : (staticBaseUrl + '/images/background-image.png')}">
+      <link rel="preload" as="image" th:href="${resolved}" />
+      <style th:inline="text">
+        html {
+          background: url("[(${resolved})]") no-repeat center center fixed !important;
+          background-size: cover !important;
+        }
+      </style>
+    </th:block>
+
     <meta charset='utf-8' />
     <meta name='author' th:content="|${companyName}|" />
     <meta name='copyright' th:content="|${copyright}|" />
@@ -51,7 +63,8 @@
     <script th:attr="data-asset-base=${assetBaseUrl},data-predix-base=${predixBaseUrl}"
             src="/resources/javascripts/browser-loader.js"
             th:src="@{/resources/javascripts/browser-loader.js}"></script>
-  </head>
+
+</head>
 <body class="predix-uaa">
 
   <!-- Card Component -->

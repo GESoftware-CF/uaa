@@ -60,6 +60,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -71,7 +72,6 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.cloudfoundry.identity.uaa.util.UaaUrlUtils.addSubdomainToUrl;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -1706,7 +1706,8 @@ class LoginInfoEndpointTests {
                 "",
                 globalLinks,
                 clientDetailsService,
-                mockSamlIdentityProviderConfigurator);
+                mockSamlIdentityProviderConfigurator,
+                Optional.empty());
         if (identityZone.getConfig() != null) {
             identityZone.getConfig().setPrompts(prompts);
         }

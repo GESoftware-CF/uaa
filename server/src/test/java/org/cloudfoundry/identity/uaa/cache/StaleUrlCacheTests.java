@@ -25,6 +25,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -109,25 +110,34 @@ class StaleUrlCacheTests {
     @Test
     void entry_refreshes_after_time() throws URISyntaxException {
         when(mockTimeService.getCurrentTimeMillis()).thenAnswer(e -> ticker.nanos / 1_000_000); // Use ticker's value
-        when(mockRestTemplate.getForObject(eq(new URI(URL)), same(byte[].class))).thenReturn(content1, content2, content3);
+        CompletableFuture<byte[]> refreshedContent = new CompletableFuture<>();
+        when(mockRestTemplate.getForObject(eq(new URI(URL)), same(byte[].class)))
+                .thenReturn(content1)
+                .thenAnswer(invocation -> refreshedContent.join());
 
         // populate the cache
         byte[] c1 = cache.getUrlContent(URL, mockRestTemplate);
+        assertThat(c1).isSameAs(content1);
+        assertThat(cache.getUrlContent(URL, mockRestTemplate)).isSameAs(c1);
+        verify(mockRestTemplate, times(1)).getForObject(eq(new URI(URL)), same(byte[].class));
         ticker.advance(CACHE_EXPIRED);
 
-        // the next call after timeout should force async refresh and return the new value
-        byte[] c2 = cache.getUrlContent(URL, mockRestTemplate);
-        assertThat(c2).isSameAs(content2);
+        try {
+            byte[] c2 = cache.getUrlContent(URL, mockRestTemplate);
+            assertThat(c2).isSameAs(c1);
 
-        // Allow time for the async getUrlContent to be called
-        await().atMost(1, TimeUnit.SECONDS)
-                .untilAsserted(() -> verify(mockRestTemplate, times(2))
-                        .getForObject(eq(new URI(URL)), same(byte[].class))
-                );
+            await().atMost(1, TimeUnit.SECONDS)
+                    .untilAsserted(() -> verify(mockRestTemplate, times(2))
+                            .getForObject(eq(new URI(URL)), same(byte[].class))
+                    );
+        } finally {
+            refreshedContent.complete(content2);
+        }
 
         // Allow time for the async update to caffeine's cache.
         await().atMost(1, TimeUnit.SECONDS)
                 .untilAsserted(() -> assertThat(cache.getUrlContent(URL, mockRestTemplate))
+                    .isSameAs(content2)
                         .isNotSameAs(c1)
                 );
     }
