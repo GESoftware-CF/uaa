@@ -18,44 +18,31 @@ public class BackgroundImageService {
     private static final Logger logger = LoggerFactory.getLogger(BackgroundImageService.class);
 
     private final S3StorageManager s3StorageManager;
-    private final String storageBucket;
+    private final String bucketName;
 
-    public BackgroundImageService(
-            S3StorageManager s3StorageManager,
-            @Value("${AWS_S3_BUCKET}") String storageBucket) {
+    public BackgroundImageService(S3StorageManager s3StorageManager,
+                                  @Value("${AWS_S3_BUCKET}") String bucketName) {
         this.s3StorageManager = s3StorageManager;
-        this.storageBucket = storageBucket;
+        this.bucketName = bucketName;
     }
 
     /**
-     * Upload a background image to S3.
+     * Upload a background image for the given zone to S3.
      *
-     * @param file uploaded image file
-     * @param identityZoneId zone ID (used as part of S3 key)
-     * @return the S3 URL of the uploaded image
-     * @throws RuntimeException if upload fails
+     * @param file   the image file to upload
+     * @param zoneId the identity zone ID
+     * @return S3 URI of the uploaded object
      */
-    public String uploadBackgroundImage(MultipartFile file, String identityZoneId) {
+    public String uploadBackgroundImage(MultipartFile file, String zoneId) {
+        String key = "background_images/" + zoneId + "/" + UUID.randomUUID() + "_" + file.getOriginalFilename();
         try {
-            String filename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "image";
-            String s3Key = String.format("background/%s/%s/%s", identityZoneId, UUID.randomUUID(), filename);
-
-            logger.info("Uploading background image to S3: bucket={}, key={}", storageBucket, s3Key);
-
-            String url = s3StorageManager.upload(
-                storageBucket,
-                s3Key,
-                file.getInputStream(),
-                file.getSize(),
-                file.getContentType()
-            );
-
-            logger.info("Background image uploaded successfully: url={}", url);
-            return url;
-
+            logger.info("Uploading background image: bucket={}, key={}", bucketName, key);
+            return s3StorageManager.upload(bucketName, key, file.getInputStream(),
+                    file.getSize(), file.getContentType());
         } catch (IOException e) {
-            logger.error("Failed to read uploaded file for zone={}", identityZoneId, e);
+            logger.error("Failed to read uploaded file: {}", file.getOriginalFilename(), e);
             throw new RuntimeException("Failed to read uploaded file", e);
         }
     }
 }
+

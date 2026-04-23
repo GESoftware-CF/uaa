@@ -10,3 +10,4 @@ import org.springframework.context.annotation.Configuration;
 @ComponentScan("org.cloudfoundry.identity.uaa.media")
 public class MediaServiceConfiguration {
 }
+
