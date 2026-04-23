@@ -10,23 +10,14 @@ dependencies {
     }
     implementation(libraries.springSecurityCore)
     implementation(libraries.springSecurityWeb)
-    implementation(libraries.springJdbc)
-    implementation(libraries.springTx)
-    
+
     implementation(libraries.jacksonDatabind)
-    implementation(libraries.hibernateValidator)
-    implementation(libraries.commonsIo)
-    implementation(libraries.commonsCodec)
     implementation(libraries.slf4jApi)
-    implementation(libraries.slf4jImpl)
-    implementation(libraries.log4jCore)
-    
-    // AWS SDK for S3
+
+    // AWS SDK for S3 (synchronous client only for MVP)
     implementation(platform("software.amazon.awssdk:bom:2.31.10"))
     implementation("software.amazon.awssdk:s3")
-    implementation("software.amazon.awssdk:s3-transfer-manager")
-    implementation("software.amazon.awssdk:aws-crt-client")
-    
+
     compileOnly(libraries.lombok)
     annotationProcessor(libraries.lombok)
 
@@ -39,7 +30,6 @@ dependencies {
     testImplementation(libraries.junit5JupiterApi)
     testImplementation(libraries.junit5JupiterParams)
     testImplementation(libraries.junit5JupiterEngine)
-    testImplementation(libraries.hsqldb)
 }
 
 integrationTest {}.onlyIf {
