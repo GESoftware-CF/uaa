@@ -36,6 +36,7 @@ dependencies {
     implementation(project(":zone-service"))
     implementation(project(":cloudfoundry-identity-statsd-lib"))
     implementation(project(":cloudfoundry-identity-model"))
+    implementation(project(":cloudfoundry-identity-media"))
     implementation(libraries.springSecurityConfig)
     implementation(libraries.springSecurityWeb)
     implementation(libraries.springBootStarter)
