@@ -5,6 +5,7 @@ include(":cloudfoundry-identity-server")
 include(":cloudfoundry-identity-statsd")
 include(":cloudfoundry-identity-statsd-lib")
 include(":cloudfoundry-identity-uaa")
+include(":cloudfoundry-identity-media")
 include(":zone-service")
 include(":iam-k8s-utils")
 
@@ -14,5 +15,6 @@ project(":cloudfoundry-identity-server").projectDir = "$rootDir/server" as File
 project(":cloudfoundry-identity-uaa").projectDir = "$rootDir/uaa" as File
 project(":cloudfoundry-identity-statsd").projectDir = "$rootDir/statsd" as File
 project(":cloudfoundry-identity-statsd-lib").projectDir = "$rootDir/statsd-lib" as File
+project(":cloudfoundry-identity-media").projectDir = "$rootDir/media-service" as File
 project(":zone-service").projectDir = "$rootDir/zone-service" as File
 project(":iam-k8s-utils").projectDir = "$rootDir/iam-k8s-utils" as File
