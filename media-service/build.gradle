@@ -18,6 +18,7 @@ dependencies {
     // AWS SDK for S3 (synchronous client only for MVP)
     implementation(platform("software.amazon.awssdk:bom:2.31.10"))
     implementation("software.amazon.awssdk:s3")
+    implementation("software.amazon.awssdk:sts")  // Required for IRSA/WebIdentityTokenCredentialsProvider on EKS
 
     compileOnly(libraries.lombok)
     annotationProcessor(libraries.lombok)
