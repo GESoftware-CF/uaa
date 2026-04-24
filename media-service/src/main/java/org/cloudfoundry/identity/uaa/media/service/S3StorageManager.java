@@ -7,15 +7,20 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.InputStream;
 
 /**
- * Manages uploads to AWS S3 using the synchronous S3Client.
+ * Manages uploads and downloads to/from AWS S3.
  */
 @Service
 public class S3StorageManager {
@@ -75,5 +80,37 @@ public class S3StorageManager {
             logger.error("S3 upload failed: bucket={}, key={}", bucket, key, e);
             throw new RuntimeException("Failed to upload image to S3", e);
         }
+    }
+
+    /**
+     * Download an object from S3 as a streaming response.
+     *
+     * @param bucket S3 bucket name
+     * @param key    S3 object key
+     * @return ResponseInputStream containing image bytes and S3 metadata
+     */
+    public ResponseInputStream<GetObjectResponse> download(String bucket, String key) {
+        try {
+            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(bucket)
+                .key(key)
+                .build();
+            logger.debug("Downloading from S3: bucket={}, key={}", bucket, key);
+            return s3Client.getObject(getObjectRequest);
+        } catch (Exception e) {
+            logger.error("S3 download failed: bucket={}, key={}", bucket, key, e);
+            throw new RuntimeException("Failed to download image from S3", e);
+        }
+    }
+
+    /**
+     * Retrieve metadata (content-type, content-length) for an S3 object without downloading it.
+     *
+     * @param bucket S3 bucket name
+     * @param key    S3 object key
+     * @return HeadObjectResponse with object metadata
+     */
+    public HeadObjectResponse headObject(String bucket, String key) {
+        return s3Client.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build());
     }
 }
