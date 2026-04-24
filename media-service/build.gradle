@@ -10,6 +10,7 @@ dependencies {
     }
     implementation(libraries.springSecurityCore)
     implementation(libraries.springSecurityWeb)
+    implementation(libraries.springSecurityConfig)
 
     implementation(libraries.jacksonDatabind)
     implementation(libraries.slf4jApi)
