@@ -14,6 +14,7 @@ import org.springframework.web.servlet.DispatcherServlet;
 
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterRegistration;
+import jakarta.servlet.MultipartConfigElement;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRegistration;
@@ -61,6 +62,13 @@ public class UaaWebApplicationInitializer implements WebApplicationInitializer {
         ServletRegistration.Dynamic springRegistration = servletContext.addServlet("spring", spring);
         springRegistration.setLoadOnStartup(1);
         springRegistration.addMapping("/");
+        // Enable multipart support for file uploads (e.g. background image upload)
+        springRegistration.setMultipartConfig(new MultipartConfigElement(
+                "",        // location (temp dir)
+                10485760L, // maxFileSize 10 MB
+                11534336L, // maxRequestSize 11 MB
+                0          // fileSizeThreshold
+        ));
 
         //<error-page> from web.xml
         if (servletContext instanceof ApplicationContextFacade) {
