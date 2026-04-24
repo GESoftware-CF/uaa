@@ -7,8 +7,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 
 import java.io.IOException;
+import java.net.URL;
 import java.util.UUID;
 
 /**
@@ -74,5 +76,32 @@ public class BackgroundImageService {
      */
     public static String buildKey(String zoneId, String imageId, String filename) {
         return "background_images/" + zoneId + "/" + imageId + "_" + filename;
+    }
+
+    /**
+     * Generate a presigned URL for the given S3 key that expires after the specified duration.
+     *
+     * @param zoneId        the identity zone ID (for logging)
+     * @param s3Key         the S3 object key
+     * @param expiryMinutes how long the URL is valid (in minutes); minimum 1, maximum 10080 (7 days)
+     * @return presigned URL string
+     */
+    public String getPresignedUrl(String zoneId, String s3Key, long expiryMinutes) {
+        long clampedExpiry = Math.max(1, Math.min(10080, expiryMinutes));
+        logger.info("Generating presigned URL: zone={}, key={}, expiryMinutes={}", zoneId, s3Key, clampedExpiry);
+        URL url = s3StorageManager.generatePresignedUrl(bucketName, s3Key, clampedExpiry);
+        return url.toString();
+    }
+
+    /**
+     * Retrieve S3 object metadata (content-type, content-length, ETag, last-modified) for the given key.
+     *
+     * @param zoneId the identity zone ID (for logging)
+     * @param s3Key  the S3 object key
+     * @return HeadObjectResponse containing metadata
+     */
+    public HeadObjectResponse getObjectMetadata(String zoneId, String s3Key) {
+        logger.debug("Fetching S3 metadata: zone={}, key={}", zoneId, s3Key);
+        return s3StorageManager.headObject(bucketName, s3Key);
     }
 }

@@ -16,8 +16,13 @@ import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
 import java.io.InputStream;
+import java.net.URL;
+import java.time.Duration;
 
 /**
  * Manages uploads and downloads to/from AWS S3.
@@ -27,8 +32,11 @@ public class S3StorageManager {
 
     private static final Logger logger = LoggerFactory.getLogger(S3StorageManager.class);
 
+    private static final long DEFAULT_PRESIGN_DURATION_MINUTES = 60;
+
     private final String awsRegion;
     private S3Client s3Client;
+    private S3Presigner s3Presigner;
 
     public S3StorageManager(@Value("${AWS_REGION}") String awsRegion) {
         this.awsRegion = awsRegion;
@@ -37,8 +45,13 @@ public class S3StorageManager {
     @PostConstruct
     public void init() {
         logger.info("Initializing S3StorageManager: region={}", awsRegion);
+        Region region = Region.of(awsRegion);
         this.s3Client = S3Client.builder()
-            .region(Region.of(awsRegion))
+            .region(region)
+            .credentialsProvider(DefaultCredentialsProvider.create())
+            .build();
+        this.s3Presigner = S3Presigner.builder()
+            .region(region)
             .credentialsProvider(DefaultCredentialsProvider.create())
             .build();
     }
@@ -47,6 +60,9 @@ public class S3StorageManager {
     public void destroy() {
         if (s3Client != null) {
             s3Client.close();
+        }
+        if (s3Presigner != null) {
+            s3Presigner.close();
         }
     }
 
@@ -101,6 +117,28 @@ public class S3StorageManager {
             logger.error("S3 download failed: bucket={}, key={}", bucket, key, e);
             throw new RuntimeException("Failed to download image from S3", e);
         }
+    }
+
+    /**
+     * Generate a presigned GET URL for an S3 object.
+     *
+     * @param bucket          S3 bucket name
+     * @param key             S3 object key
+     * @param expiryMinutes   validity duration in minutes (positive value)
+     * @return presigned URL valid for the specified duration
+     */
+    public URL generatePresignedUrl(String bucket, String key, long expiryMinutes) {
+        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+            .signatureDuration(Duration.ofMinutes(expiryMinutes > 0 ? expiryMinutes : DEFAULT_PRESIGN_DURATION_MINUTES))
+            .getObjectRequest(GetObjectRequest.builder()
+                .bucket(bucket)
+                .key(key)
+                .build())
+            .build();
+
+        PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
+        logger.debug("Generated presigned URL: bucket={}, key={}, expiryMinutes={}", bucket, key, expiryMinutes);
+        return presignedRequest.url();
     }
 
     /**

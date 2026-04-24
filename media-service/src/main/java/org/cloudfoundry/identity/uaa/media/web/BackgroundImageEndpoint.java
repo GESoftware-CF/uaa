@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 
 import javax.imageio.ImageIO;
 import java.awt.Graphics2D;
@@ -23,6 +24,8 @@ import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -44,6 +47,7 @@ public class BackgroundImageEndpoint {
     private static final int DEFAULT_WIDTH_PX = 1920;
     private static final int MIN_WIDTH_PX = 64;
     private static final int MAX_WIDTH_PX = 3840;
+    private static final long DEFAULT_PRESIGN_EXPIRY_MINUTES = 60;
 
     private final BackgroundImageService backgroundImageService;
 
@@ -181,6 +185,61 @@ public class BackgroundImageEndpoint {
         } catch (IOException e) {
             logger.error("Failed to serve responsive image: zone={}, key={}, width={}",
                     zoneId, key, targetWidth, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /background_images/presigned-url
+    // -------------------------------------------------------------------------
+
+    /**
+     * Generate a presigned S3 GET URL for the given key, along with object metadata.
+     *
+     * <p>The presigned URL allows the caller (or browser) to download the image directly
+     * from S3 without proxying through UAA, improving performance for large images.
+     *
+     * @param key           the S3 object key returned by the upload endpoint
+     * @param expiryMinutes how long the URL is valid in minutes (default: 60, max: 10080 / 7 days)
+     * @return JSON with {@code presignedUrl}, {@code key}, {@code contentType},
+     *         {@code contentLength}, {@code etag}, and {@code expiresAt}
+     */
+    @GetMapping(value = "/presigned-url", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> getPresignedUrl(
+            @RequestParam("key") String key,
+            @RequestParam(value = "expiryMinutes", defaultValue = "" + DEFAULT_PRESIGN_EXPIRY_MINUTES) long expiryMinutes) {
+
+        String zoneId = IdentityZoneHolder.get().getId();
+        logger.info("GET /background_images/presigned-url: zone={}, key={}, expiryMinutes={}",
+                zoneId, key, expiryMinutes);
+
+        try {
+            // Fetch S3 metadata (HEAD request – no data transferred)
+            HeadObjectResponse meta = backgroundImageService.getObjectMetadata(zoneId, key);
+
+            // Generate presigned URL
+            String presignedUrl = backgroundImageService.getPresignedUrl(zoneId, key, expiryMinutes);
+
+            long clampedExpiry = Math.max(1, Math.min(10080, expiryMinutes));
+            Instant expiresAt = Instant.now().plusSeconds(clampedExpiry * 60);
+
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("presignedUrl", presignedUrl);
+            response.put("key", key);
+            response.put("contentType", meta.contentType());
+            response.put("contentLength", meta.contentLength());
+            response.put("etag", meta.eTag());
+            response.put("lastModified", meta.lastModified() != null ? meta.lastModified().toString() : null);
+            response.put("expiryMinutes", clampedExpiry);
+            response.put("expiresAt", expiresAt.toString());
+
+            logger.info("Presigned URL generated: zone={}, key={}, contentType={}, contentLength={}, expiresAt={}",
+                    zoneId, key, meta.contentType(), meta.contentLength(), expiresAt);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            logger.error("Failed to generate presigned URL: zone={}, key={}", zoneId, key, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
