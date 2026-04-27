@@ -243,4 +243,62 @@ public class BackgroundImageEndpoint {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+    // -------------------------------------------------------------------------
+    // GET /background_images/base64
+    // -------------------------------------------------------------------------
+
+    /**
+     * Fetch the image from S3, Base64-encode it, and return a JSON response containing the
+     * encoded data and a ready-to-use HTML/CSS data URI.
+     *
+     * <p>This is useful when the client needs to embed the image inline (e.g. in a JSON
+     * payload or as a CSS {@code background-image} value) without making a separate request
+     * to S3.  For large images consider using the presigned-url endpoint instead, as Base64
+     * increases payload size by ~33 %.
+     *
+     * <p>Response body example:
+     * <pre>{@code
+     * {
+     *   "key":          "background_images/uaa/abc_photo.jpg",
+     *   "contentType":  "image/jpeg",
+     *   "originalBytes": 550540,
+     *   "encodedLength": 734056,
+     *   "encodingMs":   312,
+     *   "dataUri":      "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+     *   "base64Data":   "/9j/4AAQSkZJRg..."
+     * }
+     * }</pre>
+     *
+     * @param key the S3 object key returned by the upload endpoint
+     * @return JSON with Base64 payload and performance metrics
+     */
+    @GetMapping(value = "/base64", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> getImageAsBase64(@RequestParam("key") String key) {
+        String zoneId = IdentityZoneHolder.get().getId();
+        logger.info("GET /background_images/base64: zone={}, key={}", zoneId, key);
+
+        try {
+            BackgroundImageService.Base64ImageResult result =
+                    backgroundImageService.getImageAsBase64(zoneId, key);
+
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("key", key);
+            response.put("contentType", result.contentType());
+            response.put("originalBytes", result.originalBytes());
+            response.put("encodedLength", result.base64Data().length());
+            response.put("encodingMs", result.encodingMs());
+            response.put("dataUri", result.toDataUri());
+            response.put("base64Data", result.base64Data());
+
+            logger.info("Base64 response ready: zone={}, key={}, originalBytes={}, encodedLength={}, encodingMs={}",
+                    zoneId, key, result.originalBytes(), result.base64Data().length(), result.encodingMs());
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            logger.error("Failed to encode image to Base64: zone={}, key={}", zoneId, key, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }
