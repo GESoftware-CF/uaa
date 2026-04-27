@@ -94,6 +94,58 @@ public class BackgroundImageService {
     }
 
     /**
+     * Download the background image from S3 and return it as a Base64-encoded string.
+     *
+     * <p>The result can be used directly as a CSS/HTML data URI:
+     * {@code data:<contentType>;base64,<encodedData>}
+     *
+     * @param zoneId the identity zone ID (for logging)
+     * @param s3Key  the S3 object key (returned from upload)
+     * @return {@link Base64ImageResult} containing the Base64 payload, content-type,
+     *         original byte size, and encoding duration
+     */
+    public Base64ImageResult getImageAsBase64(String zoneId, String s3Key) {
+        logger.info("Encoding background image to Base64: zone={}, key={}", zoneId, s3Key);
+        long start = System.currentTimeMillis();
+
+        try (ResponseInputStream<GetObjectResponse> stream = s3StorageManager.download(bucketName, s3Key)) {
+            GetObjectResponse meta = stream.response();
+            String contentType = meta.contentType() != null ? meta.contentType() : "image/jpeg";
+            byte[] imageBytes = stream.readAllBytes();
+            String encoded = java.util.Base64.getEncoder().encodeToString(imageBytes);
+            long elapsedMs = System.currentTimeMillis() - start;
+
+            logger.info("Base64 encoding complete: zone={}, key={}, originalBytes={}, encodedChars={}, totalMs={}",
+                    zoneId, s3Key, imageBytes.length, encoded.length(), elapsedMs);
+
+            return new Base64ImageResult(encoded, contentType, imageBytes.length, elapsedMs);
+        } catch (java.io.IOException e) {
+            logger.error("Failed to read image bytes for Base64 encoding: zone={}, key={}", zoneId, s3Key, e);
+            throw new RuntimeException("Failed to encode image to Base64", e);
+        }
+    }
+
+    /**
+     * Immutable result holder for a Base64-encoded image.
+     *
+     * @param base64Data    Base64-encoded image bytes
+     * @param contentType   MIME type (e.g. {@code image/jpeg})
+     * @param originalBytes number of raw image bytes before encoding
+     * @param encodingMs    total time in milliseconds to fetch and encode
+     */
+    public record Base64ImageResult(
+            String base64Data,
+            String contentType,
+            long originalBytes,
+            long encodingMs) {
+
+        /** Convenience method returning a ready-to-use HTML/CSS data URI. */
+        public String toDataUri() {
+            return "data:" + contentType + ";base64," + base64Data;
+        }
+    }
+
+    /**
      * Retrieve S3 object metadata (content-type, content-length, ETag, last-modified) for the given key.
      *
      * @param zoneId the identity zone ID (for logging)
