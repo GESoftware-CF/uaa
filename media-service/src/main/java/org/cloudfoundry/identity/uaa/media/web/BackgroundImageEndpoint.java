@@ -8,7 +8,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -27,15 +29,22 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * REST endpoint for background image upload and retrieval.
  *
- * <p>Endpoints:
+ * <p>The S3 key for a zone's active image is resolved automatically from the database —
+ * callers do not need to supply a key.
+ *
  * <ul>
- *   <li>POST  /background_images            – upload image</li>
- *   <li>GET   /background_images/stream     – return raw image bytes</li>
- *   <li>GET   /background_images/responsive – return image scaled to requested viewport width</li>
+ *   <li>POST   /background_images              – upload image for current zone</li>
+ *   <li>GET    /background_images              – get metadata for current zone's image</li>
+ *   <li>GET    /background_images/stream       – stream raw image bytes</li>
+ *   <li>GET    /background_images/responsive   – stream image scaled to requested width</li>
+ *   <li>GET    /background_images/presigned-url – generate a presigned S3 URL</li>
+ *   <li>GET    /background_images/base64       – return Base64-encoded image</li>
+ *   <li>DELETE /background_images              – delete the zone's background image</li>
  * </ul>
  */
 @RestController
@@ -44,9 +53,9 @@ public class BackgroundImageEndpoint {
 
     private static final Logger logger = LoggerFactory.getLogger(BackgroundImageEndpoint.class);
 
-    private static final int DEFAULT_WIDTH_PX = 1920;
-    private static final int MIN_WIDTH_PX = 64;
-    private static final int MAX_WIDTH_PX = 3840;
+    private static final int  DEFAULT_WIDTH_PX             = 1920;
+    private static final int  MIN_WIDTH_PX                 = 64;
+    private static final int  MAX_WIDTH_PX                 = 3840;
     private static final long DEFAULT_PRESIGN_EXPIRY_MINUTES = 60;
 
     private final BackgroundImageService backgroundImageService;
@@ -56,26 +65,135 @@ public class BackgroundImageEndpoint {
     }
 
     // -------------------------------------------------------------------------
-    // POST /background_images
+    // POST /background_images  — upload
     // -------------------------------------------------------------------------
 
     /**
      * Upload a background image for the current identity zone.
+     * If the zone already has a background image its S3 key is replaced in the database
+     * (the old S3 object is left in place — use DELETE first to clean it up).
      *
      * @param file multipart image file (PNG, JPEG, or WebP)
-     * @return 201 Created with the S3 URL and the S3 key needed for GET calls
+     * @return 201 Created with the S3 URL and key for the uploaded image
      */
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, String>> uploadBackgroundImage(@RequestParam("file") MultipartFile file) {
+    @PostMapping(value = {"", "/upload"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+                 produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> uploadBackgroundImage(
+            @RequestParam("file") MultipartFile file) {
+
         String zoneId = IdentityZoneHolder.get().getId();
         logger.info("POST /background_images: zone={}, filename={}, size={}",
                 zoneId, file.getOriginalFilename(), file.getSize());
 
-        String s3Uri = backgroundImageService.uploadBackgroundImage(file, zoneId);
-        String s3Key = s3Uri.replaceFirst("^s3://[^/]+/", "");
+        String s3Key = backgroundImageService.uploadBackgroundImage(file, zoneId);
 
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(Map.of("url", s3Uri, "key", s3Key));
+        long    clampedExpiry = DEFAULT_PRESIGN_EXPIRY_MINUTES;
+        Instant expiresAt     = Instant.now().plusSeconds(clampedExpiry * 60);
+        String  presignedUrl  = backgroundImageService.getPresignedUrl(zoneId, s3Key, clampedExpiry);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("zoneId",        zoneId);
+        response.put("key",           s3Key);
+        response.put("presignedUrl",  presignedUrl);
+        response.put("expiryMinutes", clampedExpiry);
+        response.put("expiresAt",     expiresAt.toString());
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    // -------------------------------------------------------------------------
+    // PATCH /background_images  — replace
+    // -------------------------------------------------------------------------
+
+    /**
+     * Replace the background image for the current identity zone.
+     *
+     * <p>The existing S3 object is deleted <em>after</em> the new image has been
+     * uploaded and the database record updated, so the zone is never left without a
+     * reachable image. Returns 404 if no image has been uploaded yet (use POST instead).
+     *
+     * @param file multipart image file (PNG, JPEG, or WebP)
+     * @return 200 OK with the new S3 URL and key, or 404 if no current image exists
+     */
+    @PatchMapping(value = "", consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+                  produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> replaceBackgroundImage(
+            @RequestParam("file") MultipartFile file) {
+
+        String zoneId = IdentityZoneHolder.get().getId();
+        logger.info("PATCH /background_images: zone={}, filename={}, size={}",
+                zoneId, file.getOriginalFilename(), file.getSize());
+
+        try {
+            String newKey = backgroundImageService.replaceBackgroundImage(file, zoneId);
+
+            long    clampedExpiry = DEFAULT_PRESIGN_EXPIRY_MINUTES;
+            Instant expiresAt     = Instant.now().plusSeconds(clampedExpiry * 60);
+            String  presignedUrl  = backgroundImageService.getPresignedUrl(zoneId, newKey, clampedExpiry);
+
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("zoneId",        zoneId);
+            response.put("key",           newKey);
+            response.put("presignedUrl",  presignedUrl);
+            response.put("expiryMinutes", clampedExpiry);
+            response.put("expiresAt",     expiresAt.toString());
+
+            return ResponseEntity.ok(response);
+
+        } catch (java.util.NoSuchElementException e) {
+            logger.info("PATCH /background_images: no existing image for zone={}", zoneId);
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /background_images  — metadata
+    // -------------------------------------------------------------------------
+
+    /**
+     * Return metadata for the current zone's active background image.
+     *
+     * @return 200 with zoneId + key, or 404 if no image has been uploaded for this zone
+     */
+    @GetMapping(value = "", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> getMetadata() {
+        String zoneId = IdentityZoneHolder.get().getId();
+        Optional<String> keyOpt = backgroundImageService.findS3KeyByZone(zoneId);
+        if (keyOpt.isEmpty()) {
+            logger.info("GET /background_images: no image for zone={}", zoneId);
+            return ResponseEntity.notFound().build();
+        }
+        String s3Key = keyOpt.get();
+        HeadObjectResponse meta = backgroundImageService.getObjectMetadata(zoneId, s3Key);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("zoneId",        zoneId);
+        response.put("key",           s3Key);
+        response.put("url",           backgroundImageService.buildS3Uri(s3Key));
+        response.put("contentType",   meta.contentType());
+        response.put("contentLength", meta.contentLength());
+        response.put("lastModified",  meta.lastModified() != null ? meta.lastModified().toString() : null);
+
+        return ResponseEntity.ok(response);
+    }
+
+    // -------------------------------------------------------------------------
+    // DELETE /background_images
+    // -------------------------------------------------------------------------
+
+    /**
+     * Delete the background image for the current identity zone.
+     *
+     * @return 204 No Content on success, 404 if no image exists for this zone
+     */
+    @DeleteMapping("")
+    public ResponseEntity<Void> deleteBackgroundImage() {
+        String zoneId = IdentityZoneHolder.get().getId();
+        logger.info("DELETE /background_images: zone={}", zoneId);
+        boolean deleted = backgroundImageService.deleteBackgroundImage(zoneId);
+        return deleted
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.notFound().build();
     }
 
     // -------------------------------------------------------------------------
@@ -83,14 +201,20 @@ public class BackgroundImageEndpoint {
     // -------------------------------------------------------------------------
 
     /**
-     * Return the raw background image bytes from S3.
+     * Stream the raw background image bytes for the current identity zone.
      *
-     * @param key the S3 object key returned by the upload endpoint
-     * @return image bytes with correct Content-Type and caching headers
+     * @return image bytes with correct Content-Type and caching headers,
+     *         or 404 if no image has been uploaded for this zone
      */
     @GetMapping(value = "/stream")
-    public ResponseEntity<byte[]> streamImage(@RequestParam("key") String key) {
+    public ResponseEntity<byte[]> streamImage() {
         String zoneId = IdentityZoneHolder.get().getId();
+        Optional<String> keyOpt = backgroundImageService.findS3KeyByZone(zoneId);
+        if (keyOpt.isEmpty()) {
+            logger.info("GET /background_images/stream: no image for zone={}", zoneId);
+            return ResponseEntity.notFound().build();
+        }
+        String key = keyOpt.get();
         logger.info("GET /background_images/stream: zone={}, key={}", zoneId, key);
 
         long start = System.currentTimeMillis();
@@ -99,9 +223,8 @@ public class BackgroundImageEndpoint {
 
             GetObjectResponse s3Meta = s3Stream.response();
             String contentType = s3Meta.contentType() != null ? s3Meta.contentType() : "image/jpeg";
-
-            byte[] imageBytes = s3Stream.readAllBytes();
-            long totalMs = System.currentTimeMillis() - start;
+            byte[] imageBytes  = s3Stream.readAllBytes();
+            long totalMs       = System.currentTimeMillis() - start;
             logger.info("Stream complete: zone={}, key={}, totalBytes={}, totalMs={}",
                     zoneId, key, imageBytes.length, totalMs);
 
@@ -109,7 +232,6 @@ public class BackgroundImageEndpoint {
             headers.set(HttpHeaders.CONTENT_TYPE, contentType);
             headers.set(HttpHeaders.CACHE_CONTROL, "public, max-age=86400");
             headers.setContentLength(imageBytes.length);
-
             return ResponseEntity.ok().headers(headers).body(imageBytes);
 
         } catch (IOException e) {
@@ -123,19 +245,23 @@ public class BackgroundImageEndpoint {
     // -------------------------------------------------------------------------
 
     /**
-     * Return a viewport-adapted PNG version of the background image.
+     * Return a viewport-adapted PNG version of the current zone's background image.
      *
-     * @param key   the S3 object key
-     * @param width desired output width in pixels (default: 1920)
-     * @return PNG bytes scaled to the requested width
+     * @param width desired output width in pixels (default: 1920, range: 64–3840)
+     * @return PNG bytes scaled to the requested width, or 404 if no image exists
      */
     @GetMapping(value = "/responsive", produces = MediaType.IMAGE_PNG_VALUE)
     public ResponseEntity<byte[]> responsiveImage(
-            @RequestParam("key") String key,
             @RequestParam(value = "width", defaultValue = "" + DEFAULT_WIDTH_PX) int width) {
 
         String zoneId = IdentityZoneHolder.get().getId();
-        int targetWidth = Math.max(MIN_WIDTH_PX, Math.min(MAX_WIDTH_PX, width));
+        Optional<String> keyOpt = backgroundImageService.findS3KeyByZone(zoneId);
+        if (keyOpt.isEmpty()) {
+            logger.info("GET /background_images/responsive: no image for zone={}", zoneId);
+            return ResponseEntity.notFound().build();
+        }
+        String key         = keyOpt.get();
+        int    targetWidth = Math.max(MIN_WIDTH_PX, Math.min(MAX_WIDTH_PX, width));
         logger.info("GET /background_images/responsive: zone={}, key={}, requestedWidth={}, targetWidth={}",
                 zoneId, key, width, targetWidth);
 
@@ -149,16 +275,15 @@ public class BackgroundImageEndpoint {
                 return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).build();
             }
 
-            int origWidth  = original.getWidth();
-            int origHeight = original.getHeight();
-            int targetHeight = (int) Math.round((double) origHeight / origWidth * targetWidth);
+            int targetHeight = (int) Math.round(
+                    (double) original.getHeight() / original.getWidth() * targetWidth);
 
             BufferedImage resized = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_ARGB);
             Graphics2D g2d = resized.createGraphics();
             try {
                 g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2d.setRenderingHint(RenderingHints.KEY_RENDERING,     RenderingHints.VALUE_RENDER_QUALITY);
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,  RenderingHints.VALUE_ANTIALIAS_ON);
                 g2d.drawImage(original, 0, 0, targetWidth, targetHeight, null);
             } finally {
                 g2d.dispose();
@@ -169,7 +294,6 @@ public class BackgroundImageEndpoint {
                 throw new IOException("No suitable PNG ImageWriter found");
             }
             byte[] imageBytes = baos.toByteArray();
-
             long totalMs = System.currentTimeMillis() - start;
             logger.info("Responsive image served: zone={}, key={}, width={}, totalMs={}",
                     zoneId, key, targetWidth, totalMs);
@@ -179,7 +303,6 @@ public class BackgroundImageEndpoint {
             headers.set(HttpHeaders.CACHE_CONTROL, "public, max-age=86400");
             headers.set("X-Image-Width", String.valueOf(targetWidth));
             headers.setContentLength(imageBytes.length);
-
             return ResponseEntity.ok().headers(headers).body(imageBytes);
 
         } catch (IOException e) {
@@ -194,47 +317,43 @@ public class BackgroundImageEndpoint {
     // -------------------------------------------------------------------------
 
     /**
-     * Generate a presigned S3 GET URL for the given key, along with object metadata.
+     * Generate a presigned S3 GET URL for the current zone's background image.
      *
-     * <p>The presigned URL allows the caller (or browser) to download the image directly
-     * from S3 without proxying through UAA, improving performance for large images.
-     *
-     * @param key           the S3 object key returned by the upload endpoint
-     * @param expiryMinutes how long the URL is valid in minutes (default: 60, max: 10080 / 7 days)
-     * @return JSON with {@code presignedUrl}, {@code key}, {@code contentType},
-     *         {@code contentLength}, {@code etag}, and {@code expiresAt}
+     * @param expiryMinutes URL validity window in minutes (default: 60, max: 10080 / 7 days)
+     * @return JSON with presignedUrl, key, contentType, contentLength, etag, expiresAt;
+     *         or 404 if no image exists for this zone
      */
     @GetMapping(value = "/presigned-url", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> getPresignedUrl(
-            @RequestParam("key") String key,
-            @RequestParam(value = "expiryMinutes", defaultValue = "" + DEFAULT_PRESIGN_EXPIRY_MINUTES) long expiryMinutes) {
+            @RequestParam(value = "expiryMinutes",
+                          defaultValue = "" + DEFAULT_PRESIGN_EXPIRY_MINUTES) long expiryMinutes) {
 
         String zoneId = IdentityZoneHolder.get().getId();
+        Optional<String> keyOpt = backgroundImageService.findS3KeyByZone(zoneId);
+        if (keyOpt.isEmpty()) {
+            logger.info("GET /background_images/presigned-url: no image for zone={}", zoneId);
+            return ResponseEntity.notFound().build();
+        }
+        String key = keyOpt.get();
         logger.info("GET /background_images/presigned-url: zone={}, key={}, expiryMinutes={}",
                 zoneId, key, expiryMinutes);
 
         try {
-            // Fetch S3 metadata (HEAD request – no data transferred)
-            HeadObjectResponse meta = backgroundImageService.getObjectMetadata(zoneId, key);
-
-            // Generate presigned URL
-            String presignedUrl = backgroundImageService.getPresignedUrl(zoneId, key, expiryMinutes);
-
-            long clampedExpiry = Math.max(1, Math.min(10080, expiryMinutes));
-            Instant expiresAt = Instant.now().plusSeconds(clampedExpiry * 60);
+            HeadObjectResponse meta       = backgroundImageService.getObjectMetadata(zoneId, key);
+            String             presignedUrl = backgroundImageService.getPresignedUrl(zoneId, key, expiryMinutes);
+            long clampedExpiry             = Math.max(1, Math.min(10080, expiryMinutes));
+            Instant expiresAt              = Instant.now().plusSeconds(clampedExpiry * 60);
 
             Map<String, Object> response = new LinkedHashMap<>();
-            response.put("presignedUrl", presignedUrl);
-            response.put("key", key);
-            response.put("contentType", meta.contentType());
+            response.put("zoneId",        zoneId);
+            response.put("key",           key);
+            response.put("presignedUrl",  presignedUrl);
+            response.put("contentType",   meta.contentType());
             response.put("contentLength", meta.contentLength());
-            response.put("etag", meta.eTag());
-            response.put("lastModified", meta.lastModified() != null ? meta.lastModified().toString() : null);
+            response.put("etag",          meta.eTag());
+            response.put("lastModified",  meta.lastModified() != null ? meta.lastModified().toString() : null);
             response.put("expiryMinutes", clampedExpiry);
-            response.put("expiresAt", expiresAt.toString());
-
-            logger.info("Presigned URL generated: zone={}, key={}, contentType={}, contentLength={}, expiresAt={}",
-                    zoneId, key, meta.contentType(), meta.contentLength(), expiresAt);
+            response.put("expiresAt",     expiresAt.toString());
 
             return ResponseEntity.ok(response);
 
@@ -249,33 +368,22 @@ public class BackgroundImageEndpoint {
     // -------------------------------------------------------------------------
 
     /**
-     * Fetch the image from S3, Base64-encode it, and return a JSON response containing the
-     * encoded data and a ready-to-use HTML/CSS data URI.
+     * Return the current zone's background image as a Base64-encoded JSON payload.
+     * Suitable for embedding directly as a CSS {@code background-image} data URI.
+     * For large images, prefer the presigned-url endpoint to avoid the 33 % size overhead.
      *
-     * <p>This is useful when the client needs to embed the image inline (e.g. in a JSON
-     * payload or as a CSS {@code background-image} value) without making a separate request
-     * to S3.  For large images consider using the presigned-url endpoint instead, as Base64
-     * increases payload size by ~33 %.
-     *
-     * <p>Response body example:
-     * <pre>{@code
-     * {
-     *   "key":          "background_images/uaa/abc_photo.jpg",
-     *   "contentType":  "image/jpeg",
-     *   "originalBytes": 550540,
-     *   "encodedLength": 734056,
-     *   "encodingMs":   312,
-     *   "dataUri":      "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
-     *   "base64Data":   "/9j/4AAQSkZJRg..."
-     * }
-     * }</pre>
-     *
-     * @param key the S3 object key returned by the upload endpoint
-     * @return JSON with Base64 payload and performance metrics
+     * @return JSON with base64Data, dataUri, contentType, originalBytes, encodedLength,
+     *         encodingMs; or 404 if no image exists for this zone
      */
     @GetMapping(value = "/base64", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, Object>> getImageAsBase64(@RequestParam("key") String key) {
+    public ResponseEntity<Map<String, Object>> getImageAsBase64() {
         String zoneId = IdentityZoneHolder.get().getId();
+        Optional<String> keyOpt = backgroundImageService.findS3KeyByZone(zoneId);
+        if (keyOpt.isEmpty()) {
+            logger.info("GET /background_images/base64: no image for zone={}", zoneId);
+            return ResponseEntity.notFound().build();
+        }
+        String key = keyOpt.get();
         logger.info("GET /background_images/base64: zone={}, key={}", zoneId, key);
 
         try {
@@ -283,16 +391,14 @@ public class BackgroundImageEndpoint {
                     backgroundImageService.getImageAsBase64(zoneId, key);
 
             Map<String, Object> response = new LinkedHashMap<>();
-            response.put("key", key);
-            response.put("contentType", result.contentType());
+            response.put("zoneId",        zoneId);
+            response.put("key",           key);
+            response.put("contentType",   result.contentType());
             response.put("originalBytes", result.originalBytes());
             response.put("encodedLength", result.base64Data().length());
-            response.put("encodingMs", result.encodingMs());
-            response.put("dataUri", result.toDataUri());
-            response.put("base64Data", result.base64Data());
-
-            logger.info("Base64 response ready: zone={}, key={}, originalBytes={}, encodedLength={}, encodingMs={}",
-                    zoneId, key, result.originalBytes(), result.base64Data().length(), result.encodingMs());
+            response.put("encodingMs",    result.encodingMs());
+            response.put("dataUri",       result.toDataUri());
+            response.put("base64Data",    result.base64Data());
 
             return ResponseEntity.ok(response);
 
@@ -302,3 +408,4 @@ public class BackgroundImageEndpoint {
         }
     }
 }
+

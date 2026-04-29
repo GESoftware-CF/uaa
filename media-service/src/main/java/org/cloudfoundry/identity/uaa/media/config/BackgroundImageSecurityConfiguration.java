@@ -69,8 +69,8 @@ public class BackgroundImageSecurityConfiguration {
                 .securityMatcher("/background_images", "/background_images/**")
                 .authenticationManager(emptyAuthenticationManager)
                 .authorizeHttpRequests(auth -> {
-                    // POST /background_images – admin only (zones.write or uaa.admin)
-                    auth.requestMatchers(HttpMethod.POST, "/background_images").access(
+                    // POST /background_images and /background_images/upload – admin only (zones.write or uaa.admin)
+                    auth.requestMatchers(HttpMethod.POST, "/background_images", "/background_images/upload").access(
                             anyOf()
                                     .isUaaAdmin()
                                     .isZoneAdmin()

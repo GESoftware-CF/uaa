@@ -21,9 +21,12 @@ UAA Web UI → REST API → BackgroundImageService → S3 + PostgreSQL
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/background_images` | Upload a background image |
-| `GET` | `/background_images` | Get background image metadata |
-| `GET` | `/background_images/download` | Download the raw image bytes |
+| `POST` | `/background_images` | Upload a background image for the current zone |
+| `GET` | `/background_images` | Get metadata for the current zone's image |
+| `GET` | `/background_images/stream` | Stream the raw image bytes |
+| `GET` | `/background_images/responsive` | Stream the image scaled to a viewport width |
+| `GET` | `/background_images/presigned-url` | Generate a presigned S3 URL |
+| `GET` | `/background_images/base64` | Return the image as a Base64 data URI |
 | `DELETE` | `/background_images` | Delete the zone's background image |
 
 ## Configuration
@@ -59,9 +62,7 @@ aws:
 
 ## Database
 
-The module creates a `background_images` table via Flyway migration `V4_113__Create_Background_Images_Table.sql`.
-
-Supported databases: PostgreSQL, MySQL, HSQLDB, SQL Server
+This module has **no database tables**. Background image events are intentionally not audited and no metadata is persisted. All file metadata (filename, content-type, file size) is available on demand via an S3 `HeadObject` request.
 
 ## Usage Example
 
@@ -76,14 +77,9 @@ curl -X POST http://localhost:8080/background_images \
 Response:
 ```json
 {
-  "id": "uuid-123",
-  "identityZoneId": "zone-456",
-  "uploadedBy": "admin",
-  "originalFilename": "image.png",
-  "mimeType": "image/png",
-  "sizeBytes": 524288,
-  "storageKey": "media/zone/zone-456/background/uuid-123/image.png",
-  "created": "2026-04-13T10:30:00Z"
+  "url": "s3://your-bucket/background_images/zone-456/uuid-123_image.png",
+  "key": "background_images/zone-456/uuid-123_image.png",
+  "zoneId": "zone-456"
 }
 ```
 
