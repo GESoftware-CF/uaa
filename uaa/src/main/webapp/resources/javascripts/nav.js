@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
-  const dropdownTrigger = document.getElementById('nav-dropdown-button');
-  const dropdownContent = document.getElementById('nav-dropdown-content');
-  const chevron = dropdownTrigger ? dropdownTrigger.querySelector('.chevron') : null;
+  var dropdownTrigger = document.getElementById('nav-dropdown-button');
+  var dropdownContent = document.getElementById('nav-dropdown-content');
+  var chevron = dropdownTrigger ? dropdownTrigger.querySelector('.chevron') : null;
   
   if (!dropdownTrigger || !dropdownContent || !chevron) {
     console.error('Dropdown elements not found');
@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Toggle dropdown on button click
   dropdownTrigger.addEventListener('click', function(e) {
     e.stopPropagation();
-    const isOpen = this.classList.toggle('open');
+    var isOpen = this.classList.toggle('open');
     this.setAttribute('aria-expanded', isOpen);
     dropdownContent.classList.toggle('open');
     

@@ -7,10 +7,12 @@ buildscript {
     apply(from: "dependencies.gradle")
 
     repositories {
-        mavenCentral()
-        gradlePluginPortal()
         maven {
-            url("https://plugins.gradle.org/m2/")
+            credentials {
+                username System.getenv('ARTIFACTORY_CREDENTIALS_USR')
+                password System.getenv('ARTIFACTORY_CREDENTIALS_PSW')
+            }
+            url 'https://gart.software.gevernova.com/artifactory/pgog-fss-iam-uaa-mvn-virtual'
         }
     }
 
@@ -177,9 +179,6 @@ subprojects {
     }
 
     repositories {
-        maven {
-            url("https://jitpack.io")
-        }
         maven {
             credentials {
                 username geArtifactoryReader

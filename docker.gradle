@@ -21,7 +21,11 @@ buildscript {
 
   repositories {
     maven {
-      url 'https://plugins.gradle.org/m2/'
+      credentials {
+        username System.getenv('ARTIFACTORY_CREDENTIALS_USR')
+        password System.getenv('ARTIFACTORY_CREDENTIALS_PSW')
+      }
+      url 'https://gart.software.gevernova.com/artifactory/pgog-fss-iam-uaa-mvn-virtual'
     }
   }
 
@@ -51,15 +55,15 @@ task downloadReleaseArtifacts(type: Download) {
   doFirst {
     mkdir build_context
   }
-  src 'https://artifactory.build.ge.com/MAAXA/org/cloudfoundry/identity/' \
+  src 'https://gart.software.gevernova.com/artifactory/pgog-fss-iam-uaa-mvn-virtual/org/cloudfoundry/identity/' \
       + 'cloudfoundry-identity-uaa/' \
       + version \
       + '/cloudfoundry-identity-uaa-' \
       + version \
       + '.war'
   dest build_context
-  username System.getenv('ARTIFACTORY_READER')
-  password System.getenv('ARTIFACTORY_READER_PW')
+  username System.getenv('ARTIFACTORY_CREDENTIALS_USR')
+  password System.getenv('ARTIFACTORY_CREDENTIALS_PSW')
 }
 
 task copyDockerfile(type: Copy) {
