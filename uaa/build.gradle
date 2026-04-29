@@ -23,6 +23,11 @@ war {
     rootSpec.exclude("**/spring-security-oauth-*.jar")
 }
 
+repositories {
+    maven { url("https://repo.spring.io/milestone") }
+    maven { url "https://build.shibboleth.net/nexus/content/repositories/releases/" }
+}
+
 description = "UAA"
 dependencies {
     implementation(project(":cloudfoundry-identity-server")) {
