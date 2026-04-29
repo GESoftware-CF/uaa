@@ -11,6 +11,7 @@ import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
@@ -46,13 +47,14 @@ public class S3StorageManager {
     public void init() {
         logger.info("Initializing S3StorageManager: region={}", awsRegion);
         Region region = Region.of(awsRegion);
+        DefaultCredentialsProvider credentials = DefaultCredentialsProvider.create();
         this.s3Client = S3Client.builder()
             .region(region)
-            .credentialsProvider(DefaultCredentialsProvider.create())
+            .credentialsProvider(credentials)
             .build();
         this.s3Presigner = S3Presigner.builder()
             .region(region)
-            .credentialsProvider(DefaultCredentialsProvider.create())
+            .credentialsProvider(credentials)
             .build();
     }
 
@@ -74,10 +76,9 @@ public class S3StorageManager {
      * @param inputStream   file input stream
      * @param contentLength file size in bytes
      * @param contentType   MIME type
-     * @return S3 URI of the uploaded object
      */
-    public String upload(String bucket, String key, InputStream inputStream,
-                         long contentLength, String contentType) {
+    public void upload(String bucket, String key, InputStream inputStream,
+                       long contentLength, String contentType) {
         try {
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(bucket)
@@ -87,10 +88,7 @@ public class S3StorageManager {
                 .build();
 
             s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(inputStream, contentLength));
-
-            String url = String.format("s3://%s/%s", bucket, key);
-            logger.info("Successfully uploaded to S3: {}", url);
-            return url;
+            logger.info("Successfully uploaded to S3: s3://{}/{}", bucket, key);
 
         } catch (Exception e) {
             logger.error("S3 upload failed: bucket={}, key={}", bucket, key, e);
@@ -147,8 +145,31 @@ public class S3StorageManager {
      * @param bucket S3 bucket name
      * @param key    S3 object key
      * @return HeadObjectResponse with object metadata
+     * @throws RuntimeException if the object does not exist or the request fails
      */
     public HeadObjectResponse headObject(String bucket, String key) {
-        return s3Client.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build());
+        try {
+            return s3Client.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build());
+        } catch (Exception e) {
+            logger.error("S3 headObject failed: bucket={}, key={}", bucket, key, e);
+            throw new RuntimeException("Failed to retrieve S3 object metadata", e);
+        }
+    }
+
+    /**
+     * Delete an object from S3.
+     *
+     * @param bucket S3 bucket name
+     * @param key    S3 object key
+     * @throws RuntimeException if the deletion fails
+     */
+    public void delete(String bucket, String key) {
+        try {
+            s3Client.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
+            logger.info("Deleted S3 object: bucket={}, key={}", bucket, key);
+        } catch (Exception e) {
+            logger.error("S3 delete failed: bucket={}, key={}", bucket, key, e);
+            throw new RuntimeException("Failed to delete image from S3", e);
+        }
     }
 }

@@ -8,6 +8,7 @@ dependencies {
     implementation(libraries.springBootStarterWeb) {
         exclude(group: "org.glassfish", module: "jakarta.el")
     }
+    implementation(libraries.springJdbc)
     implementation(libraries.springSecurityCore)
     implementation(libraries.springSecurityWeb)
     implementation(libraries.springSecurityConfig)
