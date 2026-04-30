@@ -70,11 +70,12 @@ public class BackgroundImageEndpoint {
 
     /**
      * Upload a background image for the current identity zone.
-     * If the zone already has a background image its S3 key is replaced in the database
-     * (the old S3 object is left in place — use DELETE first to clean it up).
+     * If the zone already has a background image use {@code PATCH /background_images}
+     * to atomically replace it (uploads the new image, updates the DB record, and
+     * deletes the old S3 object in one operation).
      *
      * @param file multipart image file (PNG, JPEG, or WebP)
-     * @return 201 Created with the S3 URL and key for the uploaded image
+     * @return 201 Created with a presigned S3 URL and key for the uploaded image
      */
     @PostMapping(value = {"", "/upload"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
                  produces = MediaType.APPLICATION_JSON_VALUE)
@@ -340,9 +341,11 @@ public class BackgroundImageEndpoint {
 
         try {
             HeadObjectResponse meta       = backgroundImageService.getObjectMetadata(zoneId, key);
-            String             presignedUrl = backgroundImageService.getPresignedUrl(zoneId, key, expiryMinutes);
-            long clampedExpiry             = Math.max(1, Math.min(10080, expiryMinutes));
-            Instant expiresAt              = Instant.now().plusSeconds(clampedExpiry * 60);
+            // Clamp BEFORE generating the URL so the URL expiry equals the reported value.
+            long    clampedExpiry = Math.max(BackgroundImageService.MIN_PRESIGN_MINUTES,
+                                        Math.min(BackgroundImageService.MAX_PRESIGN_MINUTES, expiryMinutes));
+            String  presignedUrl  = backgroundImageService.getPresignedUrl(zoneId, key, clampedExpiry);
+            Instant expiresAt     = Instant.now().plusSeconds(clampedExpiry * 60);
 
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("zoneId",        zoneId);
