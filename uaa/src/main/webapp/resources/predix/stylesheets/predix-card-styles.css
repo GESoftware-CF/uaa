@@ -68,6 +68,7 @@
   color: #1f4e79;
   text-align: center;
   line-height: 1.5;
+  -ms-flex-negative: 0; /* IE11 flex-shrink */
   flex-shrink: 0; /* Prevent title from shrinking */
 }
 
@@ -663,6 +664,7 @@
 .toast__icon svg,
 .toast__close svg {
   vertical-align: middle;
+  fill: currentColor; /* IE11: CSS fill overrides presentation attribute for reliable currentColor inheritance */
 }
 
 .toast__icon {
@@ -792,6 +794,7 @@
 
 
 .toast__actions {
+  -ms-flex-item-align: baseline; /* IE11 align-self */
   align-self: baseline;
   margin-left: 0.75rem;
 }
@@ -909,6 +912,7 @@
   
   .toast__icon {
     font-size: 1.1em;
+    -ms-flex-item-align: start; /* IE11 align-self: flex-start */
     align-self: flex-start;
     padding: 0.6rem;
   }
@@ -916,6 +920,7 @@
   .toast__close {
     margin-left: 0;
     padding: 6px;
+    -ms-flex-item-align: start; /* IE11 align-self: flex-start */
     align-self: flex-start;
   }
   
@@ -923,6 +928,7 @@
     padding: 10px 14px;
     font-size: 14px;
     min-width: 70px;
+    -ms-flex-item-align: start; /* IE11 align-self: flex-start */
     align-self: flex-start;
   }
   

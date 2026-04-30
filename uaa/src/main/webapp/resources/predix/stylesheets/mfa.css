@@ -20,5 +20,6 @@ h2.mfa-header {
 }
 
 .mfa .page {
+    -ms-flex-align: baseline; /* IE11 align-items */
     align-items: baseline;
 }
