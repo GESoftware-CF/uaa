@@ -11,9 +11,15 @@ document.addEventListener('DOMContentLoaded', function() {
   // Toggle dropdown on button click
   dropdownTrigger.addEventListener('click', function(e) {
     e.stopPropagation();
-    var isOpen = this.classList.toggle('open');
+    var isOpen = this.className.indexOf('open') === -1;
+    if (isOpen) {
+      this.className += ' open';
+      dropdownContent.className += ' open';
+    } else {
+      this.className = this.className.replace(/\bopen\b/g, '').trim();
+      dropdownContent.className = dropdownContent.className.replace(/\bopen\b/g, '').trim();
+    }
     this.setAttribute('aria-expanded', isOpen);
-    dropdownContent.classList.toggle('open');
     
     // Change chevron icon
     chevron.textContent = isOpen ? '▲' : '▼';
@@ -22,9 +28,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // Close dropdown when clicking outside
   document.addEventListener('click', function(e) {
     if (!dropdownTrigger.contains(e.target) && !dropdownContent.contains(e.target)) {
-      dropdownTrigger.classList.remove('open');
+      dropdownTrigger.className = dropdownTrigger.className.replace(/\bopen\b/g, '').trim();
       dropdownTrigger.setAttribute('aria-expanded', 'false');
-      dropdownContent.classList.remove('open');
+      dropdownContent.className = dropdownContent.className.replace(/\bopen\b/g, '').trim();
       chevron.textContent = '▼';
     }
   });

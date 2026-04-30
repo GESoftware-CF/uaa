@@ -90,11 +90,19 @@
 
 /* Compact login content for fixed height */
 .predix-uaa__login {
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -ms-flex-direction: column;
   flex-direction: column;
-  gap: 10px;
+  -webkit-box-flex: 1;
+  -ms-flex: 1;
   flex: 1;
   overflow: hidden;
+  -webkit-box-pack: justify;
+  -ms-flex-pack: justify;
   justify-content: space-between;
 }
 
@@ -112,13 +120,16 @@
   display: -webkit-box;
   display: -ms-flexbox;
   display: flex;
-  gap: 10px;
   -ms-flex-wrap: wrap;
   flex-wrap: wrap;
   -webkit-box-pack: center;
   -ms-flex-pack: center;
   justify-content: center;
   width: 100%;
+}
+
+.predix-card .card-actions > * {
+  margin: 5px;
 }
 
 /* ============================================
@@ -143,10 +154,7 @@
   outline-offset: 2px;
 }
 
-.predix-card .btn:focus:not(:focus-visible) {
-  outline: none;
-}
-
+/* :focus-visible is not supported in IE11; IE11 will show standard focus outline */
 .predix-card .btn:focus-visible {
   outline: 3px solid #1f4e79;
   outline-offset: 2px;
@@ -249,7 +257,6 @@
     padding: 0;
     margin: 0;
     max-width: none;
-    gap: 0;
   }
   
   .predix-card:hover {
@@ -279,14 +286,26 @@
   
   /* Mobile footer layout */
   .footer-links {
+    display: -webkit-box;
+    display: -ms-flexbox;
     display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
     flex-direction: column;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
     align-items: center;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
     justify-content: center;
-    gap: 20px;
     padding: 0;
     width: 100%;
     text-align: center;
+  }
+
+  .footer-links > * + * {
+    margin-top: 20px;
   }
   
   .footer-link-item {
@@ -334,7 +353,6 @@
     padding: 15px;
     margin: 15px auto 20px;
     max-width: 750px;
-    gap: 15px;
     overflow: hidden;
   }
   
@@ -356,13 +374,23 @@
   }
   
   .footer-links {
+    display: -webkit-box;
+    display: -ms-flexbox;
     display: flex;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
     justify-content: center;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
     align-items: center;
-    gap: 20px;
     margin-bottom: 20px;
     padding: 10px 0;
+    -ms-flex-wrap: wrap;
     flex-wrap: wrap;
+  }
+
+  .footer-links > * {
+    margin: 10px;
   }
   
   .footer-link-item.create-account,
@@ -403,7 +431,6 @@
     width: 640px;
     max-width: 640px;
     min-height: 527.9970092773438px;
-    gap: 0;
     overflow-x: hidden;
     overflow-y: auto;
   }
@@ -428,11 +455,21 @@
   }
   
   .footer-links {
+    display: -webkit-box;
+    display: -ms-flexbox;
     display: flex;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
     justify-content: center;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
     align-items: center;
-    gap: 109px;
     margin-bottom: 30px; /* Added margin for footer visibility */
+  }
+
+  .footer-links > * {
+    margin-left: 54px;
+    margin-right: 55px;
   }
   
   .footer-link-item.create-account,
@@ -469,7 +506,7 @@
 /* Extra Large Screens (≥1440px) */
 @media screen and (min-width: 1440px) {
   .predix-card {
-    background: rgb(0 0 0 / 77%) !important;
+    background: rgba(0, 0, 0, 0.77) !important;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     width: 640px;
@@ -477,7 +514,6 @@
     min-height: 527.9970092773438px;
     padding: 10px;
     margin: 20px auto 40px; /* Added bottom margin */
-    gap: 0;
     overflow-x: hidden;
     overflow-y: auto;
   }
@@ -515,11 +551,21 @@
   }
   
   .footer-links {
+    display: -webkit-box;
+    display: -ms-flexbox;
     display: flex;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
     justify-content: center;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
     align-items: center;
-    gap: 109px;
     margin-bottom: 40px; /* Added larger margin for extra large screens */
+  }
+
+  .footer-links > * {
+    margin-left: 54px;
+    margin-right: 55px;
   }
   
   .footer-link-item.create-account,
@@ -675,19 +721,39 @@
 .toast__content {
   line-height: 1.5;
   padding: 1rem 2rem 1rem 1rem; /* Extra padding right for close button */
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -ms-flex-direction: column;
   flex-direction: column;
   min-width: 0px;
-  gap: 8px;
+  -webkit-box-flex: 1;
+  -ms-flex: 1;
   flex: 1;
   text-align: left;
 }
 
+.toast__content > * + * {
+  margin-top: 8px;
+}
+
 .toast.inline .toast__content {
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -ms-flex-direction: column;
   flex-direction: column;
+  -webkit-box-align: start;
+  -ms-flex-align: start;
   align-items: flex-start;
-  gap: 4px;
+}
+
+.toast.inline .toast__content > * + * {
+  margin-top: 4px;
 }
 
 /* Responsive behavior for mobile devices */
@@ -735,11 +801,12 @@
   border: 1px solid #ccc;
   border-radius: 3px;
   padding: 8px 12px;
-  text-wrap: nowrap;
+  white-space: nowrap;
   font-size: 14px;
   font-weight: 500;
   vertical-align: middle;
   cursor: pointer;
+  -webkit-transition: all 0.2s ease;
   transition: all 0.2s ease;
 }
 
@@ -820,13 +887,18 @@
     padding: 0;
     max-width: calc(100vw - 1rem);
     margin: 0 0.5rem 1rem 0.5rem;
-    gap: 0;
     border-radius: 8px;
   }
   
   .toast.inline .toast__content {
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
     flex-direction: column;
-    gap: 6px;
+  }
+
+  .toast.inline .toast__content > * + * {
+    margin-top: 6px;
   }
   
   .toast__description {
@@ -855,8 +927,8 @@
   }
   
   /* Stack content vertically on mobile */
-  .toast__message {
-    gap: 8px;
+  .toast__message > * + * {
+    margin-top: 8px;
   }
   
   .toast__actions {
@@ -872,7 +944,6 @@
     padding: 0;
     max-width: calc(100vw - 0.5rem);
     margin: 0 0.25rem 1rem 0.25rem;
-    gap: 0;
   }
   
   .toast__description {

@@ -190,7 +190,7 @@ h1 {
       -webkit-box-pack: initial;
       -ms-flex-pack: initial;
       justify-content: initial;
-      background: rgb(0 0 0 / 2%) !important;
+      background: rgba(0, 0, 0, 0.02) !important;
       } }
   .predix-uaa__header h1 {
     margin-bottom: 1rem; }
@@ -274,7 +274,7 @@ img.img-responsive {
 .list-group, .list-group-inverse, .list-group-inverse>li, .list-group>li {
     border-width: 1px 0;
     text-align: left;
-    margin-left: unset; }
+    margin-left: 0; }
 
 .list-group-item {
     padding-right: 5px; }
