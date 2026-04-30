@@ -103,7 +103,10 @@
   -webkit-box-flex: 1;
   -ms-flex: 1;
   flex: 1;
-  overflow: hidden;
+  /* IE11 bug: overflow:hidden on a flex item with flex:1 and no explicit ancestor height
+     causes the element to collapse to 0px, clipping all content including form inputs.
+     Use overflow:visible instead. */
+  overflow: visible;
   -webkit-box-pack: justify;
   -ms-flex-pack: justify;
   justify-content: space-between;
@@ -433,6 +436,7 @@
     margin: 20px auto 40px; /* Added bottom margin */
     width: 640px;
     max-width: 640px;
+    height: 527.9970092773438px; /* IE11: explicit height required for flex children with flex:1 to resolve correctly */
     min-height: 527.9970092773438px;
     overflow-x: hidden;
     overflow-y: auto;
@@ -514,6 +518,7 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     width: 640px;
     max-width: 640px;
+    height: 527.9970092773438px; /* IE11: explicit height required for flex children with flex:1 to resolve correctly */
     min-height: 527.9970092773438px;
     padding: 10px;
     margin: 20px auto 40px; /* Added bottom margin */
