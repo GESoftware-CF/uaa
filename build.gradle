@@ -14,6 +14,19 @@ buildscript {
             }
             url 'https://gart.software.gevernova.com/artifactory/pgog-fss-iam-uaa-mvn-virtual'
         }
+        // Plugin Portal is restricted to only these plugin groups via exclusiveContent.
+        // This prevents their transitive dependencies from falling back to repo.maven.apache.org
+        // (which causes HTTP 429 rate-limit errors on CI).
+        exclusiveContent {
+            forRepository {
+                gradlePluginPortal()
+            }
+            filter {
+                includeGroup("com.bmuschko")
+                includeGroup("org.barfuin.gradle.jacocolog")
+                includeGroup("org.sonarsource.scanner.gradle")
+            }
+        }
     }
 
     dependencies {
