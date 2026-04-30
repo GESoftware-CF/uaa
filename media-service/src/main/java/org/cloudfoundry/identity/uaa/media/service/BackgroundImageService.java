@@ -255,18 +255,28 @@ public class BackgroundImageService {
     // Presigned URL
     // -------------------------------------------------------------------------
 
+    /** Minimum allowed presigned URL validity: 1 minute. */
+    public static final long MIN_PRESIGN_MINUTES = 1;
+    /** Maximum allowed presigned URL validity: 10 080 minutes (7 days). */
+    public static final long MAX_PRESIGN_MINUTES = 10_080;
+
     /**
      * Generate a presigned GET URL for an S3 object.
      *
+     * <p>The expiry is clamped to [{@value #MIN_PRESIGN_MINUTES},
+     * {@value #MAX_PRESIGN_MINUTES}] minutes before being forwarded to S3,
+     * ensuring the generated URL always matches the reported expiry.
+     *
      * @param zoneId        the identity zone ID (used for diagnostic logging only)
      * @param s3Key         the S3 object key
-     * @param expiryMinutes how long the URL should remain valid (positive integer)
+     * @param expiryMinutes desired validity window in minutes
      * @return absolute presigned URL as a string
      */
     public String getPresignedUrl(String zoneId, String s3Key, long expiryMinutes) {
+        long clamped = Math.max(MIN_PRESIGN_MINUTES, Math.min(MAX_PRESIGN_MINUTES, expiryMinutes));
         logger.debug("Generating presigned URL: zoneId={}, key={}, expiryMinutes={}",
-                zoneId, s3Key, expiryMinutes);
-        return s3StorageManager.generatePresignedUrl(bucket, s3Key, expiryMinutes).toString();
+                zoneId, s3Key, clamped);
+        return s3StorageManager.generatePresignedUrl(bucket, s3Key, clamped).toString();
     }
 
     // -------------------------------------------------------------------------
