@@ -5,7 +5,13 @@ plugins {
 group 'org.cloudfoundry.identity'
 
 repositories {
-    mavenCentral()
+    maven {
+        credentials {
+            username System.getenv('ARTIFACTORY_CREDENTIALS_USR')
+            password System.getenv('ARTIFACTORY_CREDENTIALS_PSW')
+        }
+        url 'https://gart.software.gevernova.com/artifactory/pgog-fss-iam-uaa-mvn-virtual'
+    }
 }
 
 dependencies {
