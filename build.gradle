@@ -14,6 +14,10 @@ buildscript {
             }
             url gartRepoUrl
         }
+        // Gradle Plugin Portal is required for plugins not hosted in GE Artifactory
+        // (e.g. cargo, jacocolog, sonarqube). This is plugins.gradle.org, NOT Maven Central,
+        // and is not subject to the Maven Central 429 rate limit.
+        gradlePluginPortal()
     }
 
     dependencies {
