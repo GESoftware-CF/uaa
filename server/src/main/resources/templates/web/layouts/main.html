@@ -57,8 +57,7 @@
       th:inline="text"
       th:title="|Version: ${@buildInfo.version}, Commit: ${@buildInfo.commitId}, Timestamp: ${@buildInfo.timestamp}, UAA: ${@buildInfo.uaaUrl}|">
       <img style="width: 60px;margin-bottom:20px;" src="/resources/predix/images/predix-word.svg"/>
-      <div>[[${copyright}]]</div>
-      <div>[[${copyright2}]]</div>
+      <div>[[${copyright}]][[${copyright2}]]</div>
        <th:block th:with="auth=${T(org.springframework.security.core.context.SecurityContextHolder).getContext()?.getAuthentication()}">
         <div th:if="${auth instanceof T(org.cloudfoundry.identity.uaa.authentication.UaaAuthentication)}">
           <div th:if="${auth.lastLoginSuccessTime} != null">
