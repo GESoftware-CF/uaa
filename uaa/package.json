@@ -8,13 +8,23 @@
     "lib": "lib"
   },
   "scripts": {
-    "test": "node_modules/jasmine/bin/jasmine.js --config=jasmine.json"
+    "test": "node_modules/jasmine/bin/jasmine.js --config=jasmine.json",
+    "babel:modern": "cross-env BABEL_ENV=modern babel src/main/webapp/resources/javascripts --out-dir src/main/webapp/resources/javascripts/dist/modern --extensions .js --ignore src/main/webapp/resources/javascripts/dist",
+    "babel:legacy": "cross-env BABEL_ENV=legacy babel src/main/webapp/resources/javascripts --out-dir src/main/webapp/resources/javascripts/dist/legacy --extensions .js --ignore src/main/webapp/resources/javascripts/dist",
+    "babel:build": "npm run babel:modern && npm run babel:legacy"
   },
   "author": "CloudFoundry",
   "license": "Apache-2.0",
   "dependencies": {
     "jasmine": "^5.9.0",
     "jasmine-core": "5.9.0"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.24.0",
+    "@babel/core": "^7.24.0",
+    "@babel/preset-env": "^7.24.0",
+    "core-js": "^3.37.0",
+    "cross-env": "^7.0.3"
   },
   "overrides": {
     "glob": ">=10.5.0"

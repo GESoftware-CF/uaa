@@ -131,6 +131,7 @@ libraries.predixPublicKeyProvider = "com.ge.predix:jwt-bearer-key-provider:2.0.0
 
 // gradle plugins
 libraries.cargoGradlePlugin = "com.bmuschko:gradle-cargo-plugin:2.9.0"
+libraries.nodeGradlePlugin = "com.github.node-gradle:gradle-node-plugin:7.0.2"
 libraries.springBootGradlePlugin = "org.springframework.boot:spring-boot-gradle-plugin:${versions.springBootVersion}"
 libraries.springDependencyMangementGradlePlugin = "io.spring.gradle:dependency-management-plugin"
 libraries.cargoDockerPlugin = "com.bmuschko:gradle-docker-plugin:7.2.0"

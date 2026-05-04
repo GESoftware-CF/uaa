@@ -1,0 +1,28 @@
+{
+  "env": {
+    "modern": {
+      "presets": [
+        [
+          "@babel/preset-env",
+          {
+            "browserslistEnv": "modern",
+            "useBuiltIns": "usage",
+            "corejs": 3
+          }
+        ]
+      ]
+    },
+    "legacy": {
+      "presets": [
+        [
+          "@babel/preset-env",
+          {
+            "browserslistEnv": "legacy",
+            "useBuiltIns": "usage",
+            "corejs": 3
+          }
+        ]
+      ]
+    }
+  }
+}

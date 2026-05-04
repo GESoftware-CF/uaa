@@ -1,12 +1,35 @@
 Project identityServer = parent.subprojects.find { "cloudfoundry-identity-server".equals(it.name) }
 
 apply(plugin: "war")
+apply(plugin: "com.github.node-gradle.node")
+
+node {
+    version = '20.11.0'
+    download = true
+    nodeProjectDir = file("${projectDir}")
+}
+
+task babelBuild(type: NpmTask) {
+    dependsOn npmInstall
+    args = ['run', 'babel:build']
+    inputs.dir('src/main/webapp/resources/javascripts')
+    outputs.dir('src/main/webapp/resources/javascripts/dist')
+}
+
+tasks.named('npmInstall') {
+    def user = System.getenv('ARTIFACTORY_CREDENTIALS_USR') ?: ''
+    def pass = System.getenv('ARTIFACTORY_CREDENTIALS_PSW') ?: ''
+    if (user && pass) {
+        environment['NPM_AUTH_TOKEN'] = Base64.encoder.encodeToString("${user}:${pass}".bytes)
+    }
+}
 
 processResources {
     //maven replaces project.artifactId in the log4j2.properties file
     //https://www.pivotaltracker.com/story/show/74344574
     from(new File('../common/src/main/resources/log4j2.properties'))
     filter { line -> line.contains('${project.artifactId}') ? line.replace('${project.artifactId}', 'cloudfoundry-identity-uaa') : line }
+    dependsOn(babelBuild)
 }
 
 apply(plugin: "org.springframework.boot")
@@ -24,8 +47,13 @@ war {
 }
 
 repositories {
-    maven { url("https://repo.spring.io/milestone") }
-    maven { url "https://build.shibboleth.net/nexus/content/repositories/releases/" }
+    maven {
+        credentials {
+            username System.getenv('ARTIFACTORY_CREDENTIALS_USR')
+            password System.getenv('ARTIFACTORY_CREDENTIALS_PSW')
+        }
+        url 'https://gart.software.gevernova.com/artifactory/pgog-fss-iam-uaa-mvn-virtual'
+    }
 }
 
 description = "UAA"
