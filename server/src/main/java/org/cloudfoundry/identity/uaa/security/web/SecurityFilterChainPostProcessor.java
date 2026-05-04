@@ -264,6 +264,8 @@ public class SecurityFilterChainPostProcessor implements BeanPostProcessor {
                 }
                 if (x instanceof RequestRejectedException) {
                     request.setAttribute(RequestDispatcher.ERROR_REQUEST_URI, request.getRequestURI());
+                    // Preserve the existing rejected-request contract so invalid URIs are reported as 400.
+                    response.setStatus(HttpStatus.BAD_REQUEST.value());
                     request.getRequestDispatcher("/rejected").forward(request, response);
                     return;
                 }
