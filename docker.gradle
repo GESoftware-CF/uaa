@@ -27,6 +27,7 @@ buildscript {
       }
       url 'https://gart.software.gevernova.com/artifactory/pgog-fss-iam-uaa-mvn-virtual'
     }
+    gradlePluginPortal()
   }
 
   dependencies {
