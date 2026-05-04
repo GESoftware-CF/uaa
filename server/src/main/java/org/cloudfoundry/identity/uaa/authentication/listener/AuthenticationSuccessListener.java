@@ -57,6 +57,7 @@ public class AuthenticationSuccessListener
     @Override
     public void onApplicationEvent(AbstractUaaAuthenticationEvent event) {
         if (event instanceof UserAuthenticationSuccessEvent successEvent) {
+            onApplicationEvent(successEvent, successEvent.getIdentityZoneId());
         } else if (event instanceof IdentityProviderAuthenticationSuccessEvent passwordAuthEvent) {
             UserAuthenticationSuccessEvent userEvent = new UserAuthenticationSuccessEvent(
                     passwordAuthEvent.getUser(),

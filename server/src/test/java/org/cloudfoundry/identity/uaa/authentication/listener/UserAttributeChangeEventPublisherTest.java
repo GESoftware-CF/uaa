@@ -73,7 +73,7 @@ class UserAttributeChangeEventPublisherTest {
                 // Assert
                 verify(mockSnsService, timeout(1000).times(1)).publishAsync(
                                 eq(snsTopicArn),
-                                eq("UAA User Event"),
+                                eq("UAA User Update Event"),
                                 any(MessageBuilder.class),
                                 any());
         }
@@ -136,7 +136,7 @@ class UserAttributeChangeEventPublisherTest {
                 // Assert - Verify SNS was called
                 verify(mockSnsService, timeout(1000).times(1)).publishAsync(
                                 eq(snsTopicArn),
-                                eq("UAA User Event"),
+                                eq("UAA User Update Event"),
                                 any(MessageBuilder.class),
                                 any());
         }
@@ -255,7 +255,7 @@ class UserAttributeChangeEventPublisherTest {
                 // Assert
                 verify(mockSnsService, timeout(1000).times(1)).publishAsync(
                                 eq(snsTopicArn),
-                                eq("UAA User Event"),
+                                eq("UAA User Update Event"),
                                 any(MessageBuilder.class),
                                 any());
         }
@@ -357,7 +357,7 @@ class UserAttributeChangeEventPublisherTest {
                 // Assert - SNS should be called even for UAA origin
                 verify(mockSnsService, timeout(1000).times(1)).publishAsync(
                                 eq(snsTopicArn),
-                                eq("UAA User Event"),
+                                eq("UAA User Update Event"),
                                 any(MessageBuilder.class),
                                 any());
         }
@@ -437,7 +437,7 @@ class UserAttributeChangeEventPublisherTest {
                 // Assert - SNS should be called for SAML origin even with filter enabled
                 verify(mockSnsService, timeout(1000).times(1)).publishAsync(
                                 eq(snsTopicArn),
-                                eq("UAA User Event"),
+                                eq("UAA User Update Event"),
                                 any(MessageBuilder.class),
                                 any());
         }
@@ -477,7 +477,7 @@ class UserAttributeChangeEventPublisherTest {
                 // Assert - SNS should be called for OIDC origin even with filter enabled
                 verify(mockSnsService, timeout(1000).times(1)).publishAsync(
                                 eq(snsTopicArn),
-                                eq("UAA User Event"),
+                                eq("UAA User Update Event"),
                                 any(MessageBuilder.class),
                                 any());
         }
@@ -586,7 +586,7 @@ class UserAttributeChangeEventPublisherTest {
                 // Assert - SNS should be called 2 times (UAA filtered, SAML and LDAP published)
                 verify(mockSnsService, timeout(1000).times(2)).publishAsync(
                                 eq(snsTopicArn),
-                                eq("UAA User Event"),
+                                eq("UAA User Update Event"),
                                 any(MessageBuilder.class),
                                 any());
         }
