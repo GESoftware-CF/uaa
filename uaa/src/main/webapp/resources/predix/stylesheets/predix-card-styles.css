@@ -31,6 +31,10 @@
   -ms-flex-align: center;
   align-items: center;
   box-sizing: border-box;
+  /* IE11: height:1px lets flex children with flex:1 resolve their size correctly.
+     No min-height here — the card grows dynamically with its content.
+     Without an explicit height IE11 cannot distribute space to flex:1 children. */
+  height:900px;
 }
 
 .predix-card:hover {
