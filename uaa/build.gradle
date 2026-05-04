@@ -24,8 +24,8 @@ war {
 }
 
 repositories {
-    maven { url("https://repo.spring.io/milestone") }
-    maven { url "https://build.shibboleth.net/nexus/content/repositories/releases/" }
+    // Dependencies routed through GE Artifactory virtual repo (see root build.gradle allprojects block)
+    // External repos (spring milestone, shibboleth) are proxied via pgog-fss-iam-uaa-mvn-virtual
 }
 
 description = "UAA"
