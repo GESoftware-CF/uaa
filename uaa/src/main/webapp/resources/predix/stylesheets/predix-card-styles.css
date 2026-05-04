@@ -300,7 +300,7 @@
    RESPONSIVE DESIGN
    ============================================ */
 
-/* Mobile First Approach (???767px) */
+/* Mobile First Approach (≤767px) */
 @media screen and (max-width: 767px) {
   .predix-card {
     background: transparent;
@@ -527,7 +527,7 @@
   }
 }
 
-/* Extra Large Screens (???1440px) */
+/* Extra Large Screens (≥1440px) */
 @media screen and (min-width: 1440px) {
   .predix-card {
     background: rgb(0 0 0 / 77%) !important;

@@ -4714,7 +4714,7 @@ name: iconography
 category: Base CSS
 ---
 
-We use Font Awesome for scalable vector icons that can be customized ??? size, color, drop shadow,
+We use Font Awesome for scalable vector icons that can be customized — size, color, drop shadow,
 and anything that can be done with CSS. These icons will always match the font color.
 
 
@@ -4775,7 +4775,7 @@ parent: button
 category: Base CSS
 ---
 
-Create block level buttons???those that span the full width of a parent??? by adding `.btn-block`.
+Create block level buttons—those that span the full width of a parent— by adding `.btn-block`.
 
 ```haml_example
 %button.btn.btn-primary.btn-block Full width button
@@ -7648,7 +7648,7 @@ Modals do something worthwhile....
       .modal-header
         %h3.modal-title Modal title
       .modal-body
-        %p One fine body???
+        %p One fine body…
       .modal-footer
         %button.btn.btn-lowlight{"data-dismiss" => "modal", type: "button"} Cancel
         %button.btn.btn-primary{type: "button"} OK
@@ -7789,7 +7789,7 @@ The application health indicator can be `.running`, `.warning_75`, `.warning_50`
   <div class="col-md-4">
     <div class="health running editable">
       <form accept-charset="UTF-8" action="/organizations/org-id/spaces/space-id/applications/application-id" class="state_form" id="edit_application_application-id" method="post">
-        <input name="utf8" type="hidden" value="???">
+        <input name="utf8" type="hidden" value="✓">
         <input name="_method" type="hidden" value="put">
         <input name="authenticity_token" type="hidden" value="token-value">
         <input id="application_state" name="application[state]" type="hidden" value="STOPPED">
@@ -7801,7 +7801,7 @@ The application health indicator can be `.running`, `.warning_75`, `.warning_50`
   <div class="col-md-4">
     <div class="health warning_75 editable">
       <form accept-charset="UTF-8" action="/organizations/org-id/spaces/space-id/applications/application-id" class="state_form" id="edit_application_application-id" method="post">
-        <input name="utf8" type="hidden" value="???">
+        <input name="utf8" type="hidden" value="✓">
         <input name="_method" type="hidden" value="put">
         <input name="authenticity_token" type="hidden" value="token-value">
         <input id="application_state" name="application[state]" type="hidden" value="STOPPED">
@@ -7813,7 +7813,7 @@ The application health indicator can be `.running`, `.warning_75`, `.warning_50`
   <div class="col-md-4">
     <div class="health warning_50 editable">
       <form accept-charset="UTF-8" action="/organizations/org-id/spaces/space-id/applications/application-id" class="state_form" id="edit_application_application-id" method="post">
-        <input name="utf8" type="hidden" value="???">
+        <input name="utf8" type="hidden" value="✓">
         <input name="_method" type="hidden" value="put">
         <input name="authenticity_token" type="hidden" value="token-value">
         <input id="application_state" name="application[state]" type="hidden" value="STOPPED">
@@ -7825,7 +7825,7 @@ The application health indicator can be `.running`, `.warning_75`, `.warning_50`
   <div class="col-md-4">
     <div class="health warning_25 editable">
       <form accept-charset="UTF-8" action="/organizations/org-id/spaces/space-id/applications/application-id" class="state_form" id="edit_application_application-id" method="post">
-        <input name="utf8" type="hidden" value="???">
+        <input name="utf8" type="hidden" value="✓">
         <input name="_method" type="hidden" value="put">
         <input name="authenticity_token" type="hidden" value="token-value">
         <input id="application_state" name="application[state]" type="hidden" value="STOPPED">
@@ -7837,7 +7837,7 @@ The application health indicator can be `.running`, `.warning_75`, `.warning_50`
   <div class="col-md-4">
     <div class="health warning_0 editable">
       <form accept-charset="UTF-8" action="/organizations/org-id/spaces/space-id/applications/application-id" class="state_form" id="edit_application_application-id" method="post">
-        <input name="utf8" type="hidden" value="???">
+        <input name="utf8" type="hidden" value="✓">
         <input name="_method" type="hidden" value="put">
         <input name="authenticity_token" type="hidden" value="token-value">
         <input id="application_state" name="application[state]" type="hidden" value="STOPPED">
@@ -7849,7 +7849,7 @@ The application health indicator can be `.running`, `.warning_75`, `.warning_50`
   <div class="col-md-4">
     <div class="health stopped editable">
       <form accept-charset="UTF-8" action="/organizations/org-id/spaces/space-id/applications/application-id" class="state_form" id="edit_application_application-id" method="post">
-        <input name="utf8" type="hidden" value="???">
+        <input name="utf8" type="hidden" value="✓">
         <input name="_method" type="hidden" value="put">
         <input name="authenticity_token" type="hidden" value="token-value">
         <input id="application_state" name="application[state]" type="hidden" value="STARTED">
@@ -7865,7 +7865,7 @@ The application health indicator can be `.running`, `.warning_75`, `.warning_50`
   <div class="col-md-4">
     <div class="health health-indicator-large running editable">
       <form accept-charset="UTF-8" action="/organizations/org-id/spaces/space-id/applications/application-id" class="state_form" id="edit_application_application-id" method="post">
-        <input name="utf8" type="hidden" value="???">
+        <input name="utf8" type="hidden" value="✓">
         <input name="_method" type="hidden" value="put">
         <input name="authenticity_token" type="hidden" value="token-value">
         <input id="application_state" name="application[state]" type="hidden" value="STOPPED">
@@ -7877,7 +7877,7 @@ The application health indicator can be `.running`, `.warning_75`, `.warning_50`
   <div class="col-md-4">
     <div class="health health-indicator-large warning_75 editable">
       <form accept-charset="UTF-8" action="/organizations/org-id/spaces/space-id/applications/application-id" class="state_form" id="edit_application_application-id" method="post">
-        <input name="utf8" type="hidden" value="???">
+        <input name="utf8" type="hidden" value="✓">
         <input name="_method" type="hidden" value="put">
         <input name="authenticity_token" type="hidden" value="token-value">
         <input id="application_state" name="application[state]" type="hidden" value="STOPPED">
@@ -7889,7 +7889,7 @@ The application health indicator can be `.running`, `.warning_75`, `.warning_50`
   <div class="col-md-4">
     <div class="health health-indicator-large warning_50 editable">
       <form accept-charset="UTF-8" action="/organizations/org-id/spaces/space-id/applications/application-id" class="state_form" id="edit_application_application-id" method="post">
-        <input name="utf8" type="hidden" value="???">
+        <input name="utf8" type="hidden" value="✓">
         <input name="_method" type="hidden" value="put">
         <input name="authenticity_token" type="hidden" value="token-value">
         <input id="application_state" name="application[state]" type="hidden" value="STOPPED">
@@ -7901,7 +7901,7 @@ The application health indicator can be `.running`, `.warning_75`, `.warning_50`
   <div class="col-md-4">
     <div class="health health-indicator-large warning_25 editable">
       <form accept-charset="UTF-8" action="/organizations/org-id/spaces/space-id/applications/application-id" class="state_form" id="edit_application_application-id" method="post">
-        <input name="utf8" type="hidden" value="???">
+        <input name="utf8" type="hidden" value="✓">
         <input name="_method" type="hidden" value="put">
         <input name="authenticity_token" type="hidden" value="token-value">
         <input id="application_state" name="application[state]" type="hidden" value="STOPPED">
@@ -7913,7 +7913,7 @@ The application health indicator can be `.running`, `.warning_75`, `.warning_50`
   <div class="col-md-4">
     <div class="health health-indicator-large warning_0 editable">
       <form accept-charset="UTF-8" action="/organizations/org-id/spaces/space-id/applications/application-id" class="state_form" id="edit_application_application-id" method="post">
-        <input name="utf8" type="hidden" value="???">
+        <input name="utf8" type="hidden" value="✓">
         <input name="_method" type="hidden" value="put">
         <input name="authenticity_token" type="hidden" value="token-value">
         <input id="application_state" name="application[state]" type="hidden" value="STOPPED">
@@ -7925,7 +7925,7 @@ The application health indicator can be `.running`, `.warning_75`, `.warning_50`
   <div class="col-md-4">
     <div class="health health-indicator-large stopped editable">
       <form accept-charset="UTF-8" action="/organizations/org-id/spaces/space-id/applications/application-id" class="state_form" id="edit_application_application-id" method="post">
-        <input name="utf8" type="hidden" value="???">
+        <input name="utf8" type="hidden" value="✓">
         <input name="_method" type="hidden" value="put">
         <input name="authenticity_token" type="hidden" value="token-value">
         <input id="application_state" name="application[state]" type="hidden" value="STARTED">
@@ -7945,7 +7945,7 @@ The application health indicator can be large or small using the `.application-h
     <p>Small</p>
     <div class="health running editable">
       <form accept-charset="UTF-8" action="/organizations/org-id/spaces/space-id/applications/application-id" class="state_form" id="edit_application_application-id" method="post">
-        <input name="utf8" type="hidden" value="???">
+        <input name="utf8" type="hidden" value="✓">
         <input name="_method" type="hidden" value="put">
         <input name="authenticity_token" type="hidden" value="token-value">
 
@@ -7959,7 +7959,7 @@ The application health indicator can be large or small using the `.application-h
     <p>large</p>
       <div class="health health-indicator-large running editable">
       <form accept-charset="UTF-8" action="/organizations/org-id/spaces/space-id/applications/application-id" class="state_form" id="edit_application_application-id" method="post">
-        <input name="utf8" type="hidden" value="???">
+        <input name="utf8" type="hidden" value="✓">
         <input name="_method" type="hidden" value="put">
         <input name="authenticity_token" type="hidden" value="token-value">
 
@@ -7980,7 +7980,7 @@ Depending if the user has permission to start and stop applications, the applica
     <p>Not Editable</p>
     <div class="health running">
       <form accept-charset="UTF-8" action="/organizations/org-id/spaces/space-id/applications/application-id" class="state_form" id="edit_application_application-id" method="post">
-        <input name="utf8" type="hidden" value="???">
+        <input name="utf8" type="hidden" value="✓">
         <input name="_method" type="hidden" value="put">
         <input name="authenticity_token" type="hidden" value="token-value">
 
@@ -7994,7 +7994,7 @@ Depending if the user has permission to start and stop applications, the applica
     <p>Editable</p>
     <div class="health running editable">
       <form accept-charset="UTF-8" action="/organizations/org-id/spaces/space-id/applications/application-id" class="state_form" id="edit_application_application-id" method="post">
-        <input name="utf8" type="hidden" value="???">
+        <input name="utf8" type="hidden" value="✓">
         <input name="_method" type="hidden" value="put">
         <input name="authenticity_token" type="hidden" value="token-value">
 
@@ -8629,7 +8629,6 @@ h2 {
   width: 216px;
   margin: 0 auto;
 }
-
 .island .island-content .alert {
   text-align: center;
 }
