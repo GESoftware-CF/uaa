@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
-  var dropdownTrigger = document.getElementById('nav-dropdown-button');
-  var dropdownContent = document.getElementById('nav-dropdown-content');
-  var chevron = dropdownTrigger ? dropdownTrigger.querySelector('.chevron') : null;
+  const dropdownTrigger = document.getElementById('nav-dropdown-button');
+  const dropdownContent = document.getElementById('nav-dropdown-content');
+  const chevron = dropdownTrigger ? dropdownTrigger.querySelector('.chevron') : null;
   
   if (!dropdownTrigger || !dropdownContent || !chevron) {
     console.error('Dropdown elements not found');
@@ -11,27 +11,21 @@ document.addEventListener('DOMContentLoaded', function() {
   // Toggle dropdown on button click
   dropdownTrigger.addEventListener('click', function(e) {
     e.stopPropagation();
-    var isOpen = this.className.indexOf('open') === -1;
-    if (isOpen) {
-      this.className += ' open';
-      dropdownContent.className += ' open';
-    } else {
-      this.className = this.className.replace(/\bopen\b/g, '').trim();
-      dropdownContent.className = dropdownContent.className.replace(/\bopen\b/g, '').trim();
-    }
+    const isOpen = this.classList.toggle('open');
     this.setAttribute('aria-expanded', isOpen);
+    dropdownContent.classList.toggle('open');
     
     // Change chevron icon
-    chevron.textContent = isOpen ? '▲' : '▼';
+    chevron.textContent = isOpen ? '???' : '???';
   });
 
   // Close dropdown when clicking outside
   document.addEventListener('click', function(e) {
     if (!dropdownTrigger.contains(e.target) && !dropdownContent.contains(e.target)) {
-      dropdownTrigger.className = dropdownTrigger.className.replace(/\bopen\b/g, '').trim();
+      dropdownTrigger.classList.remove('open');
       dropdownTrigger.setAttribute('aria-expanded', 'false');
-      dropdownContent.className = dropdownContent.className.replace(/\bopen\b/g, '').trim();
-      chevron.textContent = '▼';
+      dropdownContent.classList.remove('open');
+      chevron.textContent = '???';
     }
   });
 

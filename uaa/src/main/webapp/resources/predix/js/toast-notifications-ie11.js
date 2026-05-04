@@ -6,12 +6,12 @@
 (function() {
   document.addEventListener('DOMContentLoaded', function() {
     // Find all toast notifications
-    const toasts = document.querySelectorAll('.toast');
+    var toasts = document.querySelectorAll('.toast');
     
     // Process each toast
-    toasts.forEach(function(toast) {
+    Array.prototype.forEach.call(toasts, function(toast) {
       // Set up close button behavior
-      const closeButton = toast.querySelector('.toast__close');
+      var closeButton = toast.querySelector('.toast__close');
       if (closeButton) {
         closeButton.addEventListener('click', function() {
           // Add fade out effect

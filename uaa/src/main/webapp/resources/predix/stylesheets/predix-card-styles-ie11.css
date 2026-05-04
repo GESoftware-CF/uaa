@@ -2,82 +2,21 @@
    PREDIX CARD STYLES
    ============================================ */
 
-/* CSS Custom Properties (Variables) */
-:root {
-  /* Colors */
-  --predix-primary: #1f4e79;
-  --predix-primary-hover: #2c5aa0;
-  --predix-secondary: #f8f9fa;
-  --predix-text-primary: #333;
-  --predix-text-secondary: #666;
-  --predix-border: #e0e0e0;
-  --predix-white: #ffffff;
-  
-  /* Spacing */
-  --spacing-xs: 10px;
-  --spacing-sm: 15px;
-  --spacing-md: 20px;
-  --spacing-lg: 30px;
-  --spacing-xl: 40px;
-  --spacing-xxl: 50px;
-  
-  /* Font sizes */
-  --font-size-sm: 12px;
-  --font-size-base: 1rem;
-  --font-size-lg: 1.125rem;
-  --font-size-xl: 1.5rem;
-  --font-size-xxl: 1.75rem;
-  --font-size-xxxl: 2rem;
-  
-  /* Font weights */
-  --font-weight-normal: 400;
-  --font-weight-medium: 500;
-  --font-weight-semibold: 600;
-  
-  /* Line heights */
-  --line-height-tight: 1.5;
-  --line-height-normal: 1.6;
-  --line-height-relaxed: 1.7;
-  
-  /* Transitions */
-  --transition-fast: 0.3s ease;
-  
-  /* Shadows */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.15);
-  
-  /* Border radius */
-  --border-radius-sm: 4px;
-  --border-radius-md: 8px;
-  
-  /* Card dimensions */
-  --card-width-tablet: 750px;
-  --card-width-desktop: 640px;
-  --card-width-xl: 640px;
-  --card-height-desktop: 527.9970092773438px;
-  
-  /* Breakpoints */
-  --breakpoint-mobile: 767px;
-  --breakpoint-tablet: 768px;
-  --breakpoint-desktop: 1025px;
-  --breakpoint-xl: 1440px;
-}
-
 /* ============================================
    BASE CARD STYLES
    ============================================ */
 
 .predix-uaa__card {
-  padding: var(--spacing-md);
-  margin: var(--spacing-md) auto;
+  padding: 20px;
+  margin: 20px auto;
   max-width: 600px;
 }
 
 .predix-card {
   overflow: hidden;
-  -webkit-transition: box-shadow var(--transition-fast);
-  -moz-transition: box-shadow var(--transition-fast);
-  transition: box-shadow var(--transition-fast);
+  -webkit-transition: box-shadow 0.3s ease;
+  -moz-transition: box-shadow 0.3s ease;
+  transition: box-shadow 0.3s ease;
   display: -webkit-box;
   display: -ms-flexbox;
   display: flex;
@@ -92,10 +31,14 @@
   -ms-flex-align: center;
   align-items: center;
   box-sizing: border-box;
+  /* IE11: height:1px lets flex children with flex:1 resolve their size correctly.
+     No min-height here — the card grows dynamically with its content.
+     Without an explicit height IE11 cannot distribute space to flex:1 children. */
+  height:900px;
 }
 
 .predix-card:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
 /* ============================================
@@ -104,68 +47,82 @@
 
 /* Card Header */
 .predix-card .card-header {
-  background: linear-gradient(135deg, var(--predix-primary), var(--predix-primary-hover));
-  color: var(--predix-white);
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-bottom: 1px solid var(--predix-border);
+  background: linear-gradient(135deg, #1f4e79, #2c5aa0);
+  color: #ffffff;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e0e0e0;
   width: 100%;
   text-align: center;
 }
 
 .predix-card .card-title {
   margin: 0;
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-semibold);
+  font-size: 1.5rem;
+  font-weight: 600;
   font-family: 'GE Inspira', sans-serif;
-  color: var(--predix-white);
+  color: #ffffff;
 }
 
 /* Card Welcome Title */
 .card-welcome-title {
-  margin: 0 0 var(--spacing-md) 0;
-  font-size: var(--font-size-xxl);
-  font-weight: var(--font-weight-semibold);
+  margin: 0 0 20px 0;
+  font-size: 1.75rem;
+  font-weight: 600;
   font-family: 'GE Inspira', sans-serif;
-  color: var(--predix-primary);
+  color: #1f4e79;
   text-align: center;
-  line-height: var(--line-height-tight);
+  line-height: 1.5;
+  -ms-flex-negative: 0; /* IE11 flex-shrink */
   flex-shrink: 0; /* Prevent title from shrinking */
 }
 
 /* Card Body */
 .predix-card .card-body {
-  padding: var(--spacing-xs);
+  padding: 10px;
   width: 100%;
+  -webkit-box-flex: 1;
+  -ms-flex: 1; /* IE11 flex: 1 */
   flex: 1;
   overflow-x: hidden;
   overflow-y: visible;
 }
 
 .predix-card .card-text {
-  margin-bottom: var(--spacing-xs);
-  color: var(--predix-text-secondary);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-tight);
+  margin-bottom: 10px;
+  color: #666;
+  font-size: 12px;
+  line-height: 1.5;
   text-align: center;
 }
 
 /* Compact login content for fixed height */
 .predix-uaa__login {
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -ms-flex-direction: column;
   flex-direction: column;
-  gap: var(--spacing-xs);
+  -webkit-box-flex: 1;
+  -ms-flex: 1;
   flex: 1;
-  overflow: hidden;
+  /* IE11 bug: overflow:hidden on a flex item with flex:1 and no explicit ancestor height
+     causes the element to collapse to 0px, clipping all content including form inputs.
+     Use overflow:visible instead. */
+  overflow: visible;
+  -webkit-box-pack: justify;
+  -ms-flex-pack: justify;
   justify-content: space-between;
 }
 
 .predix-uaa__login .u-p-- {
-  margin-bottom: var(--spacing-xs) !important;
+  margin-bottom: 10px !important;
 }
 
 .predix-uaa__login p {
-  margin: var(--spacing-xs) 0;
-  font-size: var(--font-size-sm);
+  margin: 10px 0;
+  font-size: 12px;
 }
 
 /* Card Actions */
@@ -173,7 +130,6 @@
   display: -webkit-box;
   display: -ms-flexbox;
   display: flex;
-  gap: var(--spacing-xs);
   -ms-flex-wrap: wrap;
   flex-wrap: wrap;
   -webkit-box-pack: center;
@@ -182,57 +138,58 @@
   width: 100%;
 }
 
+.predix-card .card-actions > * {
+  margin: 5px;
+}
+
 /* ============================================
    BUTTON STYLES
    ============================================ */
 
 .predix-card .btn {
-  padding: var(--spacing-xs) var(--spacing-md);
+  padding: 10px 20px;
   border: none;
-  border-radius: var(--border-radius-sm);
+  border-radius: 4px;
   cursor: pointer;
   text-decoration: none;
-  font-weight: var(--font-weight-medium);
-  -webkit-transition: all var(--transition-fast);
-  -moz-transition: all var(--transition-fast);
-  transition: all var(--transition-fast);
+  font-weight: 500;
+  -webkit-transition: all 0.3s ease;
+  -moz-transition: all 0.3s ease;
+  transition: all 0.3s ease;
   display: inline-block;
 }
 
 .predix-card .btn:focus {
-  outline: 2px solid var(--predix-primary);
+  outline: 2px solid #1f4e79;
   outline-offset: 2px;
 }
 
-.predix-card .btn:focus:not(:focus-visible) {
-  outline: none;
-}
-
+/* :focus-visible is not supported in IE11; IE11 will show standard focus outline */
 .predix-card .btn:focus-visible {
-  outline: 3px solid var(--predix-primary);
+  outline: 3px solid #1f4e79;
   outline-offset: 2px;
 }
 
 /* Button Variants */
 .predix-card .btn-primary {
-  background: var(--predix-primary);
-  color: var(--predix-white);
+  background: #1f4e79;
+  color: #ffffff;
 }
 
 .predix-card .btn-primary:hover {
-  background: var(--predix-primary-hover);
-  color: var(--predix-white);
+  background: #2c5aa0;
+  color: #ffffff;
 }
 
 .predix-card .btn-secondary {
-  background: var(--predix-secondary);
-  color: var(--predix-primary);
-  border: 1px solid var(--predix-primary);
+  background: #f8f9fa;
+  color: #1f4e79;
+  border: 1px solid #1f4e79;
 }
 
 .predix-card .btn-secondary:hover {
-  background: var(--predix-primary);
-  color: var(--predix-white);
+  background: #1f4e79;
+  color: #ffffff;
 }
 
 /* Customer IDP Button */
@@ -283,24 +240,24 @@
 }
 
 .predix-card__title {
-  color: var(--predix-primary);
-  font-size: var(--font-size-xl);
+  color: #1f4e79;
+  font-size: 1.5rem;
   margin: 0;
-  font-weight: var(--font-weight-semibold);
+  font-weight: 600;
 }
 
 .predix-card__content {
   color: #000000;
   text-align: center;
   width: 100%;
-  line-height: var(--line-height-normal);
+  line-height: 1.6;
 }
 
 /* ============================================
    RESPONSIVE DESIGN
    ============================================ */
 
-/* Mobile First Approach (???767px) */
+/* Mobile First Approach (≤767px) */
 @media screen and (max-width: 767px) {
   .predix-card {
     background: transparent;
@@ -310,7 +267,6 @@
     padding: 0;
     margin: 0;
     max-width: none;
-    gap: 0;
   }
   
   .predix-card:hover {
@@ -328,26 +284,38 @@
   /* Enhanced typography for mobile */
   .predix-card__title,
   .predix-card .card-title {
-    font-size: var(--font-size-xxl);
+    font-size: 1.75rem;
   }
   
   /* Mobile card welcome title */
   .card-welcome-title {
-    font-size: var(--font-size-xl); /* Smaller on mobile: 1.5rem */
-    margin: 0 0 var(--spacing-sm) 0; /* Reduced margin */
-    padding: 0 var(--spacing-sm); /* Side padding for narrow screens */
+    font-size: 1.5rem; /* Smaller on mobile: 1.5rem */
+    margin: 0 0 15px 0; /* Reduced margin */
+    padding: 0 15px; /* Side padding for narrow screens */
   }
   
   /* Mobile footer layout */
   .footer-links {
+    display: -webkit-box;
+    display: -ms-flexbox;
     display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
     flex-direction: column;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
     align-items: center;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
     justify-content: center;
-    gap: var(--spacing-md);
     padding: 0;
     width: 100%;
     text-align: center;
+  }
+
+  .footer-links > * + * {
+    margin-top: 20px;
   }
   
   .footer-link-item {
@@ -373,16 +341,20 @@
   
   /* Mobile copyright styling */
   .footer .copyright div {
-    margin-bottom: var(--spacing-lg);
-    padding-bottom: var(--spacing-md);
+    margin-bottom: 30px;
+    padding-bottom: 20px;
     text-align: center;
     font-family: Roboto;
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-normal);
+    font-size: 12px;
+    font-weight: 400;
     line-height: 16px;
     letter-spacing: 0.24px;
     margin-bottom: -16px;
     background: transparent;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    -ms-word-break: break-all;
+    max-width: 100%;
   }
 }
 
@@ -390,40 +362,49 @@
 @media screen and (min-width: 768px) and (max-width: 1024px) {
   .predix-card {
     background: rgba(0, 0, 0, 0.6) !important;
-    border-radius: var(--border-radius-md);
-    box-shadow: var(--shadow-sm);
-    padding: var(--spacing-sm);
-    margin: var(--spacing-sm) auto var(--spacing-md);
-    max-width: var(--card-width-tablet);
-    gap: var(--spacing-sm);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    margin: 15px auto 20px;
+    max-width: 750px;
     overflow: hidden;
   }
   
   .predix-card:hover {
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   }
   
   /* Tablet card welcome title */
   .card-welcome-title {
-    font-size: var(--font-size-lg);
-    margin: 0 0 var(--spacing-xs) 0;
+    font-size: 1.125rem;
+    margin: 0 0 10px 0;
     padding: 0;
     line-height: 1.2;
   }
 
   .card-body {
-    padding: var(--spacing-xs);
+    padding: 10px;
     overflow: hidden;
   }
   
   .footer-links {
+    display: -webkit-box;
+    display: -ms-flexbox;
     display: flex;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
     justify-content: center;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
     align-items: center;
-    gap: var(--spacing-md);
-    margin-bottom: var(--spacing-md);
-    padding: var(--spacing-xs) 0;
+    margin-bottom: 20px;
+    padding: 10px 0;
+    -ms-flex-wrap: wrap;
     flex-wrap: wrap;
+  }
+
+  .footer-links > * {
+    margin: 10px;
   }
   
   .footer-link-item.create-account,
@@ -439,17 +420,21 @@
   .footer .copyright div {
     text-align: center;
     font-family: Roboto, -webkit-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-normal);
+    font-size: 12px;
+    font-weight: 400;
     line-height: 16px;
     letter-spacing: 0.24px;
-    margin-bottom: var(--spacing-sm);
-    padding: var(--spacing-xs);
+    margin-bottom: 15px;
+    padding: 10px;
     background: transparent;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-text-size-adjust: 100%;
     -ms-text-size-adjust: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    -ms-word-break: break-all;
+    max-width: 100%;
   }
 }
 
@@ -457,43 +442,53 @@
 @media screen and (min-width: 1025px) and (max-width: 1439px) {
   .predix-card {
     background: rgba(0, 0, 0, 0.4) !important;
-    border-radius: var(--border-radius-md);
-    box-shadow: var(--shadow-sm);
-    padding: var(--spacing-xs);
-    margin: var(--spacing-md) auto var(--spacing-xl); /* Added bottom margin */
-    width: var(--card-width-desktop);
-    max-width: var(--card-width-desktop);
-    min-height: var(--card-height-desktop);
-    gap: 0;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 10px;
+    margin: 20px auto 40px; /* Added bottom margin */
+    width: 640px;
+    max-width: 640px;
+    height: 527.9970092773438px; /* IE11: explicit height required for flex children with flex:1 to resolve correctly */
+    min-height: 527.9970092773438px;
     overflow-x: hidden;
     overflow-y: auto;
   }
   
   .predix-card:hover {
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   }
   
   /* Desktop card welcome title */
   .card-welcome-title {
-    font-size: var(--font-size-lg); /* Smaller size to fit content */
-    margin: 0 0 var(--spacing-xs) 0; /* Minimal margin */
+    font-size: 1.125rem; /* Smaller size to fit content */
+    margin: 0 0 10px 0; /* Minimal margin */
     padding: 0;
     line-height: 1.2;
   }
 
   .card-body {
-    padding: var(--spacing-xs);
+    padding: 10px;
     overflow-x: hidden;
     overflow-y: visible;
     flex: 1;
   }
   
   .footer-links {
+    display: -webkit-box;
+    display: -ms-flexbox;
     display: flex;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
     justify-content: center;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
     align-items: center;
-    gap: 109px;
-    margin-bottom: var(--spacing-lg); /* Added margin for footer visibility */
+    margin-bottom: 30px; /* Added margin for footer visibility */
+  }
+
+  .footer-links > * {
+    margin-left: 54px;
+    margin-right: 55px;
   }
   
   .footer-link-item.create-account,
@@ -509,8 +504,8 @@
   .footer .copyright div {
     text-align: center;
     font-family: Roboto, -webkit-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-normal);
+    font-size: 12px;
+    font-weight: 400;
     line-height: 16px;
     letter-spacing: 0.24px;
     /* margin-bottom: var(--spacing-lg); */ /* Changed from -16px to positive margin */
@@ -524,40 +519,44 @@
     -moz-osx-font-smoothing: grayscale;
     -webkit-text-size-adjust: 100%;
     -ms-text-size-adjust: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    -ms-word-break: break-all;
+    max-width: 100%;
   }
 }
 
-/* Extra Large Screens (???1440px) */
+/* Extra Large Screens (≥1440px) */
 @media screen and (min-width: 1440px) {
   .predix-card {
-    background: rgb(0 0 0 / 77%) !important;
-    border-radius: var(--border-radius-md);
-    box-shadow: var(--shadow-sm);
-    width: var(--card-width-xl);
-    max-width: var(--card-width-xl);
-    min-height: var(--card-height-desktop);
-    padding: var(--spacing-xs);
-    margin: var(--spacing-md) auto var(--spacing-xl); /* Added bottom margin */
-    gap: 0;
+    background: rgba(0, 0, 0, 0.77) !important;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    width: 640px;
+    max-width: 640px;
+    height: 527.9970092773438px; /* IE11: explicit height required for flex children with flex:1 to resolve correctly */
+    min-height: 527.9970092773438px;
+    padding: 10px;
+    margin: 20px auto 40px; /* Added bottom margin */
     overflow-x: hidden;
     overflow-y: auto;
   }
   
   .predix-card:hover {
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   }
   
   /* XL Desktop card welcome title */
   .card-welcome-title {
-    font-size: var(--font-size-lg); /* Smaller size to fit content */
-    margin: 0 0 var(--spacing-xs) 0; /* Minimal margin */
+    font-size: 1.125rem; /* Smaller size to fit content */
+    margin: 0 0 10px 0; /* Minimal margin */
     padding: 0;
     line-height: 1.2;
     letter-spacing: 0.5px; /* Subtle letter spacing for large screens */
   }
 
   .card-body {
-    padding: var(--spacing-xs);
+    padding: 10px;
     overflow-x: hidden;
     overflow-y: visible;
     flex: 1;
@@ -566,21 +565,31 @@
   /* Enhanced typography for large screens */
   .predix-card__title,
   .predix-card .card-title {
-    font-size: var(--font-size-xxxl);
+    font-size: 2rem;
   }
   
   .predix-card .card-text,
   .predix-card__content {
-    font-size: var(--font-size-lg);
-    line-height: var(--line-height-relaxed);
+    font-size: 1.125rem;
+    line-height: 1.7;
   }
   
   .footer-links {
+    display: -webkit-box;
+    display: -ms-flexbox;
     display: flex;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
     justify-content: center;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
     align-items: center;
-    gap: 109px;
-    margin-bottom: var(--spacing-xl); /* Added larger margin for extra large screens */
+    margin-bottom: 40px; /* Added larger margin for extra large screens */
+  }
+
+  .footer-links > * {
+    margin-left: 54px;
+    margin-right: 55px;
   }
   
   .footer-link-item.create-account,
@@ -596,8 +605,8 @@
   .footer .copyright div {
     text-align: center;
     font-family: Roboto!important;
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-normal);
+    font-size: 12px;
+    font-weight: 400;
     line-height: 16px;
     letter-spacing: 0.24px;
     /* margin-bottom: var(--spacing-xl); */ /* Changed from -16px to positive margin */
@@ -612,6 +621,10 @@
     -webkit-text-size-adjust: 100%;
     color: #425866;
     -ms-text-size-adjust: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    -ms-word-break: break-all;
+    max-width: 100%;
   }
 }
 
@@ -631,27 +644,20 @@
 
 
 
-/* Dark Mode Support (Future Enhancement) */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --predix-text-primary: #e0e0e0;
-    --predix-text-secondary: #b0b0b0;
-    --predix-border: #404040;
-  }
-}
+/* Dark Mode Support (Future Enhancement - not applicable for IE11) */
 
 /* Print Styles */
 @media print {
   .predix-card {
-    background: var(--predix-white) !important;
+    background: #ffffff !important;
     box-shadow: none !important;
-    border: 1px solid var(--predix-border);
+    border: 1px solid #e0e0e0;
   }
   
   .predix-card .btn {
-    background: var(--predix-white) !important;
-    color: var(--predix-primary) !important;
-    border: 1px solid var(--predix-primary);
+    background: #ffffff !important;
+    color: #1f4e79 !important;
+    border: 1px solid #1f4e79;
   }
 }
 
@@ -660,17 +666,18 @@
    ============================================ */
 
 .toast {
-  --icon-color: #7FAF1C;
-  --border-color: #7FAF1C;
-  
   padding: 0;
   /* border: 1px solid #e6e6e6; */
-  /* border-left: 5px solid var(--border-color); */
+  /* border-left: 5px solid #7FAF1C; */
   border-radius: 4px;
   background-color: #fff;
   max-width: 72ch;
   font-size: 16px;
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-box-align: stretch;
+  -ms-flex-align: stretch; /* IE11 align-items: stretch */
   align-items: stretch;
   margin-bottom: 1rem;
   position: relative;
@@ -680,25 +687,38 @@
 
 .toast__icon,
 .toast__close {
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-box-align: center;
+  -ms-flex-align: center; /* IE11 align-items: center */
   align-items: center;
+  -webkit-box-pack: center;
+  -ms-flex-pack: center; /* IE11 justify-content: center */
   justify-content: center;
 }
 
 .toast__icon svg,
 .toast__close svg {
   vertical-align: middle;
+  fill: currentColor; /* IE11: CSS fill overrides presentation attribute for reliable currentColor inheritance */
 }
 
 .toast__icon {
   color: #ffffff;
   font-size: 1.25em;
-  background-color: var(--icon-color);
+  background-color: #7FAF1C;
   padding: 1rem;
   border-right: 1px solid rgba(0,0,0,0.05);
   min-width: 3rem;
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-box-align: center;
+  -ms-flex-align: center; /* IE11 align-items: center */
   align-items: center;
+  -webkit-box-pack: center;
+  -ms-flex-pack: center; /* IE11 justify-content: center */
   justify-content: center;
 }
 
@@ -746,19 +766,39 @@
 .toast__content {
   line-height: 1.5;
   padding: 1rem 2rem 1rem 1rem; /* Extra padding right for close button */
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -ms-flex-direction: column;
   flex-direction: column;
   min-width: 0px;
-  gap: 8px;
+  -webkit-box-flex: 1;
+  -ms-flex: 1;
   flex: 1;
   text-align: left;
 }
 
+.toast__content > * + * {
+  margin-top: 8px;
+}
+
 .toast.inline .toast__content {
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -ms-flex-direction: column;
   flex-direction: column;
+  -webkit-box-align: start;
+  -ms-flex-align: start;
   align-items: flex-start;
-  gap: 4px;
+}
+
+.toast.inline .toast__content > * + * {
+  margin-top: 4px;
 }
 
 /* Responsive behavior for mobile devices */
@@ -797,6 +837,7 @@
 
 
 .toast__actions {
+  -ms-flex-item-align: baseline; /* IE11 align-self */
   align-self: baseline;
   margin-left: 0.75rem;
 }
@@ -806,11 +847,12 @@
   border: 1px solid #ccc;
   border-radius: 3px;
   padding: 8px 12px;
-  text-wrap: nowrap;
+  white-space: nowrap;
   font-size: 14px;
   font-weight: 500;
   vertical-align: middle;
   cursor: pointer;
+  -webkit-transition: all 0.2s ease;
   transition: all 0.2s ease;
 }
 
@@ -821,8 +863,6 @@
 
 /* Success Toast Variant */
 .toast.toast--success {
-  --icon-color: #7FAF1C;
-  --border-color: #7FAF1C;
 }
 
 .toast.toast--success .toast__icon {
@@ -832,8 +872,6 @@
 
 /* Error Toast Variant */
 .toast.toast--error {
-  --icon-color: #B40000;
-  --border-color: #B40000;
 }
 
 .toast.toast--error .toast__icon {
@@ -843,8 +881,6 @@
 
 /* Warning Toast Variant */
 .toast.toast--warning {
-  --icon-color: #f59e0b;
-  --border-color: #f59e0b;
 }
 
 .toast.toast--warning .toast__icon {
@@ -854,8 +890,6 @@
 
 /* Info Toast Variant */
 .toast.toast--info {
-  --icon-color: #00b3c8;
-  --border-color: #00b3c8;
 }
 
 .toast.toast--info .toast__icon {
@@ -872,6 +906,7 @@
   .toast {
     font-size: 15px;
     padding: 1.25rem;
+    max-width: 96%; /* IE11 fallback: calc(100vw - 2rem) broken with vw+calc */
     max-width: calc(100vw - 2rem);
     margin: 0 1rem 1rem 1rem;
   }
@@ -897,15 +932,21 @@
   .toast {
     font-size: 16px;
     padding: 0;
+    max-width: 98%; /* IE11 fallback: calc(100vw - 1rem) broken with vw+calc */
     max-width: calc(100vw - 1rem);
     margin: 0 0.5rem 1rem 0.5rem;
-    gap: 0;
     border-radius: 8px;
   }
   
   .toast.inline .toast__content {
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
     flex-direction: column;
-    gap: 6px;
+  }
+
+  .toast.inline .toast__content > * + * {
+    margin-top: 6px;
   }
   
   .toast__description {
@@ -916,6 +957,7 @@
   
   .toast__icon {
     font-size: 1.1em;
+    -ms-flex-item-align: start; /* IE11 align-self: flex-start */
     align-self: flex-start;
     padding: 0.6rem;
   }
@@ -923,6 +965,7 @@
   .toast__close {
     margin-left: 0;
     padding: 6px;
+    -ms-flex-item-align: start; /* IE11 align-self: flex-start */
     align-self: flex-start;
   }
   
@@ -930,12 +973,13 @@
     padding: 10px 14px;
     font-size: 14px;
     min-width: 70px;
+    -ms-flex-item-align: start; /* IE11 align-self: flex-start */
     align-self: flex-start;
   }
   
   /* Stack content vertically on mobile */
-  .toast__message {
-    gap: 8px;
+  .toast__message > * + * {
+    margin-top: 8px;
   }
   
   .toast__actions {
@@ -949,16 +993,17 @@
   .toast {
     font-size: 15px;
     padding: 0;
+    max-width: 99%; /* IE11 fallback: calc(100vw - 0.5rem) broken with vw+calc */
     max-width: calc(100vw - 0.5rem);
     margin: 0 0.25rem 1rem 0.25rem;
-    gap: 0;
   }
   
   .toast__description {
     font-size: 14px;
     line-height: 1.5;
     word-break: break-word;
-    hyphens: auto;
+    -ms-word-break: break-all; /* IE11 word-break fallback */
+    /* hyphens: auto is not supported in IE11 — omitted */
   }
   
   .toast__icon {
@@ -998,12 +1043,20 @@
 }
 
 /* Touch-friendly interactions */
+/* NOTE: (hover) and (pointer) media features are not supported in IE11.
+   IE11 ignores this entire block — touch targets use default sizing in IE11. */
 @media (hover: none) and (pointer: coarse) {
   .toast__close {
     min-width: 44px;
     min-height: 44px;
+    display: -webkit-box;
+    display: -ms-flexbox;
     display: flex;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
     align-items: center;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
     justify-content: center;
   }
   

@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll("a[data-userId]").forEach(function (savedAccountLink) {
+    Array.prototype.forEach.call(document.querySelectorAll("a[data-userId]"), function (savedAccountLink) {
         savedAccountLink.addEventListener('click', function () {
             document.getElementById(savedAccountLink.getAttribute('data-userId')).submit();
         })

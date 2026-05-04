@@ -26,12 +26,12 @@
     <meta name='keywords' content=""/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
     <link href="/vendor/font-awesome/css/font-awesome.min.css" th:href="@{/vendor/font-awesome/css/font-awesome.min.css}" rel="stylesheet"/>
-    <link href="/resources/oss/stylesheets/application.css" th:href="@{${assetBaseUrl}+'/stylesheets/application.css'}" rel="stylesheet"/>
-    <link th:href="@{${assetBaseUrl}+'/stylesheets/predix-styles.css'}" rel="stylesheet"/>
     <link th:href="@{${assetBaseUrl}+'/stylesheets/roboto.css'}" rel="stylesheet"/>
-    <link th:href="@{${assetBaseUrl}+'/stylesheets/predix-card-styles.css'}" rel="stylesheet"/>
     <link rel="stylesheet" media="screen" href="/resources/oss/stylesheets/chooser.css" th:href="@{/resources/oss/stylesheets/chooser.css}"/>
-        <script type="text/javascript" src="/resources/javascripts/last_login_time.js" th:src="@{'/resources/javascripts/last_login_time.js'}"></script>
+
+    <script th:attr="data-asset-base=${assetBaseUrl}"
+            src="/resources/javascripts/browser-loader.js"
+            th:src="@{/resources/javascripts/browser-loader.js}"></script>
   </head>
 <body class="predix-uaa">
 
@@ -57,7 +57,8 @@
       th:inline="text"
       th:title="|Version: ${@buildInfo.version}, Commit: ${@buildInfo.commitId}, Timestamp: ${@buildInfo.timestamp}, UAA: ${@buildInfo.uaaUrl}|">
       <img style="width: 60px;margin-bottom:20px;" src="/resources/predix/images/predix-word.svg"/>
-      <div>[[${copyright}]][[${copyright2}]]</div>
+      <div>[[${copyright}]]</div>
+      <div>[[${copyright2}]]</div>
        <th:block th:with="auth=${T(org.springframework.security.core.context.SecurityContextHolder).getContext()?.getAuthentication()}">
         <div th:if="${auth instanceof T(org.cloudfoundry.identity.uaa.authentication.UaaAuthentication)}">
           <div th:if="${auth.lastLoginSuccessTime} != null">
