@@ -127,6 +127,7 @@ public class LoginInfoEndpoint {
     private static final String CLIENT_ID_PARAMETER = "client_id";
     private static final String LOGIN = "login";
     private static final String REDIRECT = "redirect:";
+    private static final String BACKGROUND_IMAGE_URL = "backgroundImageUrl";
     private static final MapCollector<IdentityProvider, String, AbstractExternalOAuthIdentityProviderDefinition> idpsMapCollector =
             new MapCollector<>(
                     IdentityProvider::getOriginKey,
@@ -149,6 +150,7 @@ public class LoginInfoEndpoint {
     private final ExternalOAuthProviderConfigurator externalOAuthProviderConfigurator;
     private final Links globalLinks;
     private final String entityID;
+    private final BackgroundImageUrlProvider backgroundImageUrlProvider;
 
     public LoginInfoEndpoint(
             final @Qualifier("zoneAwareAuthzAuthenticationManager") AuthenticationManager authenticationManager,
@@ -160,7 +162,8 @@ public class LoginInfoEndpoint {
             final @Qualifier("samlEntityID") String entityID,
             final @Qualifier("globalLinks") Links globalLinks,
             final @Qualifier("jdbcClientDetailsService") MultitenantClientServices clientDetailsService,
-            final @Qualifier("metaDataProviders") SamlIdentityProviderConfigurator idpDefinitions) {
+            final @Qualifier("metaDataProviders") SamlIdentityProviderConfigurator idpDefinitions,
+            final Optional<BackgroundImageUrlProvider> backgroundImageUrlProvider) {
         this.authenticationManager = authenticationManager;
         this.expiringCodeStore = expiringCodeStore;
         this.externalLoginUrl = externalLoginUrl;
@@ -171,6 +174,7 @@ public class LoginInfoEndpoint {
         this.globalLinks = globalLinks;
         this.clientDetailsService = clientDetailsService;
         this.idpDefinitions = idpDefinitions;
+        this.backgroundImageUrlProvider = backgroundImageUrlProvider.orElse(null);
         gitProperties = tryLoadAllProperties("git.properties");
         buildProperties = tryLoadAllProperties("build.properties");
     }
@@ -418,6 +422,11 @@ public class LoginInfoEndpoint {
         model.addAttribute(ZONE_NAME, IdentityZoneHolder.get().getName());
         // Entity ID to start the discovery
         model.addAttribute(ENTITY_ID, zonifiedEntityID);
+
+        if (backgroundImageUrlProvider != null) {
+            backgroundImageUrlProvider.getBackgroundImageUrl()
+                    .ifPresent(url -> model.addAttribute(BACKGROUND_IMAGE_URL, url));
+        }
 
         String origin = request.getParameter("origin");
         populatePrompts(model, excludedPrompts, origin, samlIdentityProviders, oauthIdentityProviders, returnLoginPrompts);
