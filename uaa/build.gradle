@@ -1,12 +1,27 @@
 Project identityServer = parent.subprojects.find { "cloudfoundry-identity-server".equals(it.name) }
 
 apply(plugin: "war")
+apply(plugin: "com.github.node-gradle.node")
+
+node {
+    version = '20.11.0'
+    download = false
+    nodeProjectDir = file("${projectDir}")
+}
+
+task babelBuild(type: NpmTask) {
+    dependsOn npmInstall
+    args = ['run', 'babel:build']
+    inputs.dir('src/main/webapp/resources/javascripts')
+    outputs.dir('src/main/webapp/resources/javascripts/dist')
+}
 
 processResources {
     //maven replaces project.artifactId in the log4j2.properties file
     //https://www.pivotaltracker.com/story/show/74344574
     from(new File('../common/src/main/resources/log4j2.properties'))
     filter { line -> line.contains('${project.artifactId}') ? line.replace('${project.artifactId}', 'cloudfoundry-identity-uaa') : line }
+    dependsOn(babelBuild)
 }
 
 apply(plugin: "org.springframework.boot")
