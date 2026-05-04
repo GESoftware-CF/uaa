@@ -27,6 +27,15 @@ buildscript {
       }
       url 'https://gart.software.gevernova.com/artifactory/pgog-fss-iam-uaa-mvn-virtual'
     }
+    exclusiveContent {
+      forRepository {
+        gradlePluginPortal()
+      }
+      filter {
+        includeGroup("com.bmuschko")
+        includeGroup("de.undercouch")
+      }
+    }
   }
 
   dependencies {
