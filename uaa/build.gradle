@@ -16,6 +16,14 @@ task babelBuild(type: NpmTask) {
     outputs.dir('src/main/webapp/resources/javascripts/dist')
 }
 
+tasks.named('npmInstall') {
+    def user = System.getenv('ARTIFACTORY_CREDENTIALS_USR') ?: ''
+    def pass = System.getenv('ARTIFACTORY_CREDENTIALS_PSW') ?: ''
+    if (user && pass) {
+        environment['NPM_AUTH_TOKEN'] = Base64.encoder.encodeToString("${user}:${pass}".bytes)
+    }
+}
+
 processResources {
     //maven replaces project.artifactId in the log4j2.properties file
     //https://www.pivotaltracker.com/story/show/74344574
