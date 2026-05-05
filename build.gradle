@@ -7,10 +7,25 @@ buildscript {
     apply(from: "dependencies.gradle")
 
     repositories {
-        mavenCentral()
-        gradlePluginPortal()
         maven {
-            url("https://plugins.gradle.org/m2/")
+            credentials {
+                username System.getenv('ARTIFACTORY_CREDENTIALS_USR')
+                password System.getenv('ARTIFACTORY_CREDENTIALS_PSW')
+            }
+            url 'https://gart.software.gevernova.com/artifactory/pgog-fss-iam-uaa-mvn-virtual'
+        }
+        // Plugin Portal is restricted to only these plugin groups via exclusiveContent.
+        // This prevents their transitive dependencies from falling back to repo.maven.apache.org
+        // (which causes HTTP 429 rate-limit errors on CI).
+        exclusiveContent {
+            forRepository {
+                gradlePluginPortal()
+            }
+            filter {
+                includeGroup("com.bmuschko")
+                includeGroup("org.barfuin.gradle.jacocolog")
+                includeGroup("org.sonarsource.scanner.gradle")
+            }
         }
     }
 

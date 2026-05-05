@@ -13,6 +13,7 @@
                 fallbackLogo=${assetBaseUrl+'/images/predix-word.svg'},
                 logo=${brandingLogo != null and !brandingLogo.isEmpty() ? 'data:image/png;base64,'+#strings.replace(#strings.replace(brandingLogo,'\r',''),'\n','') : fallbackLogo}" >
 <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title th:text="${(companyName != null and !companyName.isEmpty()) ? companyName : zoneName}" th:inline="text"></title>
     <link href='/resources/oss/images/square-logo.png' th:with="icon=${branding.getSquareLogo()}" th:href="@{${icon != null and !icon.isEmpty() ? 'data:image/png;base64,'+icon : (assetBaseUrl + '/images/square-logo.png')}}" rel='shortcut icon' />
     <link rel="preload" as="image" th:href="@{${assetBaseUrl}+'/images/background-image.png'}" type="image/png" />
@@ -25,12 +26,12 @@
     <meta name='keywords' content=""/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
     <link href="/vendor/font-awesome/css/font-awesome.min.css" th:href="@{/vendor/font-awesome/css/font-awesome.min.css}" rel="stylesheet"/>
-    <link href="/resources/oss/stylesheets/application.css" th:href="@{${assetBaseUrl}+'/stylesheets/application.css'}" rel="stylesheet"/>
-    <link th:href="@{${assetBaseUrl}+'/stylesheets/predix-styles.css'}" rel="stylesheet"/>
     <link th:href="@{${assetBaseUrl}+'/stylesheets/roboto.css'}" rel="stylesheet"/>
-    <link th:href="@{${assetBaseUrl}+'/stylesheets/predix-card-styles.css'}" rel="stylesheet"/>
     <link rel="stylesheet" media="screen" href="/resources/oss/stylesheets/chooser.css" th:href="@{/resources/oss/stylesheets/chooser.css}"/>
-        <script type="text/javascript" src="/resources/javascripts/last_login_time.js" th:src="@{'/resources/javascripts/last_login_time.js'}"></script>
+
+    <script th:attr="data-asset-base=${assetBaseUrl}"
+            src="/resources/javascripts/browser-loader.js"
+            th:src="@{/resources/javascripts/browser-loader.js}"></script>
   </head>
 <body class="predix-uaa">
 

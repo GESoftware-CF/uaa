@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', function() {
     dropdownContent.classList.toggle('open');
     
     // Change chevron icon
-    chevron.textContent = isOpen ? '▲' : '▼';
+    chevron.textContent = isOpen ? '???' : '???';
   });
 
   // Close dropdown when clicking outside
@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', function() {
       dropdownTrigger.classList.remove('open');
       dropdownTrigger.setAttribute('aria-expanded', 'false');
       dropdownContent.classList.remove('open');
-      chevron.textContent = '▼';
+      chevron.textContent = '???';
     }
   });
 
