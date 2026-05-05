@@ -15,6 +15,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AnonymousConfigurer;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.config.authentication.AuthenticationManagerBeanDefinitionParser;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -27,9 +28,9 @@ import static org.cloudfoundry.identity.uaa.web.AuthorizationManagersUtils.anyOf
  *
  * <p>Security policy:
  * <ul>
- *   <li>POST /background_images – requires OAuth2 bearer token with {@code zones.write} or
- *       {@code uaa.admin} scope (same as admin API)</li>
- *   <li>GET  /background_images/** – publicly accessible (no authentication required)</li>
+ *   <li>GET  /background_images/**  – fully public, no authentication required, no token parsing</li>
+ *   <li>POST, PATCH, DELETE /background_images/** – requires OAuth2 bearer token with
+ *       {@code zones.write}, {@code uaa.admin}, or zone-admin scope</li>
  * </ul>
  */
 @Configuration
@@ -37,11 +38,41 @@ import static org.cloudfoundry.identity.uaa.web.AuthorizationManagersUtils.anyOf
 public class BackgroundImageSecurityConfiguration {
 
     /**
-     * Security filter chain for background image endpoints.
+     * Fully public filter chain for all {@code GET /background_images/**} requests.
      *
-     * @param http                         Spring Security HTTP builder
-     * @param tokenServices                UAA token services for bearer-token validation
-     * @param oauthAccessDeniedHandler     OAuth2 access-denied handler
+     * <p>This chain runs <em>before</em> the main {@code backgroundImages} chain (order 950)
+     * and permits all GET requests without any token parsing, authentication, or CSRF checks.
+     * No {@code Authorization} header is required or inspected.
+     *
+     * @param http Spring Security HTTP builder
+     * @return configured {@link UaaFilterChain}
+     * @throws Exception if configuration fails
+     */
+    @Bean
+    @Order(FilterChainOrder.BACKGROUND_IMAGES_PUBLIC)
+    public UaaFilterChain backgroundImagePublicGet(HttpSecurity http) throws Exception {
+        var chain = http
+                .securityMatcher(request ->
+                        request.getMethod().equalsIgnoreCase(HttpMethod.GET.name())
+                        && request.getRequestURI().startsWith("/background_images"))
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .csrf(CsrfConfigurer::disable)
+                .anonymous(AnonymousConfigurer::disable)
+                .securityContext(sc -> sc.requireExplicitSave(false))
+                .build();
+        return new UaaFilterChain(chain, "backgroundImagePublicGet");
+    }
+
+    /**
+     * Secured filter chain for write operations on {@code /background_images/**}.
+     *
+     * <p>Handles POST, PATCH, and DELETE — all require a valid OAuth2 bearer token
+     * with {@code zones.write}, {@code uaa.admin}, or zone-admin scope.
+     *
+     * @param http                          Spring Security HTTP builder
+     * @param tokenServices                 UAA token services for bearer-token validation
+     * @param oauthAccessDeniedHandler      OAuth2 access-denied handler
      * @param oauthAuthenticationEntryPoint OAuth2 authentication entry point
      * @return configured {@link UaaFilterChain}
      * @throws Exception if configuration fails
@@ -68,18 +99,15 @@ public class BackgroundImageSecurityConfiguration {
         var chain = http
                 .securityMatcher("/background_images", "/background_images/**")
                 .authenticationManager(emptyAuthenticationManager)
-                .authorizeHttpRequests(auth -> {
-                    // POST /background_images and /background_images/upload – admin only (zones.write or uaa.admin)
-                    auth.requestMatchers(HttpMethod.POST, "/background_images", "/background_images/upload").access(
-                            anyOf()
-                                    .isUaaAdmin()
-                                    .isZoneAdmin()
-                                    .hasScope("zones.write")
-                                    .throwOnMissingScope()
-                    );
-                    // GET endpoints – publicly accessible
-                    auth.anyRequest().permitAll();
-                })
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.POST,   "/background_images", "/background_images/upload").access(
+                                anyOf().isUaaAdmin().isZoneAdmin().hasScope("zones.write").throwOnMissingScope())
+                        .requestMatchers(HttpMethod.PATCH,  "/background_images", "/background_images/**").access(
+                                anyOf().isUaaAdmin().isZoneAdmin().hasScope("zones.write").throwOnMissingScope())
+                        .requestMatchers(HttpMethod.DELETE, "/background_images", "/background_images/**").access(
+                                anyOf().isUaaAdmin().isZoneAdmin().hasScope("zones.write").throwOnMissingScope())
+                        .anyRequest().denyAll()
+                )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(oauth2ResourceFilter, AbstractPreAuthenticatedProcessingFilter.class)
                 .csrf(CsrfConfigurer::disable)
