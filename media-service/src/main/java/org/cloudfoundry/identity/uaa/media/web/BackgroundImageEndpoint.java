@@ -43,6 +43,7 @@ import java.util.Optional;
  *   <li>GET    /background_images/stream       – stream raw image bytes</li>
  *   <li>GET    /background_images/responsive   – stream image scaled to requested width</li>
  *   <li>GET    /background_images/presigned-url – generate a presigned S3 URL</li>
+ *   <li>GET    /background_images/url          – stream raw image bytes directly from S3</li>
  *   <li>GET    /background_images/base64       – return Base64-encoded image</li>
  *   <li>DELETE /background_images              – delete the zone's background image</li>
  * </ul>
@@ -362,6 +363,61 @@ public class BackgroundImageEndpoint {
 
         } catch (Exception e) {
             logger.error("Failed to generate presigned URL: zone={}, key={}", zoneId, key, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /background_images/url
+    // -------------------------------------------------------------------------
+
+    /**
+     * Stream the background image bytes directly from S3 for the current identity zone.
+     *
+     * <p>Downloads the raw image from S3 and writes the bytes directly to the HTTP response
+     * with the correct {@code Content-Type} and caching headers. No presigning, URL conversion,
+     * or image transformation is applied — bytes are returned exactly as stored in S3.
+     *
+     * <p>Suitable for direct use as an {@code <img src="...">} or CSS
+     * {@code background-image: url(...)} target.
+     *
+     * @return raw image bytes with {@code Content-Type} and {@code Cache-Control} headers,
+     *         or 404 if no image has been uploaded for this zone
+     */
+    @GetMapping(
+            value    = "/url",
+            produces = { MediaType.IMAGE_PNG_VALUE, MediaType.IMAGE_JPEG_VALUE, "image/webp" }
+    )
+    public ResponseEntity<byte[]> getImageDirect() {
+        String zoneId = IdentityZoneHolder.get().getId();
+        Optional<String> keyOpt = backgroundImageService.findS3KeyByZone(zoneId);
+        if (keyOpt.isEmpty()) {
+            logger.info("GET /background_images/url: no image for zone={}", zoneId);
+            return ResponseEntity.notFound().build();
+        }
+        String key = keyOpt.get();
+        logger.info("GET /background_images/url: zone={}, key={}", zoneId, key);
+
+        try (ResponseInputStream<GetObjectResponse> s3Stream =
+                     backgroundImageService.downloadBackgroundImage(zoneId, key)) {
+
+            GetObjectResponse s3Meta      = s3Stream.response();
+            String            contentType = s3Meta.contentType() != null
+                    ? s3Meta.contentType() : MediaType.IMAGE_PNG_VALUE;
+            byte[]            imageBytes  = s3Stream.readAllBytes();
+
+            logger.info("GET /background_images/url: served {} bytes, contentType={}, zone={}",
+                    imageBytes.length, contentType, zoneId);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType(contentType));
+            headers.setContentLength(imageBytes.length);
+            headers.set(HttpHeaders.CACHE_CONTROL,       "public, max-age=86400");
+            headers.set(HttpHeaders.CONTENT_DISPOSITION, "inline");
+            return ResponseEntity.ok().headers(headers).body(imageBytes);
+
+        } catch (IOException e) {
+            logger.error("Failed to stream image from S3: zone={}, key={}", zoneId, key, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
