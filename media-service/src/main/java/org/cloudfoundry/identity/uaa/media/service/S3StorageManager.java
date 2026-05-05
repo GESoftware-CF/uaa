@@ -157,6 +157,23 @@ public class S3StorageManager {
     }
 
     /**
+     * Build the plain, unsigned HTTPS URL for an S3 object.
+     *
+     * <p>Returns {@code https://{bucket}.s3.{region}.amazonaws.com/{key}}.
+     * No credentials, tokens, or query parameters are attached — the object must
+     * be publicly accessible via bucket policy for this URL to resolve.
+     *
+     * @param bucket S3 bucket name
+     * @param key    S3 object key
+     * @return plain public HTTPS URL for the object
+     */
+    public String getDirectUrl(String bucket, String key) {
+        String url = String.format("https://%s.s3.%s.amazonaws.com/%s", bucket, awsRegion, key);
+        logger.debug("Direct S3 URL constructed: {}", url);
+        return url;
+    }
+
+    /**
      * Delete an object from S3.
      *
      * @param bucket S3 bucket name

@@ -280,6 +280,27 @@ public class BackgroundImageService {
     }
 
     // -------------------------------------------------------------------------
+    // Direct S3 URL
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns the plain, unsigned HTTPS URL for an S3 object.
+     *
+     * <p>No signing, token, or query parameters are added — the URL is the standard
+     * {@code https://{bucket}.s3.{region}.amazonaws.com/{key}} form. The object must
+     * be publicly readable (via bucket policy or object ACL) for this URL to work.
+     *
+     * @param zoneId the identity zone ID (used for diagnostic logging only)
+     * @param s3Key  the S3 object key
+     * @return plain public HTTPS URL for the S3 object
+     */
+    public String getDirectS3Url(String zoneId, String s3Key) {
+        String url = s3StorageManager.getDirectUrl(bucket, s3Key);
+        logger.debug("Direct S3 URL: zoneId={}, key={}, url={}", zoneId, s3Key, url);
+        return url;
+    }
+
+    // -------------------------------------------------------------------------
     // Utilities
     // -------------------------------------------------------------------------
 
