@@ -38,6 +38,10 @@ class WebConfig implements WebMvcConfigurer {
         registry.addResourceHandler("/resources/**")
                 .addResourceLocations("/resources/")
                 .setCacheControl(CacheControl.maxAge(365, TimeUnit.DAYS));
+
+        registry.addResourceHandler("/background_images/stream/uaa/**")
+                .addResourceLocations("/background_images/stream/uaa/")
+                .setCacheControl(CacheControl.maxAge(365, TimeUnit.DAYS));
     }
 
     @Autowired
