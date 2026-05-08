@@ -19,7 +19,6 @@ import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestHeader;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 
 import javax.imageio.ImageIO;
@@ -29,9 +28,6 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Instant;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -253,44 +249,36 @@ public class BackgroundImageEndpoint {
     }
 
     // -------------------------------------------------------------------------
-    // GET /background_images/stream/{zoneId}  — cacheable with ETag + 304
+    // GET /background_images/stream/{zoneId}
     // -------------------------------------------------------------------------
 
     /**
-     * Cacheable stream of the background image for a specific zone, identified by
-     * the {@code zoneId} path variable.
+     * Stream the background image bytes for a specific zone identified by the
+     * {@code zoneId} path variable.
      *
-     * <p>The unique path {@code /stream/{zoneId}} allows CDNs, reverse proxies, and
-     * browsers to cache the response per zone. Supports conditional GET:
+     * <p>The unique path {@code /stream/{zoneId}} makes the URL stable and zone-specific,
+     * allowing the <strong>browser or CDN</strong> to cache the response using the
+     * {@code Cache-Control: public, max-age=604800} (7 days) header returned.
+     * No server-side ETag or conditional GET logic is applied — cache revalidation
+     * is fully delegated to the client.
+     *
+     * <p>Compared to {@code GET /background_images/stream}:
      * <ul>
-     *   <li>{@code If-None-Match} — compared against the S3 ETag; returns
-     *       {@code 304 Not Modified} if the image has not changed</li>
-     *   <li>{@code If-Modified-Since} — compared against the S3 last-modified
-     *       timestamp; returns {@code 304 Not Modified} if unchanged</li>
+     *   <li>{@code /stream}           — zone resolved from request host via
+     *       {@code IdentityZoneHolder}; URL is not zone-specific, not browser-cacheable</li>
+     *   <li>{@code /stream/{zoneId}}  — zone taken from path variable; URL is unique
+     *       per zone, browser/CDN cacheable</li>
      * </ul>
      *
-     * <p>Response headers set:
-     * <ul>
-     *   <li>{@code ETag}          — S3 object ETag (e.g. {@code "abc123"})</li>
-     *   <li>{@code Last-Modified} — S3 object last-modified timestamp (RFC 1123)</li>
-     *   <li>{@code Cache-Control} — {@code public, max-age=86400}</li>
-     *   <li>{@code Content-Type}  — actual MIME type from S3 metadata</li>
-     * </ul>
-     *
-     * @param zoneId          identity zone ID from the path (e.g. {@code uaa})
-     * @param ifNoneMatch     optional {@code If-None-Match} request header (ETag)
-     * @param ifModifiedSince optional {@code If-Modified-Since} request header (epoch ms)
-     * @return raw image bytes with caching headers, {@code 304 Not Modified} if cache
-     *         is still valid, or {@code 404} if no image has been uploaded for this zone
+     * @param zoneId identity zone ID from the path (e.g. {@code uaa})
+     * @return raw image bytes with {@code Content-Type} and {@code Cache-Control} headers,
+     *         or {@code 404} if no image has been uploaded for this zone
      */
     @GetMapping(value = "/stream/{zoneId}")
-    public ResponseEntity<byte[]> streamImageCached(
-            @PathVariable("zoneId") String zoneId,
-            @RequestHeader(value = HttpHeaders.IF_NONE_MATCH,     required = false) String ifNoneMatch,
-            @RequestHeader(value = HttpHeaders.IF_MODIFIED_SINCE, required = false) String ifModifiedSince) {
+    public ResponseEntity<byte[]> streamImageByZone(
+            @PathVariable("zoneId") String zoneId) {
 
-        logger.info("GET /background_images/stream/{}: checking cache headers ifNoneMatch={}, ifModifiedSince={}",
-                zoneId, ifNoneMatch, ifModifiedSince);
+        logger.info("GET /background_images/stream/{}: fetching image", zoneId);
 
         Optional<String> keyOpt = backgroundImageService.findS3KeyByZone(zoneId);
         if (keyOpt.isEmpty()) {
@@ -299,49 +287,14 @@ public class BackgroundImageEndpoint {
         }
         String key = keyOpt.get();
 
-        // ── Step 1: HEAD S3 to get ETag + Last-Modified (cheap, no download) ──
-        HeadObjectResponse meta = backgroundImageService.getObjectMetadata(zoneId, key);
-        String  s3ETag         = meta.eTag();                    // e.g. "\"abc123\""
-        Instant s3LastModified = meta.lastModified();
-
-        // ── Step 2: Evaluate If-None-Match ───────────────────────────────────
-        if (ifNoneMatch != null && s3ETag != null
-                && (ifNoneMatch.equals(s3ETag) || ifNoneMatch.equals("*"))) {
-            logger.info("GET /background_images/stream/{}: 304 via ETag match", zoneId);
-            return ResponseEntity.status(HttpStatus.NOT_MODIFIED)
-                    .header(HttpHeaders.ETAG,          s3ETag)
-                    .header(HttpHeaders.CACHE_CONTROL, CACHE_CONTROL_VALUE)
-                    .build();
-        }
-
-        // ── Step 3: Evaluate If-Modified-Since ───────────────────────────────
-        if (ifModifiedSince != null && s3LastModified != null) {
-            try {
-                Instant clientTime = ZonedDateTime
-                        .parse(ifModifiedSince, DateTimeFormatter.RFC_1123_DATE_TIME)
-                        .toInstant();
-                if (!s3LastModified.isAfter(clientTime)) {
-                    logger.info("GET /background_images/stream/{}: 304 via Last-Modified", zoneId);
-                    return ResponseEntity.status(HttpStatus.NOT_MODIFIED)
-                            .header(HttpHeaders.LAST_MODIFIED, ifModifiedSince)
-                            .header(HttpHeaders.CACHE_CONTROL, CACHE_CONTROL_VALUE)
-                            .build();
-                }
-            } catch (DateTimeParseException e) {
-                logger.debug("Could not parse If-Modified-Since header: {}", ifModifiedSince);
-            }
-        }
-
-        // ── Step 4: Download and stream image bytes ───────────────────────────
         long start = System.currentTimeMillis();
         try (ResponseInputStream<GetObjectResponse> s3Stream =
                      backgroundImageService.downloadBackgroundImage(zoneId, key)) {
 
             GetObjectResponse s3Meta    = s3Stream.response();
-            String            contentType = s3Meta.contentType() != null
-                    ? s3Meta.contentType() : "image/jpeg";
-            byte[]            imageBytes  = s3Stream.readAllBytes();
-            long              totalMs     = System.currentTimeMillis() - start;
+            String contentType = s3Meta.contentType() != null ? s3Meta.contentType() : "image/jpeg";
+            byte[] imageBytes  = s3Stream.readAllBytes();
+            long   totalMs     = System.currentTimeMillis() - start;
 
             logger.info("GET /background_images/stream/{}: served {} bytes, contentType={}, totalMs={}",
                     zoneId, imageBytes.length, contentType, totalMs);
@@ -350,16 +303,10 @@ public class BackgroundImageEndpoint {
             headers.set(HttpHeaders.CONTENT_TYPE,  contentType);
             headers.set(HttpHeaders.CACHE_CONTROL, CACHE_CONTROL_VALUE);
             headers.setContentLength(imageBytes.length);
-            if (s3ETag != null) {
-                headers.set(HttpHeaders.ETAG, s3ETag);
-            }
-            if (s3LastModified != null) {
-                headers.setLastModified(s3LastModified);
-            }
             return ResponseEntity.ok().headers(headers).body(imageBytes);
 
         } catch (IOException e) {
-            logger.error("Error streaming cached image from S3: zone={}, key={}", zoneId, key, e);
+            logger.error("Error streaming image from S3: zone={}, key={}", zoneId, key, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
