@@ -61,7 +61,7 @@ public class BackgroundImageSecurityConfiguration {
         return (authentication, context) -> {
             String zoneId = IdentityZoneHolder.get().getId();
             String requiredScope = "zones." + zoneId + ".admin";
-            boolean granted = OAuth2ExpressionUtils.hasAnyScope(authentication.get(), requiredScope);
+            boolean granted = OAuth2ExpressionUtils.hasAnyScope(authentication.get(), new String[]{requiredScope});
             return new AuthorizationDecision(granted);
         };
     }
