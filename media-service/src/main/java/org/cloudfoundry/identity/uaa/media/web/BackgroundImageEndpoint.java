@@ -1,6 +1,7 @@
 package org.cloudfoundry.identity.uaa.media.web;
 
 import org.cloudfoundry.identity.uaa.media.service.BackgroundImageService;
+import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,6 +91,12 @@ public class BackgroundImageEndpoint {
             @RequestParam("file") MultipartFile file) {
 
         String zoneId = IdentityZoneHolder.get().getId();
+        if (IdentityZone.getUaaZoneId().equals(zoneId)) {
+            logger.warn("POST /background_images: upload rejected for UAA zone");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "not_permitted",
+                                 "error_description", "Image upload is not allowed for the UAA zone. Use the default S3 image."));
+        }
         logger.info("POST /background_images: zone={}, filename={}, size={}",
                 zoneId, file.getOriginalFilename(), file.getSize());
 
@@ -129,6 +136,12 @@ public class BackgroundImageEndpoint {
             @RequestParam("file") MultipartFile file) {
 
         String zoneId = IdentityZoneHolder.get().getId();
+        if (IdentityZone.getUaaZoneId().equals(zoneId)) {
+            logger.warn("PATCH /background_images: replace rejected for UAA zone");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "not_permitted",
+                                 "error_description", "Image upload is not allowed for the UAA zone. Use the default S3 image."));
+        }
         logger.info("PATCH /background_images: zone={}, filename={}, size={}",
                 zoneId, file.getOriginalFilename(), file.getSize());
 
@@ -197,6 +210,10 @@ public class BackgroundImageEndpoint {
     @DeleteMapping("")
     public ResponseEntity<Void> deleteBackgroundImage() {
         String zoneId = IdentityZoneHolder.get().getId();
+        if (IdentityZone.getUaaZoneId().equals(zoneId)) {
+            logger.warn("DELETE /background_images: delete rejected for UAA zone");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         logger.info("DELETE /background_images: zone={}", zoneId);
         boolean deleted = backgroundImageService.deleteBackgroundImage(zoneId);
         return deleted
