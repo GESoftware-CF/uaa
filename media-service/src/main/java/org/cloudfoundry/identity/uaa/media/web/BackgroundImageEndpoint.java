@@ -85,35 +85,17 @@ public class BackgroundImageEndpoint {
      * @param file multipart image file (PNG, JPEG, or WebP)
      * @return 201 Created with a presigned S3 URL and key for the uploaded image
      */
-    @PostMapping(value = {"", "/upload"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
-                 produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, Object>> uploadBackgroundImage(
+    @PostMapping(value = {"", "/upload"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Void> uploadBackgroundImage(
             @RequestParam("file") MultipartFile file) {
 
         String zoneId = IdentityZoneHolder.get().getId();
-        if (IdentityZone.getUaaZoneId().equals(zoneId)) {
-            logger.warn("POST /background_images: upload rejected for UAA zone");
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "not_permitted",
-                                 "error_description", "Image upload is not allowed for the UAA zone. Use the default S3 image."));
-        }
         logger.info("POST /background_images: zone={}, filename={}, size={}",
                 zoneId, file.getOriginalFilename(), file.getSize());
 
-        String s3Key = backgroundImageService.uploadBackgroundImage(file, zoneId);
+        backgroundImageService.uploadBackgroundImage(file, zoneId);
 
-        long    clampedExpiry = DEFAULT_PRESIGN_EXPIRY_MINUTES;
-        Instant expiresAt     = Instant.now().plusSeconds(clampedExpiry * 60);
-        String  presignedUrl  = backgroundImageService.getPresignedUrl(zoneId, s3Key, clampedExpiry);
-
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("zoneId",        zoneId);
-        response.put("key",           s3Key);
-        response.put("presignedUrl",  presignedUrl);
-        response.put("expiryMinutes", clampedExpiry);
-        response.put("expiresAt",     expiresAt.toString());
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.ok().build();
     }
 
     // -------------------------------------------------------------------------
@@ -136,12 +118,6 @@ public class BackgroundImageEndpoint {
             @RequestParam("file") MultipartFile file) {
 
         String zoneId = IdentityZoneHolder.get().getId();
-        if (IdentityZone.getUaaZoneId().equals(zoneId)) {
-            logger.warn("PATCH /background_images: replace rejected for UAA zone");
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "not_permitted",
-                                 "error_description", "Image upload is not allowed for the UAA zone. Use the default S3 image."));
-        }
         logger.info("PATCH /background_images: zone={}, filename={}, size={}",
                 zoneId, file.getOriginalFilename(), file.getSize());
 
