@@ -146,7 +146,7 @@ public class BackgroundImageService {
             config.setBranding(branding);
         }
         branding.setBackgroundImageUrl(publicUrl);
-        branding.setBackgroundImageUploadedAt(Instant.now());
+        branding.setBackgroundImageUploadedAt(Instant.now().toString());
         branding.setBackgroundImageUploadedBy(resolveUploader());
         zone.setConfig(config);
         zoneProvisioning.update(zone);
