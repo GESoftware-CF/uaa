@@ -9,6 +9,15 @@ spring:
       max-file-size: 10MB
       max-request-size: 11MB
 
+# Background image service
+background-image:
+  # S3 bucket that stores zone background images
+  storage:
+    bucket: ${BACKGROUND_IMAGE_BUCKET:fs-sec-uaa-background-image-int}
+  # Default public S3 URL shown when no zone-specific image has been uploaded.
+  # Leave blank to fall back to the built-in static asset (cf.png).
+  default-url: ${BACKGROUND_IMAGE_DEFAULT_URL:}
+
 device:
   assertion:
     proxy-public-key: |
