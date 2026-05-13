@@ -14,7 +14,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.UUID;
 
 /**
  * Business logic for background image upload and deletion.
@@ -62,14 +61,10 @@ public class BackgroundImageService {
      */
     public void uploadBackgroundImage(MultipartFile file, String zoneId) {
         String contentType = resolveContentType(file);
-        String originalFilename = file.getOriginalFilename() != null
-                ? file.getOriginalFilename() : "image";
 
-        // Delete the existing S3 object (if any) before uploading the new one
-        // so that only one image per zone exists in the bucket.
-        deleteExistingS3Image(zoneId);
-
-        String s3Key = buildKey(zoneId, originalFilename);
+        // Use a fixed key per zone so S3 PUT overwrites the previous image automatically.
+        // No explicit delete is needed; only one object per zone will ever exist.
+        String s3Key = buildKey(zoneId);
 
         logger.info("Uploading background image: bucket={}, key={}", bucket, s3Key);
 
@@ -86,31 +81,6 @@ public class BackgroundImageService {
         logger.info("Successfully uploaded to S3: {}, URL stored in zone config", publicUrl);
     }
 
-    /**
-     * Delete the existing S3 image for the given zone (best-effort).
-     * Extracts the S3 key from the currently stored URL in the zone config.
-     */
-    private void deleteExistingS3Image(String zoneId) {
-        try {
-            IdentityZone zone = zoneProvisioning.retrieve(zoneId);
-            IdentityZoneConfiguration config = zone.getConfig();
-            if (config == null || config.getBranding() == null) {
-                return;
-            }
-            String currentUrl = config.getBranding().getBackgroundImageUrl();
-            if (currentUrl == null || currentUrl.isBlank()) {
-                return;
-            }
-            String expectedPrefix = s3StorageManager.getDirectUrl(bucket, "");
-            if (currentUrl.startsWith(expectedPrefix)) {
-                String s3Key = currentUrl.substring(expectedPrefix.length());
-                s3StorageManager.delete(bucket, s3Key);
-                logger.info("Deleted previous S3 image before re-upload: bucket={}, key={}", bucket, s3Key);
-            }
-        } catch (Exception e) {
-            logger.warn("Could not delete previous S3 image for zone={}: {}", zoneId, e.getMessage());
-        }
-    }
 
     // -------------------------------------------------------------------------
     // Delete
@@ -201,11 +171,14 @@ public class BackgroundImageService {
     }
 
     /**
-     * Build the S3 key for the background image.
-     * Format: {@code uaa/background-images/{zoneId}/{uuid}_{filename}}
+     * Build a fixed S3 key for the zone's background image.
+     * Format: {@code uaa/background-images/{zoneId}/background-image}
+     *
+     * <p>Using a fixed key means every PUT to S3 overwrites the previous object,
+     * guaranteeing at most one image per zone without needing an explicit delete.
      */
-    private String buildKey(String zoneId, String originalFilename) {
-        return "uaa/background-images/" + zoneId + "/" + UUID.randomUUID() + "_" + originalFilename;
+    private String buildKey(String zoneId) {
+        return "uaa/background-images/" + zoneId + "/background-image";
     }
 
     /**
