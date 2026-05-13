@@ -3,6 +3,7 @@ package org.cloudfoundry.identity.uaa.zone;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
+import java.time.Instant;
 import java.util.Map;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -15,6 +16,9 @@ public class BrandingInformation implements BrandingInformationSource {
     private Map<String, String> footerLinks;
     private Banner banner;
     private Consent consent;
+    private String backgroundImageUrl;
+    private Instant backgroundImageUploadedAt;
+    private String backgroundImageUploadedBy;
 
     public Banner getBanner() {
         return banner;
@@ -78,6 +82,30 @@ public class BrandingInformation implements BrandingInformationSource {
 
     public Consent getConsent() {
         return consent;
+    }
+
+    public String getBackgroundImageUrl() {
+        return backgroundImageUrl;
+    }
+
+    public void setBackgroundImageUrl(String backgroundImageUrl) {
+        this.backgroundImageUrl = backgroundImageUrl;
+    }
+
+    public Instant getBackgroundImageUploadedAt() {
+        return backgroundImageUploadedAt;
+    }
+
+    public void setBackgroundImageUploadedAt(Instant backgroundImageUploadedAt) {
+        this.backgroundImageUploadedAt = backgroundImageUploadedAt;
+    }
+
+    public String getBackgroundImageUploadedBy() {
+        return backgroundImageUploadedBy;
+    }
+
+    public void setBackgroundImageUploadedBy(String backgroundImageUploadedBy) {
+        this.backgroundImageUploadedBy = backgroundImageUploadedBy;
     }
 
     public static class Banner {

@@ -17,11 +17,14 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title th:text="${(companyName != null and !companyName.isEmpty()) ? companyName : zoneName}" th:inline="text"></title>
     <link href='/resources/oss/images/square-logo.png' th:with="icon=${branding.getSquareLogo()}" th:href="@{${icon != null and !icon.isEmpty() ? 'data:image/png;base64,'+icon : (assetBaseUrl + '/images/square-logo.png')}}" rel='shortcut icon' />
-    <link rel="preload" as="image" th:href="${backgroundImageUrl != null ? backgroundImageUrl : 'https://uaa-int.pss-shared.dev.usw02.15.energy/background_images/stream/uaa'}" type="image/jpeg" />
-    <!-- Apply background image: use zone-specific S3 URL if available, otherwise fall back to static path -->
+    <!-- Preload background image: only when a zone-specific image is available -->
+    <th:block th:if="${backgroundImageUrl != null}">
+        <link rel="preload" as="image" th:href="${backgroundImageUrl}" type="image/jpeg" />
+    </th:block>
+    <!-- Apply background image: use zone-specific stream URL if available, otherwise fall back to static asset -->
     <style th:inline="text">
         body.predix-uaa {
-            background: url("[(${backgroundImageUrl != null ? backgroundImageUrl : 'https://uaa-int.pss-shared.dev.usw02.15.energy/background_images/stream/uaa'})]") no-repeat center center fixed;
+            background: url("[(${backgroundImageUrl != null ? backgroundImageUrl : assetBaseUrl + '/images/cf.png'})]") no-repeat center center fixed;
             background-size: cover;
         }
     </style>
