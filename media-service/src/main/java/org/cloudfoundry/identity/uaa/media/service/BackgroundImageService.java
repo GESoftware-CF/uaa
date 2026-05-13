@@ -64,6 +64,11 @@ public class BackgroundImageService {
         String contentType = resolveContentType(file);
         String originalFilename = file.getOriginalFilename() != null
                 ? file.getOriginalFilename() : "image";
+
+        // Delete the existing S3 object (if any) before uploading the new one
+        // so that only one image per zone exists in the bucket.
+        deleteExistingS3Image(zoneId);
+
         String s3Key = buildKey(zoneId, originalFilename);
 
         logger.info("Uploading background image: bucket={}, key={}", bucket, s3Key);
@@ -79,6 +84,32 @@ public class BackgroundImageService {
         updateZoneBackgroundImageUrl(zoneId, publicUrl);
 
         logger.info("Successfully uploaded to S3: {}, URL stored in zone config", publicUrl);
+    }
+
+    /**
+     * Delete the existing S3 image for the given zone (best-effort).
+     * Extracts the S3 key from the currently stored URL in the zone config.
+     */
+    private void deleteExistingS3Image(String zoneId) {
+        try {
+            IdentityZone zone = zoneProvisioning.retrieve(zoneId);
+            IdentityZoneConfiguration config = zone.getConfig();
+            if (config == null || config.getBranding() == null) {
+                return;
+            }
+            String currentUrl = config.getBranding().getBackgroundImageUrl();
+            if (currentUrl == null || currentUrl.isBlank()) {
+                return;
+            }
+            String expectedPrefix = s3StorageManager.getDirectUrl(bucket, "");
+            if (currentUrl.startsWith(expectedPrefix)) {
+                String s3Key = currentUrl.substring(expectedPrefix.length());
+                s3StorageManager.delete(bucket, s3Key);
+                logger.info("Deleted previous S3 image before re-upload: bucket={}, key={}", bucket, s3Key);
+            }
+        } catch (Exception e) {
+            logger.warn("Could not delete previous S3 image for zone={}: {}", zoneId, e.getMessage());
+        }
     }
 
     // -------------------------------------------------------------------------
