@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" dir="ltr" lang="en"
       th:with="assetBaseUrl=${@environment.getProperty('assetBaseUrl','/resources/oss')},
+                predixBaseUrl=${@environment.getProperty('predixBaseUrl','/resources/predix')},
                 isUaa=${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).isUaa()},
                 zoneName=${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).get()?.getName()},
                 branding=${T(org.cloudfoundry.identity.uaa.zone.MergedZoneBrandingInformation).resolveBranding()},
@@ -40,14 +41,14 @@
           th:href="@{${assetBaseUrl}+'/stylesheets/application.css'}"/>
     <link id="css-styles"
           rel="stylesheet"
-          href="/resources/oss/stylesheets/predix-styles.css"
-          th:href="@{${assetBaseUrl}+'/stylesheets/predix-styles.css'}"/>
+          href="/resources/predix/stylesheets/predix-styles.css"
+          th:href="@{${predixBaseUrl}+'/stylesheets/predix-styles.css'}"/>
     <link id="css-card"
           rel="stylesheet"
-          href="/resources/oss/stylesheets/predix-card-styles.css"
-          th:href="@{${assetBaseUrl}+'/stylesheets/predix-card-styles.css'}"/>
+          href="/resources/predix/stylesheets/predix-card-styles.css"
+          th:href="@{${predixBaseUrl}+'/stylesheets/predix-card-styles.css'}"/>
 
-    <script th:attr="data-asset-base=${assetBaseUrl}"
+    <script th:attr="data-asset-base=${assetBaseUrl},data-predix-base=${predixBaseUrl}"
             src="/resources/javascripts/browser-loader.js"
             th:src="@{/resources/javascripts/browser-loader.js}"></script>
   </head>

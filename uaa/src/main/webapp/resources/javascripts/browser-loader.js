@@ -15,6 +15,7 @@
     var scripts = document.getElementsByTagName('script');
     var thisScript = scripts[scripts.length - 1];
     var rawBase = thisScript.getAttribute('data-asset-base');
+    var rawPredixBase = thisScript.getAttribute('data-predix-base');
 
     /* Allowlist: only these server-known paths are permitted.
        Any other value (including empty, null, or injected strings) falls back
@@ -23,10 +24,17 @@
         '/resources/oss',
         '/resources/predix'
     ];
-    var assetBase = '/resources/oss'; /* safe default */
+    var assetBase = '/resources/predix'; /* safe default — predix has IE11 CSS variants */
     for (var a = 0; a < ALLOWED_BASES.length; a++) {
         if (rawBase === ALLOWED_BASES[a]) {
             assetBase = ALLOWED_BASES[a];
+            break;
+        }
+    }
+    var predixBase = '/resources/predix'; /* safe default */
+    for (var p = 0; p < ALLOWED_BASES.length; p++) {
+        if (rawPredixBase === ALLOWED_BASES[p]) {
+            predixBase = ALLOWED_BASES[p];
             break;
         }
     }
@@ -61,8 +69,8 @@
     if (isLegacyBrowser) {
         var cssStyles = document.getElementById('css-styles');
         var cssCard   = document.getElementById('css-card');
-        if (cssStyles) { cssStyles.href = assetBase + '/stylesheets/predix-styles-ie11.css'; }
-        if (cssCard)   { cssCard.href   = assetBase + '/stylesheets/predix-card-styles-ie11.css'; }
+        if (cssStyles) { cssStyles.href = predixBase + '/stylesheets/predix-styles-ie11.css'; }
+        if (cssCard)   { cssCard.href   = predixBase + '/stylesheets/predix-card-styles-ie11.css'; }
     }
 
     /* ------------------------------------------------------------------ */
