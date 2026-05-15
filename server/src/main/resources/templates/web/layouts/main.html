@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" dir="ltr" lang="en"
       th:with="assetBaseUrl=${@environment.getProperty('assetBaseUrl','/resources/oss')},
+                predixBaseUrl=${@environment.getProperty('predixBaseUrl','/resources/predix')},
                 isUaa=${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).isUaa()},
                 zoneName=${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).get()?.getName()},
                 branding=${T(org.cloudfoundry.identity.uaa.zone.MergedZoneBrandingInformation).resolveBranding()},
@@ -13,6 +14,7 @@
                 fallbackLogo=${assetBaseUrl+'/images/predix-word.svg'},
                 logo=${brandingLogo != null and !brandingLogo.isEmpty() ? 'data:image/png;base64,'+#strings.replace(#strings.replace(brandingLogo,'\r',''),'\n','') : fallbackLogo}" >
 <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title th:text="${(companyName != null and !companyName.isEmpty()) ? companyName : zoneName}" th:inline="text"></title>
     <link href='/resources/oss/images/square-logo.png' th:with="icon=${branding.getSquareLogo()}" th:href="@{${icon != null and !icon.isEmpty() ? 'data:image/png;base64,'+icon : (assetBaseUrl + '/images/square-logo.png')}}" rel='shortcut icon' />
     <link rel="preload" as="image" th:href="@{${assetBaseUrl}+'/images/background-image.png'}" type="image/png" />
@@ -25,12 +27,30 @@
     <meta name='keywords' content=""/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
     <link href="/vendor/font-awesome/css/font-awesome.min.css" th:href="@{/vendor/font-awesome/css/font-awesome.min.css}" rel="stylesheet"/>
-    <link href="/resources/oss/stylesheets/application.css" th:href="@{${assetBaseUrl}+'/stylesheets/application.css'}" rel="stylesheet"/>
-    <link th:href="@{${assetBaseUrl}+'/stylesheets/predix-styles.css'}" rel="stylesheet"/>
     <link th:href="@{${assetBaseUrl}+'/stylesheets/roboto.css'}" rel="stylesheet"/>
-    <link th:href="@{${assetBaseUrl}+'/stylesheets/predix-card-styles.css'}" rel="stylesheet"/>
     <link rel="stylesheet" media="screen" href="/resources/oss/stylesheets/chooser.css" th:href="@{/resources/oss/stylesheets/chooser.css}"/>
-        <script type="text/javascript" src="/resources/javascripts/last_login_time.js" th:src="@{'/resources/javascripts/last_login_time.js'}"></script>
+
+    <!--
+      Static render-blocking CSS links — the browser will not paint the body until
+      these are loaded, eliminating FOUC. browser-loader.js (below) swaps the href
+      to the -ie11 variants synchronously for IE11/EdgeHTML before <body> is parsed.
+    -->
+    <link id="css-app"
+          rel="stylesheet"
+          href="/resources/oss/stylesheets/application.css"
+          th:href="@{${assetBaseUrl}+'/stylesheets/application.css'}"/>
+    <link id="css-styles"
+          rel="stylesheet"
+          href="/resources/predix/stylesheets/predix-styles.css"
+          th:href="@{${predixBaseUrl}+'/stylesheets/predix-styles.css'}"/>
+    <link id="css-card"
+          rel="stylesheet"
+          href="/resources/predix/stylesheets/predix-card-styles.css"
+          th:href="@{${predixBaseUrl}+'/stylesheets/predix-card-styles.css'}"/>
+
+    <script th:attr="data-asset-base=${assetBaseUrl},data-predix-base=${predixBaseUrl}"
+            src="/resources/javascripts/browser-loader.js"
+            th:src="@{/resources/javascripts/browser-loader.js}"></script>
   </head>
 <body class="predix-uaa">
 

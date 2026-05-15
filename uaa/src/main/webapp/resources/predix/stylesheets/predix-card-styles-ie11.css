@@ -1,0 +1,1068 @@
+/* ============================================
+   PREDIX CARD STYLES
+   ============================================ */
+
+/* ============================================
+   BASE CARD STYLES
+   ============================================ */
+
+.predix-uaa__card {
+  padding: 20px;
+  margin: 20px auto;
+  max-width: 600px;
+}
+
+.predix-card {
+  overflow: hidden;
+  -webkit-transition: box-shadow 0.3s ease;
+  -moz-transition: box-shadow 0.3s ease;
+  transition: box-shadow 0.3s ease;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -ms-flex-direction: column;
+  flex-direction: column;
+  -webkit-box-pack: space-between;
+  -ms-flex-pack: space-between;
+  justify-content: space-between;
+  -webkit-box-align: center;
+  -ms-flex-align: center;
+  align-items: center;
+  box-sizing: border-box;
+  /* IE11: height is set dynamically by browser-loader.js after DOMContentLoaded
+     based on the card's natural scrollHeight. This avoids a hardcoded magic number
+     while still giving IE11 an explicit height so flex:1 children resolve correctly. */
+}
+
+.predix-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* ============================================
+   CARD COMPONENTS
+   ============================================ */
+
+/* Card Header */
+.predix-card .card-header {
+  background: linear-gradient(135deg, #1f4e79, #2c5aa0);
+  color: #ffffff;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  width: 100%;
+  text-align: center;
+}
+
+.predix-card .card-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-family: 'GE Inspira', sans-serif;
+  color: #ffffff;
+}
+
+/* Card Welcome Title */
+.card-welcome-title {
+  margin: 0 0 20px 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+  font-family: 'GE Inspira', sans-serif;
+  color: #1f4e79;
+  text-align: center;
+  line-height: 1.5;
+  -ms-flex-negative: 0; /* IE11 flex-shrink */
+  flex-shrink: 0; /* Prevent title from shrinking */
+}
+
+/* Card Body */
+.predix-card .card-body {
+  padding: 10px;
+  width: 100%;
+  -webkit-box-flex: 1;
+  -ms-flex: 1; /* IE11 flex: 1 */
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+.predix-card .card-text {
+  margin-bottom: 10px;
+  color: #666;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* Compact login content for fixed height */
+.predix-uaa__login {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -ms-flex-direction: column;
+  flex-direction: column;
+  -webkit-box-flex: 1;
+  -ms-flex: 1;
+  flex: 1;
+  /* IE11 bug: overflow:hidden on a flex item with flex:1 and no explicit ancestor height
+     causes the element to collapse to 0px, clipping all content including form inputs.
+     Use overflow:visible instead. */
+  overflow: visible;
+  -webkit-box-pack: justify;
+  -ms-flex-pack: justify;
+  justify-content: space-between;
+}
+
+.predix-uaa__login .u-p-- {
+  margin-bottom: 10px !important;
+}
+
+.predix-uaa__login p {
+  margin: 10px 0;
+  font-size: 12px;
+}
+
+/* Card Actions */
+.predix-card .card-actions {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -ms-flex-wrap: wrap;
+  flex-wrap: wrap;
+  -webkit-box-pack: center;
+  -ms-flex-pack: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.predix-card .card-actions > * {
+  margin: 5px;
+}
+
+/* ============================================
+   BUTTON STYLES
+   ============================================ */
+
+.predix-card .btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 500;
+  -webkit-transition: all 0.3s ease;
+  -moz-transition: all 0.3s ease;
+  transition: all 0.3s ease;
+  display: inline-block;
+}
+
+.predix-card .btn:focus {
+  outline: 2px solid #1f4e79;
+  outline-offset: 2px;
+}
+
+/* :focus-visible is not supported in IE11; IE11 will show standard focus outline */
+.predix-card .btn:focus-visible {
+  outline: 3px solid #1f4e79;
+  outline-offset: 2px;
+}
+
+/* Button Variants */
+.predix-card .btn-primary {
+  background: #1f4e79;
+  color: #ffffff;
+}
+
+.predix-card .btn-primary:hover {
+  background: #2c5aa0;
+  color: #ffffff;
+}
+
+.predix-card .btn-secondary {
+  background: #f8f9fa;
+  color: #1f4e79;
+  border: 1px solid #1f4e79;
+}
+
+.predix-card .btn-secondary:hover {
+  background: #1f4e79;
+  color: #ffffff;
+}
+
+/* Customer IDP Button */
+.customer-idp-login-button {
+  display: inline-block !important;
+  width: 100% !important;
+  padding: 8px 12px !important;
+  background-color: #C8FF08 !important;
+  color: #000 !important;
+  text-decoration: none !important;
+  border-radius: 4px !important;
+  text-align: center !important;
+  font-weight: 500 !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: background-color 0.2s ease !important;
+  box-sizing: border-box;
+  font-size: 14px !important;
+}
+
+.customer-idp-login-button:hover {
+  background-color: #B8EF00 !important;
+  color: #000 !important;
+}
+
+.customer-idp-login-button:focus {
+  outline: 2px solid #000;
+  outline-offset: 2px;
+}
+
+.customer-idp-login-button span {
+  color: #000 !important;
+}
+
+.customer-idp-login-button svg {
+  display: inline-block;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+/* ============================================
+   CARD CONTENT STYLES
+   ============================================ */
+
+.predix-card__header {
+  text-align: center;
+  width: 100%;
+}
+
+.predix-card__title {
+  color: #1f4e79;
+  font-size: 1.5rem;
+  margin: 0;
+  font-weight: 600;
+}
+
+.predix-card__content {
+  color: #000000;
+  text-align: center;
+  width: 100%;
+  line-height: 1.6;
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+/* Mobile First Approach (≤767px) */
+@media screen and (max-width: 767px) {
+  .predix-card {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+    max-width: none;
+  }
+  
+  .predix-card:hover {
+    box-shadow: none;
+  }
+  
+  /* Mobile-optimized buttons */
+  .predix-card .btn {
+    min-height: 44px; /* Touch-friendly size */
+    padding: 12px 24px;
+    font-size: 16px; /* Prevents iOS zoom */
+    min-width: 120px;
+  }
+  
+  /* Enhanced typography for mobile */
+  .predix-card__title,
+  .predix-card .card-title {
+    font-size: 1.75rem;
+  }
+  
+  /* Mobile card welcome title */
+  .card-welcome-title {
+    font-size: 1.5rem; /* Smaller on mobile: 1.5rem */
+    margin: 0 0 15px 0; /* Reduced margin */
+    padding: 0 15px; /* Side padding for narrow screens */
+  }
+  
+  /* Mobile footer layout */
+  .footer-links {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    padding: 0;
+    width: 100%;
+    text-align: center;
+  }
+
+  .footer-links > * + * {
+    margin-top: 20px;
+  }
+  
+  .footer-link-item {
+    width: 100%;
+    text-align: center;
+    display: flex;
+    justify-content: center;
+  }
+  
+  .footer-link-item a {
+    text-align: center;
+    display: block;
+    width: auto;
+  }
+  
+  .footer-link-item.create-account {
+    order: 1;
+  }
+  
+  .footer-link-item.reset-password {
+    order: 2;
+  }
+  
+  /* Mobile copyright styling */
+  .footer .copyright div {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    text-align: center;
+    font-family: Roboto;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 16px;
+    letter-spacing: 0.24px;
+    margin-bottom: -16px;
+    background: transparent;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    -ms-word-break: break-all;
+    max-width: 100%;
+  }
+}
+
+/* Tablet Styles (768px - 1024px) */
+@media screen and (min-width: 768px) and (max-width: 1024px) {
+  .predix-card {
+    background: rgba(0, 0, 0, 0.6) !important;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    margin: 15px auto 20px;
+    max-width: 750px;
+    overflow: hidden;
+  }
+  
+  .predix-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  }
+  
+  /* Tablet card welcome title */
+  .card-welcome-title {
+    font-size: 1.125rem;
+    margin: 0 0 10px 0;
+    padding: 0;
+    line-height: 1.2;
+  }
+
+  .card-body {
+    padding: 10px;
+    overflow: hidden;
+  }
+  
+  .footer-links {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 10px 0;
+    -ms-flex-wrap: wrap;
+    flex-wrap: wrap;
+  }
+
+  .footer-links > * {
+    margin: 10px;
+  }
+  
+  .footer-link-item.create-account,
+  .footer-link-item.reset-password {
+    text-align: center !important;
+  }
+  
+  .footer-link-item.create-account a,
+  .footer-link-item.reset-password a {
+    text-align: center !important;
+  }
+  
+  .footer .copyright div {
+    text-align: center;
+    font-family: Roboto, -webkit-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 16px;
+    letter-spacing: 0.24px;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    -ms-word-break: break-all;
+    max-width: 100%;
+  }
+}
+
+/* Desktop Styles (1025px - 1439px) */
+@media screen and (min-width: 1025px) and (max-width: 1439px) {
+  .predix-card {
+    background: rgba(0, 0, 0, 0.4) !important;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 10px;
+    margin: 20px auto 40px; /* Added bottom margin */
+    width: 640px;
+    max-width: 640px;
+    /* IE11: height is set dynamically by browser-loader.js — no hardcoded value here */
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  
+  .predix-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  }
+  
+  /* Desktop card welcome title */
+  .card-welcome-title {
+    font-size: 1.125rem; /* Smaller size to fit content */
+    margin: 0 0 10px 0; /* Minimal margin */
+    padding: 0;
+    line-height: 1.2;
+  }
+
+  .card-body {
+    padding: 10px;
+    overflow-x: hidden;
+    overflow-y: visible;
+    flex: 1;
+  }
+  
+  .footer-links {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    margin-bottom: 30px; /* Added margin for footer visibility */
+  }
+
+  .footer-links > * {
+    margin-left: 54px;
+    margin-right: 55px;
+  }
+  
+  .footer-link-item.create-account,
+  .footer-link-item.reset-password {
+    text-align: center !important;
+  }
+  
+  .footer-link-item.create-account a,
+  .footer-link-item.reset-password a {
+    text-align: center !important;
+  }
+  
+  .footer .copyright div {
+    text-align: center;
+    font-family: Roboto, -webkit-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 16px;
+    letter-spacing: 0.24px;
+    /* margin-bottom: var(--spacing-lg); */ /* Changed from -16px to positive margin */
+    /* padding-bottom: var(--spacing-md); */ /* Added padding for safe area */
+    background: gray;
+    background: -webkit-linear-gradient(gray, gray);
+    background: -moz-linear-gradient(gray, gray);
+    background: -o-linear-gradient(gray, gray);
+    background: linear-gradient(gray, gray);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    -ms-word-break: break-all;
+    max-width: 100%;
+  }
+}
+
+/* Extra Large Screens (≥1440px) */
+@media screen and (min-width: 1440px) {
+  .predix-card {
+    background: rgba(0, 0, 0, 0.77) !important;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    width: 640px;
+    max-width: 640px;
+    /* IE11: height is set dynamically by browser-loader.js — no hardcoded value here */
+    padding: 10px;
+    margin: 20px auto 40px;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  
+  .predix-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  }
+  
+  /* XL Desktop card welcome title */
+  .card-welcome-title {
+    font-size: 1.125rem; /* Smaller size to fit content */
+    margin: 0 0 10px 0; /* Minimal margin */
+    padding: 0;
+    line-height: 1.2;
+    letter-spacing: 0.5px; /* Subtle letter spacing for large screens */
+  }
+
+  .card-body {
+    padding: 10px;
+    overflow-x: hidden;
+    overflow-y: visible;
+    flex: 1;
+  }
+  
+  /* Enhanced typography for large screens */
+  .predix-card__title,
+  .predix-card .card-title {
+    font-size: 2rem;
+  }
+  
+  .predix-card .card-text,
+  .predix-card__content {
+    font-size: 1.125rem;
+    line-height: 1.7;
+  }
+  
+  .footer-links {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    margin-bottom: 40px; /* Added larger margin for extra large screens */
+  }
+
+  .footer-links > * {
+    margin-left: 54px;
+    margin-right: 55px;
+  }
+  
+  .footer-link-item.create-account,
+  .footer-link-item.reset-password {
+    text-align: center !important;
+  }
+  
+  .footer-link-item.create-account a,
+  .footer-link-item.reset-password a {
+    text-align: center !important;
+  }
+  
+  .footer .copyright div {
+    text-align: center;
+    font-family: Roboto!important;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 16px;
+    letter-spacing: 0.24px;
+    /* margin-bottom: var(--spacing-xl); */ /* Changed from -16px to positive margin */
+    /* padding-bottom: var(--spacing-lg); */ /* Added larger padding for extra large screens */
+    background: #EAEEF1;
+    background: -webkit-linear-gradient(gray, gray);
+    background: -moz-linear-gradient(gray, gray);
+    background: -o-linear-gradient(gray, gray);
+    background: #EAEEF1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+    color: #425866;
+    -ms-text-size-adjust: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    -ms-word-break: break-all;
+    max-width: 100%;
+  }
+}
+
+/* ============================================
+   ACCESSIBILITY & PREFERENCE SUPPORT
+   ============================================ */
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .predix-card,
+  .predix-card .btn {
+    -webkit-transition: none;
+    -moz-transition: none;
+    transition: none;
+  }
+}
+
+
+
+/* Dark Mode Support (Future Enhancement - not applicable for IE11) */
+
+/* Print Styles */
+@media print {
+  .predix-card {
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: 1px solid #e0e0e0;
+  }
+  
+  .predix-card .btn {
+    background: #ffffff !important;
+    color: #1f4e79 !important;
+    border: 1px solid #1f4e79;
+  }
+}
+
+/* ============================================
+   ENHANCED TOAST STYLES (New Design)
+   ============================================ */
+
+.toast {
+  padding: 0;
+  /* border: 1px solid #e6e6e6; */
+  /* border-left: 5px solid #7FAF1C; */
+  border-radius: 4px;
+  background-color: #fff;
+  max-width: 72ch;
+  font-size: 16px;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: stretch;
+  -ms-flex-align: stretch; /* IE11 align-items: stretch */
+  align-items: stretch;
+  margin-bottom: 1rem;
+  position: relative;
+  color: #333;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.toast__icon,
+.toast__close {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+  -ms-flex-align: center; /* IE11 align-items: center */
+  align-items: center;
+  -webkit-box-pack: center;
+  -ms-flex-pack: center; /* IE11 justify-content: center */
+  justify-content: center;
+}
+
+.toast__icon svg,
+.toast__close svg {
+  vertical-align: middle;
+  fill: currentColor; /* IE11: CSS fill overrides presentation attribute for reliable currentColor inheritance */
+}
+
+.toast__icon {
+  color: #ffffff;
+  font-size: 1.25em;
+  background-color: #7FAF1C;
+  padding: 1rem;
+  border-right: 1px solid rgba(0,0,0,0.05);
+  min-width: 3rem;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+  -ms-flex-align: center; /* IE11 align-items: center */
+  align-items: center;
+  -webkit-box-pack: center;
+  -ms-flex-pack: center; /* IE11 justify-content: center */
+  justify-content: center;
+}
+
+/* Responsive behavior for mobile devices - keep icon visible */
+@media (max-width: 576px) {
+  .toast__icon {
+    padding: 0.5rem;
+    min-width: 2rem;
+    font-size: 1em;
+  }
+  
+  .toast {
+    border-left-width: 4px; /* Keep the colored indicator */
+  }
+}
+
+.toast__close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+  background: transparent;
+  border: none;
+  z-index: 1; /* Ensure it's always clickable */
+}
+
+.toast__close:hover {
+  opacity: 1;
+}
+
+/* Responsive behavior for mobile devices */
+@media (max-width: 576px) {
+  .toast__close {
+    top: 0.4rem;
+    right: 0.4rem;
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+}
+
+.toast__content {
+  line-height: 1.5;
+  padding: 1rem 2rem 1rem 1rem; /* Extra padding right for close button */
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -ms-flex-direction: column;
+  flex-direction: column;
+  min-width: 0px;
+  -webkit-box-flex: 1;
+  -ms-flex: 1;
+  flex: 1;
+  text-align: left;
+}
+
+.toast__content > * + * {
+  margin-top: 8px;
+}
+
+.toast.inline .toast__content {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -ms-flex-direction: column;
+  flex-direction: column;
+  -webkit-box-align: start;
+  -ms-flex-align: start;
+  align-items: flex-start;
+}
+
+.toast.inline .toast__content > * + * {
+  margin-top: 4px;
+}
+
+/* Responsive behavior for mobile devices */
+@media (max-width: 576px) {
+  .toast__content {
+    padding: 0.5rem 1.25rem 0.5rem 0.5rem; /* Compact padding for mobile */
+    width: 100%; /* Ensure content takes full width when icon is hidden */
+  }
+  
+  .toast__message {
+    width: 100%; /* Full width for message on mobile */
+  }
+}
+
+.toast__message {
+  display: block;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.toast.inline .toast__message {
+  display: block;
+}
+
+
+
+.toast__description {
+  color: #555;
+  font-size: 16px;
+  font-weight: 400;
+  display: inline;
+  text-align: left;
+  font-family: Roboto, -webkit-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+
+
+.toast__actions {
+  -ms-flex-item-align: baseline; /* IE11 align-self */
+  align-self: baseline;
+  margin-left: 0.75rem;
+}
+
+.toast .btn {
+  background: transparent;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  padding: 8px 12px;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 500;
+  vertical-align: middle;
+  cursor: pointer;
+  -webkit-transition: all 0.2s ease;
+  transition: all 0.2s ease;
+}
+
+.toast .btn:hover {
+  background-color: #f5f5f5;
+  border-color: #999;
+}
+
+/* Success Toast Variant */
+.toast.toast--success {
+}
+
+.toast.toast--success .toast__icon {
+  background-color: #7FAF1C !important;
+  color: #ffffff;
+}
+
+/* Error Toast Variant */
+.toast.toast--error {
+}
+
+.toast.toast--error .toast__icon {
+  background-color: #B40000 !important;
+  color: #ffffff;
+}
+
+/* Warning Toast Variant */
+.toast.toast--warning {
+}
+
+.toast.toast--warning .toast__icon {
+  background-color: #f59e0b !important;
+  color: #ffffff;
+}
+
+/* Info Toast Variant */
+.toast.toast--info {
+}
+
+.toast.toast--info .toast__icon {
+  background-color: #00b3c8 !important;
+  color: #ffffff;
+}
+
+/* ============================================
+   RESPONSIVE TOAST STYLES FOR MOBILE/TABLET
+   ============================================ */
+
+/* Tablet responsive design */
+@media (max-width: 1024px) {
+  .toast {
+    font-size: 15px;
+    padding: 1.25rem;
+    max-width: 96%; /* IE11 fallback: calc(100vw - 2rem) broken with vw+calc */
+    max-width: calc(100vw - 2rem);
+    margin: 0 1rem 1rem 1rem;
+  }
+  
+  .toast__description {
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.4;
+  }
+  
+  .toast__icon {
+    font-size: 1.1em;
+  }
+  
+  .toast .btn {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+}
+
+/* Mobile responsive design */
+@media (max-width: 768px) {
+  .toast {
+    font-size: 16px;
+    padding: 0;
+    max-width: 98%; /* IE11 fallback: calc(100vw - 1rem) broken with vw+calc */
+    max-width: calc(100vw - 1rem);
+    margin: 0 0.5rem 1rem 0.5rem;
+    border-radius: 8px;
+  }
+  
+  .toast.inline .toast__content {
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+  }
+
+  .toast.inline .toast__content > * + * {
+    margin-top: 6px;
+  }
+  
+  .toast__description {
+    font-size: 15px;
+    line-height: 1.4;
+    color: inherit;
+  }
+  
+  .toast__icon {
+    font-size: 1.1em;
+    -ms-flex-item-align: start; /* IE11 align-self: flex-start */
+    align-self: flex-start;
+    padding: 0.6rem;
+  }
+  
+  .toast__close {
+    margin-left: 0;
+    padding: 6px;
+    -ms-flex-item-align: start; /* IE11 align-self: flex-start */
+    align-self: flex-start;
+  }
+  
+  .toast .btn {
+    padding: 10px 14px;
+    font-size: 14px;
+    min-width: 70px;
+    -ms-flex-item-align: start; /* IE11 align-self: flex-start */
+    align-self: flex-start;
+  }
+  
+  /* Stack content vertically on mobile */
+  .toast__message > * + * {
+    margin-top: 8px;
+  }
+  
+  .toast__actions {
+    margin-left: 0;
+    margin-top: 8px;
+  }
+}
+
+/* Small mobile devices */
+@media (max-width: 480px) {
+  .toast {
+    font-size: 15px;
+    padding: 0;
+    max-width: 99%; /* IE11 fallback: calc(100vw - 0.5rem) broken with vw+calc */
+    max-width: calc(100vw - 0.5rem);
+    margin: 0 0.25rem 1rem 0.25rem;
+  }
+  
+  .toast__description {
+    font-size: 14px;
+    line-height: 1.5;
+    word-break: break-word;
+    -ms-word-break: break-all; /* IE11 word-break fallback */
+    /* hyphens: auto is not supported in IE11 — omitted */
+  }
+  
+  .toast__icon {
+    font-size: 1em;
+    padding: 1.5rem 0.5rem 1.5rem 0.5rem;
+    /* padding-bottom: 30px; */
+  }
+  
+  .toast__close {
+    padding: 6px;
+  }
+  
+  .toast .btn {
+    padding: 10px 14px;
+    font-size: 14px;
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* Enhanced contrast and readability */
+@media (max-width: 768px) {
+  .toast.toast--error .toast__description {
+    color: #555;
+    font-weight: 400;
+  }
+  
+  .toast.toast--success .toast__description {
+    color: #555;
+    font-weight: 500;
+  }
+  
+  .toast .toast__description {
+    color: #555;
+    font-weight: 500;
+  }
+}
+
+/* Touch-friendly interactions */
+/* NOTE: (hover) and (pointer) media features are not supported in IE11.
+   IE11 ignores this entire block — touch targets use default sizing in IE11. */
+@media (hover: none) and (pointer: coarse) {
+  .toast__close {
+    min-width: 44px;
+    min-height: 44px;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+  }
+  
+  .toast .btn {
+    min-height: 44px;
+    padding: 12px 20px;
+  }
+}
+
+a.customer-idp-login-button {
+    color: black !important;
+}

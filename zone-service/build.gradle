@@ -4,10 +4,6 @@ plugins {
 
 group 'org.cloudfoundry.identity'
 
-repositories {
-    mavenCentral()
-}
-
 dependencies {
     implementation(libraries.springBootStarter)
     implementation(libraries.springBootStarterWeb){
