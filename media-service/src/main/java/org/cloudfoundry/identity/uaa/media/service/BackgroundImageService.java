@@ -14,17 +14,17 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.UUID;
 
 /**
  * Business logic for background image upload and deletion.
  *
  * <p>Upload flow:
  * <ol>
- *   <li>Derive S3 key: {@code uaa/background-images/{zoneId}/{uuid}_{filename}}</li>
- *   <li>Upload bytes to S3 via {@link S3StorageManager#upload}</li>
+ *   <li>Derive a <em>fixed</em> S3 key: {@code uaa/background-images/{zoneId}/background-image}</li>
+ *   <li>Upload bytes to S3 via {@link S3StorageManager#upload} — S3 overwrites the previous
+ *       object automatically, so no explicit delete step is required.</li>
  *   <li>Build the public S3 URL and store it in
- *       {@code identity_zone.config.branding.backgroundImageUrl}</li>
+ *       {@code identity_zone.config.branding.backgroundImageUrl}.</li>
  * </ol>
  *
  * <p>The login page reads the URL directly from the zone config — no GET API needed.
@@ -33,6 +33,9 @@ import java.util.UUID;
 public class BackgroundImageService {
 
     private static final Logger logger = LoggerFactory.getLogger(BackgroundImageService.class);
+
+    /** Fixed object name inside each zone's S3 folder. */
+    private static final String BACKGROUND_IMAGE_OBJECT_NAME = "background-image";
 
     private final S3StorageManager s3StorageManager;
     private final IdentityZoneProvisioning zoneProvisioning;
@@ -54,7 +57,9 @@ public class BackgroundImageService {
      * Upload a background image for the given zone to S3 and persist the public
      * S3 URL in the identity zone's config JSON.
      *
-     * <p>S3 key format: {@code uaa/background-images/{zoneId}/{uuid}_{originalFilename}}
+     * <p>A fixed S3 key is used per zone ({@code uaa/background-images/{zoneId}/background-image})
+     * so that each new upload automatically overwrites the previous image — no explicit
+     * delete step is required and there is no accumulation of old objects.
      *
      * @param file   multipart image file supplied by the caller
      * @param zoneId identity zone this image belongs to
@@ -63,12 +68,8 @@ public class BackgroundImageService {
     public void uploadBackgroundImage(MultipartFile file, String zoneId) {
         String contentType = resolveContentType(file);
 
-        // Delete the existing image from S3 before uploading the new one
-        deleteExistingS3Image(zoneId);
-
-        // Use a unique UUID key per upload so the URL always changes
-        String uuid = UUID.randomUUID().toString();
-        String s3Key = buildKey(zoneId, uuid);
+        // Fixed key: same path every time → S3 overwrites the previous object automatically.
+        String s3Key = buildFixedKey(zoneId);
 
         logger.info("Uploading background image: bucket={}, key={}", bucket, s3Key);
 
@@ -85,31 +86,6 @@ public class BackgroundImageService {
         logger.info("Successfully uploaded to S3: {}, URL stored in zone config", publicUrl);
     }
 
-    /**
-     * Delete the existing background image from S3 if one exists for this zone.
-     */
-    private void deleteExistingS3Image(String zoneId) {
-        try {
-            IdentityZone zone = zoneProvisioning.retrieve(zoneId);
-            if (zone.getConfig() == null || zone.getConfig().getBranding() == null) {
-                return;
-            }
-            String existingUrl = zone.getConfig().getBranding().getBackgroundImageUrl();
-            if (existingUrl == null || existingUrl.isBlank()) {
-                return;
-            }
-            String expectedPrefix = s3StorageManager.getDirectUrl(bucket, "");
-            if (existingUrl.startsWith(expectedPrefix)) {
-                String oldKey = existingUrl.substring(expectedPrefix.length());
-                s3StorageManager.delete(bucket, oldKey);
-                logger.info("Deleted previous S3 image: bucket={}, key={}", bucket, oldKey);
-            }
-        } catch (Exception e) {
-            logger.warn("Could not delete previous S3 image for zone={}: {}", zoneId, e.getMessage());
-        }
-    }
-
-
     // -------------------------------------------------------------------------
     // Delete
     // -------------------------------------------------------------------------
@@ -117,8 +93,8 @@ public class BackgroundImageService {
     /**
      * Delete the active background image for the given zone.
      *
-     * <p>Clears {@code config.branding.backgroundImageUrl} from the zone config.
-     * The S3 object is also deleted (best-effort).
+     * <p>Deletes the S3 object at the fixed key and clears
+     * {@code config.branding.backgroundImageUrl} from the zone config.
      *
      * @param zoneId the identity zone ID
      * @return {@code true} if an image URL was present and cleared, {@code false} otherwise
@@ -132,23 +108,19 @@ public class BackgroundImageService {
             return false;
         }
 
-        String currentUrl = config.getBranding().getBackgroundImageUrl();
-        logger.info("Deleting background image for zone={}, url={}", zoneId, currentUrl);
+        String s3Key = buildFixedKey(zoneId);
+        logger.info("Deleting background image for zone={}, key={}", zoneId, s3Key);
 
-        // Try to extract the S3 key from the URL and delete the object
         try {
-            String expectedPrefix = s3StorageManager.getDirectUrl(bucket, "");
-            if (currentUrl.startsWith(expectedPrefix)) {
-                String s3Key = currentUrl.substring(expectedPrefix.length());
-                s3StorageManager.delete(bucket, s3Key);
-                logger.info("Deleted S3 object: bucket={}, key={}", bucket, s3Key);
-            }
+            s3StorageManager.delete(bucket, s3Key);
+            logger.info("Deleted S3 object: bucket={}, key={}", bucket, s3Key);
         } catch (Exception e) {
             logger.warn("Failed to delete S3 object for zone={}: {}", zoneId, e.getMessage());
         }
 
-        // Clear the URL from zone config
         config.getBranding().setBackgroundImageUrl(null);
+        config.getBranding().setBackgroundImageUploadedAt(null);
+        config.getBranding().setBackgroundImageUploadedBy(null);
         zone.setConfig(config);
         zoneProvisioning.update(zone);
         logger.info("Cleared backgroundImageUrl from zone config: zoneId={}", zoneId);
@@ -199,14 +171,15 @@ public class BackgroundImageService {
     }
 
     /**
-     * Build a unique S3 key for the zone's background image.
-     * Format: {@code uaa/background-images/{zoneId}/{uuid}}
+     * Build the fixed S3 key for the zone's background image.
+     * Format: {@code uaa/background-images/{zoneId}/background-image}
      *
-     * <p>Each upload generates a new UUID so the URL changes, invalidating any
-     * cached references to the previous image.
+     * <p>Using a fixed key means every upload for the same zone overwrites
+     * the same S3 object — old images are replaced automatically by S3,
+     * and there is no accumulation of UUID-named objects.
      */
-    private String buildKey(String zoneId, String uuid) {
-        return "uaa/background-images/" + zoneId + "/" + uuid;
+    private static String buildFixedKey(String zoneId) {
+        return zoneId + "/" + BACKGROUND_IMAGE_OBJECT_NAME;
     }
 
     /**
