@@ -7,10 +7,12 @@ buildscript {
     apply(from: "dependencies.gradle")
 
     repositories {
-        mavenCentral()
-        gradlePluginPortal()
         maven {
-            url("https://plugins.gradle.org/m2/")
+            credentials {
+                username System.getenv('ARTIFACTORY_CREDENTIALS_USR')
+                password System.getenv('ARTIFACTORY_CREDENTIALS_PSW')
+            }
+            url gartRepoUrl
         }
     }
 
@@ -34,6 +36,17 @@ apply(plugin: "war")
 def geArtifactoryReader = System.getenv('ARTIFACTORY_CREDENTIALS_USR')
 def geArtifactoryReaderPassword  = System.getenv('ARTIFACTORY_CREDENTIALS_PSW')
 def proxyHost  = System.getenv('PROXY_HOST')
+
+// Shared closure to add the gart Artifactory maven repo to any RepositoryHandler
+ext.addGartRepo = { repoHandler ->
+    repoHandler.maven {
+        credentials {
+            username geArtifactoryReader
+            password geArtifactoryReaderPassword
+        }
+        url gartRepoUrl
+    }
+}
 def proxyPort  = System.getenv('PROXY_PORT')
 def nonProxyHosts = 'localhost|*.localhost'
 
@@ -50,13 +63,7 @@ allprojects {
     }
 
     repositories {
-        maven {
-            credentials {
-                username geArtifactoryReader
-                password geArtifactoryReaderPassword
-            }
-            url 'https://gart.software.gevernova.com/artifactory/pgog-fss-iam-uaa-mvn-virtual'
-        }
+        addGartRepo(repositories)
         // shibboleth.net is not reachable from the Jenkins nodes due to GE selling "3.0.0.0/8 address space" to Amazon.
         // Now, within GE, when Propel sends the wget command to the 3.213.250.186 address that shibboleth has,
         // it never makes it out of the GE network because it thinks 3.x.x.x is within GE network.
@@ -180,19 +187,21 @@ subprojects {
         maven {
             url("https://jitpack.io")
         }
-        maven {
-            credentials {
-                username geArtifactoryReader
-                password geArtifactoryReaderPassword
-            }
-            url 'https://gart.software.gevernova.com/artifactory/pgog-fss-iam-uaa-mvn-virtual'
-        }
+        addGartRepo(repositories)
     }
 
     tasks.withType(Test) {
         systemProperties = System.properties
         systemProperties['user.dir'] = workingDir
     }
+}
+
+// Download Tomcat via Gradle's authenticated dependency resolver (avoids unauthenticated HTTP download by Cargo)
+configurations {
+    tomcatInstaller
+}
+dependencies {
+    tomcatInstaller "org.apache.tomcat:tomcat:${tomcatCargoVersion}@tar.gz"
 }
 
 cargo {
@@ -271,7 +280,7 @@ cargo {
         }
 
         installer {
-            installUrl = "https://repo1.maven.org/maven2/org/apache/tomcat/tomcat/" + tomcatCargoVersion + "/tomcat-" + tomcatCargoVersion + ".tar.gz"
+            installUrl = configurations.tomcatInstaller.resolvedConfiguration.resolvedArtifacts.find { it.name == 'tomcat' }.file.toURI().toString()
             downloadDir = layout.buildDirectory.dir("download").get().asFile
             extractDir = layout.buildDirectory.dir("extract").get().asFile
         }
