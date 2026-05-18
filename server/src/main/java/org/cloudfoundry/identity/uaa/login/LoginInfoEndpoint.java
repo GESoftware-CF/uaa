@@ -150,7 +150,7 @@ public class LoginInfoEndpoint {
     private final ExternalOAuthProviderConfigurator externalOAuthProviderConfigurator;
     private final Links globalLinks;
     private final String entityID;
-    private final BackgroundImageUrlProvider backgroundImageUrlProvider;
+    private final Optional<BackgroundImageUrlProvider> backgroundImageUrlProvider;
 
     public LoginInfoEndpoint(
             final @Qualifier("zoneAwareAuthzAuthenticationManager") AuthenticationManager authenticationManager,
@@ -174,7 +174,7 @@ public class LoginInfoEndpoint {
         this.globalLinks = globalLinks;
         this.clientDetailsService = clientDetailsService;
         this.idpDefinitions = idpDefinitions;
-        this.backgroundImageUrlProvider = backgroundImageUrlProvider.orElse(null);
+        this.backgroundImageUrlProvider = backgroundImageUrlProvider;
         gitProperties = tryLoadAllProperties("git.properties");
         buildProperties = tryLoadAllProperties("build.properties");
     }
@@ -423,10 +423,9 @@ public class LoginInfoEndpoint {
         // Entity ID to start the discovery
         model.addAttribute(ENTITY_ID, zonifiedEntityID);
 
-        if (backgroundImageUrlProvider != null) {
-            backgroundImageUrlProvider.getBackgroundImageUrl()
-                    .ifPresent(url -> model.addAttribute(BACKGROUND_IMAGE_URL, url));
-        }
+        backgroundImageUrlProvider
+                .flatMap(BackgroundImageUrlProvider::getBackgroundImageUrl)
+                .ifPresent(url -> model.addAttribute(BACKGROUND_IMAGE_URL, url));
 
         String origin = request.getParameter("origin");
         populatePrompts(model, excludedPrompts, origin, samlIdentityProviders, oauthIdentityProviders, returnLoginPrompts);

@@ -44,6 +44,16 @@ import static org.cloudfoundry.identity.uaa.web.AuthorizationManagersUtils.anyOf
 public class BackgroundImageSecurityConfiguration {
 
     /**
+     * No-op provider required by {@link ProviderManager}; all authentication is handled
+     * by the OAuth2 resource filter. Provided explicitly to prevent Spring Boot
+     * auto-configuration from injecting an unwanted default provider.
+     */
+    private static final AuthenticationProvider NO_OP_PROVIDER = new AuthenticationProvider() {
+        @Override public Authentication authenticate(Authentication auth) { return null; }
+        @Override public boolean supports(Class<?> type) { return false; }
+    };
+
+    /**
      * Returns an {@link AuthorizationManager} that grants access if the bearer token contains
      * the scope {@code zones.{currentZoneId}.admin}, where {@code currentZoneId} is resolved
      * from {@link IdentityZoneHolder} at request time.
@@ -98,11 +108,7 @@ public class BackgroundImageSecurityConfiguration {
             @Qualifier("oauthAuthenticationEntryPoint") OAuth2AuthenticationEntryPoint oauthAuthenticationEntryPoint
     ) throws Exception {
 
-        // Placeholder: all auth is handled by oauth2ResourceFilter; explicit ProviderManager prevents Spring Boot auto-configuration
-        var emptyAuthenticationManager = new ProviderManager(new AuthenticationProvider() {
-            @Override public Authentication authenticate(Authentication auth) { return null; }
-            @Override public boolean supports(Class<?> type) { return false; }
-        });
+        var emptyAuthenticationManager = new ProviderManager(NO_OP_PROVIDER);
 
         OAuth2AuthenticationManager authenticationManager = new OAuth2AuthenticationManager();
         authenticationManager.setTokenServices(tokenServices);

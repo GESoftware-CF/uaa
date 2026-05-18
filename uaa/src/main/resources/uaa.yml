@@ -18,6 +18,10 @@ background-image:
   # Override per environment via the BACKGROUND_IMAGE_DEFAULT_URL environment variable.
   default-url: ${BACKGROUND_IMAGE_DEFAULT_URL:https://fs-sec-uaa-background-image-int.s3.us-west-2.amazonaws.com/uaa/default-image-folder/uaa-test.jpg}
 
+cloud:
+  aws:
+    region: ${AWS_REGION}
+
 device:
   assertion:
     proxy-public-key: |

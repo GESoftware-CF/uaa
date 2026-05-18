@@ -29,7 +29,7 @@ public class S3StorageManager {
     private final String awsRegion;
     private S3Client s3Client;
 
-    public S3StorageManager(@Value("${AWS_REGION}") String awsRegion) {
+    public S3StorageManager(@Value("${cloud.aws.region}") String awsRegion) {
         this.awsRegion = awsRegion;
     }
 
