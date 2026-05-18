@@ -14,14 +14,15 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
-import org.springframework.security.config.authentication.AuthenticationManagerBeanDefinitionParser;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter;
 
@@ -54,6 +55,7 @@ public class BackgroundImageSecurityConfiguration {
      */
     private static AuthorizationManager<RequestAuthorizationContext> isCurrentZoneAdmin() {
         return (authentication, context) -> {
+            // Resolved per-request — zone context is thread-local and changes per request
             String zoneId = IdentityZoneHolder.get().getId();
             String requiredScope = "zones." + zoneId + ".admin";
             boolean granted = OAuth2ExpressionUtils.hasAnyScope(authentication.get(), new String[]{requiredScope});
@@ -65,7 +67,7 @@ public class BackgroundImageSecurityConfiguration {
      * Convenience: anyOf().isUaaAdmin() | zones.write | zones.{currentZoneId}.admin
      * Works for both UAA-zone and subzone admin tokens.
      */
-    private static org.cloudfoundry.identity.uaa.web.AuthorizationManagersUtils.AnyOfAuthorizationManager writeAccess() {
+    private static AuthorizationManager<RequestAuthorizationContext> writeAccess() {
         return anyOf()
                 .isUaaAdmin()
                 .hasScope("zones.write")
@@ -96,8 +98,11 @@ public class BackgroundImageSecurityConfiguration {
             @Qualifier("oauthAuthenticationEntryPoint") OAuth2AuthenticationEntryPoint oauthAuthenticationEntryPoint
     ) throws Exception {
 
-        var emptyAuthenticationManager = new ProviderManager(
-                new AuthenticationManagerBeanDefinitionParser.NullAuthenticationProvider());
+        // Placeholder: all auth is handled by oauth2ResourceFilter; explicit ProviderManager prevents Spring Boot auto-configuration
+        var emptyAuthenticationManager = new ProviderManager(new AuthenticationProvider() {
+            @Override public Authentication authenticate(Authentication auth) { return null; }
+            @Override public boolean supports(Class<?> type) { return false; }
+        });
 
         OAuth2AuthenticationManager authenticationManager = new OAuth2AuthenticationManager();
         authenticationManager.setTokenServices(tokenServices);
@@ -106,12 +111,13 @@ public class BackgroundImageSecurityConfiguration {
         oauth2ResourceFilter.setAuthenticationManager(authenticationManager);
         oauth2ResourceFilter.setAuthenticationEntryPoint(oauthAuthenticationEntryPoint);
 
+        var access = writeAccess();
         var chain = http
                 .securityMatcher("/background_images", "/background_images/**")
                 .authenticationManager(emptyAuthenticationManager)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST,   "/background_images", "/background_images/upload").access(writeAccess())
-                        .requestMatchers(HttpMethod.DELETE, "/background_images", "/background_images/**").access(writeAccess())
+                        .requestMatchers(HttpMethod.POST,   "/background_images/upload").access(access)
+                        .requestMatchers(HttpMethod.DELETE, "/background_images", "/background_images/**").access(access)
                         .anyRequest().denyAll()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

@@ -16,8 +16,8 @@ dependencies {
     implementation(libraries.jacksonDatabind)
     implementation(libraries.slf4jApi)
 
-    // AWS SDK for S3 (synchronous client only for MVP)
-    implementation(platform("software.amazon.awssdk:bom:2.31.10"))
+    // AWS SDK v2 (synchronous client only for MVP)
+    implementation(platform(libraries.awsSdkV2Bom))
     implementation("software.amazon.awssdk:s3")
     implementation("software.amazon.awssdk:sts")  // Required for IRSA/WebIdentityTokenCredentialsProvider on EKS
 
@@ -36,5 +36,5 @@ dependencies {
 }
 
 integrationTest {}.onlyIf {
-    false // Disable until integration tests are written
+    false // TODO: Enable when integration tests are written
 }
