@@ -172,14 +172,14 @@ public class BackgroundImageService {
 
     /**
      * Build the fixed S3 key for the zone's background image.
-     * Format: {@code uaa/background-images/{zoneId}/background-image}
+     * Format: {@code uaa/{zoneId}/background-image}
      *
      * <p>Using a fixed key means every upload for the same zone overwrites
      * the same S3 object — old images are replaced automatically by S3,
      * and there is no accumulation of UUID-named objects.
      */
     private static String buildFixedKey(String zoneId) {
-        return zoneId + "/" + BACKGROUND_IMAGE_OBJECT_NAME;
+        return "uaa/" + zoneId + "/" + BACKGROUND_IMAGE_OBJECT_NAME;
     }
 
     /**
