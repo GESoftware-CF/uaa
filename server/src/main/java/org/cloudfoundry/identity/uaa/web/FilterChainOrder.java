@@ -60,8 +60,7 @@ public class FilterChainOrder {
     public static final int CODESTORE = 900;
 
     // media-service (background images): 950
-    public static final int BACKGROUND_IMAGES_PUBLIC = 949; // no-auth GET /background_images/url
-    public static final int BACKGROUND_IMAGES        = 950;
+    public static final int BACKGROUND_IMAGES = 950;
 
     // login-ui.xml: 1200
     public static final int AUTOLOGIN_CODE = 1200;
