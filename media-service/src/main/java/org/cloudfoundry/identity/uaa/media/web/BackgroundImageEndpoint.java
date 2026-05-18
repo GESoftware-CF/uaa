@@ -44,15 +44,15 @@ public class BackgroundImageEndpoint {
     /**
      * Upload a background image for the current identity zone.
      *
-     * <p>The image is stored in S3 under
-     * {@code uaa/background-images/{zoneId}/{uuid}_{filename}} and the public S3 URL
+     * <p>The image is stored in S3 at the fixed key
+     * {@code uaa/{zoneId}/background-image} and the public URL (with a {@code ?v=} cache-buster)
      * is persisted in the identity zone's config JSON at
      * {@code config.branding.backgroundImageUrl}.
      *
      * @param file multipart image file (PNG, JPEG, or WebP)
      * @return 200 OK on success
      */
-    @PostMapping(value = {"/upload"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Void> uploadBackgroundImage(
             @RequestParam("file") MultipartFile file) {
 
