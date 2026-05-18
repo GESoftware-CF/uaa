@@ -7,6 +7,8 @@ import org.cloudfoundry.identity.uaa.provider.JdbcIdentityProviderProvisioning;
 import org.cloudfoundry.identity.uaa.provider.KeyProviderProvisioning;
 import org.cloudfoundry.identity.uaa.provider.KeyProviderValidator;
 import org.cloudfoundry.identity.uaa.saml.SamlKey;
+import org.cloudfoundry.identity.uaa.zone.BrandingInformation;
+import org.junit.jupiter.api.Nested;
 import org.cloudfoundry.identity.uaa.scim.ScimGroup;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupProvisioning;
 import org.cloudfoundry.identity.uaa.util.AlphanumericRandomValueStringGenerator;
@@ -229,6 +231,112 @@ class IdentityZoneEndpointsTests {
         verify(mockApplicationEventPublisher).publishEvent(eventArgument.capture());
         final var capturedEvent = eventArgument.getValue();
         assertThat(capturedEvent.getDeleted()).isEqualTo(idz);
+    }
+
+    @Nested
+    class RestoreBrandingPropertiesTests {
+
+        private static final String EXISTING_IMAGE_URL    = "https://s3.example.com/img?v=1";
+        private static final String EXISTING_UPLOADED_AT  = "2024-01-01T00:00:00Z";
+        private static final String EXISTING_UPLOADED_BY  = "admin";
+
+        @Test
+        void shouldPreserveBackgroundImageUrlWhenNewZoneOmitsIt() {
+            IdentityZone existing = createZone();
+            existing.getConfig().setBranding(brandingWithImage(
+                    EXISTING_IMAGE_URL, EXISTING_UPLOADED_AT, EXISTING_UPLOADED_BY));
+
+            IdentityZone incoming = createZone();
+            incoming.getConfig().setBranding(new BrandingInformation());
+
+            endpoints.restoreBrandingProperties(existing, incoming);
+
+            assertThat(incoming.getConfig().getBranding().getBackgroundImageUrl())
+                    .isEqualTo(EXISTING_IMAGE_URL);
+            assertThat(incoming.getConfig().getBranding().getBackgroundImageUploadedAt())
+                    .isEqualTo(EXISTING_UPLOADED_AT);
+            assertThat(incoming.getConfig().getBranding().getBackgroundImageUploadedBy())
+                    .isEqualTo(EXISTING_UPLOADED_BY);
+        }
+
+        @Test
+        void shouldNotOverwriteBackgroundImageUrlWhenNewZoneProvidesOne() {
+            IdentityZone existing = createZone();
+            existing.getConfig().setBranding(brandingWithImage(
+                    "https://s3.example.com/old?v=1", EXISTING_UPLOADED_AT, EXISTING_UPLOADED_BY));
+
+            IdentityZone incoming = createZone();
+            incoming.getConfig().setBranding(brandingWithImage(
+                    "https://s3.example.com/new?v=2", "2024-06-01T00:00:00Z", "editor"));
+
+            endpoints.restoreBrandingProperties(existing, incoming);
+
+            assertThat(incoming.getConfig().getBranding().getBackgroundImageUrl())
+                    .isEqualTo("https://s3.example.com/new?v=2");
+        }
+
+        @Test
+        void shouldHandleNullNewZoneBrandingGracefully() {
+            IdentityZone existing = createZone();
+            existing.getConfig().setBranding(brandingWithImage(
+                    EXISTING_IMAGE_URL, EXISTING_UPLOADED_AT, EXISTING_UPLOADED_BY));
+
+            IdentityZone incoming = createZone();
+            incoming.getConfig().setBranding(null);
+
+            endpoints.restoreBrandingProperties(existing, incoming);
+        }
+
+        @Test
+        void shouldHandleNullExistingZoneBrandingGracefully() {
+            IdentityZone existing = createZone();
+            existing.getConfig().setBranding(null);
+
+            IdentityZone incoming = createZone();
+            incoming.getConfig().setBranding(new BrandingInformation());
+
+            // should not throw NPE and incoming branding should remain unchanged
+            endpoints.restoreBrandingProperties(existing, incoming);
+
+            assertThat(incoming.getConfig().getBranding().getBackgroundImageUrl()).isNull();
+        }
+
+        @Test
+        void shouldHandleNullConfigOnBothZonesGracefully() {
+            IdentityZone existing = createZone();
+            existing.setConfig(null);
+
+            IdentityZone incoming = createZone();
+            incoming.setConfig(null);
+
+            // should not throw NPE
+            endpoints.restoreBrandingProperties(existing, incoming);
+        }
+
+        @Test
+        void shouldPreserveAllThreeFieldsTogetherAsAtomicUnit() {
+            IdentityZone existing = createZone();
+            existing.getConfig().setBranding(brandingWithImage(
+                    "https://s3.example.com/img?v=99", "2025-01-15T10:30:00Z", "zone-admin"));
+
+            IdentityZone incoming = createZone();
+            incoming.getConfig().setBranding(new BrandingInformation());
+
+            endpoints.restoreBrandingProperties(existing, incoming);
+
+            BrandingInformation branding = incoming.getConfig().getBranding();
+            assertThat(branding.getBackgroundImageUrl()).isEqualTo("https://s3.example.com/img?v=99");
+            assertThat(branding.getBackgroundImageUploadedAt()).isEqualTo("2025-01-15T10:30:00Z");
+            assertThat(branding.getBackgroundImageUploadedBy()).isEqualTo("zone-admin");
+        }
+
+        private static BrandingInformation brandingWithImage(String url, String uploadedAt, String uploadedBy) {
+            BrandingInformation b = new BrandingInformation();
+            b.setBackgroundImageUrl(url);
+            b.setBackgroundImageUploadedAt(uploadedAt);
+            b.setBackgroundImageUploadedBy(uploadedBy);
+            return b;
+        }
     }
 
     private static IdentityZone createZone() {
