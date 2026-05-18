@@ -18,9 +18,10 @@ import java.time.Instant;
 /**
  * Business logic for background image upload and deletion.
  *
- * <p>Uploads to a fixed S3 key ({@code uaa/{zoneId}/background-image}); persists only the
- * upload timestamp in the zone config as a cache-busting token — the URL is computed at
- * read time so it cannot be erased by a concurrent {@code PUT /identity-zones/{id}}.
+ * <p>Uploads to a fixed S3 key ({@code uaa/{zoneId}/background-image}) and persists the
+ * public URL together with audit metadata ({@code uploadedAt}, {@code uploadedBy}) in
+ * {@code identity_zone.config.branding}. The URL includes a {@code ?v=} cache-buster
+ * timestamp updated on every upload.
  */
 @Service
 public class BackgroundImageService {

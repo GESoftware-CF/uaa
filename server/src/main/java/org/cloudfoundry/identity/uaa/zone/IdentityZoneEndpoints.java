@@ -337,9 +337,12 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
     }
 
     /**
-     * Preserves {@code backgroundImageUploadedAt}/{@code backgroundImageUploadedBy} in the zone
-     * config when a {@code PUT /identity-zones/{id}} body was prepared before the latest image
-     * upload completed, preventing the upload metadata from being silently overwritten.
+     * Preserves {@code backgroundImageUrl}, {@code backgroundImageUploadedAt}, and
+     * {@code backgroundImageUploadedBy} from the existing zone config when the incoming
+     * {@code PUT /identity-zones/{id}} body omits a background image URL.
+     *
+     * <p>This prevents a stale zone body (prepared before the latest image upload completed)
+     * from silently overwriting the URL stored by the upload.
      */
     protected void restoreBrandingProperties(IdentityZone existingZone, IdentityZone newZone) {
         if (newZone.getConfig() == null || existingZone.getConfig() == null) {

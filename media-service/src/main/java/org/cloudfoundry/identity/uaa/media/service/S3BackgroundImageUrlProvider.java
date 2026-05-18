@@ -45,7 +45,7 @@ public class S3BackgroundImageUrlProvider implements BackgroundImageUrlProvider 
             logger.warn("Failed to resolve zone background image URL; will try default", e);
         }
 
-        if (defaultImageUrl != null && !defaultImageUrl.isBlank()) {
+        if (!defaultImageUrl.isBlank()) {
             logger.debug("No zone-specific background image; using default URL: {}", defaultImageUrl);
             return Optional.of(defaultImageUrl);
         }
