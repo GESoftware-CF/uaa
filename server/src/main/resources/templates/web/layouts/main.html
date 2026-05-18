@@ -19,7 +19,7 @@
     <link href='/resources/oss/images/square-logo.png' th:with="icon=${branding.getSquareLogo()}" th:href="@{${icon != null and !icon.isEmpty() ? 'data:image/png;base64,'+icon : (assetBaseUrl + '/images/square-logo.png')}}" rel='shortcut icon' />
     <!-- Preload background image: only when a zone-specific image is available -->
     <th:block th:if="${backgroundImageUrl != null}">
-        <link rel="preload" as="image" th:href="${backgroundImageUrl}" type="image/jpeg" />
+        <link rel="preload" as="image" th:href="${backgroundImageUrl}" />
     </th:block>
 
     <meta charset='utf-8' />

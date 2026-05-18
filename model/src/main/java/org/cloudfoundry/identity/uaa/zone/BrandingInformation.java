@@ -16,6 +16,7 @@ public class BrandingInformation implements BrandingInformationSource {
     private Banner banner;
     private Consent consent;
     private String backgroundImageUrl;
+    /** ISO-8601 instant string (e.g. {@code 2024-01-15T10:30:00Z}) set on each upload. */
     private String backgroundImageUploadedAt;
     private String backgroundImageUploadedBy;
 

@@ -7,13 +7,16 @@ import org.cloudfoundry.identity.uaa.zone.IdentityZoneProvisioning;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.Set;
 
 /**
  * Business logic for background image upload and deletion.
@@ -30,6 +33,9 @@ public class BackgroundImageService {
 
     /** Fixed object name inside each zone's S3 folder. */
     private static final String BACKGROUND_IMAGE_OBJECT_NAME = "background-image";
+
+    /** Permitted MIME types for zone background images. */
+    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of("image/png", "image/jpeg", "image/webp");
 
     private final S3StorageManager s3StorageManager;
     private final IdentityZoneProvisioning zoneProvisioning;
@@ -48,10 +54,15 @@ public class BackgroundImageService {
     // -------------------------------------------------------------------------
 
     public void uploadBackgroundImage(MultipartFile file, String zoneId) {
+        String contentType = resolveContentType(file);
+        if (!ALLOWED_CONTENT_TYPES.contains(contentType)) {
+            throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                    "Unsupported image type '" + contentType + "'. Allowed: " + ALLOWED_CONTENT_TYPES);
+        }
         String s3Key = buildFixedKey(zoneId);
-        logger.info("Uploading background image: bucket={}, key={}", bucket, s3Key);
+        logger.info("Uploading background image: bucket={}, key={}, contentType={}", bucket, s3Key, contentType);
         try {
-            s3StorageManager.upload(bucket, s3Key, file.getInputStream(), file.getSize(), resolveContentType(file));
+            s3StorageManager.upload(bucket, s3Key, file.getInputStream(), file.getSize(), contentType);
         } catch (IOException e) {
             throw new RuntimeException("Failed to read uploaded image file", e);
         }
@@ -84,12 +95,8 @@ public class BackgroundImageService {
         String s3Key = buildFixedKey(zoneId);
         logger.info("Deleting background image for zone={}, key={}", zoneId, s3Key);
 
-        try {
-            s3StorageManager.delete(bucket, s3Key);
-            logger.info("Deleted S3 object: bucket={}, key={}", bucket, s3Key);
-        } catch (Exception e) {
-            logger.warn("Failed to delete S3 object for zone={}: {}", zoneId, e.getMessage());
-        }
+        s3StorageManager.delete(bucket, s3Key);
+        logger.info("Deleted S3 object: bucket={}, key={}", bucket, s3Key);
 
         config.getBranding().setBackgroundImageUrl(null);
         config.getBranding().setBackgroundImageUploadedAt(null);
