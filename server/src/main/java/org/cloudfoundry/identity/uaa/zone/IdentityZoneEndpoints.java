@@ -279,6 +279,7 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
             // make sure it exists
             IdentityZone existingZone = zoneDao.retrieveIgnoreActiveFlag(id);
             restoreSecretProperties(existingZone, body);
+            restoreBrandingProperties(existingZone, body);
             //validator require id to be present
             body.setId(id);
             body = validator.validate(body, IdentityZoneValidator.Mode.MODIFY);
@@ -332,6 +333,31 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Preserves {@code backgroundImageUploadedAt}/{@code backgroundImageUploadedBy} in the zone
+     * config when a {@code PUT /identity-zones/{id}} body was prepared before the latest image
+     * upload completed, preventing the upload metadata from being silently overwritten.
+     */
+    protected void restoreBrandingProperties(IdentityZone existingZone, IdentityZone newZone) {
+        if (newZone.getConfig() == null || existingZone.getConfig() == null) {
+            return;
+        }
+        BrandingInformation existingBranding = existingZone.getConfig().getBranding();
+        if (existingBranding == null) {
+            return;
+        }
+        BrandingInformation newBranding = newZone.getConfig().getBranding();
+        if (newBranding == null) {
+            newBranding = new BrandingInformation();
+            newZone.getConfig().setBranding(newBranding);
+        }
+        if (newBranding.getBackgroundImageUrl() == null) {
+            newBranding.setBackgroundImageUrl(existingBranding.getBackgroundImageUrl());
+            newBranding.setBackgroundImageUploadedAt(existingBranding.getBackgroundImageUploadedAt());
+            newBranding.setBackgroundImageUploadedBy(existingBranding.getBackgroundImageUploadedBy());
         }
     }
 

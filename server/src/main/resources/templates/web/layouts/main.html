@@ -21,14 +21,7 @@
     <th:block th:if="${backgroundImageUrl != null}">
         <link rel="preload" as="image" th:href="${backgroundImageUrl}" type="image/jpeg" />
     </th:block>
-    <!-- Apply background image: use zone-specific stream URL if available, otherwise fall back to static asset -->
-    <style th:inline="text">
-        body.predix-uaa {
-            background: url("[(${backgroundImageUrl != null ? backgroundImageUrl : assetBaseUrl + '/images/cf.png'})]") no-repeat center center fixed;
-            background-size: cover;
-        }
-    </style>
-    
+
     <meta charset='utf-8' />
     <meta name='author' th:content="|${companyName}|" />
     <meta name='copyright' th:content="|${copyright}|" />
@@ -61,6 +54,15 @@
     <script th:attr="data-asset-base=${assetBaseUrl},data-predix-base=${predixBaseUrl}"
             src="/resources/javascripts/browser-loader.js"
             th:src="@{/resources/javascripts/browser-loader.js}"></script>
+
+    <!-- Apply background image: placed AFTER predix-styles.css to override its static background-image.png rule.
+         Uses the zone-specific S3 URL when available; falls back to the static cf.png. -->
+    <style th:inline="text">
+        body.predix-uaa {
+            background: url("[(${backgroundImageUrl != null ? backgroundImageUrl : predixBaseUrl + '/images/background-image.png'})]") no-repeat center center fixed !important;
+            background-size: cover !important;
+        }
+    </style>
   </head>
 <body class="predix-uaa">
 

@@ -15,8 +15,8 @@ background-image:
   storage:
     bucket: ${BACKGROUND_IMAGE_BUCKET:fs-sec-uaa-background-image-int}
   # Default public S3 URL shown when no zone-specific image has been uploaded.
-  # Leave blank to fall back to the built-in static asset (cf.png).
-  default-url: ${BACKGROUND_IMAGE_DEFAULT_URL:}
+  # Override per environment via the BACKGROUND_IMAGE_DEFAULT_URL environment variable.
+  default-url: ${BACKGROUND_IMAGE_DEFAULT_URL:https://fs-sec-uaa-background-image-int.s3.us-west-2.amazonaws.com/uaa/default-image-folder/uaa-test.jpg}
 
 device:
   assertion:
