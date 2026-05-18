@@ -18,6 +18,7 @@ versions.opensaml = "4.0.1"
 versions.byteBuddyVersion = "1.17.6"
 versions.springCloud = "2.0.9.RELEASE"
 versions.jakartaElVersion = "3.0.4"
+versions.awsSdkV2Version = "2.31.10"
 
 // Versions we're overriding from the Spring Boot Bom (Dependabot does not issue PRs to bump these versions, so we need to manually bump them)
 ext["mariadb.version"] = "2.7.12" // Bumping to v3 breaks some pipeline jobs (and compatibility with Amazon Aurora MySQL), so pinning to v2 for now. v2 (current version) is stable and will be supported until about September 2025 (https://mariadb.com/kb/en/about-mariadb-connector-j/).
@@ -123,6 +124,7 @@ libraries.xmlUnit = "org.xmlunit:xmlunit-assertj"
 // AWS secret manager dependencies
 libraries.springAwsSecretsManager = "io.awspring.cloud:spring-cloud-starter-aws-secrets-manager-config:2.4.4"
 libraries.awsJavaSdkSts = "com.amazonaws:aws-java-sdk-sts:1.12.395"
+libraries.awsSdkV2Bom = "software.amazon.awssdk:bom:${versions.awsSdkV2Version}"
 
 libraries.springLogFilter = "com.ge.predix:spring-log-filter:3.0.4"
 
