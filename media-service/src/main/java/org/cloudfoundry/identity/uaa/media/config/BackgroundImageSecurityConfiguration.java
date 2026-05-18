@@ -19,7 +19,6 @@ import org.springframework.security.authorization.AuthorizationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AnonymousConfigurer;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.config.authentication.AuthenticationManagerBeanDefinitionParser;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -31,12 +30,8 @@ import static org.cloudfoundry.identity.uaa.web.AuthorizationManagersUtils.anyOf
 /**
  * Spring Security filter chain for the {@code /background_images} resource endpoints.
  *
- * <p>Security policy:
- * <ul>
- *   <li>GET  /background_images/**  – fully public, no authentication required, no token parsing</li>
- *   <li>POST, PATCH, DELETE /background_images/** – requires OAuth2 bearer token with
- *       {@code zones.{zoneId}.admin}, {@code zones.write}, or {@code uaa.admin} scope</li>
- * </ul>
+ * <p>Security policy: POST and DELETE require an OAuth2 bearer token with
+ * {@code zones.{zoneId}.admin}, {@code zones.write}, or {@code uaa.admin} scope.
  *
  * <p>Note: {@code isZoneAdmin()} only works for the UAA zone because it checks the token's
  * {@code zid} claim against the hardcoded UAA zone. For subzones, a custom authorization
@@ -80,36 +75,9 @@ public class BackgroundImageSecurityConfiguration {
 
 
     /**
-     * Fully public filter chain for all {@code GET /background_images/**} requests.
-     *
-     * <p>This chain runs <em>before</em> the main {@code backgroundImages} chain (order 950)
-     * and permits all GET requests without any token parsing, authentication, or CSRF checks.
-     * No {@code Authorization} header is required or inspected.
-     *
-     * @param http Spring Security HTTP builder
-     * @return configured {@link UaaFilterChain}
-     * @throws Exception if configuration fails
-     */
-    @Bean
-    @Order(FilterChainOrder.BACKGROUND_IMAGES_PUBLIC)
-    public UaaFilterChain backgroundImagePublicGet(HttpSecurity http) throws Exception {
-        var chain = http
-                .securityMatcher(request ->
-                        request.getMethod().equalsIgnoreCase(HttpMethod.GET.name())
-                        && request.getRequestURI().startsWith("/background_images"))
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .csrf(CsrfConfigurer::disable)
-                .anonymous(AnonymousConfigurer::disable)
-                .securityContext(sc -> sc.requireExplicitSave(false))
-                .build();
-        return new UaaFilterChain(chain, "backgroundImagePublicGet");
-    }
-
-    /**
      * Secured filter chain for write operations on {@code /background_images/**}.
      *
-     * <p>Handles POST, PATCH, and DELETE — all require a valid OAuth2 bearer token
+     * <p>Handles POST and DELETE — both require a valid OAuth2 bearer token
      * with {@code zones.write}, {@code uaa.admin}, or zone-admin scope.
      *
      * @param http                          Spring Security HTTP builder
@@ -143,7 +111,6 @@ public class BackgroundImageSecurityConfiguration {
                 .authenticationManager(emptyAuthenticationManager)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST,   "/background_images", "/background_images/upload").access(writeAccess())
-                        .requestMatchers(HttpMethod.PATCH,  "/background_images", "/background_images/**").access(writeAccess())
                         .requestMatchers(HttpMethod.DELETE, "/background_images", "/background_images/**").access(writeAccess())
                         .anyRequest().denyAll()
                 )
