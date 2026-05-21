@@ -63,11 +63,12 @@ public class UaaWebApplicationInitializer implements WebApplicationInitializer {
         springRegistration.setLoadOnStartup(1);
         springRegistration.addMapping("/");
         // Enable multipart support for file uploads (e.g. background image upload)
-        // Sizes must match spring.servlet.multipart limits configured in uaa.yml (5 MB / 6 MB)
+        // Size is driven by BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES (set in values.yaml via uaa-k8s-deploy).
+        long maxUploadSizeBytes = Long.parseLong(System.getenv("BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES"));
         springRegistration.setMultipartConfig(new MultipartConfigElement(
                 "",        // location (temp dir)
-                5242880L,  // maxFileSize 5 MB
-                6291456L,  // maxRequestSize 6 MB
+                maxUploadSizeBytes,
+                maxUploadSizeBytes,
                 0          // fileSizeThreshold
         ));
 

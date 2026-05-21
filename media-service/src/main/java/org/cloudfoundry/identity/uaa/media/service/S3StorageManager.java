@@ -58,6 +58,10 @@ public class S3StorageManager {
      * @param contentLength file size in bytes
      * @param contentType   MIME type
      */
+    // 365 days in seconds — images are replaced in-place (same key), so long-lived
+    // browser caching is safe; a new upload will serve fresh content via a new URL.
+    private static final String CACHE_CONTROL_ONE_YEAR = "public, max-age=31536000";
+
     public void upload(String bucket, String key, InputStream inputStream,
                        long contentLength, String contentType) {
         try {
@@ -67,6 +71,7 @@ public class S3StorageManager {
                             .key(key)
                             .contentType(contentType)
                             .contentLength(contentLength)
+                            .cacheControl(CACHE_CONTROL_ONE_YEAR)
                             .build(),
                     RequestBody.fromInputStream(inputStream, contentLength));
             logger.info("Successfully uploaded to S3: s3://{}/{}", bucket, key);
