@@ -40,13 +40,16 @@ public class BackgroundImageService {
     private final S3StorageManager s3StorageManager;
     private final IdentityZoneProvisioning zoneProvisioning;
     private final String bucket;
+    private final long maxFileSizeBytes;
 
     public BackgroundImageService(S3StorageManager s3StorageManager,
                                   IdentityZoneProvisioning zoneProvisioning,
-                                  @Value("${background-image.storage.bucket}") String bucket) {
+                                  @Value("${background-image.storage.bucket}") String bucket,
+                                  @Value("${background-image.upload.max-size-bytes}") long maxFileSizeBytes) {
         this.s3StorageManager = s3StorageManager;
         this.zoneProvisioning = zoneProvisioning;
         this.bucket = bucket;
+        this.maxFileSizeBytes = maxFileSizeBytes;
     }
 
     // -------------------------------------------------------------------------
@@ -54,6 +57,10 @@ public class BackgroundImageService {
     // -------------------------------------------------------------------------
 
     public void uploadBackgroundImage(MultipartFile file, String zoneId) {
+        if (file.getSize() > maxFileSizeBytes) {
+            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE,
+                    "Image exceeds maximum allowed size of " + maxFileSizeBytes + " bytes");
+        }
         String contentType = resolveContentType(file);
         if (!ALLOWED_CONTENT_TYPES.contains(contentType)) {
             throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE,

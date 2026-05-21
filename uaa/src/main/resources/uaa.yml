@@ -6,11 +6,14 @@ spring:
   servlet:
     multipart:
       enabled: true
-      max-file-size: 5MB
-      max-request-size: 6MB
+      max-file-size: ${background-image.upload.max-size-bytes}
+      max-request-size: ${background-image.upload.max-size-bytes}
 
 # Background image service
 background-image:
+  upload:
+    # Set via BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES in values.yaml (bytes, no default)
+    max-size-bytes: ${BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES}
   # S3 bucket that stores zone background images
   storage:
     bucket: ${BACKGROUND_IMAGE_BUCKET:fs-sec-uaa-background-image-int}
