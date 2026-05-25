@@ -74,7 +74,7 @@ public class BackgroundImageEndpoint {
      *
      * @return 204 No Content on success, 404 if no image exists for this zone
      */
-    @DeleteMapping("")
+    @DeleteMapping
     public ResponseEntity<Void> deleteBackgroundImage() {
         String zoneId = IdentityZoneHolder.get().getId();
         logger.info("DELETE /background_images: zone={}", zoneId);

@@ -314,4 +314,66 @@ class BackgroundImageServiceTest {
         zone.getConfig().getBranding().setBackgroundImageUploadedBy("admin");
         return zone;
     }
+
+    // -------------------------------------------------------------------------
+    // BackgroundImageUrlProvider — getBackgroundImageUrl()
+    // -------------------------------------------------------------------------
+
+    @Nested
+    class GetBackgroundImageUrl {
+
+        @BeforeEach
+        void setUpZoneHolder() {
+            org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder.set(buildZoneWithImage(ZONE_ID, BASE_URL + "?v=1"));
+        }
+
+        @AfterEach
+        void clearZoneHolder() {
+            org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder.clear();
+        }
+
+        @Test
+        void shouldReturnUrlFromCurrentZoneBranding() {
+            java.util.Optional<String> result = service.getBackgroundImageUrl();
+            assertThat(result).isPresent().hasValue(BASE_URL + "?v=1");
+        }
+
+        @Test
+        void shouldReturnEmptyWhenZoneHasNoBackgroundImageUrl() {
+            org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder.set(buildZone(ZONE_ID));
+            java.util.Optional<String> result = service.getBackgroundImageUrl();
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        void shouldReturnEmptyWhenBrandingUrlIsBlank() {
+            IdentityZone zone = buildZone(ZONE_ID);
+            zone.getConfig().getBranding().setBackgroundImageUrl("   ");
+            org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder.set(zone);
+            java.util.Optional<String> result = service.getBackgroundImageUrl();
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        void shouldReturnEmptyWhenZoneConfigIsNull() {
+            IdentityZone zone = new IdentityZone();
+            zone.setId(ZONE_ID);
+            zone.setConfig(null);
+            org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder.set(zone);
+            java.util.Optional<String> result = service.getBackgroundImageUrl();
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        void shouldReturnEmptyWhenBrandingIsNull() {
+            IdentityZone zone = new IdentityZone();
+            zone.setId(ZONE_ID);
+            IdentityZoneConfiguration config = new IdentityZoneConfiguration();
+            config.setBranding(null);
+            zone.setConfig(config);
+            org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder.set(zone);
+            java.util.Optional<String> result = service.getBackgroundImageUrl();
+            assertThat(result).isEmpty();
+        }
+    }
 }

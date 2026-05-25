@@ -14,7 +14,7 @@ This module provides background image management for UAA identity zones. Each zo
 ```
 UAA Web UI → POST /background_images/upload → BackgroundImageService → S3
                                                       └─> identity_zone.config.branding (URL + audit)
-Login page ← S3BackgroundImageUrlProvider ← identity_zone.config.branding.backgroundImageUrl
+Login page ← BackgroundImageService (implements BackgroundImageUrlProvider) ← identity_zone.config.branding.backgroundImageUrl
 ```
 
 ## REST API Endpoints

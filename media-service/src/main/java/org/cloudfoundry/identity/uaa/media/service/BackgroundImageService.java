@@ -1,8 +1,10 @@
 package org.cloudfoundry.identity.uaa.media.service;
 
+import org.cloudfoundry.identity.uaa.login.BackgroundImageUrlProvider;
 import org.cloudfoundry.identity.uaa.zone.BrandingInformation;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneProvisioning;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -27,7 +30,7 @@ import java.util.Set;
  * timestamp updated on every upload.
  */
 @Service
-public class BackgroundImageService {
+public class BackgroundImageService implements BackgroundImageUrlProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(BackgroundImageService.class);
 
@@ -75,15 +78,21 @@ public class BackgroundImageService {
         }
         Instant now = Instant.now();
         String url = s3StorageManager.getDirectUrl(bucket, s3Key) + "?v=" + now.toEpochMilli();
-        IdentityZone zone = zoneProvisioning.retrieve(zoneId);
-        IdentityZoneConfiguration config = zone.getConfig() != null ? zone.getConfig() : new IdentityZoneConfiguration();
-        BrandingInformation branding = config.getBranding() != null ? config.getBranding() : new BrandingInformation();
-        branding.setBackgroundImageUrl(url);
-        branding.setBackgroundImageUploadedAt(now.toString());
-        branding.setBackgroundImageUploadedBy(resolveUploader());
-        config.setBranding(branding);
-        zone.setConfig(config);
-        zoneProvisioning.update(zone);
+        try {
+            IdentityZone zone = zoneProvisioning.retrieve(zoneId);
+            IdentityZoneConfiguration config = zone.getConfig() != null ? zone.getConfig() : new IdentityZoneConfiguration();
+            BrandingInformation branding = config.getBranding() != null ? config.getBranding() : new BrandingInformation();
+            branding.setBackgroundImageUrl(url);
+            branding.setBackgroundImageUploadedAt(now.toString());
+            branding.setBackgroundImageUploadedBy(resolveUploader());
+            config.setBranding(branding);
+            zone.setConfig(config);
+            zoneProvisioning.update(zone);
+        } catch (Exception e) {
+            logger.error("S3 upload succeeded but DB update failed for zone={}; S3 key={} may be orphaned. URL={}",
+                    zoneId, s3Key, url, e);
+            throw new RuntimeException("Image uploaded to S3 but failed to persist URL in zone config", e);
+        }
         logger.info("Uploaded to S3 and stored URL in zone config: {}", url);
     }
 
@@ -93,25 +102,45 @@ public class BackgroundImageService {
     public boolean deleteBackgroundImage(String zoneId) {
         IdentityZone zone = zoneProvisioning.retrieve(zoneId);
         IdentityZoneConfiguration config = zone.getConfig();
-        if (config == null || config.getBranding() == null
-                || config.getBranding().getBackgroundImageUrl() == null) {
+        BrandingInformation branding = config != null ? config.getBranding() : null;
+        if (branding == null || branding.getBackgroundImageUrl() == null) {
             logger.info("Delete requested but no background image in zone config: zoneId={}", zoneId);
             return false;
         }
 
         String s3Key = buildFixedKey(zoneId);
         logger.info("Deleting background image for zone={}, key={}", zoneId, s3Key);
-
         s3StorageManager.delete(bucket, s3Key);
-        logger.info("Deleted S3 object: bucket={}, key={}", bucket, s3Key);
 
-        config.getBranding().setBackgroundImageUrl(null);
-        config.getBranding().setBackgroundImageUploadedAt(null);
-        config.getBranding().setBackgroundImageUploadedBy(null);
-        zone.setConfig(config);
+        branding.setBackgroundImageUrl(null);
+        branding.setBackgroundImageUploadedAt(null);
+        branding.setBackgroundImageUploadedBy(null);
         zoneProvisioning.update(zone);
         logger.info("Cleared background image metadata from zone config: zoneId={}", zoneId);
         return true;
+    }
+
+    // -------------------------------------------------------------------------
+    // BackgroundImageUrlProvider
+    // -------------------------------------------------------------------------
+
+    /**
+     * Resolves the background image URL for the currently active identity zone from
+     * {@code identity_zone.config.branding.backgroundImageUrl}.
+     *
+     * @return the configured URL, or {@link Optional#empty()} when none is set
+     */
+    @Override
+    public Optional<String> getBackgroundImageUrl() {
+        try {
+            return Optional.ofNullable(IdentityZoneHolder.get().getConfig())
+                    .map(IdentityZoneConfiguration::getBranding)
+                    .map(BrandingInformation::getBackgroundImageUrl)
+                    .filter(url -> !url.isBlank());
+        } catch (Exception e) {
+            logger.warn("Failed to resolve background image URL; falling back to default", e);
+            return Optional.empty();
+        }
     }
 
     private static String resolveUploader() {
