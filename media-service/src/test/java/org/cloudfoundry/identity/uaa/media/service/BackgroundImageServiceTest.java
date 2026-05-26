@@ -42,6 +42,7 @@ class BackgroundImageServiceTest {
     private static final String PNG_TYPE  = "image/png";
     private static final String PNG_FILE  = "img.png";
     private static final byte[] IMG_BYTES = "bytes".getBytes();
+    private static final long   MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024L; // 5 MB
 
     @Mock private S3StorageManager s3StorageManager;
     @Mock private IdentityZoneProvisioning zoneProvisioning;
@@ -50,7 +51,7 @@ class BackgroundImageServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new BackgroundImageService(s3StorageManager, zoneProvisioning, BUCKET);
+        service = new BackgroundImageService(s3StorageManager, zoneProvisioning, BUCKET, MAX_FILE_SIZE_BYTES);
     }
 
     @AfterEach
@@ -209,6 +210,65 @@ class BackgroundImageServiceTest {
             String url = cap.getValue().getConfig().getBranding().getBackgroundImageUrl();
             long version = Long.parseLong(url.substring(url.indexOf("?v=") + 3));
             assertThat(version).isBetween(before, after);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Upload — size validation
+    // -------------------------------------------------------------------------
+
+    @Nested
+    class UploadSizeValidation {
+
+        @Test
+        void shouldReject413WhenFileSizeExceedsMaximum() {
+            byte[] oversized = new byte[(int) MAX_FILE_SIZE_BYTES + 1];
+            MockMultipartFile file = new MockMultipartFile("file", PNG_FILE, PNG_TYPE, oversized);
+
+            assertThatThrownBy(() -> service.uploadBackgroundImage(file, ZONE_ID))
+                    .isInstanceOf(ResponseStatusException.class)
+                    .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode())
+                            .isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE));
+
+            verifyNoInteractions(s3StorageManager, zoneProvisioning);
+        }
+
+        @Test
+        void shouldAcceptFileAtExactMaximumSize() throws Exception {
+            byte[] exactSize = new byte[(int) MAX_FILE_SIZE_BYTES];
+            MockMultipartFile file = new MockMultipartFile("file", PNG_FILE, PNG_TYPE, exactSize);
+            when(zoneProvisioning.retrieve(ZONE_ID)).thenReturn(buildZone(ZONE_ID));
+            when(s3StorageManager.getDirectUrl(any(), any())).thenReturn(BASE_URL);
+
+            service.uploadBackgroundImage(file, ZONE_ID);
+
+            verify(s3StorageManager).upload(eq(BUCKET), eq(S3_KEY), any(), eq(MAX_FILE_SIZE_BYTES), eq(PNG_TYPE));
+        }
+
+        @Test
+        void shouldAcceptFileBelowMaximumSize() throws Exception {
+            byte[] smallContent = new byte[1024]; // 1 KB — well within limit
+            MockMultipartFile file = new MockMultipartFile("file", PNG_FILE, PNG_TYPE, smallContent);
+            when(zoneProvisioning.retrieve(ZONE_ID)).thenReturn(buildZone(ZONE_ID));
+            when(s3StorageManager.getDirectUrl(any(), any())).thenReturn(BASE_URL);
+
+            service.uploadBackgroundImage(file, ZONE_ID);
+
+            verify(s3StorageManager).upload(eq(BUCKET), eq(S3_KEY), any(), eq(1024L), eq(PNG_TYPE));
+        }
+
+        @Test
+        void shouldCheckSizeBeforeContentTypeToAvoidReadingLargeFiles() {
+            // File is BOTH oversized AND wrong type; 413 must be thrown (size checked first)
+            byte[] oversized = new byte[(int) MAX_FILE_SIZE_BYTES + 1];
+            MockMultipartFile file = new MockMultipartFile("file", "img.gif", "image/gif", oversized);
+
+            assertThatThrownBy(() -> service.uploadBackgroundImage(file, ZONE_ID))
+                    .isInstanceOf(ResponseStatusException.class)
+                    .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode())
+                            .isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE));
+
+            verifyNoInteractions(s3StorageManager, zoneProvisioning);
         }
     }
 

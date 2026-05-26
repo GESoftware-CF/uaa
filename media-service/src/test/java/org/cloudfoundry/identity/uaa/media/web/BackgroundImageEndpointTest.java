@@ -11,9 +11,12 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.server.ResponseStatusException;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -37,7 +40,9 @@ class BackgroundImageEndpointTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(endpoint).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(endpoint)
+                .setControllerAdvice(new FallbackExceptionHandler())
+                .build();
         IdentityZone zone = new IdentityZone();
         zone.setId(ZONE_ID);
         IdentityZoneHolder.set(zone);
@@ -46,6 +51,17 @@ class BackgroundImageEndpointTest {
     @AfterEach
     void tearDown() {
         IdentityZoneHolder.clear();
+    }
+
+    @ControllerAdvice
+    static class FallbackExceptionHandler {
+        @ExceptionHandler(RuntimeException.class)
+        public ResponseEntity<Void> handleRuntimeException(RuntimeException e) {
+            if (e instanceof ResponseStatusException rse) {
+                return ResponseEntity.status(rse.getStatusCode()).build();
+            }
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -70,6 +86,16 @@ class BackgroundImageEndpointTest {
 
         mockMvc.perform(multipart("/background_images/upload").file(file))
                 .andExpect(status().isUnsupportedMediaType());
+    }
+
+    @Test
+    void upload_serviceThrowsPayloadTooLarge_returns413() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "image.png", "image/png", "data".getBytes());
+        doThrow(new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Image exceeds maximum allowed size"))
+                .when(backgroundImageService).uploadBackgroundImage(any(), any());
+
+        mockMvc.perform(multipart("/background_images/upload").file(file))
+                .andExpect(status().isPayloadTooLarge());
     }
 
     @Test
