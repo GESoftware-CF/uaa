@@ -9,6 +9,7 @@ import org.cloudfoundry.identity.uaa.zone.IdentityZoneProvisioning;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -30,6 +31,7 @@ import java.util.Set;
  * timestamp updated on every upload.
  */
 @Service
+@ConditionalOnProperty(name = "BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES")
 public class BackgroundImageService implements BackgroundImageUrlProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(BackgroundImageService.class);
@@ -47,8 +49,8 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
 
     public BackgroundImageService(S3StorageManager s3StorageManager,
                                   IdentityZoneProvisioning zoneProvisioning,
-                                  @Value("${background-image.storage.bucket}") String bucket,
-                                  @Value("${background-image.upload.max-size-bytes}") long maxFileSizeBytes) {
+                                  @Value("${BACKGROUND_IMAGE_BUCKET}") String bucket,
+                                  @Value("${BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES}") long maxFileSizeBytes) {
         this.s3StorageManager = s3StorageManager;
         this.zoneProvisioning = zoneProvisioning;
         this.bucket = bucket;

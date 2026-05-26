@@ -5,6 +5,7 @@ import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -22,6 +23,7 @@ import java.io.InputStream;
  * {@link #upload}, {@link #getDirectUrl}, and {@link #delete}.
  */
 @Service
+@ConditionalOnProperty(name = "AWS_REGION")
 public class S3StorageManager {
 
     private static final Logger logger = LoggerFactory.getLogger(S3StorageManager.class);
@@ -29,7 +31,7 @@ public class S3StorageManager {
     private final String awsRegion;
     private S3Client s3Client;
 
-    public S3StorageManager(@Value("${cloud.aws.region}") String awsRegion) {
+    public S3StorageManager(@Value("${AWS_REGION}") String awsRegion) {
         this.awsRegion = awsRegion;
     }
 
