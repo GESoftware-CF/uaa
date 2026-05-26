@@ -2,28 +2,12 @@
 # if any of these exist:
 # [$UAA_CONFIG_URL, $UAA_CONFIG_PATH/uaa.yml, $CLOUDFOUNDRY_CONFIG_PATH/uaa.yml]
 
-spring:
-  servlet:
-    multipart:
-      enabled: true
-      max-file-size: ${background-image.upload.max-size-bytes}
-      max-request-size: ${background-image.upload.max-size-bytes}
-
 # Background image service
+# All env vars (BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES, AWS_REGION, BACKGROUND_IMAGE_BUCKET)
+# are read directly by BackgroundImageService and S3StorageManager, which are @ConditionalOnProperty
+# and only created when those env vars are present (set via k8s-deploy values.yaml).
 background-image:
-  upload:
-    # Set via BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES in values.yaml (bytes, no default)
-    max-size-bytes: ${BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES}
-  # S3 bucket that stores zone background images
-  storage:
-    bucket: ${BACKGROUND_IMAGE_BUCKET:fs-sec-uaa-background-image-int}
-  # Default background image shown when no zone-specific image has been uploaded.
-  # Served from the local static resources; override per environment via BACKGROUND_IMAGE_DEFAULT_URL.
   default-url: ${BACKGROUND_IMAGE_DEFAULT_URL:/resources/predix/images/uaa-test.jpg}
-
-cloud:
-  aws:
-    region: ${AWS_REGION}
 
 device:
   assertion:

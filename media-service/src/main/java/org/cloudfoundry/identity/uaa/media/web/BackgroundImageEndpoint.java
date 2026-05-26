@@ -4,6 +4,7 @@ import org.cloudfoundry.identity.uaa.media.service.BackgroundImageService;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -27,6 +28,7 @@ import org.springframework.web.multipart.MultipartFile;
  */
 @RestController
 @RequestMapping("/background_images")
+@ConditionalOnBean(BackgroundImageService.class)
 public class BackgroundImageEndpoint {
 
     private static final Logger logger = LoggerFactory.getLogger(BackgroundImageEndpoint.class);
