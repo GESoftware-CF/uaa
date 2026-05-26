@@ -64,7 +64,7 @@ public class UaaWebApplicationInitializer implements WebApplicationInitializer {
         springRegistration.addMapping("/");
         // Enable multipart support for file uploads (e.g. background image upload)
         // Size is driven by BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES (set in values.yaml via uaa-k8s-deploy).
-        long maxUploadSizeBytes = Long.parseLong(System.getenv("BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES"));
+        long maxUploadSizeBytes = Long.parseLong(getEnvVar("BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES"));
         springRegistration.setMultipartConfig(new MultipartConfigElement(
                 "",        // location (temp dir)
                 maxUploadSizeBytes,
@@ -101,5 +101,14 @@ public class UaaWebApplicationInitializer implements WebApplicationInitializer {
             error.setLocation("/error");
             standardContext.addErrorPage(error);
         }
+    }
+
+    /**
+     * Returns the value of the named environment variable.
+     * Extracted for testability — tests can override this method to inject values
+     * without setting real process environment variables.
+     */
+    String getEnvVar(String name) {
+        return System.getenv(name);
     }
 }
