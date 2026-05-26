@@ -2,13 +2,6 @@
 # if any of these exist:
 # [$UAA_CONFIG_URL, $UAA_CONFIG_PATH/uaa.yml, $CLOUDFOUNDRY_CONFIG_PATH/uaa.yml]
 
-# Background image service
-# All env vars (BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES, AWS_REGION, BACKGROUND_IMAGE_BUCKET)
-# are read directly by BackgroundImageService and S3StorageManager, which are @ConditionalOnProperty
-# and only created when those env vars are present (set via k8s-deploy values.yaml).
-background-image:
-  default-url: ${BACKGROUND_IMAGE_DEFAULT_URL:/resources/predix/images/uaa-test.jpg}
-
 device:
   assertion:
     proxy-public-key: |
