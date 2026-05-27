@@ -103,4 +103,19 @@ class UaaWebApplicationInitializerTest {
         assertThat(config.getFileSizeThreshold()).isZero();
     }
 
+    @Test
+    void shouldNotRequireMultipartEnvVarDuringStartup() throws ServletException {
+        initializer = new UaaWebApplicationInitializer() {
+            @Override
+            String getEnvVar(String name) {
+                return null;
+            }
+        };
+
+        initializer.onStartup(servletContext);
+
+        Mockito.verify(servletRegistration, Mockito.never())
+                .setMultipartConfig(ArgumentMatchers.any(MultipartConfigElement.class));
+    }
+
 }
