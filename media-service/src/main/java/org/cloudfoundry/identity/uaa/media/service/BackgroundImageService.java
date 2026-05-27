@@ -31,7 +31,7 @@ import java.util.Set;
  * timestamp updated on every upload.
  */
 @Service
-@ConditionalOnProperty(name = {"AWS_REGION", "BACKGROUND_IMAGE_BUCKET", "BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES"})
+@ConditionalOnProperty(name = {"AWS_REGION", "BACKGROUND_IMAGE_STORAGE_BUCKET", "BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES"})
 public class BackgroundImageService implements BackgroundImageUrlProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(BackgroundImageService.class);
@@ -49,7 +49,7 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
 
     public BackgroundImageService(S3StorageManager s3StorageManager,
                                   IdentityZoneProvisioning zoneProvisioning,
-                                  @Value("${BACKGROUND_IMAGE_BUCKET}") String bucket,
+                                  @Value("${BACKGROUND_IMAGE_STORAGE_BUCKET}") String bucket,
                                   @Value("${BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES}") long maxFileSizeBytes) {
         this.s3StorageManager = s3StorageManager;
         this.zoneProvisioning = zoneProvisioning;
@@ -113,11 +113,20 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
         String s3Key = buildFixedKey(zoneId);
         logger.info("Deleting background image for zone={}, key={}", zoneId, s3Key);
         s3StorageManager.delete(bucket, s3Key);
+        logger.info("S3 object deleted: bucket={}, key={}", bucket, s3Key);
 
         branding.setBackgroundImageUrl(null);
         branding.setBackgroundImageUploadedAt(null);
         branding.setBackgroundImageUploadedBy(null);
-        zoneProvisioning.update(zone);
+        config.setBranding(branding);
+        zone.setConfig(config);
+        try {
+            zoneProvisioning.update(zone);
+        } catch (Exception e) {
+            logger.error("S3 delete succeeded but DB update failed for zone={}; DB metadata may be stale. key={}",
+                    zoneId, s3Key, e);
+            throw new RuntimeException("Background image deleted from S3 but failed to clear URL in zone config", e);
+        }
         logger.info("Cleared background image metadata from zone config: zoneId={}", zoneId);
         return true;
     }
