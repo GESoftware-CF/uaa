@@ -115,9 +115,10 @@ class StaleUrlCacheTests {
         byte[] c1 = cache.getUrlContent(URL, mockRestTemplate);
         ticker.advance(CACHE_EXPIRED);
 
-        // the next call after timeout should force async refresh and return the new value
+        // Caffeine refreshAfterWrite is stale-while-revalidate: the first call after expiry
+        // returns the stale value and triggers an async refresh in the background.
         byte[] c2 = cache.getUrlContent(URL, mockRestTemplate);
-        assertThat(c2).isSameAs(content2);
+        assertThat(c2).isSameAs(content1);
 
         // Allow time for the async getUrlContent to be called
         await().atMost(1, TimeUnit.SECONDS)
