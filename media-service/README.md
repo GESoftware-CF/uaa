@@ -54,7 +54,7 @@ spring:
 
 background-image:
   storage:
-    bucket: ${BACKGROUND_IMAGE_BUCKET:fs-sec-uaa-background-image-int}
+    bucket: ${BACKGROUND_IMAGE_STORAGE_BUCKET:fs-sec-uaa-background-image-int}
   default-url: ${BACKGROUND_IMAGE_DEFAULT_URL:https://...}
 ```
 
@@ -62,7 +62,7 @@ background-image:
 
 | Variable | Required | Description |
 |---|---|---|
-| `BACKGROUND_IMAGE_BUCKET` | Yes | S3 bucket name |
+| `BACKGROUND_IMAGE_STORAGE_BUCKET` | Yes | S3 bucket name |
 | `AWS_REGION` | Yes | AWS region (e.g. `us-west-2`) |
 | `BACKGROUND_IMAGE_DEFAULT_URL` | No | Fallback URL shown before any image is uploaded |
 
