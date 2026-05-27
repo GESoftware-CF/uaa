@@ -351,6 +351,23 @@ class BackgroundImageServiceTest {
             // DB must NOT be updated — metadata survives for operator retry
             verify(zoneProvisioning, never()).update(any());
         }
+
+        @Test
+        void shouldPropagateDbExceptionWhenS3DeleteSucceeds() {
+            // S3 delete succeeded but DB update failed — surface the error clearly
+            IdentityZone zone = buildZoneWithImage(ZONE_ID, BASE_URL + "?v=123");
+            when(zoneProvisioning.retrieve(ZONE_ID)).thenReturn(zone);
+            doThrow(new RuntimeException("DB connection timeout")).when(zoneProvisioning).update(any());
+
+            assertThatThrownBy(() -> service.deleteBackgroundImage(ZONE_ID))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("Background image deleted from S3 but failed to clear URL in zone config")
+                    .hasCauseInstanceOf(RuntimeException.class)
+                    .getCause()
+                    .hasMessageContaining("DB connection timeout");
+
+            verify(s3StorageManager).delete(BUCKET, S3_KEY);
+        }
     }
 
     // -------------------------------------------------------------------------

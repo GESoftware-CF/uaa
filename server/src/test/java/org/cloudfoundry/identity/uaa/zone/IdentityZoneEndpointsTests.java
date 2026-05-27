@@ -260,7 +260,10 @@ class IdentityZoneEndpointsTests {
         }
 
         @Test
-        void shouldNotOverwriteBackgroundImageUrlWhenNewZoneProvidesOne() {
+        void shouldOverwriteStaleUrlInPutBodyWithExistingZoneUrl() {
+            // Even when the PUT body carries a URL, the existing zone's value wins.
+            // Background image fields are owned by POST/DELETE /background_images —
+            // PUT /identity-zones/{id} must never override them.
             IdentityZone existing = createZone();
             existing.getConfig().setBranding(brandingWithImage(
                     "https://s3.example.com/old?v=1", EXISTING_UPLOADED_AT, EXISTING_UPLOADED_BY));
@@ -272,7 +275,32 @@ class IdentityZoneEndpointsTests {
             endpoints.restoreBrandingProperties(existing, incoming);
 
             assertThat(incoming.getConfig().getBranding().getBackgroundImageUrl())
-                    .isEqualTo("https://s3.example.com/new?v=2");
+                    .isEqualTo("https://s3.example.com/old?v=1");
+            assertThat(incoming.getConfig().getBranding().getBackgroundImageUploadedAt())
+                    .isEqualTo(EXISTING_UPLOADED_AT);
+            assertThat(incoming.getConfig().getBranding().getBackgroundImageUploadedBy())
+                    .isEqualTo(EXISTING_UPLOADED_BY);
+        }
+
+        @Test
+        void shouldClearStaleUrlFromPutBodyAfterBackgroundImageWasDeleted() {
+            // After DELETE /background_images the DB URL is null.
+            // A subsequent PUT with a stale body that still carries the old URL must NOT
+            // restore it — the null from the DB must win.
+            IdentityZone existing = createZone();
+            BrandingInformation existingBranding = new BrandingInformation();
+            // backgroundImageUrl is null — image was deleted via DELETE /background_images
+            existing.getConfig().setBranding(existingBranding);
+
+            IdentityZone incoming = createZone();
+            incoming.getConfig().setBranding(brandingWithImage(
+                    "https://s3.example.com/img?v=stale", "2024-01-01T00:00:00Z", "admin"));
+
+            endpoints.restoreBrandingProperties(existing, incoming);
+
+            assertThat(incoming.getConfig().getBranding().getBackgroundImageUrl()).isNull();
+            assertThat(incoming.getConfig().getBranding().getBackgroundImageUploadedAt()).isNull();
+            assertThat(incoming.getConfig().getBranding().getBackgroundImageUploadedBy()).isNull();
         }
 
         @Test
