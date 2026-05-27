@@ -338,11 +338,14 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
 
     /**
      * Preserves {@code backgroundImageUrl}, {@code backgroundImageUploadedAt}, and
-     * {@code backgroundImageUploadedBy} from the existing zone config when the incoming
-     * {@code PUT /identity-zones/{id}} body omits a background image URL.
+     * {@code backgroundImageUploadedBy} from the existing zone config, unconditionally
+     * overwriting whatever the incoming {@code PUT /identity-zones/{id}} body carries.
      *
-     * <p>This prevents a stale zone body (prepared before the latest image upload completed)
-     * from silently overwriting the URL stored by the upload.
+     * <p>Background image fields are managed exclusively by the
+     * {@code POST /background_images} (upload) and {@code DELETE /background_images}
+     * (delete) endpoints. A {@code PUT /identity-zones/{id}} request must never
+     * restore a stale URL or clear a current one, so these three fields are always
+     * taken from the persisted zone rather than from the request body.
      */
     protected void restoreBrandingProperties(IdentityZone existingZone, IdentityZone newZone) {
         if (newZone.getConfig() == null || existingZone.getConfig() == null) {
@@ -357,11 +360,11 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
             newBranding = new BrandingInformation();
             newZone.getConfig().setBranding(newBranding);
         }
-        if (newBranding.getBackgroundImageUrl() == null) {
-            newBranding.setBackgroundImageUrl(existingBranding.getBackgroundImageUrl());
-            newBranding.setBackgroundImageUploadedAt(existingBranding.getBackgroundImageUploadedAt());
-            newBranding.setBackgroundImageUploadedBy(existingBranding.getBackgroundImageUploadedBy());
-        }
+        // Always restore — background image fields are owned by the dedicated
+        // upload/delete endpoints, not by the general zone-update API.
+        newBranding.setBackgroundImageUrl(existingBranding.getBackgroundImageUrl());
+        newBranding.setBackgroundImageUploadedAt(existingBranding.getBackgroundImageUploadedAt());
+        newBranding.setBackgroundImageUploadedBy(existingBranding.getBackgroundImageUploadedBy());
     }
 
     @DeleteMapping("{id}")
