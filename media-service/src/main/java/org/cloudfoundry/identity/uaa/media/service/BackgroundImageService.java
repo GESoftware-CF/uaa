@@ -31,7 +31,7 @@ import java.util.Set;
  * timestamp updated on every upload.
  */
 @Service
-@ConditionalOnProperty(name = "BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES")
+@ConditionalOnProperty(name = {"AWS_REGION", "BACKGROUND_IMAGE_BUCKET", "BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES"})
 public class BackgroundImageService implements BackgroundImageUrlProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(BackgroundImageService.class);
