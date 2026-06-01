@@ -1,4 +1,4 @@
-package org.cloudfoundry.identity.uaa.config;
+package org.cloudfoundry.identity.uaa;
 
 import jakarta.annotation.PostConstruct;
 import org.apache.coyote.ProtocolHandler;
@@ -8,27 +8,45 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory;
 import org.springframework.boot.web.server.WebServerFactoryCustomizer;
-import org.springframework.core.annotation.Order;
+import org.springframework.context.ApplicationListener;
+import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
+
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
+import java.lang.management.ManagementFactory;
+import java.util.Set;
 
 /**
  * Logs effective Tomcat connector and protocol configuration at startup.
  *
- * <p>Runs after Spring Boot's default Tomcat customizer so logged values reflect
- * final effective values.
+ * <p>Uses two strategies:
+ * <ul>
+ *   <li>{@link WebServerFactoryCustomizer} — fires only for embedded Tomcat.</li>
+ *   <li>{@link ApplicationListener} querying JMX MBeans — works for both embedded
+ *       and external/Cargo Tomcat deployments (WAR).</li>
+ * </ul>
  */
 @Component
-@Order(1)
-public class TomcatConfigLogger implements WebServerFactoryCustomizer<TomcatServletWebServerFactory> {
+public class TomcatConfigLogger
+        implements WebServerFactoryCustomizer<TomcatServletWebServerFactory>,
+                   ApplicationListener<ContextRefreshedEvent> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TomcatConfigLogger.class);
 
     private final Environment env;
 
-    public TomcatConfigLogger(Environment env) {
+    /** Guard against duplicate logging on child context refreshes. */
+    private volatile boolean jmxLogged = false;
+
+    public TomcatConfigLogger(final Environment env) {
         this.env = env;
     }
+
+    // -------------------------------------------------------------------------
+    // @PostConstruct — logs Spring-resolved property values (always fires)
+    // -------------------------------------------------------------------------
 
     @PostConstruct
     public void onInit() {
@@ -46,10 +64,14 @@ public class TomcatConfigLogger implements WebServerFactoryCustomizer<TomcatServ
         );
     }
 
+    // -------------------------------------------------------------------------
+    // WebServerFactoryCustomizer — only fires for embedded Tomcat
+    // -------------------------------------------------------------------------
+
     @Override
-    public void customize(TomcatServletWebServerFactory factory) {
+    public void customize(final TomcatServletWebServerFactory factory) {
         factory.addConnectorCustomizers(connector -> {
-            LOGGER.info("Tomcat connector properties:");
+            LOGGER.info("=== Tomcat Embedded Connector (customize) ===");
             LOGGER.info("port={}", connector.getPort());
             LOGGER.info("maxKeepAliveRequests (connector property)={}",
                     connector.getProperty("maxKeepAliveRequests"));
@@ -66,12 +88,73 @@ public class TomcatConfigLogger implements WebServerFactoryCustomizer<TomcatServ
             } else if (handler instanceof AbstractHttp11Protocol<?> protocol) {
                 logHttp11Values(protocol);
             } else {
-                LOGGER.info("ProtocolHandler is not Http11 protocol, skipping keep-alive getter logs.");
+                LOGGER.info("ProtocolHandler is not Http11 — skipping keep-alive getter logs.");
             }
+            LOGGER.info("=== End Tomcat Embedded Connector ===");
         });
     }
 
-    private void logHttp11Values(AbstractHttp11Protocol<?> protocol) {
+    // -------------------------------------------------------------------------
+    // ApplicationListener<ContextRefreshedEvent> — fires for embedded AND
+    // external/Cargo Tomcat; reads actual live values via JMX MBeans
+    // -------------------------------------------------------------------------
+
+    @Override
+    public void onApplicationEvent(final ContextRefreshedEvent event) {
+        if (jmxLogged) {
+            return; // prevent duplicate logging on child context refreshes
+        }
+        jmxLogged = true;
+        logTomcatConnectorsViaJmx();
+    }
+
+    /**
+     * Reads Tomcat connector attributes from JMX MBeans.
+     *
+     * <p>Works for both embedded Tomcat and WAR deployed to external Tomcat (Cargo),
+     * because Tomcat registers connector MBeans under {@code Catalina:type=Connector,*}
+     * regardless of deployment mode.
+     */
+    private void logTomcatConnectorsViaJmx() {
+        try {
+            MBeanServer mBeanServer = ManagementFactory.getPlatformMBeanServer();
+            Set<ObjectName> connectorNames = mBeanServer.queryNames(
+                    new ObjectName("Catalina:type=Connector,*"), null);
+
+            if (connectorNames.isEmpty()) {
+                LOGGER.warn("No Tomcat Connector MBeans found under 'Catalina:type=Connector,*'. "
+                        + "JMX may not be enabled or Tomcat has not finished starting yet.");
+                return;
+            }
+
+            for (ObjectName name : connectorNames) {
+                LOGGER.info("=== Tomcat Connector MBean: {} ===", name);
+                logMBeanAttribute(mBeanServer, name, "port");
+                logMBeanAttribute(mBeanServer, name, "maxKeepAliveRequests");
+                logMBeanAttribute(mBeanServer, name, "keepAliveTimeout");
+                logMBeanAttribute(mBeanServer, name, "connectionTimeout");
+                logMBeanAttribute(mBeanServer, name, "compression");
+                logMBeanAttribute(mBeanServer, name, "compressibleMimeType");
+                logMBeanAttribute(mBeanServer, name, "maxConnections");
+                logMBeanAttribute(mBeanServer, name, "maxThreads");
+                LOGGER.info("=== End Connector MBean: {} ===", name);
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Failed to read Tomcat connector config via JMX: {}", e.getMessage(), e);
+        }
+    }
+
+    private void logMBeanAttribute(final MBeanServer server, final ObjectName name,
+                                   final String attribute) {
+        try {
+            Object value = server.getAttribute(name, attribute);
+            LOGGER.info("  {}={}", attribute, value);
+        } catch (Exception e) {
+            LOGGER.debug("  {} not available: {}", attribute, e.getMessage());
+        }
+    }
+
+    private void logHttp11Values(final AbstractHttp11Protocol<?> protocol) {
         LOGGER.info("Tomcat protocol values:");
         LOGGER.info("maxKeepAliveRequests={}", protocol.getMaxKeepAliveRequests());
         LOGGER.info("keepAliveTimeout={}", protocol.getKeepAliveTimeout());
