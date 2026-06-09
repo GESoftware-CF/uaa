@@ -6,10 +6,6 @@ war {
     archiveBaseName = "cloudfoundry-identity-statsd"
 }
 
-repositories {
-    mavenCentral()
-}
-
 dependencies {
     implementation(project(":cloudfoundry-identity-statsd-lib"))
     implementation(libraries.springBootStarterWeb){
