@@ -14,6 +14,7 @@ import org.springframework.web.servlet.DispatcherServlet;
 
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterRegistration;
+import jakarta.servlet.MultipartConfigElement;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRegistration;
@@ -61,6 +62,17 @@ public class UaaWebApplicationInitializer implements WebApplicationInitializer {
         ServletRegistration.Dynamic springRegistration = servletContext.addServlet("spring", spring);
         springRegistration.setLoadOnStartup(1);
         springRegistration.addMapping("/");
+        String maxUploadSize = getEnvVar("BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES");
+        if (maxUploadSize != null && !maxUploadSize.isBlank()) {
+            // Enable multipart support for file uploads when k8s-deploy provides the limit.
+            long maxUploadSizeBytes = Long.parseLong(maxUploadSize);
+            springRegistration.setMultipartConfig(new MultipartConfigElement(
+                    "",        // location (temp dir)
+                    maxUploadSizeBytes,
+                    maxUploadSizeBytes,
+                    0          // fileSizeThreshold
+            ));
+        }
 
         //<error-page> from web.xml
         if (servletContext instanceof ApplicationContextFacade) {
@@ -91,5 +103,14 @@ public class UaaWebApplicationInitializer implements WebApplicationInitializer {
             error.setLocation("/error");
             standardContext.addErrorPage(error);
         }
+    }
+
+    /**
+     * Returns the value of the named environment variable.
+     * Extracted for testability — tests can override this method to inject values
+     * without setting real process environment variables.
+     */
+    String getEnvVar(String name) {
+        return System.getenv(name);
     }
 }

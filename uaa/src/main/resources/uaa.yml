@@ -569,6 +569,12 @@ uaa:
 #  user:
 #  password:
 
+# Background image default URL shown on the login page when no zone-specific image
+# has been uploaded via POST /background_images/upload.
+# Override per environment by setting the BACKGROUND_IMAGE_DEFAULT_URL env var in k8s.
+background-image:
+  default-url: ${BACKGROUND_IMAGE_DEFAULT_URL:/resources/predix/images/uaa-test.jpg}
+
 # Configure Rest Templates
 #rest:
 #  template:

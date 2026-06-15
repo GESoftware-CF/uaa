@@ -279,6 +279,7 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
             // make sure it exists
             IdentityZone existingZone = zoneDao.retrieveIgnoreActiveFlag(id);
             restoreSecretProperties(existingZone, body);
+            restoreBrandingProperties(existingZone, body);
             //validator require id to be present
             body.setId(id);
             body = validator.validate(body, IdentityZoneValidator.Mode.MODIFY);
@@ -333,6 +334,37 @@ public class IdentityZoneEndpoints implements ApplicationEventPublisherAware {
                 }
             }
         }
+    }
+
+    /**
+     * Preserves {@code backgroundImageUrl}, {@code backgroundImageUploadedAt}, and
+     * {@code backgroundImageUploadedBy} from the existing zone config, unconditionally
+     * overwriting whatever the incoming {@code PUT /identity-zones/{id}} body carries.
+     *
+     * <p>Background image fields are managed exclusively by the
+     * {@code POST /background_images} (upload) and {@code DELETE /background_images}
+     * (delete) endpoints. A {@code PUT /identity-zones/{id}} request must never
+     * restore a stale URL or clear a current one, so these three fields are always
+     * taken from the persisted zone rather than from the request body.
+     */
+    protected void restoreBrandingProperties(IdentityZone existingZone, IdentityZone newZone) {
+        if (newZone.getConfig() == null || existingZone.getConfig() == null) {
+            return;
+        }
+        BrandingInformation existingBranding = existingZone.getConfig().getBranding();
+        if (existingBranding == null) {
+            return;
+        }
+        BrandingInformation newBranding = newZone.getConfig().getBranding();
+        if (newBranding == null) {
+            newBranding = new BrandingInformation();
+            newZone.getConfig().setBranding(newBranding);
+        }
+        // Always restore — background image fields are owned by the dedicated
+        // upload/delete endpoints, not by the general zone-update API.
+        newBranding.setBackgroundImageUrl(existingBranding.getBackgroundImageUrl());
+        newBranding.setBackgroundImageUploadedAt(existingBranding.getBackgroundImageUploadedAt());
+        newBranding.setBackgroundImageUploadedBy(existingBranding.getBackgroundImageUploadedBy());
     }
 
     @DeleteMapping("{id}")

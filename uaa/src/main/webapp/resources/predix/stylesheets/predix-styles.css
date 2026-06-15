@@ -51,8 +51,6 @@ html {
 }
 
 html {
-  background: url("../images/background-image.png") no-repeat center center fixed;
-  background-size: cover;
   font-size: 16px;
   overflow: hidden;
   max-width: none !important;

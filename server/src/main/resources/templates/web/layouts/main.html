@@ -5,6 +5,7 @@
                 isUaa=${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).isUaa()},
                 zoneName=${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).get()?.getName()},
                 branding=${T(org.cloudfoundry.identity.uaa.zone.MergedZoneBrandingInformation).resolveBranding()},
+                backgroundImageUrl=${branding.getBackgroundImageUrl() != null ? branding.getBackgroundImageUrl() : @environment.getProperty('background-image.default-url', null)},
                 companyName=${branding.getZoneCompanyName() ?: ''},
                 copyrightCompanyName=${branding.getCompanyName() ?: 'GE Vernova'},
                 copyrightFallback=${'Copyright &#169; ' + #dates.year(#dates.createNow()) + ' ' + copyrightCompanyName + ' and/or its affiliates. All rights reserved.'},
@@ -17,8 +18,11 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title th:text="${(companyName != null and !companyName.isEmpty()) ? companyName : zoneName}" th:inline="text"></title>
     <link href='/resources/oss/images/square-logo.png' th:with="icon=${branding.getSquareLogo()}" th:href="@{${icon != null and !icon.isEmpty() ? 'data:image/png;base64,'+icon : (assetBaseUrl + '/images/square-logo.png')}}" rel='shortcut icon' />
-    <link rel="preload" as="image" th:href="@{${assetBaseUrl}+'/images/background-image.png'}" type="image/png" />
-    
+    <!-- Preload background image: only when a zone-specific image is available -->
+    <th:block th:if="${backgroundImageUrl != null}">
+        <link rel="preload" as="image" th:href="${backgroundImageUrl}" />
+    </th:block>
+
     <meta charset='utf-8' />
     <meta name='author' th:content="|${companyName}|" />
     <meta name='copyright' th:content="|${copyright}|" />
@@ -51,6 +55,14 @@
     <script th:attr="data-asset-base=${assetBaseUrl},data-predix-base=${predixBaseUrl}"
             src="/resources/javascripts/browser-loader.js"
             th:src="@{/resources/javascripts/browser-loader.js}"></script>
+
+    <!-- Override CSS background with S3 URL (zone-specific → default property); omitted when no URL is configured. -->
+    <style th:if="${backgroundImageUrl != null}" th:inline="text">
+        html {
+            background: url("[(${backgroundImageUrl})]") no-repeat center center fixed !important;
+            background-size: cover !important;
+        }
+    </style>
   </head>
 <body class="predix-uaa">
 
