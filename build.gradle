@@ -14,6 +14,13 @@ buildscript {
             }
             url gartRepoUrl
         }
+        maven {                            
+            credentials {
+                username System.getenv('ARTIFACTORY_CREDENTIALS_USR')
+                password System.getenv('ARTIFACTORY_CREDENTIALS_PSW')
+            }
+            url "https://gart.software.gevernova.com/artifactory/maven-remote"
+        }
     }
 
     dependencies {
@@ -45,6 +52,13 @@ ext.addGartRepo = { repoHandler ->
             password geArtifactoryReaderPassword
         }
         url gartRepoUrl
+    }
+    repoHandler.maven {                                    
+        credentials {
+            username geArtifactoryReader
+            password geArtifactoryReaderPassword
+        }
+        url "https://gart.software.gevernova.com/artifactory/maven-remote"
     }
 }
 def proxyPort  = System.getenv('PROXY_PORT')
