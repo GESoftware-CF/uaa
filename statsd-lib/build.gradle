@@ -1,9 +1,5 @@
 apply(plugin: "java")
 
-repositories {
-    mavenCentral()
-}
-
 dependencies {
     implementation(project(":cloudfoundry-identity-metrics-data"))
     implementation(libraries.springBootStarter)
