@@ -232,7 +232,6 @@ public class UaaConfiguration {
             public String proxyPublicKey;
         }
     }
-
     public static class OAuth {
         @Valid
         public Client client;
@@ -318,6 +317,7 @@ public class UaaConfiguration {
         public String credentialID;
         public List<LimiterMapping> limiterMappings;
     }
+
 
     public static class UaaConfigConstructor extends CustomPropertyConstructor {
 
