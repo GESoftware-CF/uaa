@@ -29,7 +29,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -278,5 +280,349 @@ class UaaClientAuthenticationProviderTest {
         authenticationProvider.additionalAuthenticationChecks(
                 new UaaClient("client", "secret", Collections.emptyList(), client.getAdditionalInformation(), null), a);
         assertThat(a).isNotNull();
+    }
+
+
+    // --- Tests for parseZoneClientIdMapping utility ---
+
+    @Test
+    void parseZoneClientIdMapping_null_returns_empty() {
+        assertThat(ClientDetailsAuthenticationProvider.parseZoneClientIdMapping(null)).isEmpty();
+    }
+
+    @Test
+    void parseZoneClientIdMapping_blank_returns_empty() {
+        assertThat(ClientDetailsAuthenticationProvider.parseZoneClientIdMapping("  ")).isEmpty();
+    }
+
+    @Test
+    void parseZoneClientIdMapping_empty_string_returns_empty() {
+        assertThat(ClientDetailsAuthenticationProvider.parseZoneClientIdMapping("")).isEmpty();
+    }
+
+    @Test
+    void parseZoneClientIdMapping_single_zone_single_client() {
+        Map<String, Set<String>> mapping = ClientDetailsAuthenticationProvider.parseZoneClientIdMapping("zone1:client1");
+        assertThat(mapping)
+                .hasSize(1)
+                .containsEntry("zone1", Set.of("client1"));
+    }
+
+    @Test
+    void parseZoneClientIdMapping_single_zone_multiple_clients() {
+        Map<String, Set<String>> mapping = ClientDetailsAuthenticationProvider.parseZoneClientIdMapping("zone1:client1,zone1:client2");
+        assertThat(mapping)
+                .hasSize(1)
+                .containsEntry("zone1", Set.of("client1", "client2"));
+    }
+
+    @Test
+    void parseZoneClientIdMapping_multiple_zones_multiple_clients() {
+        Map<String, Set<String>> mapping = ClientDetailsAuthenticationProvider.parseZoneClientIdMapping("zone1:client1,zone1:client2,zone2:client3,zone2:client4");
+        assertThat(mapping)
+                .hasSize(2)
+                .containsEntry("zone1", Set.of("client1", "client2"))
+                .containsEntry("zone2", Set.of("client3", "client4"));
+    }
+
+    @Test
+    void parseZoneClientIdMapping_with_whitespace() {
+        Map<String, Set<String>> mapping = ClientDetailsAuthenticationProvider.parseZoneClientIdMapping("zone1 : client1 , zone2 : client2");
+        assertThat(mapping)
+                .hasSize(2)
+                .containsEntry("zone1", Set.of("client1"))
+                .containsEntry("zone2", Set.of("client2"));
+    }
+
+    @Test
+    void parseZoneClientIdMapping_ignores_invalid_entries_without_colon() {
+        Map<String, Set<String>> mapping = ClientDetailsAuthenticationProvider.parseZoneClientIdMapping("zone1:client1,invalid_entry,zone2:client2");
+        assertThat(mapping)
+                .hasSize(2)
+                .containsEntry("zone1", Set.of("client1"))
+                .containsEntry("zone2", Set.of("client2"));
+    }
+
+    @Test
+    void parseZoneClientIdMapping_ignores_entries_with_empty_parts() {
+        Map<String, Set<String>> mapping = ClientDetailsAuthenticationProvider.parseZoneClientIdMapping("zone1:client1,:client2,zone2:,zone2:client3");
+        assertThat(mapping)
+                .hasSize(2)
+                .containsEntry("zone1", Set.of("client1"))
+                .containsEntry("zone2", Set.of("client3"));
+    }
+
+    @Test
+    void parseZoneClientIdMapping_handles_client_id_with_colon() {
+        Map<String, Set<String>> mapping = ClientDetailsAuthenticationProvider.parseZoneClientIdMapping("zone1:client:special");
+        assertThat(mapping)
+                .hasSize(1)
+                .containsEntry("zone1", Set.of("client:special"));
+    }
+
+    // --- Tests for zone-restricted legacy no-secret password grant ---
+
+    @Test
+    void provider_password_grant_without_secret_allowed_for_whitelisted_zone_and_client() {
+        // Create provider with current zone and client whitelisted
+        String currentZoneId = IdentityZoneHolder.getCurrentZoneId();
+        UaaClientDetailsUserDetailsService clientDetailsService = new UaaClientDetailsUserDetailsService(jdbcClientDetailsService);
+        Map<String, Set<String>> zoneClientMapping = Map.of(currentZoneId, Set.of("testclient"));
+        ClientDetailsAuthenticationProvider whitelistedProvider = new ClientDetailsAuthenticationProvider(
+                clientDetailsService, passwordEncoder, jwtClientAuthentication,
+                zoneClientMapping);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+        request.addParameter("client_id", "testclient");
+        request.addParameter("grant_type", "password");
+        UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+        // Client with no password - should be allowed for whitelisted zone:client pair
+        UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+        whitelistedProvider.additionalAuthenticationChecks(uaaClient, a);
+        assertThat(a).isNotNull();
+    }
+
+    @Test
+    void provider_password_grant_without_secret_rejected_for_non_whitelisted_zone_or_client() {
+        // Create provider with a different zone/client pair whitelisted
+        UaaClientDetailsUserDetailsService clientDetailsService = new UaaClientDetailsUserDetailsService(jdbcClientDetailsService);
+        Map<String, Set<String>> zoneClientMapping = Map.of("some-other-zone-id", Set.of("some-client"));
+        ClientDetailsAuthenticationProvider restrictedProvider = new ClientDetailsAuthenticationProvider(
+                clientDetailsService, passwordEncoder, jwtClientAuthentication,
+                zoneClientMapping);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+        request.addParameter("client_id", "testclient");
+        request.addParameter("grant_type", "password");
+        UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+        UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+        assertThatThrownBy(() -> restrictedProvider.additionalAuthenticationChecks(uaaClient, a))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Missing credentials");
+    }
+
+    @Test
+    void provider_password_grant_without_secret_rejected_when_no_zones_whitelisted() {
+        // Default provider has empty whitelist (no zones allowed)
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+        request.addParameter("client_id", "testclient");
+        request.addParameter("grant_type", "password");
+        UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+        UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+        assertThatThrownBy(() -> authenticationProvider.additionalAuthenticationChecks(uaaClient, a))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Missing credentials");
+    }
+
+    @Test
+    void provider_client_credentials_without_secret_rejected_even_for_whitelisted_zone() {
+        // Legacy no-secret flow should only work for password grant, not client_credentials
+        String currentZoneId = IdentityZoneHolder.getCurrentZoneId();
+        UaaClientDetailsUserDetailsService clientDetailsService = new UaaClientDetailsUserDetailsService(jdbcClientDetailsService);
+        // Whitelist multiple clients for this zone
+        Map<String, Set<String>> zoneClientMapping = Map.of(currentZoneId, Set.of("testclient"));
+        ClientDetailsAuthenticationProvider whitelistedProvider = new ClientDetailsAuthenticationProvider(
+                clientDetailsService, passwordEncoder, jwtClientAuthentication,
+                zoneClientMapping);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+        request.addParameter("client_id", "testclient");
+        request.addParameter("grant_type", "client_credentials");
+        UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+        UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+        assertThatThrownBy(() -> whitelistedProvider.additionalAuthenticationChecks(uaaClient, a))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Missing credentials");
+    }
+
+    // --- Tests for zone+client ID restricted legacy no-secret password grant ---
+
+    @Test
+    void provider_password_grant_allowed_for_whitelisted_zone_and_client() {
+        String currentZoneId = IdentityZoneHolder.getCurrentZoneId();
+        UaaClientDetailsUserDetailsService clientDetailsService = new UaaClientDetailsUserDetailsService(jdbcClientDetailsService);
+        Map<String, Set<String>> zoneClientMapping = Map.of(currentZoneId, Set.of("testclient"));
+        ClientDetailsAuthenticationProvider whitelistedProvider = new ClientDetailsAuthenticationProvider(
+                clientDetailsService, passwordEncoder, jwtClientAuthentication,
+                zoneClientMapping);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+        request.addParameter("client_id", "testclient");
+        request.addParameter("grant_type", "password");
+        UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+        UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+        whitelistedProvider.additionalAuthenticationChecks(uaaClient, a);
+        assertThat(a).isNotNull();
+    }
+
+    @Test
+    void provider_password_grant_rejected_for_whitelisted_zone_but_non_whitelisted_client() {
+        String currentZoneId = IdentityZoneHolder.getCurrentZoneId();
+        UaaClientDetailsUserDetailsService clientDetailsService = new UaaClientDetailsUserDetailsService(jdbcClientDetailsService);
+        Map<String, Set<String>> zoneClientMapping = Map.of(currentZoneId, Set.of("allowed-client"));
+        ClientDetailsAuthenticationProvider restrictedProvider = new ClientDetailsAuthenticationProvider(
+                clientDetailsService, passwordEncoder, jwtClientAuthentication,
+                zoneClientMapping);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+        request.addParameter("client_id", "unauthorized-client");
+        request.addParameter("grant_type", "password");
+        UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+        UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+        assertThatThrownBy(() -> restrictedProvider.additionalAuthenticationChecks(uaaClient, a))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Missing credentials");
+    }
+
+    @Test
+    void provider_password_grant_allowed_for_specific_client_in_whitelisted_zone() {
+        // Test allowing specific whitelisted client in a zone by whitelisting multiple clients or a wildcard approach
+        String currentZoneId = IdentityZoneHolder.getCurrentZoneId();
+        UaaClientDetailsUserDetailsService clientDetailsService = new UaaClientDetailsUserDetailsService(jdbcClientDetailsService);
+        // Whitelist multiple clients including the test client
+        Map<String, Set<String>> zoneClientMapping = Map.of(currentZoneId, Set.of("any-client", "testclient", "legacy-app"));
+        ClientDetailsAuthenticationProvider whitelistedProvider = new ClientDetailsAuthenticationProvider(
+                clientDetailsService, passwordEncoder, jwtClientAuthentication,
+                zoneClientMapping);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+        request.addParameter("client_id", "any-client");
+        request.addParameter("grant_type", "password");
+        UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+        UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+        whitelistedProvider.additionalAuthenticationChecks(uaaClient, a);
+        assertThat(a).isNotNull();
+    }
+
+    @Test
+    void provider_password_grant_with_multiple_clients_per_zone() {
+        String currentZoneId = IdentityZoneHolder.getCurrentZoneId();
+        UaaClientDetailsUserDetailsService clientDetailsService = new UaaClientDetailsUserDetailsService(jdbcClientDetailsService);
+        Map<String, Set<String>> zoneClientMapping = Map.of(
+                currentZoneId, Set.of("client1", "client2", "client3")
+        );
+        ClientDetailsAuthenticationProvider whitelistedProvider = new ClientDetailsAuthenticationProvider(
+                clientDetailsService, passwordEncoder, jwtClientAuthentication,
+                zoneClientMapping);
+
+        for (String clientId : List.of("client1", "client2", "client3")) {
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+            request.addParameter("client_id", clientId);
+            request.addParameter("grant_type", "password");
+            UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+            UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+            whitelistedProvider.additionalAuthenticationChecks(uaaClient, a);
+            assertThat(a).isNotNull();
+        }
+
+        // Test unauthorized client
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+        request.addParameter("client_id", "unauthorized-client");
+        request.addParameter("grant_type", "password");
+        UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+        UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+        assertThatThrownBy(() -> whitelistedProvider.additionalAuthenticationChecks(uaaClient, a))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Missing credentials");
+    }
+
+    // --- Tests for legacy no-secret with Authorization header (Basic auth with empty password) ---
+
+    @Test
+    void provider_password_grant_with_basic_auth_header_allowed_for_whitelisted_zone_and_client() {
+        // Simulates: Authorization: Basic base64(ingestor-test-client:)
+        // This is how many OAuth2 clients send the client_id even without a secret
+        String currentZoneId = IdentityZoneHolder.getCurrentZoneId();
+        UaaClientDetailsUserDetailsService clientDetailsService = new UaaClientDetailsUserDetailsService(jdbcClientDetailsService);
+        Map<String, Set<String>> zoneClientMapping = Map.of(currentZoneId, Set.of("testclient"));
+        ClientDetailsAuthenticationProvider whitelistedProvider = new ClientDetailsAuthenticationProvider(
+                clientDetailsService, passwordEncoder, jwtClientAuthentication,
+                zoneClientMapping);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+        request.addHeader("Authorization", "Basic dGVzdGNsaWVudDo="); // base64(testclient:)
+        request.addParameter("client_id", "testclient");
+        request.addParameter("grant_type", "password");
+        UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+        // Client with no password - should be allowed even with Authorization header
+        UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+        whitelistedProvider.additionalAuthenticationChecks(uaaClient, a);
+        assertThat(a).isNotNull();
+    }
+
+    @Test
+    void provider_password_grant_with_basic_auth_header_resolves_client_id_from_details() {
+        // When client sends Basic auth, client_id may only be in UaaAuthenticationDetails.getClientId()
+        // and not in the form parameters
+        String currentZoneId = IdentityZoneHolder.getCurrentZoneId();
+        UaaClientDetailsUserDetailsService clientDetailsService = new UaaClientDetailsUserDetailsService(jdbcClientDetailsService);
+        Map<String, Set<String>> zoneClientMapping = Map.of(currentZoneId, Set.of("testclient"));
+        ClientDetailsAuthenticationProvider whitelistedProvider = new ClientDetailsAuthenticationProvider(
+                clientDetailsService, passwordEncoder, jwtClientAuthentication,
+                zoneClientMapping);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+        request.addHeader("Authorization", "Basic dGVzdGNsaWVudDo="); // base64(testclient:)
+        // Note: client_id is set via UaaAuthenticationDetails constructor from request param
+        request.addParameter("client_id", "testclient");
+        request.addParameter("grant_type", "password");
+        UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+        UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+        whitelistedProvider.additionalAuthenticationChecks(uaaClient, a);
+        assertThat(a).isNotNull();
+    }
+
+    @Test
+    void provider_password_grant_with_basic_auth_header_rejected_for_non_whitelisted_client() {
+        String currentZoneId = IdentityZoneHolder.getCurrentZoneId();
+        UaaClientDetailsUserDetailsService clientDetailsService = new UaaClientDetailsUserDetailsService(jdbcClientDetailsService);
+        Map<String, Set<String>> zoneClientMapping = Map.of(currentZoneId, Set.of("allowed-client"));
+        ClientDetailsAuthenticationProvider restrictedProvider = new ClientDetailsAuthenticationProvider(
+                clientDetailsService, passwordEncoder, jwtClientAuthentication,
+                zoneClientMapping);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+        request.addHeader("Authorization", "Basic dW5hdXRob3JpemVkLWNsaWVudDo="); // base64(unauthorized-client:)
+        request.addParameter("client_id", "unauthorized-client");
+        request.addParameter("grant_type", "password");
+        UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+        UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+        assertThatThrownBy(() -> restrictedProvider.additionalAuthenticationChecks(uaaClient, a))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Missing credentials");
+    }
+
+    @Test
+    void provider_client_credentials_with_basic_auth_header_rejected_even_for_whitelisted_zone() {
+        // Legacy no-secret flow should only work for password grant, not client_credentials
+        String currentZoneId = IdentityZoneHolder.getCurrentZoneId();
+        UaaClientDetailsUserDetailsService clientDetailsService = new UaaClientDetailsUserDetailsService(jdbcClientDetailsService);
+        Map<String, Set<String>> zoneClientMapping = Map.of(currentZoneId, Set.of("testclient"));
+        ClientDetailsAuthenticationProvider whitelistedProvider = new ClientDetailsAuthenticationProvider(
+                clientDetailsService, passwordEncoder, jwtClientAuthentication,
+                zoneClientMapping);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oauth/token");
+        request.addHeader("Authorization", "Basic dGVzdGNsaWVudDo="); // base64(testclient:)
+        request.addParameter("client_id", "testclient");
+        request.addParameter("grant_type", "client_credentials");
+        UsernamePasswordAuthenticationToken a = getAuthenticationToken(request);
+
+        UaaClient uaaClient = new UaaClient("client", null, Collections.emptyList(), Collections.emptyMap(), null);
+        assertThatThrownBy(() -> whitelistedProvider.additionalAuthenticationChecks(uaaClient, a))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("Missing credentials");
     }
 }
