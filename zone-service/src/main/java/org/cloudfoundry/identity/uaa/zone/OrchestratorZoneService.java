@@ -25,6 +25,7 @@ import org.cloudfoundry.identity.uaa.scim.ScimGroup;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupProvisioning;
 import org.cloudfoundry.identity.uaa.zone.SamlConfig.SignatureAlgorithm;
 import org.cloudfoundry.identity.uaa.zone.model.ConnectionDetails;
+import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZone;
 import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneHeader;
 import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneRequest;
 import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneResponse;
@@ -63,6 +64,7 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
     public static final String GENERATED_KEY_ID = "generated-saml-key";
     public static final String BEGIN_CERT = "-----BEGIN CERTIFICATE-----";
     public static final String END_CERT = "-----END CERTIFICATE-----";
+    public static final String LOGOUT_REDIRECT_URL_WHITELIST_KEY = "logout_redirect_url_whitelist";
 
     public static final String CLIENT_ID = "admin";
     public static final String ZONE_AUTHORITIES =
@@ -185,7 +187,7 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
         String subdomain = zoneRequest.getParameters().getSubdomain();
         String id = UUID.randomUUID().toString();
         subdomain = getSubDomain(subdomain, id);
-        IdentityZone identityZone = generateIdentityZone(subdomain, name, id);
+        IdentityZone identityZone = generateIdentityZone(subdomain, name, id, zoneRequest.getParameters());
         IdentityZone previous = IdentityZoneHolder.get();
         try {
             IdentityZone created = createIdentityZone(identityZone);
@@ -296,14 +298,14 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
         return created;
     }
 
-    protected IdentityZone generateIdentityZone(String subdomain, String name, String id) {
+    protected IdentityZone generateIdentityZone(String subdomain, String name, String id, OrchestratorZone orchestratorZone) {
         IdentityZone identityZone = new IdentityZone();
         identityZone.setId(id);
         identityZone.setName(name);
         identityZone.setSubdomain(subdomain);
         setTokenPolicy(createSigningKey(name), identityZone);
         setSamlConfig(identityZone);
-        identityZone.getConfig().getLinks().getLogout().setWhitelist(createDeploymentSpecificLogoutWhiteList());
+        identityZone.getConfig().getLinks().getLogout().setWhitelist(createDeploymentSpecificLogoutWhiteList(orchestratorZone));
         identityZone.getConfig().getLinks().getSelfService().setSelfServiceCreateAccountEnabled(false);
         identityZone.getConfig().getLinks().getSelfService().setSignup("");
         identityZone.getConfig().getLinks().getSelfService().setSelfServiceResetPasswordEnabled(true);
@@ -389,11 +391,59 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
         }
     }
 
-    private List<String>  createDeploymentSpecificLogoutWhiteList()
-    {
+    private List<String> createDeploymentSpecificLogoutWhiteList(OrchestratorZone orchestratorZone) {
+        List<String> whiteList = new java.util.ArrayList<>();
+
+        // Add redirect URLs from additionalParameters if present
+        if (orchestratorZone != null) {
+            List<String> redirectUrls = extractRedirectUrls(orchestratorZone.getAdditionalParameters());
+            if (!redirectUrls.isEmpty()) {
+                whiteList.addAll(redirectUrls);
+            }
+        }
+
+        // Add deployment-specific logout whitelist
         String runDomainFQDN = getRunDomainFromUAADomain();
-        return (!hasLength(runDomainFQDN))  ? Collections.singletonList("http*://**") :
-               Collections.singletonList("http*://**" + runDomainFQDN);
+        if (!hasLength(runDomainFQDN)) {
+            whiteList.add("http*://**");
+        } else {
+            whiteList.add("http*://**" + runDomainFQDN);
+        }
+
+        return whiteList;
+    }
+
+    /**
+     * Extracts redirect URLs from the additionalParameters map.
+     * The logout_redirect_url_whitelist key can contain either a single URL string or a list of URL strings.
+     * Empty or blank strings are filtered out.
+     *
+     * @param additionalParameters Map containing additional parameters
+     * @return List of redirect URLs, or empty list if none found
+     */
+    private List<String> extractRedirectUrls(java.util.Map<String, Object> additionalParameters) {
+        if (additionalParameters == null || additionalParameters.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Object redirectUrlValue = additionalParameters.get(LOGOUT_REDIRECT_URL_WHITELIST_KEY);
+
+        if (redirectUrlValue == null) {
+            return Collections.emptyList();
+        }
+
+        if (redirectUrlValue instanceof String) {
+            String url = (String) redirectUrlValue;
+            return hasText(url) ? Collections.singletonList(url) : Collections.emptyList();
+        } else if (redirectUrlValue instanceof List) {
+            return ((List<?>) redirectUrlValue).stream()
+                    .filter(obj -> obj instanceof String)
+                    .map(obj -> (String) obj)
+                    .filter(url -> hasText(url))
+                    .collect(java.util.stream.Collectors.toList());
+        }
+
+        return Collections.emptyList();
     }
 
     /**

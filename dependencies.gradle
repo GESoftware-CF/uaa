@@ -127,7 +127,7 @@ libraries.awsJavaSdkSts = "com.amazonaws:aws-java-sdk-sts:1.12.395"
 libraries.springLogFilter = "com.ge.predix:spring-log-filter:3.0.4"
 
 // Predix dependencies
-libraries.predixPublicKeyProvider = "com.ge.predix:jwt-bearer-key-provider:2.0.0"
+libraries.predixPublicKeyProvider = "com.ge.predix:jwt-bearer-key-provider:3.0.0-SNAPSHOT"
 
 // gradle plugins
 libraries.cargoGradlePlugin = "com.bmuschko:gradle-cargo-plugin:2.9.0"

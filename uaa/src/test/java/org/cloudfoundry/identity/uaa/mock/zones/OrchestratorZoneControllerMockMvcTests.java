@@ -470,6 +470,103 @@ public class OrchestratorZoneControllerMockMvcTests {
                 orchestratorZonesWriteToken, status().isAccepted());
     }
 
+    @Test
+    void testCreateZone_WithSingleRedirectUrl() throws Exception {
+        String zoneName = "zone-with-single-redirect";
+        String subDomain = zoneName;
+        Map<String, Object> additionalParameters = new HashMap<>();
+        additionalParameters.put("logout_redirect_url_whitelist", "https://app.example.com/logout");
+
+        OrchestratorZoneRequest orchestratorZoneRequest =
+                getOrchestratorZoneRequestWithAdditionalParams(zoneName, ADMIN_CLIENT_SECRET, subDomain, additionalParameters);
+
+        OrchestratorZoneResponse expectedResponse = new OrchestratorZoneResponse();
+        expectedResponse.setName(zoneName);
+        expectedResponse.setMessage(ZONE_CREATED_MESSAGE);
+        expectedResponse.setState(OrchestratorState.CREATE_IN_PROGRESS.toString());
+
+        performMockMvcCallAndAssertResponse(
+                post("/orchestrator/zones")
+                        .contentType(APPLICATION_JSON)
+                        .content(JsonUtils.writeValueAsString(orchestratorZoneRequest)),
+                orchestratorZonesWriteToken,
+                status().isAccepted(), expectedResponse);
+
+
+        // Clean up
+        performMockMvcCall(delete("/orchestrator/zones").param("name", zoneName),
+                orchestratorZonesWriteToken, status().isAccepted());
+    }
+
+    @Test
+    void testCreateZone_WithMultipleRedirectUrls() throws Exception {
+        String zoneName = "zone-with-multiple-redirects";
+        String subDomain = zoneName;
+        Map<String, Object> additionalParameters = new HashMap<>();
+        additionalParameters.put("logout_redirect_url_whitelist",
+                java.util.Arrays.asList(
+                        "https://app1.example.com/logout",
+                        "https://app2.example.com/logout",
+                        "https://app3.example.com/callback"
+                ));
+
+        OrchestratorZoneRequest orchestratorZoneRequest =
+                getOrchestratorZoneRequestWithAdditionalParams(zoneName, ADMIN_CLIENT_SECRET, subDomain, additionalParameters);
+
+        OrchestratorZoneResponse expectedResponse = new OrchestratorZoneResponse();
+        expectedResponse.setName(zoneName);
+        expectedResponse.setMessage(ZONE_CREATED_MESSAGE);
+        expectedResponse.setState(OrchestratorState.CREATE_IN_PROGRESS.toString());
+
+        performMockMvcCallAndAssertResponse(
+                post("/orchestrator/zones")
+                        .contentType(APPLICATION_JSON)
+                        .content(JsonUtils.writeValueAsString(orchestratorZoneRequest)),
+                orchestratorZonesWriteToken,
+                status().isAccepted(), expectedResponse);
+
+
+        // Clean up
+        performMockMvcCall(delete("/orchestrator/zones").param("name", zoneName),
+                orchestratorZonesWriteToken, status().isAccepted());
+    }
+
+    @Test
+    void testCreateZone_WithoutRedirectUrls() throws Exception {
+        String zoneName = "zone-without-redirects";
+        String subDomain = zoneName;
+
+        OrchestratorZoneRequest orchestratorZoneRequest =
+                getOrchestratorZoneRequest(zoneName, ADMIN_CLIENT_SECRET, subDomain, null);
+
+        OrchestratorZoneResponse expectedResponse = new OrchestratorZoneResponse();
+        expectedResponse.setName(zoneName);
+        expectedResponse.setMessage(ZONE_CREATED_MESSAGE);
+        expectedResponse.setState(OrchestratorState.CREATE_IN_PROGRESS.toString());
+
+        performMockMvcCallAndAssertResponse(
+                post("/orchestrator/zones")
+                        .contentType(APPLICATION_JSON)
+                        .content(JsonUtils.writeValueAsString(orchestratorZoneRequest)),
+                orchestratorZonesWriteToken,
+                status().isAccepted(), expectedResponse);
+
+
+        // Clean up
+        performMockMvcCall(delete("/orchestrator/zones").param("name", zoneName),
+                orchestratorZonesWriteToken, status().isAccepted());
+    }
+
+    private OrchestratorZoneRequest getOrchestratorZoneRequestWithAdditionalParams(String name, String adminClientSecret,
+                                                                                   String subdomain, Map<String, Object> additionalParameters) {
+        OrchestratorZone orchestratorZone = new OrchestratorZone(adminClientSecret, subdomain, null, additionalParameters);
+        OrchestratorZoneRequest orchestratorZoneRequest = new OrchestratorZoneRequest();
+        orchestratorZoneRequest.setName(name);
+        orchestratorZoneRequest.setParameters(orchestratorZone);
+        return orchestratorZoneRequest;
+    }
+
+
     private void createOrchestratorZoneAndAssert() throws Exception {
         OrchestratorZoneRequest orchestratorZoneRequest =
                 getOrchestratorZoneRequest(ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, null);
