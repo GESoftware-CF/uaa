@@ -387,3 +387,4 @@ oauth:
 external_idp:
   web_domains:
     - fssfed.ge.com
+    - fssfed.stage.ge.com
