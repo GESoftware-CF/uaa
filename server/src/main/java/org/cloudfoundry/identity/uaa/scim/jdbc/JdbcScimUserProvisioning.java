@@ -32,6 +32,7 @@ import org.cloudfoundry.identity.uaa.scim.exception.ScimResourceConstraintFailed
 import org.cloudfoundry.identity.uaa.scim.exception.ScimResourceNotFoundException;
 import org.cloudfoundry.identity.uaa.scim.util.ScimUtils;
 import org.cloudfoundry.identity.uaa.user.JdbcUaaUserDatabase;
+import org.cloudfoundry.identity.uaa.user.UaaUser;
 import org.cloudfoundry.identity.uaa.util.TimeService;
 import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
@@ -636,8 +637,8 @@ public class JdbcScimUserProvisioning extends AbstractQueryable<ScimUser>
     }
 
     @Override
-    public void updateLastLogonTime(String id, String zoneId) {
-        jdbcTemplate.update(UPDATE_LAST_LOGON_TIME_SQL, timeService.getCurrentTimeMillis(), id, zoneId);
+    public void updateLastLogonTime(UaaUser user, String zoneId) {
+        jdbcTemplate.update(UPDATE_LAST_LOGON_TIME_SQL, user.getLastLogonTime(), user.getId(), zoneId);
     }
 
     private UserConfig getUserConfig(String zoneId) throws InvalidScimResourceException {

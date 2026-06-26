@@ -24,6 +24,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.security.Security;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -39,10 +40,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.ArgumentCaptor;
 
 public class OrchestratorZoneServiceTests {
 
@@ -297,9 +300,291 @@ public class OrchestratorZoneServiceTests {
         GeneralIdentityZoneConfigurationValidator configValidator = new GeneralIdentityZoneConfigurationValidator();
         GeneralIdentityZoneValidator validator = new GeneralIdentityZoneValidator(configValidator);
 
-        IdentityZone identityZone = zoneService.generateIdentityZone(ZONE_NAME, SUB_DOMAIN_NAME, UUID.randomUUID().toString());
+        OrchestratorZone orchestratorZone = new OrchestratorZone(ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, null, null);
+        IdentityZone identityZone = zoneService.generateIdentityZone(ZONE_NAME, SUB_DOMAIN_NAME, UUID.randomUUID().toString(), orchestratorZone);
         validator.validate(identityZone, IdentityZoneValidator.Mode.CREATE);
     }
+
+    @Test
+    public void testGenerateIdentityZone_WithSingleRedirectUrl() throws OrchestratorZoneServiceException, InvalidIdentityZoneDetailsException {
+        Security.addProvider(new BouncyCastleFipsProvider());
+
+        GeneralIdentityZoneConfigurationValidator configValidator = new GeneralIdentityZoneConfigurationValidator();
+        GeneralIdentityZoneValidator validator = new GeneralIdentityZoneValidator(configValidator);
+
+        Map<String, Object> additionalParameters = new HashMap<>();
+        // Must use array/list format, single string is not allowed
+        additionalParameters.put("logout_redirect_url_whitelist",
+                java.util.Collections.singletonList("https://example.com/logout"));
+        OrchestratorZone orchestratorZone = new OrchestratorZone(ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, null, additionalParameters);
+        IdentityZone identityZone = zoneService.generateIdentityZone(ZONE_NAME, SUB_DOMAIN_NAME, UUID.randomUUID().toString(), orchestratorZone);
+
+        validator.validate(identityZone, IdentityZoneValidator.Mode.CREATE);
+
+        List<String> whitelist = identityZone.getConfig().getLinks().getLogout().getWhitelist();
+        assertNotNull(whitelist);
+        assertTrue(whitelist.contains("https://example.com/logout"));
+    }
+
+    @Test
+    public void testGenerateIdentityZone_WithMultipleRedirectUrls() throws OrchestratorZoneServiceException, InvalidIdentityZoneDetailsException {
+        Security.addProvider(new BouncyCastleFipsProvider());
+
+        GeneralIdentityZoneConfigurationValidator configValidator = new GeneralIdentityZoneConfigurationValidator();
+        GeneralIdentityZoneValidator validator = new GeneralIdentityZoneValidator(configValidator);
+
+        Map<String, Object> additionalParameters = new HashMap<>();
+        additionalParameters.put("logout_redirect_url_whitelist", java.util.Arrays.asList("https://example1.com/logout", "https://example2.com/logout"));
+        OrchestratorZone orchestratorZone = new OrchestratorZone(ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, null, additionalParameters);
+        IdentityZone identityZone = zoneService.generateIdentityZone(ZONE_NAME, SUB_DOMAIN_NAME, UUID.randomUUID().toString(), orchestratorZone);
+
+        validator.validate(identityZone, IdentityZoneValidator.Mode.CREATE);
+
+        List<String> whitelist = identityZone.getConfig().getLinks().getLogout().getWhitelist();
+        assertNotNull(whitelist);
+        assertTrue(whitelist.contains("https://example1.com/logout"));
+        assertTrue(whitelist.contains("https://example2.com/logout"));
+    }
+
+    @Test
+    public void testGenerateIdentityZone_WithNoRedirectUrl() throws OrchestratorZoneServiceException, InvalidIdentityZoneDetailsException {
+        Security.addProvider(new BouncyCastleFipsProvider());
+
+        GeneralIdentityZoneConfigurationValidator configValidator = new GeneralIdentityZoneConfigurationValidator();
+        GeneralIdentityZoneValidator validator = new GeneralIdentityZoneValidator(configValidator);
+
+        Map<String, Object> additionalParameters = new HashMap<>();
+        additionalParameters.put("other_key", "other_value");
+        OrchestratorZone orchestratorZone = new OrchestratorZone(ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, null, additionalParameters);
+        IdentityZone identityZone = zoneService.generateIdentityZone(ZONE_NAME, SUB_DOMAIN_NAME, UUID.randomUUID().toString(), orchestratorZone);
+
+        validator.validate(identityZone, IdentityZoneValidator.Mode.CREATE);
+
+        List<String> whitelist = identityZone.getConfig().getLinks().getLogout().getWhitelist();
+        assertNotNull(whitelist);
+        // Should only contain the deployment-specific whitelist
+        assertTrue(whitelist.size() == 1);
+    }
+
+    @Test
+    public void testGenerateIdentityZone_WithNullAdditionalParameters() throws OrchestratorZoneServiceException, InvalidIdentityZoneDetailsException {
+        Security.addProvider(new BouncyCastleFipsProvider());
+
+        GeneralIdentityZoneConfigurationValidator configValidator = new GeneralIdentityZoneConfigurationValidator();
+        GeneralIdentityZoneValidator validator = new GeneralIdentityZoneValidator(configValidator);
+
+        OrchestratorZone orchestratorZone = new OrchestratorZone(ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, null, null);
+        IdentityZone identityZone = zoneService.generateIdentityZone(ZONE_NAME, SUB_DOMAIN_NAME, UUID.randomUUID().toString(), orchestratorZone);
+
+        validator.validate(identityZone, IdentityZoneValidator.Mode.CREATE);
+
+        List<String> whitelist = identityZone.getConfig().getLinks().getLogout().getWhitelist();
+        assertNotNull(whitelist);
+        // Should only contain the deployment-specific whitelist when additionalParameters is null
+        assertTrue(whitelist.size() == 1);
+    }
+
+    @Test
+    public void testCreateZone_WithRedirectUrls() throws OrchestratorZoneServiceException {
+        Security.addProvider(new BouncyCastleFipsProvider());
+
+        Map<String, Object> additionalParameters = new HashMap<>();
+        additionalParameters.put("logout_redirect_url_whitelist", java.util.Arrays.asList("https://app1.example.com", "https://app2.example.com"));
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+            ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, additionalParameters);
+
+        IdentityZone identityZone = createIdentityZone(null);
+        IdentityProvider identityProvider = createDefaultIdp(identityZone);
+        when(zoneProvisioning.create(any())).thenReturn(identityZone);
+        when(idpProvisioning.create(any(),any())).thenReturn(identityProvider);
+        when(clientDetailsService.retrieve(anyString(),anyString())).thenReturn(null);
+
+        OrchestratorZoneResponse response = zoneService.createZone(zoneRequest);
+
+        verify(zoneProvisioning, times(1)).create(any());
+
+        assertNotNull(response);
+        assertEquals(ZONE_NAME, response.getName());
+        assertEquals(OrchestratorState.CREATE_IN_PROGRESS.toString(), response.getState());
+        assertEquals(ZONE_CREATED_MESSAGE, response.getMessage());
+    }
+
+    @Test
+    public void testCreateZone_WithTenantAlias() throws OrchestratorZoneServiceException {
+        Security.addProvider(new BouncyCastleFipsProvider());
+
+        String tenantAlias = "Custom Tenant Display Name";
+        Map<String, Object> additionalParameters = new HashMap<>();
+        additionalParameters.put("tenant_alias", tenantAlias);
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+            ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, additionalParameters);
+
+        IdentityZone identityZone = createIdentityZone(null);
+        IdentityProvider identityProvider = createDefaultIdp(identityZone);
+        when(zoneProvisioning.create(any())).thenReturn(identityZone);
+        when(idpProvisioning.create(any(),any())).thenReturn(identityProvider);
+        when(clientDetailsService.retrieve(anyString(),anyString())).thenReturn(null);
+
+        OrchestratorZoneResponse response = zoneService.createZone(zoneRequest);
+
+        // Capture the IdentityZone passed to create()
+        ArgumentCaptor<IdentityZone> identityZoneCaptor = ArgumentCaptor.forClass(IdentityZone.class);
+        verify(zoneProvisioning, times(1)).create(identityZoneCaptor.capture());
+
+        // Verify identity zone name is tenant_alias
+        IdentityZone capturedZone = identityZoneCaptor.getValue();
+        assertEquals(tenantAlias, capturedZone.getName());
+
+        // Verify orchestrator zone is created with original zone name
+        verify(zoneProvisioning, times(1)).createOrchestratorZone(anyString(), eq(ZONE_NAME));
+
+        assertNotNull(response);
+        // Response name should always be the orchestrator zone name (from zoneRequest)
+        assertEquals(ZONE_NAME, response.getName());
+        assertEquals(OrchestratorState.CREATE_IN_PROGRESS.toString(), response.getState());
+        assertEquals(ZONE_CREATED_MESSAGE, response.getMessage());
+    }
+
+    @Test
+    public void testCreateZone_WithoutTenantAlias_FallsBackToZoneName() throws OrchestratorZoneServiceException {
+        Security.addProvider(new BouncyCastleFipsProvider());
+
+        // additionalParameters without tenant_alias key - use valid key logout_redirect_url_whitelist
+        Map<String, Object> additionalParameters = new HashMap<>();
+        additionalParameters.put("logout_redirect_url_whitelist", List.of("https://example.com/logout"));
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+            ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, additionalParameters);
+
+        IdentityZone identityZone = createIdentityZone(null);
+        IdentityProvider identityProvider = createDefaultIdp(identityZone);
+        when(zoneProvisioning.create(any())).thenReturn(identityZone);
+        when(idpProvisioning.create(any(),any())).thenReturn(identityProvider);
+        when(clientDetailsService.retrieve(anyString(),anyString())).thenReturn(null);
+
+        OrchestratorZoneResponse response = zoneService.createZone(zoneRequest);
+
+        // Capture the IdentityZone passed to create()
+        ArgumentCaptor<IdentityZone> identityZoneCaptor = ArgumentCaptor.forClass(IdentityZone.class);
+        verify(zoneProvisioning, times(1)).create(identityZoneCaptor.capture());
+
+        // When tenant_alias is not provided, identity zone name should fall back to zone name
+        IdentityZone capturedZone = identityZoneCaptor.getValue();
+        assertEquals(ZONE_NAME, capturedZone.getName());
+
+        // Verify orchestrator zone is created with original zone name
+        verify(zoneProvisioning, times(1)).createOrchestratorZone(anyString(), eq(ZONE_NAME));
+
+        assertNotNull(response);
+        assertEquals(ZONE_NAME, response.getName());
+        assertEquals(OrchestratorState.CREATE_IN_PROGRESS.toString(), response.getState());
+    }
+
+    @Test
+    public void testCreateZone_WithEmptyTenantAlias_FallsBackToZoneName() throws OrchestratorZoneServiceException {
+        Security.addProvider(new BouncyCastleFipsProvider());
+
+        Map<String, Object> additionalParameters = new HashMap<>();
+        additionalParameters.put("tenant_alias", "");
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+            ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, additionalParameters);
+
+        IdentityZone identityZone = createIdentityZone(null);
+        IdentityProvider identityProvider = createDefaultIdp(identityZone);
+        when(zoneProvisioning.create(any())).thenReturn(identityZone);
+        when(idpProvisioning.create(any(),any())).thenReturn(identityProvider);
+        when(clientDetailsService.retrieve(anyString(),anyString())).thenReturn(null);
+
+        OrchestratorZoneResponse response = zoneService.createZone(zoneRequest);
+
+        // Capture the IdentityZone passed to create()
+        ArgumentCaptor<IdentityZone> identityZoneCaptor = ArgumentCaptor.forClass(IdentityZone.class);
+        verify(zoneProvisioning, times(1)).create(identityZoneCaptor.capture());
+
+        // When tenant_alias is empty, identity zone name should fall back to zone name
+        IdentityZone capturedZone = identityZoneCaptor.getValue();
+        assertEquals(ZONE_NAME, capturedZone.getName());
+
+        // Verify orchestrator zone is created with original zone name
+        verify(zoneProvisioning, times(1)).createOrchestratorZone(anyString(), eq(ZONE_NAME));
+
+        assertNotNull(response);
+        assertEquals(ZONE_NAME, response.getName());
+        assertEquals(OrchestratorState.CREATE_IN_PROGRESS.toString(), response.getState());
+    }
+
+    @Test
+    public void testCreateZone_WithNullAdditionalParameters_FallsBackToZoneName() throws OrchestratorZoneServiceException {
+        Security.addProvider(new BouncyCastleFipsProvider());
+
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+            ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, null);
+
+        IdentityZone identityZone = createIdentityZone(null);
+        IdentityProvider identityProvider = createDefaultIdp(identityZone);
+        when(zoneProvisioning.create(any())).thenReturn(identityZone);
+        when(idpProvisioning.create(any(),any())).thenReturn(identityProvider);
+        when(clientDetailsService.retrieve(anyString(),anyString())).thenReturn(null);
+
+        OrchestratorZoneResponse response = zoneService.createZone(zoneRequest);
+
+        // Capture the IdentityZone passed to create()
+        ArgumentCaptor<IdentityZone> identityZoneCaptor = ArgumentCaptor.forClass(IdentityZone.class);
+        verify(zoneProvisioning, times(1)).create(identityZoneCaptor.capture());
+
+        // When additionalParameters is null, identity zone name should fall back to zone name
+        IdentityZone capturedZone = identityZoneCaptor.getValue();
+        assertEquals(ZONE_NAME, capturedZone.getName());
+
+        // Verify orchestrator zone is created with original zone name
+        verify(zoneProvisioning, times(1)).createOrchestratorZone(anyString(), eq(ZONE_NAME));
+
+        assertNotNull(response);
+        assertEquals(ZONE_NAME, response.getName());
+        assertEquals(OrchestratorState.CREATE_IN_PROGRESS.toString(), response.getState());
+    }
+
+    @Test
+    public void testCreateZone_WithWhitespaceTenantAlias_FallsBackToZoneName() throws OrchestratorZoneServiceException {
+        Security.addProvider(new BouncyCastleFipsProvider());
+
+        Map<String, Object> additionalParameters = new HashMap<>();
+        additionalParameters.put("tenant_alias", "   ");
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+            ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, additionalParameters);
+
+        IdentityZone identityZone = createIdentityZone(null);
+        IdentityProvider identityProvider = createDefaultIdp(identityZone);
+        when(zoneProvisioning.create(any())).thenReturn(identityZone);
+        when(idpProvisioning.create(any(),any())).thenReturn(identityProvider);
+        when(clientDetailsService.retrieve(anyString(),anyString())).thenReturn(null);
+
+        OrchestratorZoneResponse response = zoneService.createZone(zoneRequest);
+
+        // Capture the IdentityZone passed to create()
+        ArgumentCaptor<IdentityZone> identityZoneCaptor = ArgumentCaptor.forClass(IdentityZone.class);
+        verify(zoneProvisioning, times(1)).create(identityZoneCaptor.capture());
+
+        // When tenant_alias is only whitespace, identity zone name should fall back to zone name
+        IdentityZone capturedZone = identityZoneCaptor.getValue();
+        assertEquals(ZONE_NAME, capturedZone.getName());
+
+        // Verify orchestrator zone is created with original zone name
+        verify(zoneProvisioning, times(1)).createOrchestratorZone(anyString(), eq(ZONE_NAME));
+
+        assertNotNull(response);
+        assertEquals(ZONE_NAME, response.getName());
+        assertEquals(OrchestratorState.CREATE_IN_PROGRESS.toString(), response.getState());
+    }
+
+    private OrchestratorZoneRequest getOrchestratorZoneRequestWithAdditionalParams(String name, String adminClientSecret,
+                                                                                   String subDomain, Map<String, Object> additionalParameters) {
+        OrchestratorZoneRequest zoneRequest = new OrchestratorZoneRequest();
+        OrchestratorZone zone = new OrchestratorZone(adminClientSecret, subDomain, null, additionalParameters);
+        zoneRequest.setName(name);
+        zoneRequest.setParameters(zone);
+        return zoneRequest;
+    }
+
 
     @Test
     public void testCreateZoneDetails_AccessDeniedException() {
@@ -424,7 +709,7 @@ public class OrchestratorZoneServiceTests {
     private OrchestratorZoneRequest getOrchestratorZoneRequest(String name, String adminClientSecret,
                                                                String subDomain) {
         OrchestratorZoneRequest zoneRequest = new OrchestratorZoneRequest();
-        OrchestratorZone zone = new OrchestratorZone(adminClientSecret, subDomain, null);
+        OrchestratorZone zone = new OrchestratorZone(adminClientSecret, subDomain, null, null);
         zoneRequest.setName(name);
         zoneRequest.setParameters(zone);
         return zoneRequest;
@@ -433,7 +718,7 @@ public class OrchestratorZoneServiceTests {
     private OrchestratorZoneRequest getOrchestratorZoneImportRequest(String name, String adminClientSecret,
                                                                      String subDomain, String importServiceInstanceGuid) {
         OrchestratorZoneRequest zoneRequest = new OrchestratorZoneRequest();
-        OrchestratorZone zone = new OrchestratorZone(adminClientSecret, subDomain, importServiceInstanceGuid);
+        OrchestratorZone zone = new OrchestratorZone(adminClientSecret, subDomain, importServiceInstanceGuid, null);
         zoneRequest.setName(name);
         zoneRequest.setParameters(zone);
         return zoneRequest;
@@ -473,5 +758,270 @@ public class OrchestratorZoneServiceTests {
         idpDefinition.setPasswordPolicy(null);
         defaultIdp.setConfig(idpDefinition);
         return defaultIdp;
+    }
+
+    // Additional Parameters Validation Tests
+
+    @Test
+    public void testValidateAdditionalParameters_WithValidTenantAliasAndRedirectUrls() {
+        Security.addProvider(new BouncyCastleFipsProvider());
+        // Valid case with both allowed keys
+        Map<String, Object> additionalParams = new HashMap<>();
+        additionalParams.put("tenant_alias", "Test Tenant");
+        additionalParams.put("logout_redirect_url_whitelist", List.of("https://example.com/logout"));
+
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+                ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, additionalParams);
+
+        IdentityZone identityZone = createIdentityZone(null);
+        IdentityProvider identityProvider = createDefaultIdp(identityZone);
+        when(zoneProvisioning.create(any())).thenReturn(identityZone);
+        when(idpProvisioning.create(any(),any())).thenReturn(identityProvider);
+        when(clientDetailsService.retrieve(anyString(),anyString())).thenReturn(null);
+
+        // Should not throw exception
+        Assertions.assertDoesNotThrow(() -> zoneService.createZone(zoneRequest));
+    }
+
+    @Test
+    public void testValidateAdditionalParameters_WithOnlyTenantAlias() {
+        Security.addProvider(new BouncyCastleFipsProvider());
+        // Valid case with only tenant_alias
+        Map<String, Object> additionalParams = new HashMap<>();
+        additionalParams.put("tenant_alias", "Test Tenant");
+
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+                ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, additionalParams);
+
+        IdentityZone identityZone = createIdentityZone(null);
+        IdentityProvider identityProvider = createDefaultIdp(identityZone);
+        when(zoneProvisioning.create(any())).thenReturn(identityZone);
+        when(idpProvisioning.create(any(),any())).thenReturn(identityProvider);
+        when(clientDetailsService.retrieve(anyString(),anyString())).thenReturn(null);
+
+        // Should not throw exception
+        Assertions.assertDoesNotThrow(() -> zoneService.createZone(zoneRequest));
+    }
+
+    @Test
+    public void testValidateAdditionalParameters_WithOnlyRedirectUrls() {
+        Security.addProvider(new BouncyCastleFipsProvider());
+        // Valid case with only logout_redirect_url_whitelist
+        Map<String, Object> additionalParams = new HashMap<>();
+        additionalParams.put("logout_redirect_url_whitelist", List.of("https://example.com/logout"));
+
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+                ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, additionalParams);
+
+        IdentityZone identityZone = createIdentityZone(null);
+        IdentityProvider identityProvider = createDefaultIdp(identityZone);
+        when(zoneProvisioning.create(any())).thenReturn(identityZone);
+        when(idpProvisioning.create(any(),any())).thenReturn(identityProvider);
+        when(clientDetailsService.retrieve(anyString(),anyString())).thenReturn(null);
+
+        // Should not throw exception
+        Assertions.assertDoesNotThrow(() -> zoneService.createZone(zoneRequest));
+    }
+
+    @Test
+    public void testValidateAdditionalParameters_WithRedirectUrlAsString_ShouldFail() {
+        // Invalid case - logout_redirect_url_whitelist as a single string (must be array)
+        Map<String, Object> additionalParams = new HashMap<>();
+        additionalParams.put("logout_redirect_url_whitelist", "https://example.com/logout");
+
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+                ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, additionalParams);
+
+        OrchestratorZoneServiceException exception = assertThrows(OrchestratorZoneServiceException.class,
+                () -> zoneService.createZone(zoneRequest));
+
+        assertTrue(exception.getMessage().contains("logout_redirect_url_whitelist must be an array of Strings"));
+        assertTrue(exception.getMessage().contains("Found type: String"));
+    }
+
+    @Test
+    public void testValidateAdditionalParameters_WithEmptyMap() {
+        Security.addProvider(new BouncyCastleFipsProvider());
+        // Valid case with empty map
+        Map<String, Object> additionalParams = new HashMap<>();
+
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+                ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, additionalParams);
+
+        IdentityZone identityZone = createIdentityZone(null);
+        IdentityProvider identityProvider = createDefaultIdp(identityZone);
+        when(zoneProvisioning.create(any())).thenReturn(identityZone);
+        when(idpProvisioning.create(any(),any())).thenReturn(identityProvider);
+        when(clientDetailsService.retrieve(anyString(),anyString())).thenReturn(null);
+
+        // Should not throw exception
+        Assertions.assertDoesNotThrow(() -> zoneService.createZone(zoneRequest));
+    }
+
+    @Test
+    public void testValidateAdditionalParameters_WithNullMap() {
+        Security.addProvider(new BouncyCastleFipsProvider());
+        // Valid case with null map
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+                ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, null);
+
+        IdentityZone identityZone = createIdentityZone(null);
+        IdentityProvider identityProvider = createDefaultIdp(identityZone);
+        when(zoneProvisioning.create(any())).thenReturn(identityZone);
+        when(idpProvisioning.create(any(),any())).thenReturn(identityProvider);
+        when(clientDetailsService.retrieve(anyString(),anyString())).thenReturn(null);
+
+        // Should not throw exception
+        Assertions.assertDoesNotThrow(() -> zoneService.createZone(zoneRequest));
+    }
+
+    @Test
+    public void testValidateAdditionalParameters_WithMoreThan2Keys() {
+        // Invalid case - more than 2 keys
+        Map<String, Object> additionalParams = new HashMap<>();
+        additionalParams.put("tenant_alias", "Test Tenant");
+        additionalParams.put("logout_redirect_url_whitelist", List.of("https://example.com/logout"));
+        additionalParams.put("extra_key", "extra_value");
+
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+                ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, additionalParams);
+
+        OrchestratorZoneServiceException exception = assertThrows(OrchestratorZoneServiceException.class,
+                () -> zoneService.createZone(zoneRequest));
+
+        assertTrue(exception.getMessage().contains("Additional parameters can contain maximum 2 keys"));
+    }
+
+    @Test
+    public void testValidateAdditionalParameters_WithInvalidKey() {
+        // Invalid case - invalid key name
+        Map<String, Object> additionalParams = new HashMap<>();
+        additionalParams.put("invalid_key", "some value");
+
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+                ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, additionalParams);
+
+        OrchestratorZoneServiceException exception = assertThrows(OrchestratorZoneServiceException.class,
+                () -> zoneService.createZone(zoneRequest));
+
+        assertTrue(exception.getMessage().contains("Invalid key 'invalid_key' in additional parameters"));
+    }
+
+    @Test
+    public void testValidateAdditionalParameters_WithTenantAliasNotString() {
+        // Invalid case - tenant_alias is not a string
+        Map<String, Object> additionalParams = new HashMap<>();
+        additionalParams.put("tenant_alias", 123); // Integer instead of String
+
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+                ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, additionalParams);
+
+        OrchestratorZoneServiceException exception = assertThrows(OrchestratorZoneServiceException.class,
+                () -> zoneService.createZone(zoneRequest));
+
+        assertTrue(exception.getMessage().contains("tenant_alias must be a String"));
+    }
+
+    @Test
+    public void testValidateAdditionalParameters_WithTenantAliasAsList() {
+        // Invalid case - tenant_alias is a list instead of string
+        Map<String, Object> additionalParams = new HashMap<>();
+        additionalParams.put("tenant_alias", List.of("tenant1", "tenant2"));
+
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+                ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, additionalParams);
+
+        OrchestratorZoneServiceException exception = assertThrows(OrchestratorZoneServiceException.class,
+                () -> zoneService.createZone(zoneRequest));
+
+        assertTrue(exception.getMessage().contains("tenant_alias must be a String"));
+    }
+
+    @Test
+    public void testValidateAdditionalParameters_WithRedirectUrlsNotStringArray() {
+        // Invalid case - logout_redirect_url_whitelist contains non-string elements
+        Map<String, Object> additionalParams = new HashMap<>();
+        additionalParams.put("logout_redirect_url_whitelist", List.of("https://example.com", 123, "https://other.com"));
+
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+                ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, additionalParams);
+
+        OrchestratorZoneServiceException exception = assertThrows(OrchestratorZoneServiceException.class,
+                () -> zoneService.createZone(zoneRequest));
+
+        assertTrue(exception.getMessage().contains("logout_redirect_url_whitelist must be an array of Strings"));
+        assertTrue(exception.getMessage().contains("Element at index 1"));
+    }
+
+    @Test
+    public void testValidateAdditionalParameters_WithRedirectUrlsAsInteger() {
+        // Invalid case - logout_redirect_url_whitelist is an integer
+        Map<String, Object> additionalParams = new HashMap<>();
+        additionalParams.put("logout_redirect_url_whitelist", 12345);
+
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+                ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, additionalParams);
+
+        OrchestratorZoneServiceException exception = assertThrows(OrchestratorZoneServiceException.class,
+                () -> zoneService.createZone(zoneRequest));
+
+        assertTrue(exception.getMessage().contains("logout_redirect_url_whitelist must be an array of Strings"));
+    }
+
+    @Test
+    public void testValidateAdditionalParameters_WithRedirectUrlsAsMap() {
+        // Invalid case - logout_redirect_url_whitelist is a map
+        Map<String, Object> additionalParams = new HashMap<>();
+        Map<String, String> invalidValue = new HashMap<>();
+        invalidValue.put("url", "https://example.com");
+        additionalParams.put("logout_redirect_url_whitelist", invalidValue);
+
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+                ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, additionalParams);
+
+        OrchestratorZoneServiceException exception = assertThrows(OrchestratorZoneServiceException.class,
+                () -> zoneService.createZone(zoneRequest));
+
+        assertTrue(exception.getMessage().contains("logout_redirect_url_whitelist must be an array of Strings"));
+    }
+
+    @Test
+    public void testValidateAdditionalParameters_WithNullValues() {
+        Security.addProvider(new BouncyCastleFipsProvider());
+        // Valid case - null values are acceptable
+        Map<String, Object> additionalParams = new HashMap<>();
+        additionalParams.put("tenant_alias", null);
+        additionalParams.put("logout_redirect_url_whitelist", null);
+
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+                ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, additionalParams);
+
+        IdentityZone identityZone = createIdentityZone(null);
+        IdentityProvider identityProvider = createDefaultIdp(identityZone);
+        when(zoneProvisioning.create(any())).thenReturn(identityZone);
+        when(idpProvisioning.create(any(),any())).thenReturn(identityProvider);
+        when(clientDetailsService.retrieve(anyString(),anyString())).thenReturn(null);
+
+        // Should not throw exception
+        Assertions.assertDoesNotThrow(() -> zoneService.createZone(zoneRequest));
+    }
+
+    @Test
+    public void testValidateAdditionalParameters_WithListContainingNullElement() {
+        // Invalid case - list containing null element
+        Map<String, Object> additionalParams = new HashMap<>();
+        List<Object> urlList = new java.util.ArrayList<>();
+        urlList.add("https://example.com");
+        urlList.add(null);
+        additionalParams.put("logout_redirect_url_whitelist", urlList);
+
+        OrchestratorZoneRequest zoneRequest = getOrchestratorZoneRequestWithAdditionalParams(
+                ZONE_NAME, ADMIN_CLIENT_SECRET, SUB_DOMAIN_NAME, additionalParams);
+
+        OrchestratorZoneServiceException exception = assertThrows(OrchestratorZoneServiceException.class,
+                () -> zoneService.createZone(zoneRequest));
+
+        assertTrue(exception.getMessage().contains("logout_redirect_url_whitelist must be an array of Strings"));
+        assertTrue(exception.getMessage().contains("Element at index 1 is of type: null"));
     }
 }
