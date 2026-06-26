@@ -2,13 +2,14 @@ uaa:
   url: http://localhost:8080/uaa
 issuer:
   uri: http://localhost:8080/uaa
+
 encryption:
   active_key_label: key-1
   encryption_keys:
-    - label: 'key-1'
-      passphrase: 'MY-PASSPHRASE'
-    - label: 'key-2'
-      passphrase: 'MY-PASSPHRASE-TWO'
+    - label: "key-1"
+      passphrase: "MY-PASSPHRASE"
+    - label: "key-2"
+      passphrase: "MY-PASSPHRASE-TWO"
 foo: bar
 spring_profiles: hsqldb
 logging:
@@ -54,18 +55,3 @@ links:
   # will use internal links.
   passwd: /forgot_password
   signup: /create_account
-
-  
-# External IDP web domains (list of allowed domains for integration tests)
-# Tests use local SAML server, so we need broad domain matching
-external_idp:
-  web_domains:
-    - http://localhost
-    - https://localhost
-    - http://simplesamlphp
-    - simplesamlphp.uaa-acceptance.cf-app.com
-    - uaa-acceptance.cf-app.com
-    - example.com
-    - .cf-app.com
-    - 127.0.0.1
-    - fssfed.ge.com

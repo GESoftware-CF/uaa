@@ -25,6 +25,7 @@ import org.cloudfoundry.identity.uaa.scim.ScimGroup;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupProvisioning;
 import org.cloudfoundry.identity.uaa.zone.SamlConfig.SignatureAlgorithm;
 import org.cloudfoundry.identity.uaa.zone.model.ConnectionDetails;
+import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZone;
 import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneHeader;
 import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneRequest;
 import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneResponse;
@@ -63,6 +64,7 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
     public static final String GENERATED_KEY_ID = "generated-saml-key";
     public static final String BEGIN_CERT = "-----BEGIN CERTIFICATE-----";
     public static final String END_CERT = "-----END CERTIFICATE-----";
+    public static final String LOGOUT_REDIRECT_URL_WHITELIST_KEY = "logout_redirect_url_whitelist";
 
     public static final String CLIENT_ID = "admin";
     public static final String ZONE_AUTHORITIES =
@@ -176,7 +178,26 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
             throw new AccessDeniedException("Zones can only be created by being authenticated in the default zone.");
         }
 
-        String name = zoneRequest.getName();
+        // Validate additional parameters before processing
+        if (zoneRequest.getParameters() != null && zoneRequest.getParameters().getAdditionalParameters() != null) {
+            validateAdditionalParameters(zoneRequest.getParameters().getAdditionalParameters());
+        }
+
+        String orchestratorZoneName = zoneRequest.getName();
+        String identityZoneName = orchestratorZoneName; // Default to zone request name
+
+        // Extract tenant_alias for identity zone display name if present
+        if (zoneRequest.getParameters() != null &&
+            zoneRequest.getParameters().getAdditionalParameters() != null) {
+            Object tenantAliasObj = zoneRequest.getParameters().getAdditionalParameters().get("tenant_alias");
+            if (tenantAliasObj instanceof String) {
+                String tenantAlias = (String) tenantAliasObj;
+                if (tenantAlias != null && !tenantAlias.trim().isEmpty()) {
+                    identityZoneName = tenantAlias;
+                }
+            }
+        }
+
         String importedServiceInstanceGuid = zoneRequest.getParameters().getImportedServiceInstanceGuid();
         if (Objects.nonNull(importedServiceInstanceGuid)) {
             return importZone(zoneRequest);
@@ -185,13 +206,14 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
         String subdomain = zoneRequest.getParameters().getSubdomain();
         String id = UUID.randomUUID().toString();
         subdomain = getSubDomain(subdomain, id);
-        IdentityZone identityZone = generateIdentityZone(subdomain, name, id);
+        IdentityZone identityZone = generateIdentityZone(subdomain, identityZoneName, id, zoneRequest.getParameters());
         IdentityZone previous = IdentityZoneHolder.get();
         try {
             IdentityZone created = createIdentityZone(identityZone);
             // This DAO method will throw ConstraintViolationException
             // if there is a duplicate entry in orchestrator_zone table
-            zoneProvisioning.createOrchestratorZone(identityZone.getId(), name);
+            // Orchestrator zone name is always the name from zoneRequest
+            zoneProvisioning.createOrchestratorZone(identityZone.getId(), orchestratorZoneName);
             IdentityZoneHolder.set(created);
             createDefaultIdp(created);
             createUserGroups(created);
@@ -296,14 +318,14 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
         return created;
     }
 
-    protected IdentityZone generateIdentityZone(String subdomain, String name, String id) {
+    protected IdentityZone generateIdentityZone(String subdomain, String name, String id, OrchestratorZone orchestratorZone) {
         IdentityZone identityZone = new IdentityZone();
         identityZone.setId(id);
         identityZone.setName(name);
         identityZone.setSubdomain(subdomain);
         setTokenPolicy(createSigningKey(name), identityZone);
         setSamlConfig(identityZone);
-        identityZone.getConfig().getLinks().getLogout().setWhitelist(createDeploymentSpecificLogoutWhiteList());
+        identityZone.getConfig().getLinks().getLogout().setWhitelist(createDeploymentSpecificLogoutWhiteList(orchestratorZone));
         identityZone.getConfig().getLinks().getSelfService().setSelfServiceCreateAccountEnabled(false);
         identityZone.getConfig().getLinks().getSelfService().setSignup("");
         identityZone.getConfig().getLinks().getSelfService().setSelfServiceResetPasswordEnabled(true);
@@ -389,11 +411,128 @@ public class OrchestratorZoneService implements ApplicationEventPublisherAware {
         }
     }
 
-    private List<String>  createDeploymentSpecificLogoutWhiteList()
-    {
+    private List<String> createDeploymentSpecificLogoutWhiteList(OrchestratorZone orchestratorZone) {
+        List<String> whiteList = new java.util.ArrayList<>();
+
+        // Add redirect URLs from additionalParameters if present
+        if (orchestratorZone != null && orchestratorZone.getAdditionalParameters() != null) {
+            List<String> redirectUrls = extractRedirectUrls(orchestratorZone.getAdditionalParameters());
+            if (!redirectUrls.isEmpty()) {
+                whiteList.addAll(redirectUrls);
+            }
+        }
+
+        // Add deployment-specific logout whitelist
         String runDomainFQDN = getRunDomainFromUAADomain();
-        return (!hasLength(runDomainFQDN))  ? Collections.singletonList("http*://**") :
-               Collections.singletonList("http*://**" + runDomainFQDN);
+        if (!hasLength(runDomainFQDN)) {
+            whiteList.add("http*://**");
+        } else {
+            whiteList.add("http*://**" + runDomainFQDN);
+        }
+
+        return whiteList;
+    }
+
+    /**
+     * Validates the additional parameters map.
+     * Rules:
+     * 1. Maximum of 2 keys are allowed
+     * 2. Only "logout_redirect_url_whitelist" and "tenant_alias" keys are allowed
+     * 3. "logout_redirect_url_whitelist" must be a List of Strings (single strings not allowed)
+     * 4. "tenant_alias" must be a String
+     *
+     * @param additionalParameters Map containing additional parameters
+     * @throws OrchestratorZoneServiceException if validation fails
+     */
+    private void validateAdditionalParameters(java.util.Map<String, Object> additionalParameters) {
+        if (additionalParameters == null || additionalParameters.isEmpty()) {
+            return;
+        }
+
+        // Validate maximum number of keys
+        if (additionalParameters.size() > 2) {
+            throw new OrchestratorZoneServiceException(
+                    "Additional parameters can contain maximum 2 keys. Found " + additionalParameters.size() + " keys.");
+        }
+
+        // Define allowed keys
+        java.util.Set<String> allowedKeys = new java.util.HashSet<>();
+        allowedKeys.add(LOGOUT_REDIRECT_URL_WHITELIST_KEY);
+        allowedKeys.add("tenant_alias");
+
+        // Validate that only allowed keys are present
+        for (String key : additionalParameters.keySet()) {
+            if (!allowedKeys.contains(key)) {
+                throw new OrchestratorZoneServiceException(
+                        "Invalid key '" + key + "' in additional parameters. Only 'logout_redirect_url_whitelist' and 'tenant_alias' are allowed.");
+            }
+        }
+
+        // Validate logout_redirect_url_whitelist if present
+        if (additionalParameters.containsKey(LOGOUT_REDIRECT_URL_WHITELIST_KEY)) {
+            Object redirectUrlValue = additionalParameters.get(LOGOUT_REDIRECT_URL_WHITELIST_KEY);
+
+            if (redirectUrlValue == null) {
+                // null is acceptable, skip validation
+            } else if (redirectUrlValue instanceof List) {
+                // Validate that all elements in the list are Strings
+                List<?> urlList = (List<?>) redirectUrlValue;
+                for (int i = 0; i < urlList.size(); i++) {
+                    Object element = urlList.get(i);
+                    if (!(element instanceof String)) {
+                        throw new OrchestratorZoneServiceException(
+                                "logout_redirect_url_whitelist must be an array of Strings. " +
+                                "Element at index " + i + " is of type: " +
+                                (element != null ? element.getClass().getSimpleName() : "null"));
+                    }
+                }
+            } else {
+                throw new OrchestratorZoneServiceException(
+                        "logout_redirect_url_whitelist must be an array of Strings. Found type: " +
+                        redirectUrlValue.getClass().getSimpleName());
+            }
+        }
+
+        // Validate tenant_alias if present
+        if (additionalParameters.containsKey("tenant_alias")) {
+            Object tenantAliasValue = additionalParameters.get("tenant_alias");
+
+            if (tenantAliasValue != null && !(tenantAliasValue instanceof String)) {
+                throw new OrchestratorZoneServiceException(
+                        "tenant_alias must be a String. Found type: " +
+                        tenantAliasValue.getClass().getSimpleName());
+            }
+        }
+    }
+
+    /**
+     * Extracts redirect URLs from the additionalParameters map.
+     * The logout_redirect_url_whitelist key must contain a list of URL strings.
+     * Empty or blank strings are filtered out.
+     *
+     * @param additionalParameters Map containing additional parameters
+     * @return List of redirect URLs, or empty list if none found
+     */
+    private List<String> extractRedirectUrls(java.util.Map<String, Object> additionalParameters) {
+        if (additionalParameters == null || additionalParameters.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Object redirectUrlValue = additionalParameters.get(LOGOUT_REDIRECT_URL_WHITELIST_KEY);
+
+        if (redirectUrlValue == null) {
+            return Collections.emptyList();
+        }
+
+        if (redirectUrlValue instanceof List) {
+            return ((List<?>) redirectUrlValue).stream()
+                    .filter(obj -> obj instanceof String)
+                    .map(obj -> (String) obj)
+                    .filter(url -> hasText(url))
+                    .collect(java.util.stream.Collectors.toList());
+        }
+
+        return Collections.emptyList();
     }
 
     /**

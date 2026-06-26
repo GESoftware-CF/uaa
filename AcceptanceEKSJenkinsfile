@@ -7,12 +7,12 @@ pipeline {
             label "dind"
             args "-v /var/lib/docker/.gradle:/root/.gradle"
             registryUrl "https://gart.software.gevernova.com"
-            registryCredentialsId "DIGITAL_GRID_ARTIFACTORY_CREDENTIALS"
+            registryCredentialsId "iam-artifactory-access-token-dev"
         }
     }
     environment {
         COMPLIANCEENABLED = true
-        ARTIFACTORY_CREDENTIALS = credentials("DIGITAL_GRID_ARTIFACTORY_CREDENTIALS")
+        ARTIFACTORY_CREDENTIALS = credentials("iam-artifactory-access-token-dev")
     }
     options {
         timestamps()
@@ -68,19 +68,19 @@ pipeline {
                         branch: params.UAA_K8S_DEPLOY_BRANCH
                 }
 
-                sh '''#!/bin/bash -ex
+                sh """#!/bin/bash -ex
                     echo 'Installing yq'
                     wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
                     chmod a+x /usr/local/bin/yq
                     yq --version
 
-                    export SAML_IDP_USER=$FUNCTIONAL_USER_USR
-                    export SAML_IDP_USER_PW=$FUNCTIONAL_USER_PSW
+                    export SAML_IDP_USER=\$FUNCTIONAL_USER_USR
+                    export SAML_IDP_USER_PW=\$FUNCTIONAL_USER_PSW
 
                     pushd uaa-k8s-deploy
-                        ./scripts/uaa-acceptance-tests.sh $DEPLOYMENT_ENVIRONMENT $UAA_HOST
+                        ./scripts/uaa-acceptance-tests.sh ${DEPLOYMENT_ENVIRONMENT} ${UAA_HOST}
                     popd
-                '''
+                """
             }
             post{
                 always {
@@ -134,8 +134,7 @@ pipeline {
                 '''
 
                 sh '''#!/bin/bash -ex
-                    echo 10.229.23.137 signin.aws.amazon.com >> /etc/hosts
-                    echo 10.229.23.151 signin.aws.amazon.com >> /etc/hosts
+                    
                     export ARTIFACTORY_READER=$FUNCTIONAL_USER_USR
                     export ARTIFACTORY_READER_PW=$FUNCTIONAL_USER_PSW
                     pushd uaa-k8s-deploy
