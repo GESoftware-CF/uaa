@@ -18,6 +18,7 @@ versions.opensaml = "4.0.1"
 versions.byteBuddyVersion = "1.17.6"
 versions.springCloud = "2.0.9.RELEASE"
 versions.jakartaElVersion = "3.0.4"
+versions.awsSdkVersion = "2.18.0"
 
 // Versions we're overriding from the Spring Boot Bom (Dependabot does not issue PRs to bump these versions, so we need to manually bump them)
 ext["mariadb.version"] = "2.7.12" // Bumping to v3 breaks some pipeline jobs (and compatibility with Amazon Aurora MySQL), so pinning to v2 for now. v2 (current version) is stable and will be supported until about September 2025 (https://mariadb.com/kb/en/about-mariadb-connector-j/).
