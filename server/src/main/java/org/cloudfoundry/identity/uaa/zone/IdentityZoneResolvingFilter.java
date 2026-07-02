@@ -80,6 +80,7 @@ public class IdentityZoneResolvingFilter extends OncePerRequestFilter implements
                     "Cannot find identity zone for subdomain " + subdomain);
             return;
         }
+        long filterStart = System.currentTimeMillis();
         try {
             IdentityZoneHolder.set(identityZone);
             filterChain.doFilter(request, response);
