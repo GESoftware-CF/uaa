@@ -67,7 +67,15 @@ public class JdbcQueryableClientDetailsService
 
     @Override
     public ClientDetails retrieve(String id, String zoneId) {
-        return delegate.loadClientByClientId(id, zoneId);
+        long before = System.currentTimeMillis();
+        logger.info("DB_CALL_START clientDetailsRetrieve clientId={} zoneId={} time={}", id, zoneId, before);
+
+        ClientDetails result = delegate.loadClientByClientId(id, zoneId);
+
+        long duration = System.currentTimeMillis() - before;
+        logger.info("DB_CALL_END clientDetailsRetrieve clientId={} durationMs={}", id, duration);
+
+        return result;
     }
 
     @Override
@@ -85,7 +93,9 @@ public class JdbcQueryableClientDetailsService
     @Override
     public ClientDetails delete(String id, int version, String zoneId) {
         ClientDetails client = delegate.loadClientByClientId(id, zoneId);
-        delegate.onApplicationEvent(new EntityDeletedEvent<>(client, SecurityContextHolder.getContext().getAuthentication(), identityZoneManager.getCurrentIdentityZoneId()));
+        delegate.onApplicationEvent(
+                new EntityDeletedEvent<>(client, SecurityContextHolder.getContext().getAuthentication(),
+                        identityZoneManager.getCurrentIdentityZoneId()));
         return client;
     }
 

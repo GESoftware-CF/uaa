@@ -26,13 +26,16 @@ public class JdbcIdentityZoneProvisioning implements IdentityZoneProvisioning, S
 
     public static final String ORCHESTRATOR_IDENTITY_BY_ID_ZONE_FIELDS = "idzone.id,orchzone.orchestrator_zone_name";
 
-    public static final String ID_ZONE_UPDATE_FIELDS = "version,lastmodified,name,subdomain,description,config,active,enable_redirect_uri_check".replace(",", "=?,") + "=?";
+    public static final String ID_ZONE_UPDATE_FIELDS = "version,lastmodified,name,subdomain,description,config,active,enable_redirect_uri_check"
+            .replace(",", "=?,") + "=?";
 
-    public static final String CREATE_IDENTITY_ZONE_SQL = "insert into identity_zone(" + ID_ZONE_FIELDS + ") values (?,?,?,?,?,?,?,?,?,?)";
+    public static final String CREATE_IDENTITY_ZONE_SQL = "insert into identity_zone(" + ID_ZONE_FIELDS
+            + ") values (?,?,?,?,?,?,?,?,?,?)";
 
     public static final String CREATE_ORCHESTRATOR_ZONE_SQL = "insert into orchestrator_zone(identity_zone_id, orchestrator_zone_name) values (?,?)";
 
-    public static final String UPDATE_IDENTITY_ZONE_SQL = "update identity_zone set " + ID_ZONE_UPDATE_FIELDS + " where id=?";
+    public static final String UPDATE_IDENTITY_ZONE_SQL = "update identity_zone set " + ID_ZONE_UPDATE_FIELDS
+            + " where id=?";
 
     public static final String DELETE_IDENTITY_ZONE_SQL = "delete from identity_zone where id=?";
 
@@ -53,7 +56,8 @@ public class JdbcIdentityZoneProvisioning implements IdentityZoneProvisioning, S
 
     public static final String IDENTITY_ZONE_BY_ID_QUERY_ACTIVE = IDENTITY_ZONE_BY_ID_QUERY + " and active = ?";
 
-    public static final String IDENTITY_ZONE_BY_SUBDOMAIN_QUERY = "select " + ID_ZONE_FIELDS + " from identity_zone " + "where subdomain=? and active = ?";
+    public static final String IDENTITY_ZONE_BY_SUBDOMAIN_QUERY = "select " + ID_ZONE_FIELDS + " from identity_zone "
+            + "where subdomain=? and active = ?";
 
     public static final Logger logger = LoggerFactory.getLogger(JdbcIdentityZoneProvisioning.class);
 
@@ -83,7 +87,8 @@ public class JdbcIdentityZoneProvisioning implements IdentityZoneProvisioning, S
     @Override
     public OrchestratorZoneEntity retrieveOrchestratorZoneByIdentityZoneId(String id) {
         try {
-            return jdbcTemplate.queryForObject(ORCHESTRATOR_ZONE_BY_ID_QUERY, orchestratorZoneByIdentityIdRowMapper, id);
+            return jdbcTemplate.queryForObject(ORCHESTRATOR_ZONE_BY_ID_QUERY, orchestratorZoneByIdentityIdRowMapper,
+                    id);
         } catch (EmptyResultDataAccessException x) {
             throw new ZoneDoesNotExistsException("Zone[" + id + "] not found.", x);
         }
@@ -101,7 +106,8 @@ public class JdbcIdentityZoneProvisioning implements IdentityZoneProvisioning, S
     @Override
     public OrchestratorZoneEntity retrieveByNameIgnoreActiveFlag(String name) {
         try {
-            return jdbcTemplate.queryForObject(ORCHESTRATOR_ZONE_BY_NAME_IGNORE_ACTIVE_QUERY, orchestratorZoneMapper, name);
+            return jdbcTemplate.queryForObject(ORCHESTRATOR_ZONE_BY_NAME_IGNORE_ACTIVE_QUERY, orchestratorZoneMapper,
+                    name);
         } catch (EmptyResultDataAccessException x) {
             throw new ZoneDoesNotExistsException("Zone[" + name + "] not found.", x);
         }
@@ -134,7 +140,15 @@ public class JdbcIdentityZoneProvisioning implements IdentityZoneProvisioning, S
         if (subdomain == null) {
             throw new EmptyResultDataAccessException("Subdomain cannot be null", 1);
         }
-        return jdbcTemplate.queryForObject(IDENTITY_ZONE_BY_SUBDOMAIN_QUERY, mapper, subdomain.toLowerCase(), true);
+        long before = System.currentTimeMillis();
+        logger.info("DB_CALL_START retrieveBySubdomain subdomain={} time={}", subdomain, before);
+
+        IdentityZone result = jdbcTemplate.queryForObject(IDENTITY_ZONE_BY_SUBDOMAIN_QUERY, mapper,
+                subdomain.toLowerCase(), true);
+
+        long after = System.currentTimeMillis();
+        logger.info("DB_CALL_END retrieveBySubdomain subdomain={} durationMs={}", subdomain, (after - before));
+        return result;
     }
 
     @Override
@@ -149,7 +163,9 @@ public class JdbcIdentityZoneProvisioning implements IdentityZoneProvisioning, S
                 ps.setString(5, identityZone.getName());
                 ps.setString(6, identityZone.getSubdomain().toLowerCase());
                 ps.setString(7, identityZone.getDescription());
-                ps.setString(8, identityZone.getConfig() != null ? JsonUtils.writeValueAsString(identityZone.getConfig()) : null);
+                ps.setString(8,
+                        identityZone.getConfig() != null ? JsonUtils.writeValueAsString(identityZone.getConfig())
+                                : null);
                 ps.setBoolean(9, identityZone.isActive());
                 ps.setBoolean(10, identityZone.isEnableRedirectUriCheck());
             });
@@ -169,7 +185,7 @@ public class JdbcIdentityZoneProvisioning implements IdentityZoneProvisioning, S
             });
         } catch (DuplicateKeyException e) {
             throw new ZoneAlreadyExistsException(orchestratorZoneName,
-                "The zone name " + orchestratorZoneName + " is already taken. Please use a different zone name", e);
+                    "The zone name " + orchestratorZoneName + " is already taken. Please use a different zone name", e);
         }
 
         return retrieveByNameIgnoreActiveFlag(orchestratorZoneName);
@@ -185,13 +201,15 @@ public class JdbcIdentityZoneProvisioning implements IdentityZoneProvisioning, S
                 ps.setString(3, identityZone.getName());
                 ps.setString(4, identityZone.getSubdomain().toLowerCase());
                 ps.setString(5, identityZone.getDescription());
-                ps.setString(6, identityZone.getConfig() != null ? JsonUtils.writeValueAsString(identityZone.getConfig()) : null);
+                ps.setString(6,
+                        identityZone.getConfig() != null ? JsonUtils.writeValueAsString(identityZone.getConfig())
+                                : null);
                 ps.setBoolean(7, identityZone.isActive());
                 ps.setBoolean(8, identityZone.isEnableRedirectUriCheck());
                 ps.setString(9, identityZone.getId().trim());
             });
         } catch (DuplicateKeyException e) {
-            //duplicate subdomain
+            // duplicate subdomain
             throw new ZoneAlreadyExistsException(e.getMostSpecificCause().getMessage(), e);
         }
         return retrieveIgnoreActiveFlag(identityZone.getId());
@@ -231,7 +249,6 @@ public class JdbcIdentityZoneProvisioning implements IdentityZoneProvisioning, S
             }
             identityZone.setActive(rs.getBoolean(9));
             identityZone.setEnableRedirectUriCheck(rs.getBoolean(10));
-
 
             return identityZone;
         }
