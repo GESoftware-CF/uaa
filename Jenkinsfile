@@ -404,7 +404,7 @@ pipeline
                                     credentialsId: 'github.software.gevernova.com',
                                     poll: false,
                                     url: 'https://github.software.gevernova.com/pers/iam-container-config.git',
-                                    branch: 'uaa-upgrade'
+                                    branch: 'upgrade-base-image'
                             }
                         }
                 }
