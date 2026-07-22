@@ -438,6 +438,7 @@ pipeline
                             unstash 'uaa-war'
                         }
                         script {
+                            String OTEL_AGENT_VERSION = "2.26.1"
                             String OTEL_JAR_NAME = "splunk-otel-javaagent.jar"
                             String OTEL_EXTENSION_REPO = "gart.software.gevernova.com"
                             String OTEL_EXTENSION_VERSION = "2.0.0.RELEASE"
@@ -450,7 +451,7 @@ pipeline
 
                                     cd iam-container-config/uaa/
 
-                                    curl -L https://github.com/signalfx/splunk-otel-java/releases/download/v1.32.2/splunk-otel-javaagent.jar -o $OTEL_JAR_NAME
+                                    curl -fL --retry 3 https://github.com/signalfx/splunk-otel-java/releases/download/v${OTEL_AGENT_VERSION}/splunk-otel-javaagent.jar -o $OTEL_JAR_NAME
                                     curl --user ${ART_USERNAME}:${ART_PASSWORD} https://${OTEL_EXTENSION_REPO}${OTEL_EXTENSION_PATH}${OTEL_EXTENSION_JAR_NAME} -o $OTEL_EXTENSION_JAR_NAME
 
                                     docker build --build-arg="OTEL_JAR_NAME=${OTEL_JAR_NAME}" --build-arg="OTEL_EXTENSION_JAR_NAME=${OTEL_EXTENSION_JAR_NAME}" --no-cache -t uaa:${artifactVersion} -f Dockerfile .
