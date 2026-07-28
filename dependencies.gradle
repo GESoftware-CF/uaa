@@ -8,8 +8,8 @@ versions.apacheDsVersion = "2.0.0.AM27"
 versions.bouncyCastleFipsVersion = "2.1.0"
 versions.bouncyCastlePkixFipsVersion = "2.1.9"
 versions.bouncyCastleTlsFipsVersion = "2.1.20"
-versions.springBootVersion = "3.5.3"
-versions.tomcatCargoVersion = "10.1.43"
+versions.springBootVersion = "3.5.14" // CVE-2026-40973 (ApplicationTemp directory hijack)
+versions.tomcatCargoVersion = "10.1.55"
 versions.guavaVersion = "33.4.8-jre"
 versions.seleniumVersion = "4.34.0"
 versions.braveVersion = "6.3.0"
@@ -19,12 +19,14 @@ versions.byteBuddyVersion = "1.17.6"
 versions.springCloud = "2.0.9.RELEASE"
 versions.jakartaElVersion = "3.0.4"
 versions.awsSdkVersion = "2.18.0"
+versions.nettyVersion = "4.1.139.Final" // Multiple CVEs: CVE-2026-55831, CVE-2026-55833, CVE-2025-58056, CVE-2026-33870, CVE-2026-42585, CVE-2026-42587, CVE-2026-42581, CVE-2026-42584
 
 // Versions we're overriding from the Spring Boot Bom (Dependabot does not issue PRs to bump these versions, so we need to manually bump them)
 ext["mariadb.version"] = "2.7.12" // Bumping to v3 breaks some pipeline jobs (and compatibility with Amazon Aurora MySQL), so pinning to v2 for now. v2 (current version) is stable and will be supported until about September 2025 (https://mariadb.com/kb/en/about-mariadb-connector-j/).
 ext["flyway.version"] = "7.15.0" // the next major (v8)'s community edition drops support with MySQL 5.7, which UAA still needs to support. Can bump to v8 once we solve this issue.
 ext["hsqldb.version"] = "2.7.4" // HSQL-DB used for tests but not supported for productive usage
 ext["selenium.version"] = "${versions.seleniumVersion}" // Selenium for integration tests only
+ext["spring-security.version"] = "6.5.9" // CVE-2026-47838 and CVE-2026-22732 (critical) - lazy header writing and other security issues
 
 ext {
     tomcatCargoVersion = "${versions.tomcatCargoVersion}"
@@ -74,7 +76,7 @@ libraries.bytebuddyagent = "net.bytebuddy:byte-buddy-agent:${versions.byteBuddyV
 libraries.openSamlApi = "org.opensaml:opensaml-saml-api:${versions.opensaml}"
 libraries.orgJson = "org.json:json:20250517"
 libraries.passay = "org.passay:passay:1.6.6"
-libraries.postgresql = "org.postgresql:postgresql:42.7.7"
+libraries.postgresql = "org.postgresql:postgresql:42.8.0" // CVE-2026-42198
 libraries.selenium = "org.seleniumhq.selenium:selenium-java:${versions.seleniumVersion}"
 libraries.seleniumRemoteDriver = "org.seleniumhq.selenium:selenium-remote-driver:${versions.seleniumVersion}"
 libraries.slf4jApi = "org.slf4j:slf4j-api"
