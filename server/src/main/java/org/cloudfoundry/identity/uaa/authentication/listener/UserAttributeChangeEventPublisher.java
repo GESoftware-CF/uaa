@@ -2,6 +2,7 @@ package org.cloudfoundry.identity.uaa.authentication.listener;
 
 import com.ge.iam.sns.service.MessageBuilder;
 import com.ge.iam.sns.service.SnsService;
+import com.ge.iam.utils.SnsSqsConstants;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import org.apache.commons.lang3.StringUtils;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Collections;
 
 /**
@@ -76,6 +78,7 @@ public class UserAttributeChangeEventPublisher {
         Map<String, Object> context = new HashMap<>();
         context.put("existingUser", existingUser);
         context.put("updatedUser", updatedUser);
+        context.put(SnsSqsConstants.MESSAGE_GROUP_ID, Optional.ofNullable(updatedUser.getZoneId()).orElse(""));
         return Collections.unmodifiableMap(context);
     }
 
