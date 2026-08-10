@@ -43,30 +43,45 @@ public class TokenKeyEndpoint {
     @GetMapping("/token_key")
     @ResponseBody
     public ResponseEntity<VerificationKeyResponse> getKey(Principal principal,
-                                                          @RequestHeader(value = "If-None-Match", required = false, defaultValue = "NaN") String eTag) {
+            @RequestHeader(value = "If-None-Match", required = false, defaultValue = "NaN") String eTag) {
+        long startTime = System.currentTimeMillis();
+        logger.info("[TokenKeyEndpoint#getKey] START - GET /token_key, principal={}",
+                principal != null ? principal.getName() : "anonymous");
         String lastModified = ((Long) IdentityZoneHolder.get().getLastModified().getTime()).toString();
         if (unmodifiedResource(eTag, lastModified)) {
+            logger.info("[TokenKeyEndpoint#getKey] Resource not modified (ETag={}), returning 304 in {} ms",
+                    eTag, System.currentTimeMillis() - startTime);
             return new ResponseEntity<>(HttpStatus.NOT_MODIFIED);
         }
 
         HttpHeaders header = new HttpHeaders();
         header.put("ETag", Collections.singletonList(lastModified));
-        return new ResponseEntity<>(getKey(principal), header, HttpStatus.OK);
+        VerificationKeyResponse response = getKey(principal);
+        logger.info("[TokenKeyEndpoint#getKey] END - returning key, time={} ms",
+                System.currentTimeMillis() - startTime);
+        return new ResponseEntity<>(response, header, HttpStatus.OK);
     }
-
 
     @GetMapping("/token_keys")
     @ResponseBody
     public ResponseEntity<VerificationKeysListResponse> getKeys(Principal principal,
-                                                                @RequestHeader(value = "If-None-Match", required = false, defaultValue = "NaN") String eTag) {
+            @RequestHeader(value = "If-None-Match", required = false, defaultValue = "NaN") String eTag) {
+        long startTime = System.currentTimeMillis();
+        logger.info("[TokenKeyEndpoint#getKeys] START - GET /token_keys, principal={}",
+                principal != null ? principal.getName() : "anonymous");
         String lastModified = ((Long) IdentityZoneHolder.get().getLastModified().getTime()).toString();
         if (unmodifiedResource(eTag, lastModified)) {
+            logger.info("[TokenKeyEndpoint#getKeys] Resource not modified (ETag={}), returning 304 in {} ms",
+                    eTag, System.currentTimeMillis() - startTime);
             return new ResponseEntity<>(HttpStatus.NOT_MODIFIED);
         }
 
         HttpHeaders header = new HttpHeaders();
         header.put("ETag", Collections.singletonList(lastModified));
-        return new ResponseEntity<>(getKeys(principal), header, HttpStatus.OK);
+        VerificationKeysListResponse response = getKeys(principal);
+        logger.info("[TokenKeyEndpoint#getKeys] END - returning {} key(s), time={} ms",
+                response.getKeys().size(), System.currentTimeMillis() - startTime);
+        return new ResponseEntity<>(response, header, HttpStatus.OK);
     }
 
     /**
@@ -99,7 +114,8 @@ public class TokenKeyEndpoint {
 
     /**
      * Get the verification key for the token signatures wrapped into keys array.
-     * Wrapping done for compatibility with some clients expecting this even for single key, like mod_auth_openidc.
+     * Wrapping done for compatibility with some clients expecting this even for
+     * single key, like mod_auth_openidc.
      * The principal has to be provided only if the key is secret
      * (shared not public).
      *
