@@ -51,9 +51,6 @@ public class KeyInfoService {
     }
 
     public Map<String, KeyInfo> getKeys(String sigAlg) {
-        long startTime = System.currentTimeMillis();
-        logger.debug("[KeyInfoService#getKeys] Resolving signing keys (sigAlg={})", sigAlg);
-
         IdentityZoneConfiguration config = IdentityZoneHolder.get().getConfig();
         if (config == null || config.getTokenPolicy().getKeys() == null
                 || config.getTokenPolicy().getKeys().isEmpty()) {
@@ -79,35 +76,28 @@ public class KeyInfoService {
             keys.put(LegacyTokenKey.LEGACY_TOKEN_KEY_ID, LegacyTokenKey.getLegacyTokenKeyInfo());
         }
 
-        logger.debug("[KeyInfoService#getKeys] Resolved {} key(s) in {} ms",
-                keys.size(), System.currentTimeMillis() - startTime);
         return keys;
     }
 
     public KeyInfo getActiveKey() {
-        long startTime = System.currentTimeMillis();
         String activeKeyId = getActiveKeyId();
         Map<String, KeyInfo> keys = getKeys();
         KeyInfo activeKey = keys.get(activeKeyId);
         if (activeKey != null) {
-            logger.debug("[KeyInfoService#getActiveKey] Resolved activeKeyId='{}', algorithm='{}', time={} ms",
-                    activeKeyId, activeKey.algorithm(), System.currentTimeMillis() - startTime);
+            logger.debug("[KeyInfoService#getActiveKey] Resolved activeKeyId='{}', algorithm='{}'",
+                    activeKeyId, activeKey.algorithm());
         } else {
-            logger.debug("[KeyInfoService#getActiveKey] activeKeyId='{}' not found in keys map, time={} ms",
-                    activeKeyId, System.currentTimeMillis() - startTime);
+            logger.debug("[KeyInfoService#getActiveKey] activeKeyId='{}' not found in keys map", activeKeyId);
         }
         return activeKey;
     }
 
     private String getActiveKeyId() {
-        long startTime = System.currentTimeMillis();
-
         IdentityZoneConfiguration config = IdentityZoneHolder.get().getConfig();
         if (config == null) {
             String fallbackKeyId = IdentityZoneHolder.getUaaZone().getConfig().getTokenPolicy().getActiveKeyId();
-            logger.debug(
-                    "[KeyInfoService#getActiveKeyId] Zone config null; using UAA zone activeKeyId='{}', time={} ms",
-                    fallbackKeyId, System.currentTimeMillis() - startTime);
+            logger.debug("[KeyInfoService#getActiveKeyId] Zone config null; using UAA zone activeKeyId='{}'",
+                    fallbackKeyId);
             return fallbackKeyId;
         }
         String activeKeyId = config.getTokenPolicy().getActiveKeyId();
@@ -129,8 +119,7 @@ public class KeyInfoService {
             logger.debug("[KeyInfoService#getActiveKeyId] No activeKeyId configured; using LEGACY_TOKEN_KEY_ID");
         }
 
-        logger.debug("[KeyInfoService#getActiveKeyId] Resolved activeKeyId='{}', time={} ms",
-                activeKeyId, System.currentTimeMillis() - startTime);
+        logger.debug("[KeyInfoService#getActiveKeyId] Resolved activeKeyId='{}'", activeKeyId);
         return activeKeyId;
     }
 

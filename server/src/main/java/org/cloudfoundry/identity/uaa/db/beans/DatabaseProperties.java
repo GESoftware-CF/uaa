@@ -39,7 +39,7 @@ public class DatabaseProperties implements EnvironmentAware {
     private int minidle = 0;
     private int maxidle = 10;
     private int maxactive = 100;
-    private int maxwait = 5000;
+    private int maxwait = 30_000;
     private int initialsize = 10;
     private int validationquerytimeout = 10;
     private boolean removedAbandoned = false;

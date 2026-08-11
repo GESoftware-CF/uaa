@@ -44,20 +44,16 @@ public class TokenKeyEndpoint {
     @ResponseBody
     public ResponseEntity<VerificationKeyResponse> getKey(Principal principal,
             @RequestHeader(value = "If-None-Match", required = false, defaultValue = "NaN") String eTag) {
-        long startTime = System.currentTimeMillis();
-        logger.debug("[TokenKeyEndpoint#getKey] GET /token_key");
+        logger.debug("[TokenKeyEndpoint#getKey] Invoking getKey");
         String lastModified = ((Long) IdentityZoneHolder.get().getLastModified().getTime()).toString();
         if (unmodifiedResource(eTag, lastModified)) {
-            logger.debug("[TokenKeyEndpoint#getKey] Not modified (ETag={}), returning 304 in {} ms",
-                    eTag, System.currentTimeMillis() - startTime);
+            logger.debug("[TokenKeyEndpoint#getKey] Resource not modified; returning 304");
             return new ResponseEntity<>(HttpStatus.NOT_MODIFIED);
         }
 
         HttpHeaders header = new HttpHeaders();
         header.put("ETag", Collections.singletonList(lastModified));
         VerificationKeyResponse response = getKey(principal);
-        logger.debug("[TokenKeyEndpoint#getKey] Returned key response in {} ms",
-                System.currentTimeMillis() - startTime);
         return new ResponseEntity<>(response, header, HttpStatus.OK);
     }
 
@@ -65,20 +61,16 @@ public class TokenKeyEndpoint {
     @ResponseBody
     public ResponseEntity<VerificationKeysListResponse> getKeys(Principal principal,
             @RequestHeader(value = "If-None-Match", required = false, defaultValue = "NaN") String eTag) {
-        long startTime = System.currentTimeMillis();
-        logger.debug("[TokenKeyEndpoint#getKeys] GET /token_keys");
+        logger.debug("[TokenKeyEndpoint#getKeys] Invoking getKeys");
         String lastModified = ((Long) IdentityZoneHolder.get().getLastModified().getTime()).toString();
         if (unmodifiedResource(eTag, lastModified)) {
-            logger.debug("[TokenKeyEndpoint#getKeys] Not modified (ETag={}), returning 304 in {} ms",
-                    eTag, System.currentTimeMillis() - startTime);
+            logger.debug("[TokenKeyEndpoint#getKeys] Resource not modified; returning 304");
             return new ResponseEntity<>(HttpStatus.NOT_MODIFIED);
         }
 
         HttpHeaders header = new HttpHeaders();
         header.put("ETag", Collections.singletonList(lastModified));
         VerificationKeysListResponse response = getKeys(principal);
-        logger.debug("[TokenKeyEndpoint#getKeys] Returned {} key(s) in {} ms",
-                response.getKeys().size(), System.currentTimeMillis() - startTime);
         return new ResponseEntity<>(response, header, HttpStatus.OK);
     }
 

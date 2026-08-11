@@ -66,30 +66,22 @@ public class UaaTokenEndpoint extends TokenEndpoint {
     @GetMapping("**")
     public ResponseEntity<OAuth2AccessToken> doDelegateGet(Principal principal,
             @RequestParam Map<String, String> parameters) throws HttpRequestMethodNotSupportedException {
-        long startTime = System.currentTimeMillis();
-        log.debug("[UaaTokenEndpoint] GET /oauth/token, grant_type={}",
+        log.debug("[UaaTokenEndpoint#doDelegateGet] Invoking getAccessToken, grant_type={}",
                 parameters.get("grant_type"));
-        ResponseEntity<OAuth2AccessToken> response = getAccessToken(principal, parameters);
-        log.debug("[UaaTokenEndpoint] GET /oauth/token completed status={}, time={} ms",
-                response.getStatusCode(), System.currentTimeMillis() - startTime);
-        return response;
+        return getAccessToken(principal, parameters);
     }
 
     @PostMapping("**")
     public ResponseEntity<OAuth2AccessToken> doDelegatePost(Principal principal,
             @RequestParam Map<String, String> parameters,
             HttpServletRequest request) throws HttpRequestMethodNotSupportedException {
-        long startTime = System.currentTimeMillis();
-        log.debug("[UaaTokenEndpoint] POST /oauth/token, grant_type={}",
+        log.debug("[UaaTokenEndpoint#doDelegatePost] Invoking postAccessToken, grant_type={}",
                 parameters.get("grant_type"));
         if (hasText(request.getQueryString()) && !this.allowQueryString) {
             logger.debug("Call to /oauth/token contains a query string. Aborting.");
             throw new HttpRequestMethodNotSupportedException("POST");
         }
-        ResponseEntity<OAuth2AccessToken> response = postAccessToken(principal, parameters);
-        log.debug("[UaaTokenEndpoint] POST /oauth/token completed status={}, time={} ms",
-                response.getStatusCode(), System.currentTimeMillis() - startTime);
-        return response;
+        return postAccessToken(principal, parameters);
     }
 
     @RequestMapping(value = "**")

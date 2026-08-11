@@ -67,15 +67,7 @@ public class JdbcQueryableClientDetailsService
 
     @Override
     public ClientDetails retrieve(String id, String zoneId) {
-        long before = System.currentTimeMillis();
-        logger.info("DB_CALL_START clientDetailsRetrieve clientId={} zoneId={} time={}", id, zoneId, before);
-
-        ClientDetails result = delegate.loadClientByClientId(id, zoneId);
-
-        long duration = System.currentTimeMillis() - before;
-        logger.info("DB_CALL_END clientDetailsRetrieve clientId={} durationMs={}", id, duration);
-
-        return result;
+        return delegate.loadClientByClientId(id, zoneId);
     }
 
     @Override
