@@ -1,6 +1,5 @@
 package org.cloudfoundry.identity.uaa.db.beans;
 
-
 import lombok.Getter;
 import lombok.Setter;
 import org.cloudfoundry.identity.uaa.db.DatabasePlatform;
@@ -28,7 +27,8 @@ public class DatabaseProperties implements EnvironmentAware {
     private int maxParameters;
     private boolean useSkipLocked;
     private boolean caseinsensitive;
-    // This is not intended to be exposed in the configuration, but is useful for tests
+    // This is not intended to be exposed in the configuration, but is useful for
+    // tests
     private String defaultUrl;
 
     // With defaults

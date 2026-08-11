@@ -85,7 +85,9 @@ public class JdbcQueryableClientDetailsService
     @Override
     public ClientDetails delete(String id, int version, String zoneId) {
         ClientDetails client = delegate.loadClientByClientId(id, zoneId);
-        delegate.onApplicationEvent(new EntityDeletedEvent<>(client, SecurityContextHolder.getContext().getAuthentication(), identityZoneManager.getCurrentIdentityZoneId()));
+        delegate.onApplicationEvent(
+                new EntityDeletedEvent<>(client, SecurityContextHolder.getContext().getAuthentication(),
+                        identityZoneManager.getCurrentIdentityZoneId()));
         return client;
     }
 

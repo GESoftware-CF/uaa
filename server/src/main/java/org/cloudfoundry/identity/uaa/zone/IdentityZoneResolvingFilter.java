@@ -66,22 +66,30 @@ public class IdentityZoneResolvingFilter extends OncePerRequestFilter implements
             }
         }
         if (identityZone == null) {
-            // skip filter to static resources in order to serve images and css in case of invalid zones
-            boolean isStaticResource = staticResources.stream().anyMatch(UaaUrlUtils.getRequestPath(request)::startsWith);
+            // skip filter to static resources in order to serve images and css in case of
+            // invalid zones
+            boolean isStaticResource = staticResources.stream()
+                    .anyMatch(UaaUrlUtils.getRequestPath(request)::startsWith);
             if (isStaticResource) {
                 filterChain.doFilter(request, response);
                 return;
             }
 
             request.setAttribute("error_message_code", "zone.not.found");
-            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Cannot find identity zone for subdomain " + subdomain);
+            response.sendError(HttpServletResponse.SC_NOT_FOUND,
+                    "Cannot find identity zone for subdomain " + subdomain);
             return;
         }
+        long filterStart = System.currentTimeMillis();
         try {
             IdentityZoneHolder.set(identityZone);
             filterChain.doFilter(request, response);
         } finally {
             IdentityZoneHolder.clear();
+            long duration = System.currentTimeMillis() - filterStart;
+            if (duration > 2000) {
+                logger.info("SLOW REQUEST CHAIN: took {}ms for path={}", duration, request.getRequestURI());
+            }
         }
     }
 
@@ -95,13 +103,14 @@ public class IdentityZoneResolvingFilter extends OncePerRequestFilter implements
                 return lowerHostName.substring(0, lowerHostName.length() - internalHostname.length() - 1);
             }
         }
-        //UAA is catch all if we haven't configured anything
+        // UAA is catch all if we haven't configured anything
         if (defaultZoneHostnames.size() == 1 && defaultZoneHostnames.contains("localhost")) {
             logger.debug("No root domains configured, UAA is catch-all domain for host:{}", hostname);
             return "";
         }
         if (logger.isDebugEnabled()) {
-            logger.debug("Unable to determine subdomain for host:{}; root domains:{}", hostname, Arrays.toString(defaultZoneHostnames.toArray()));
+            logger.debug("Unable to determine subdomain for host:{}; root domains:{}", hostname,
+                    Arrays.toString(defaultZoneHostnames.toArray()));
         }
         return null;
     }
@@ -110,8 +119,7 @@ public class IdentityZoneResolvingFilter extends OncePerRequestFilter implements
         if (hostnames != null) {
             hostnames
                     .forEach(
-                            entry -> this.defaultZoneHostnames.add(entry.toLowerCase())
-                    );
+                            entry -> this.defaultZoneHostnames.add(entry.toLowerCase()));
         }
     }
 
@@ -119,8 +127,7 @@ public class IdentityZoneResolvingFilter extends OncePerRequestFilter implements
         if (hostnames != null) {
             hostnames
                     .forEach(
-                            entry -> this.defaultZoneHostnames.add(entry.toLowerCase())
-                    );
+                            entry -> this.defaultZoneHostnames.add(entry.toLowerCase()));
         }
     }
 
@@ -129,8 +136,7 @@ public class IdentityZoneResolvingFilter extends OncePerRequestFilter implements
         if (hostnames != null) {
             hostnames
                     .forEach(
-                            entry -> this.defaultZoneHostnames.add(entry.toLowerCase())
-                    );
+                            entry -> this.defaultZoneHostnames.add(entry.toLowerCase()));
         }
     }
 

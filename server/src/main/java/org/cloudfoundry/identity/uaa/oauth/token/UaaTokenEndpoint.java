@@ -7,6 +7,8 @@ import org.cloudfoundry.identity.uaa.oauth.provider.OAuth2RequestValidator;
 import org.cloudfoundry.identity.uaa.oauth.provider.TokenGranter;
 import org.cloudfoundry.identity.uaa.oauth.provider.endpoint.TokenEndpoint;
 import org.cloudfoundry.identity.uaa.zone.MultitenantClientServices;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -31,8 +33,11 @@ import java.util.Set;
 import static org.springframework.util.StringUtils.hasText;
 
 @Controller
-@RequestMapping(value = "/oauth/token") //used simply because TokenEndpoint wont match /oauth/token/alias/saml-entity-id
+@RequestMapping(value = "/oauth/token") // used simply because TokenEndpoint wont match
+                                        // /oauth/token/alias/saml-entity-id
 public class UaaTokenEndpoint extends TokenEndpoint {
+
+    private static final Logger log = LoggerFactory.getLogger(UaaTokenEndpoint.class);
 
     private final boolean allowQueryString;
 
@@ -41,8 +46,7 @@ public class UaaTokenEndpoint extends TokenEndpoint {
             final @Qualifier("jdbcClientDetailsService") MultitenantClientServices clientDetailsService,
             final @Qualifier("oauth2RequestValidator") OAuth2RequestValidator oAuth2RequestValidator,
             final @Qualifier("oauth2TokenGranter") TokenGranter tokenGranter,
-            final @Qualifier("allowQueryStringForTokens") Boolean allowQueryStringForTokens
-    ) {
+            final @Qualifier("allowQueryStringForTokens") Boolean allowQueryStringForTokens) {
         this.setOAuth2RequestFactory(oAuth2RequestFactory);
         this.setClientDetailsService(clientDetailsService);
         this.setOAuth2RequestValidator(oAuth2RequestValidator);
@@ -62,6 +66,8 @@ public class UaaTokenEndpoint extends TokenEndpoint {
     @GetMapping("**")
     public ResponseEntity<OAuth2AccessToken> doDelegateGet(Principal principal,
             @RequestParam Map<String, String> parameters) throws HttpRequestMethodNotSupportedException {
+        log.debug("[UaaTokenEndpoint#doDelegateGet] Invoking getAccessToken, grant_type={}",
+                parameters.get("grant_type"));
         return getAccessToken(principal, parameters);
     }
 
@@ -69,6 +75,8 @@ public class UaaTokenEndpoint extends TokenEndpoint {
     public ResponseEntity<OAuth2AccessToken> doDelegatePost(Principal principal,
             @RequestParam Map<String, String> parameters,
             HttpServletRequest request) throws HttpRequestMethodNotSupportedException {
+        log.debug("[UaaTokenEndpoint#doDelegatePost] Invoking postAccessToken, grant_type={}",
+                parameters.get("grant_type"));
         if (hasText(request.getQueryString()) && !this.allowQueryString) {
             logger.debug("Call to /oauth/token contains a query string. Aborting.");
             throw new HttpRequestMethodNotSupportedException("POST");
@@ -83,7 +91,8 @@ public class UaaTokenEndpoint extends TokenEndpoint {
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     @Override
-    public ResponseEntity<OAuth2Exception> handleHttpRequestMethodNotSupportedException(HttpRequestMethodNotSupportedException e) throws Exception {
+    public ResponseEntity<OAuth2Exception> handleHttpRequestMethodNotSupportedException(
+            HttpRequestMethodNotSupportedException e) throws Exception {
         return new HttpMethodNotSupportedAdvice().handleMethodNotSupportedException(e);
     }
 

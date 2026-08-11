@@ -43,30 +43,35 @@ public class TokenKeyEndpoint {
     @GetMapping("/token_key")
     @ResponseBody
     public ResponseEntity<VerificationKeyResponse> getKey(Principal principal,
-                                                          @RequestHeader(value = "If-None-Match", required = false, defaultValue = "NaN") String eTag) {
+            @RequestHeader(value = "If-None-Match", required = false, defaultValue = "NaN") String eTag) {
+        logger.debug("[TokenKeyEndpoint#getKey] Invoking getKey");
         String lastModified = ((Long) IdentityZoneHolder.get().getLastModified().getTime()).toString();
         if (unmodifiedResource(eTag, lastModified)) {
+            logger.debug("[TokenKeyEndpoint#getKey] Resource not modified; returning 304");
             return new ResponseEntity<>(HttpStatus.NOT_MODIFIED);
         }
 
         HttpHeaders header = new HttpHeaders();
         header.put("ETag", Collections.singletonList(lastModified));
-        return new ResponseEntity<>(getKey(principal), header, HttpStatus.OK);
+        VerificationKeyResponse response = getKey(principal);
+        return new ResponseEntity<>(response, header, HttpStatus.OK);
     }
-
 
     @GetMapping("/token_keys")
     @ResponseBody
     public ResponseEntity<VerificationKeysListResponse> getKeys(Principal principal,
-                                                                @RequestHeader(value = "If-None-Match", required = false, defaultValue = "NaN") String eTag) {
+            @RequestHeader(value = "If-None-Match", required = false, defaultValue = "NaN") String eTag) {
+        logger.debug("[TokenKeyEndpoint#getKeys] Invoking getKeys");
         String lastModified = ((Long) IdentityZoneHolder.get().getLastModified().getTime()).toString();
         if (unmodifiedResource(eTag, lastModified)) {
+            logger.debug("[TokenKeyEndpoint#getKeys] Resource not modified; returning 304");
             return new ResponseEntity<>(HttpStatus.NOT_MODIFIED);
         }
 
         HttpHeaders header = new HttpHeaders();
         header.put("ETag", Collections.singletonList(lastModified));
-        return new ResponseEntity<>(getKeys(principal), header, HttpStatus.OK);
+        VerificationKeysListResponse response = getKeys(principal);
+        return new ResponseEntity<>(response, header, HttpStatus.OK);
     }
 
     /**
@@ -99,7 +104,8 @@ public class TokenKeyEndpoint {
 
     /**
      * Get the verification key for the token signatures wrapped into keys array.
-     * Wrapping done for compatibility with some clients expecting this even for single key, like mod_auth_openidc.
+     * Wrapping done for compatibility with some clients expecting this even for
+     * single key, like mod_auth_openidc.
      * The principal has to be provided only if the key is secret
      * (shared not public).
      *

@@ -19,6 +19,8 @@ import org.cloudfoundry.identity.uaa.util.UaaTokenUtils;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.cloudfoundry.identity.uaa.zone.TokenPolicy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 
 import java.net.URISyntaxException;
@@ -28,6 +30,8 @@ import java.util.Map;
 import static org.cloudfoundry.identity.uaa.util.UaaUrlUtils.addSubdomainToUrl;
 
 public class KeyInfoService {
+    private static final Logger logger = LoggerFactory.getLogger(KeyInfoService.class);
+
     private final String uaaBaseURL;
 
     public KeyInfoService(String uaaBaseURL) {
@@ -48,19 +52,27 @@ public class KeyInfoService {
 
     public Map<String, KeyInfo> getKeys(String sigAlg) {
         IdentityZoneConfiguration config = IdentityZoneHolder.get().getConfig();
-        if (config == null || config.getTokenPolicy().getKeys() == null || config.getTokenPolicy().getKeys().isEmpty()) {
+        if (config == null || config.getTokenPolicy().getKeys() == null
+                || config.getTokenPolicy().getKeys().isEmpty()) {
+            logger.debug("[KeyInfoService#getKeys] Zone config has no keys; falling back to UAA zone config");
             config = IdentityZoneHolder.getUaaZone().getConfig();
         }
 
         Map<String, KeyInfo> keys = new HashMap<>();
         for (Map.Entry<String, TokenPolicy.KeyInformation> entry : config.getTokenPolicy().getKeys().entrySet()) {
-            KeyInfo keyInfo = KeyInfoBuilder.build(entry.getKey(), entry.getValue().getSigningKey(), addSubdomainToUrl(uaaBaseURL, IdentityZoneHolder.get().getSubdomain()),
+            String keyId = entry.getKey();
+            String signingKey = entry.getValue().getSigningKey();
+            KeyInfo keyInfo = KeyInfoBuilder.build(keyId, signingKey,
+                    addSubdomainToUrl(uaaBaseURL, IdentityZoneHolder.get().getSubdomain()),
                     sigAlg != null ? sigAlg : entry.getValue().getSigningAlg(),
                     entry.getValue().getSigningCert());
-            keys.put(entry.getKey(), keyInfo);
+            keys.put(keyId, keyInfo);
+            logger.debug("[KeyInfoService#getKeys] Built KeyInfo for keyId='{}', algorithm='{}'",
+                    keyId, keyInfo.algorithm());
         }
 
         if (keys.isEmpty()) {
+            logger.debug("[KeyInfoService#getKeys] No keys found; using legacy token key");
             keys.put(LegacyTokenKey.LEGACY_TOKEN_KEY_ID, LegacyTokenKey.getLegacyTokenKeyInfo());
         }
 
@@ -68,29 +80,46 @@ public class KeyInfoService {
     }
 
     public KeyInfo getActiveKey() {
-        return getKeys().get(getActiveKeyId());
+        String activeKeyId = getActiveKeyId();
+        Map<String, KeyInfo> keys = getKeys();
+        KeyInfo activeKey = keys.get(activeKeyId);
+        if (activeKey != null) {
+            logger.debug("[KeyInfoService#getActiveKey] Resolved activeKeyId='{}', algorithm='{}'",
+                    activeKeyId, activeKey.algorithm());
+        } else {
+            logger.debug("[KeyInfoService#getActiveKey] activeKeyId='{}' not found in keys map", activeKeyId);
+        }
+        return activeKey;
     }
 
     private String getActiveKeyId() {
         IdentityZoneConfiguration config = IdentityZoneHolder.get().getConfig();
         if (config == null) {
-            return IdentityZoneHolder.getUaaZone().getConfig().getTokenPolicy().getActiveKeyId();
+            String fallbackKeyId = IdentityZoneHolder.getUaaZone().getConfig().getTokenPolicy().getActiveKeyId();
+            logger.debug("[KeyInfoService#getActiveKeyId] Zone config null; using UAA zone activeKeyId='{}'",
+                    fallbackKeyId);
+            return fallbackKeyId;
         }
         String activeKeyId = config.getTokenPolicy().getActiveKeyId();
 
         Map<String, KeyInfo> keys;
         if (!StringUtils.hasText(activeKeyId) && (keys = getKeys()).size() == 1) {
             activeKeyId = keys.keySet().stream().findAny().get();
+            logger.debug("[KeyInfoService#getActiveKeyId] Single key present; derived activeKeyId='{}'", activeKeyId);
         }
 
         if (!StringUtils.hasText(activeKeyId)) {
             activeKeyId = IdentityZoneHolder.getUaaZone().getConfig().getTokenPolicy().getActiveKeyId();
+            logger.debug("[KeyInfoService#getActiveKeyId] No zone activeKeyId; fell back to UAA zone activeKeyId='{}'",
+                    activeKeyId);
         }
 
         if (!StringUtils.hasText(activeKeyId)) {
             activeKeyId = LegacyTokenKey.LEGACY_TOKEN_KEY_ID;
+            logger.debug("[KeyInfoService#getActiveKeyId] No activeKeyId configured; using LEGACY_TOKEN_KEY_ID");
         }
 
+        logger.debug("[KeyInfoService#getActiveKeyId] Resolved activeKeyId='{}'", activeKeyId);
         return activeKeyId;
     }
 
