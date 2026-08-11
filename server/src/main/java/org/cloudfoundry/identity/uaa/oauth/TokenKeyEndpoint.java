@@ -45,11 +45,10 @@ public class TokenKeyEndpoint {
     public ResponseEntity<VerificationKeyResponse> getKey(Principal principal,
             @RequestHeader(value = "If-None-Match", required = false, defaultValue = "NaN") String eTag) {
         long startTime = System.currentTimeMillis();
-        logger.info("[TokenKeyEndpoint#getKey] START - GET /token_key, principal={}",
-                principal != null ? principal.getName() : "anonymous");
+        logger.debug("[TokenKeyEndpoint#getKey] GET /token_key");
         String lastModified = ((Long) IdentityZoneHolder.get().getLastModified().getTime()).toString();
         if (unmodifiedResource(eTag, lastModified)) {
-            logger.info("[TokenKeyEndpoint#getKey] Resource not modified (ETag={}), returning 304 in {} ms",
+            logger.debug("[TokenKeyEndpoint#getKey] Not modified (ETag={}), returning 304 in {} ms",
                     eTag, System.currentTimeMillis() - startTime);
             return new ResponseEntity<>(HttpStatus.NOT_MODIFIED);
         }
@@ -57,7 +56,7 @@ public class TokenKeyEndpoint {
         HttpHeaders header = new HttpHeaders();
         header.put("ETag", Collections.singletonList(lastModified));
         VerificationKeyResponse response = getKey(principal);
-        logger.info("[TokenKeyEndpoint#getKey] END - returning key, time={} ms",
+        logger.debug("[TokenKeyEndpoint#getKey] Returned key response in {} ms",
                 System.currentTimeMillis() - startTime);
         return new ResponseEntity<>(response, header, HttpStatus.OK);
     }
@@ -67,11 +66,10 @@ public class TokenKeyEndpoint {
     public ResponseEntity<VerificationKeysListResponse> getKeys(Principal principal,
             @RequestHeader(value = "If-None-Match", required = false, defaultValue = "NaN") String eTag) {
         long startTime = System.currentTimeMillis();
-        logger.info("[TokenKeyEndpoint#getKeys] START - GET /token_keys, principal={}",
-                principal != null ? principal.getName() : "anonymous");
+        logger.debug("[TokenKeyEndpoint#getKeys] GET /token_keys");
         String lastModified = ((Long) IdentityZoneHolder.get().getLastModified().getTime()).toString();
         if (unmodifiedResource(eTag, lastModified)) {
-            logger.info("[TokenKeyEndpoint#getKeys] Resource not modified (ETag={}), returning 304 in {} ms",
+            logger.debug("[TokenKeyEndpoint#getKeys] Not modified (ETag={}), returning 304 in {} ms",
                     eTag, System.currentTimeMillis() - startTime);
             return new ResponseEntity<>(HttpStatus.NOT_MODIFIED);
         }
@@ -79,7 +77,7 @@ public class TokenKeyEndpoint {
         HttpHeaders header = new HttpHeaders();
         header.put("ETag", Collections.singletonList(lastModified));
         VerificationKeysListResponse response = getKeys(principal);
-        logger.info("[TokenKeyEndpoint#getKeys] END - returning {} key(s), time={} ms",
+        logger.debug("[TokenKeyEndpoint#getKeys] Returned {} key(s) in {} ms",
                 response.getKeys().size(), System.currentTimeMillis() - startTime);
         return new ResponseEntity<>(response, header, HttpStatus.OK);
     }

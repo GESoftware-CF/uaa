@@ -67,11 +67,10 @@ public class UaaTokenEndpoint extends TokenEndpoint {
     public ResponseEntity<OAuth2AccessToken> doDelegateGet(Principal principal,
             @RequestParam Map<String, String> parameters) throws HttpRequestMethodNotSupportedException {
         long startTime = System.currentTimeMillis();
-        log.info("[UaaTokenEndpoint#doDelegateGet] START - GET /oauth/token, principal={}, grant_type={}",
-                principal != null ? principal.getName() : "anonymous",
+        log.debug("[UaaTokenEndpoint] GET /oauth/token, grant_type={}",
                 parameters.get("grant_type"));
         ResponseEntity<OAuth2AccessToken> response = getAccessToken(principal, parameters);
-        log.info("[UaaTokenEndpoint#doDelegateGet] END - GET /oauth/token, status={}, time={} ms",
+        log.debug("[UaaTokenEndpoint] GET /oauth/token completed status={}, time={} ms",
                 response.getStatusCode(), System.currentTimeMillis() - startTime);
         return response;
     }
@@ -81,15 +80,14 @@ public class UaaTokenEndpoint extends TokenEndpoint {
             @RequestParam Map<String, String> parameters,
             HttpServletRequest request) throws HttpRequestMethodNotSupportedException {
         long startTime = System.currentTimeMillis();
-        log.info("[UaaTokenEndpoint#doDelegatePost] START - POST /oauth/token, principal={}, grant_type={}",
-                principal != null ? principal.getName() : "anonymous",
+        log.debug("[UaaTokenEndpoint] POST /oauth/token, grant_type={}",
                 parameters.get("grant_type"));
         if (hasText(request.getQueryString()) && !this.allowQueryString) {
             logger.debug("Call to /oauth/token contains a query string. Aborting.");
             throw new HttpRequestMethodNotSupportedException("POST");
         }
         ResponseEntity<OAuth2AccessToken> response = postAccessToken(principal, parameters);
-        log.info("[UaaTokenEndpoint#doDelegatePost] END - POST /oauth/token, status={}, time={} ms",
+        log.debug("[UaaTokenEndpoint] POST /oauth/token completed status={}, time={} ms",
                 response.getStatusCode(), System.currentTimeMillis() - startTime);
         return response;
     }

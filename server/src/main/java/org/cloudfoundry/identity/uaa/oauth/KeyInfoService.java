@@ -52,12 +52,12 @@ public class KeyInfoService {
 
     public Map<String, KeyInfo> getKeys(String sigAlg) {
         long startTime = System.currentTimeMillis();
-        logger.info("[KeyInfoService#getKeys] START - resolving signing keys (sigAlg={})", sigAlg);
+        logger.debug("[KeyInfoService#getKeys] Resolving signing keys (sigAlg={})", sigAlg);
 
         IdentityZoneConfiguration config = IdentityZoneHolder.get().getConfig();
         if (config == null || config.getTokenPolicy().getKeys() == null
                 || config.getTokenPolicy().getKeys().isEmpty()) {
-            logger.info("[KeyInfoService#getKeys] Zone config is null or has no keys; falling back to UAA zone config");
+            logger.debug("[KeyInfoService#getKeys] Zone config has no keys; falling back to UAA zone config");
             config = IdentityZoneHolder.getUaaZone().getConfig();
         }
 
@@ -65,74 +65,71 @@ public class KeyInfoService {
         for (Map.Entry<String, TokenPolicy.KeyInformation> entry : config.getTokenPolicy().getKeys().entrySet()) {
             String keyId = entry.getKey();
             String signingKey = entry.getValue().getSigningKey();
-            logger.info("[KeyInfoService#getKeys] Building KeyInfo for keyId='{}', signingKey='{}'", keyId, signingKey);
             KeyInfo keyInfo = KeyInfoBuilder.build(keyId, signingKey,
                     addSubdomainToUrl(uaaBaseURL, IdentityZoneHolder.get().getSubdomain()),
                     sigAlg != null ? sigAlg : entry.getValue().getSigningAlg(),
                     entry.getValue().getSigningCert());
             keys.put(keyId, keyInfo);
+            logger.debug("[KeyInfoService#getKeys] Built KeyInfo for keyId='{}', algorithm='{}'",
+                    keyId, keyInfo.algorithm());
         }
 
         if (keys.isEmpty()) {
-            logger.info("[KeyInfoService#getKeys] No keys found; using legacy token key");
+            logger.debug("[KeyInfoService#getKeys] No keys found; using legacy token key");
             keys.put(LegacyTokenKey.LEGACY_TOKEN_KEY_ID, LegacyTokenKey.getLegacyTokenKeyInfo());
         }
 
-        long elapsed = System.currentTimeMillis() - startTime;
-        logger.info("[KeyInfoService#getKeys] END - resolved {} key(s) in {} ms", keys.size(), elapsed);
+        logger.debug("[KeyInfoService#getKeys] Resolved {} key(s) in {} ms",
+                keys.size(), System.currentTimeMillis() - startTime);
         return keys;
     }
 
     public KeyInfo getActiveKey() {
         long startTime = System.currentTimeMillis();
-        logger.info("[KeyInfoService#getActiveKey] START - resolving active signing key");
         String activeKeyId = getActiveKeyId();
         Map<String, KeyInfo> keys = getKeys();
         KeyInfo activeKey = keys.get(activeKeyId);
-        long elapsed = System.currentTimeMillis() - startTime;
         if (activeKey != null) {
-            logger.info(
-                    "[KeyInfoService#getActiveKey] END - activeKeyId='{}', verifierKey='{}', algorithm='{}', time={} ms",
-                    activeKeyId, activeKey.verifierKey(), activeKey.algorithm(), elapsed);
+            logger.debug("[KeyInfoService#getActiveKey] Resolved activeKeyId='{}', algorithm='{}', time={} ms",
+                    activeKeyId, activeKey.algorithm(), System.currentTimeMillis() - startTime);
         } else {
-            logger.info("[KeyInfoService#getActiveKey] END - activeKeyId='{}' not found in keys map, time={} ms",
-                    activeKeyId, elapsed);
+            logger.debug("[KeyInfoService#getActiveKey] activeKeyId='{}' not found in keys map, time={} ms",
+                    activeKeyId, System.currentTimeMillis() - startTime);
         }
         return activeKey;
     }
 
     private String getActiveKeyId() {
         long startTime = System.currentTimeMillis();
-        logger.info("[KeyInfoService#getActiveKeyId] START - resolving activeKeyId");
 
         IdentityZoneConfiguration config = IdentityZoneHolder.get().getConfig();
         if (config == null) {
             String fallbackKeyId = IdentityZoneHolder.getUaaZone().getConfig().getTokenPolicy().getActiveKeyId();
-            logger.info(
-                    "[KeyInfoService#getActiveKeyId] END - config null, falling back to UAA zone activeKeyId='{}', time={} ms",
+            logger.debug(
+                    "[KeyInfoService#getActiveKeyId] Zone config null; using UAA zone activeKeyId='{}', time={} ms",
                     fallbackKeyId, System.currentTimeMillis() - startTime);
             return fallbackKeyId;
         }
         String activeKeyId = config.getTokenPolicy().getActiveKeyId();
-        logger.info("[KeyInfoService#getActiveKeyId] activeKeyId from current zone='{}'", activeKeyId);
 
         Map<String, KeyInfo> keys;
         if (!StringUtils.hasText(activeKeyId) && (keys = getKeys()).size() == 1) {
             activeKeyId = keys.keySet().stream().findAny().get();
-            logger.info("[KeyInfoService#getActiveKeyId] Single key found; using keyId='{}'", activeKeyId);
+            logger.debug("[KeyInfoService#getActiveKeyId] Single key present; derived activeKeyId='{}'", activeKeyId);
         }
 
         if (!StringUtils.hasText(activeKeyId)) {
             activeKeyId = IdentityZoneHolder.getUaaZone().getConfig().getTokenPolicy().getActiveKeyId();
-            logger.info("[KeyInfoService#getActiveKeyId] Falling back to UAA zone activeKeyId='{}'", activeKeyId);
+            logger.debug("[KeyInfoService#getActiveKeyId] No zone activeKeyId; fell back to UAA zone activeKeyId='{}'",
+                    activeKeyId);
         }
 
         if (!StringUtils.hasText(activeKeyId)) {
             activeKeyId = LegacyTokenKey.LEGACY_TOKEN_KEY_ID;
-            logger.info("[KeyInfoService#getActiveKeyId] Falling back to LEGACY_TOKEN_KEY_ID");
+            logger.debug("[KeyInfoService#getActiveKeyId] No activeKeyId configured; using LEGACY_TOKEN_KEY_ID");
         }
 
-        logger.info("[KeyInfoService#getActiveKeyId] END - resolved activeKeyId='{}', time={} ms",
+        logger.debug("[KeyInfoService#getActiveKeyId] Resolved activeKeyId='{}', time={} ms",
                 activeKeyId, System.currentTimeMillis() - startTime);
         return activeKeyId;
     }
