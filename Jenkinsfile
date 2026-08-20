@@ -1,9 +1,12 @@
 #!/usr/bin/env groovy
-def artifactoryServer = Artifactory.server('Digital-Artifactory')
+def artifactoryServer = Artifactory.newServer(
+    url: "https://gart.software.gevernova.com/artifactory",
+    credentialsId: 'iam-artifactory-access-token-dev'
+)
 
 def NODE = [LABEL: "dind", IMAGE: "gart.software.gevernova.com/pgog-fss-iam-uaa-docker-stage/uaa-ci-image:latest",
     ARGS: "-v /var/lib/docker/.gradle:/root/.gradle", REGISTRY_URL: "https://gart.software.gevernova.com",
-    REGISTRY_CREDENTIALS_ID: "DIGITAL_GRID_ARTIFACTORY_CREDENTIALS"]
+    REGISTRY_CREDENTIALS_ID: "iam-artifactory-access-token-dev"]
 
 def imagePath
 def repoName
@@ -15,7 +18,7 @@ pipeline
     environment {
         COMPLIANCEENABLED = true
         GRID_ARTIFACTORY_URL = "gart.software.gevernova.com"
-        ARTIFACTORY_CREDENTIALS = credentials("DIGITAL_GRID_ARTIFACTORY_CREDENTIALS")
+        ARTIFACTORY_CREDENTIALS = credentials("iam-artifactory-access-token-dev")
     }
     options {
         timestamps()
@@ -440,7 +443,7 @@ pipeline
                             String OTEL_EXTENSION_VERSION = "2.0.0.RELEASE"
                             String OTEL_EXTENSION_PATH = "/artifactory/apm-devops-virtual/com/ge/apm/ged-opentelemetry-java-extension/${OTEL_EXTENSION_VERSION}/"
                             String OTEL_EXTENSION_JAR_NAME="ged-opentelemetry-java-extension-${OTEL_EXTENSION_VERSION}.jar"
-                            withCredentials([usernamePassword(credentialsId: 'DIGITAL_GRID_ARTIFACTORY_CREDENTIALS',
+                            withCredentials([usernamePassword(credentialsId: 'iam-artifactory-access-token-dev',
                                     usernameVariable: 'ART_USERNAME', passwordVariable: 'ART_PASSWORD')]) {
                                 sh """
                                     cp build/cloudfoundry-identity-uaa-*.war iam-container-config/uaa/cloudfoundry-identity-uaa.war
@@ -591,12 +594,10 @@ pipeline
                             docker images
                         """
 
-                        rtDockerPush(
-                            serverId: "Digital-Artifactory",
-                            image: "${imagePath}",
-                            targetRepo: 'docker-remote'
-
-                        )
+                        script {
+                            def rtDocker = Artifactory.docker(server: artifactoryServer)
+                            rtDocker.push("${imagePath}", repoName)
+                        }
                     }
                 }
             }

@@ -149,6 +149,14 @@ public class OrchestratorZoneControllerMockMvcTests {
                 "orchestrator-zone-provisioner-" + RandomString.make(5).toLowerCase(),
                 "pr0visioner",
                 "orchestrator.zones.read,orchestrator.zones.write");
+
+        // Initialize uaaAdminClientToken for tests that need to access identity-zones API
+        uaaAdminClientToken = getAccessToken(
+                clientRegistrationService,
+                testClient,
+                "uaa-admin-" + RandomString.make(5).toLowerCase(),
+                "adminsecret",
+                "uaa.admin");
     }
 
     private String getAccessToken(ClientRegistrationService clientRegistrationService,
@@ -468,6 +476,451 @@ public class OrchestratorZoneControllerMockMvcTests {
 
         performMockMvcCall(delete("/orchestrator/zones").param("name", ZONE_NAME),
                 orchestratorZonesWriteToken, status().isAccepted());
+    }
+
+    @Test
+    void testCreateZone_WithSingleRedirectUrl_AsString_ShouldFail() throws Exception {
+        String zoneName = "zone-with-single-redirect-string";
+        String subDomain = zoneName;
+        Map<String, Object> additionalParameters = new HashMap<>();
+        additionalParameters.put("logout_redirect_url_whitelist", "https://app.example.com/logout");
+
+        OrchestratorZoneRequest orchestratorZoneRequest =
+                getOrchestratorZoneRequestWithAdditionalParams(zoneName, ADMIN_CLIENT_SECRET, subDomain, additionalParameters);
+
+        // Should fail with 400 Bad Request due to validation error
+        MvcResult result = mockMvc.perform(
+                post("/orchestrator/zones")
+                        .contentType(APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + orchestratorZonesWriteToken)
+                        .content(JsonUtils.writeValueAsString(orchestratorZoneRequest)))
+                .andExpect(status().isBadRequest())
+                .andReturn();
+
+        String errorMessage = result.getResponse().getContentAsString();
+        assertTrue(errorMessage.contains("logout_redirect_url_whitelist must be an array of Strings"));
+    }
+
+    @Test
+    void testCreateZone_WithSingleRedirectUrl_AsArray() throws Exception {
+        String zoneName = "zone-with-single-redirect-array";
+        String subDomain = zoneName;
+        Map<String, Object> additionalParameters = new HashMap<>();
+        additionalParameters.put("logout_redirect_url_whitelist",
+                java.util.Collections.singletonList("https://app.example.com/logout"));
+
+        OrchestratorZoneRequest orchestratorZoneRequest =
+                getOrchestratorZoneRequestWithAdditionalParams(zoneName, ADMIN_CLIENT_SECRET, subDomain, additionalParameters);
+
+        OrchestratorZoneResponse expectedResponse = new OrchestratorZoneResponse();
+        expectedResponse.setName(zoneName);
+        expectedResponse.setMessage(ZONE_CREATED_MESSAGE);
+        expectedResponse.setState(OrchestratorState.CREATE_IN_PROGRESS.toString());
+
+        performMockMvcCallAndAssertResponse(
+                post("/orchestrator/zones")
+                        .contentType(APPLICATION_JSON)
+                        .content(JsonUtils.writeValueAsString(orchestratorZoneRequest)),
+                orchestratorZonesWriteToken,
+                status().isAccepted(), expectedResponse);
+
+        // Verify the zone was created and retrieve it to check logout redirect URLs
+        OrchestratorZoneResponse getResponse = performMockMvcCall(
+                get("/orchestrator/zones").param("name", zoneName),
+                orchestratorZonesReadToken,
+                status().isOk());
+
+        assertNotNull(getResponse);
+        assertNotNull(getResponse.getConnectionDetails());
+
+        // Get the identity zone directly to verify logout redirect URL whitelist
+        String zoneId = getResponse.getConnectionDetails().getZone().getHttpHeaderValue();
+        MvcResult zoneResult = mockMvc.perform(
+                get("/identity-zones/" + zoneId)
+                        .header("Authorization", "Bearer " + uaaAdminClientToken))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        IdentityZone zone = JsonUtils.readValue(zoneResult.getResponse().getContentAsString(), IdentityZone.class);
+        assertNotNull(zone.getConfig());
+        assertNotNull(zone.getConfig().getLinks().getLogout().getWhitelist());
+        assertTrue(zone.getConfig().getLinks().getLogout().getWhitelist().contains("https://app.example.com/logout"));
+
+        // Clean up
+        performMockMvcCall(delete("/orchestrator/zones").param("name", zoneName),
+                orchestratorZonesWriteToken, status().isAccepted());
+    }
+
+    @Test
+    void testCreateZone_WithMultipleRedirectUrls() throws Exception {
+        String zoneName = "zone-with-multiple-redirects";
+        String subDomain = zoneName;
+        Map<String, Object> additionalParameters = new HashMap<>();
+        additionalParameters.put("logout_redirect_url_whitelist",
+                java.util.Arrays.asList(
+                        "https://app1.example.com/logout",
+                        "https://app2.example.com/logout",
+                        "https://app3.example.com/callback"
+                ));
+
+        OrchestratorZoneRequest orchestratorZoneRequest =
+                getOrchestratorZoneRequestWithAdditionalParams(zoneName, ADMIN_CLIENT_SECRET, subDomain, additionalParameters);
+
+        OrchestratorZoneResponse expectedResponse = new OrchestratorZoneResponse();
+        expectedResponse.setName(zoneName);
+        expectedResponse.setMessage(ZONE_CREATED_MESSAGE);
+        expectedResponse.setState(OrchestratorState.CREATE_IN_PROGRESS.toString());
+
+        performMockMvcCallAndAssertResponse(
+                post("/orchestrator/zones")
+                        .contentType(APPLICATION_JSON)
+                        .content(JsonUtils.writeValueAsString(orchestratorZoneRequest)),
+                orchestratorZonesWriteToken,
+                status().isAccepted(), expectedResponse);
+
+        // Verify the zone was created and retrieve it to check logout redirect URLs
+        OrchestratorZoneResponse getResponse = performMockMvcCall(
+                get("/orchestrator/zones").param("name", zoneName),
+                orchestratorZonesReadToken,
+                status().isOk());
+
+        assertNotNull(getResponse);
+        assertNotNull(getResponse.getConnectionDetails());
+
+        // Get the identity zone directly to verify logout redirect URL whitelist
+        String zoneId = getResponse.getConnectionDetails().getZone().getHttpHeaderValue();
+        MvcResult zoneResult = mockMvc.perform(
+                get("/identity-zones/" + zoneId)
+                        .header("Authorization", "Bearer " + uaaAdminClientToken))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        IdentityZone zone = JsonUtils.readValue(zoneResult.getResponse().getContentAsString(), IdentityZone.class);
+        assertNotNull(zone.getConfig());
+        assertNotNull(zone.getConfig().getLinks().getLogout().getWhitelist());
+        assertTrue(zone.getConfig().getLinks().getLogout().getWhitelist().contains("https://app1.example.com/logout"));
+        assertTrue(zone.getConfig().getLinks().getLogout().getWhitelist().contains("https://app2.example.com/logout"));
+        assertTrue(zone.getConfig().getLinks().getLogout().getWhitelist().contains("https://app3.example.com/callback"));
+
+        // Clean up
+        performMockMvcCall(delete("/orchestrator/zones").param("name", zoneName),
+                orchestratorZonesWriteToken, status().isAccepted());
+    }
+
+    @Test
+    void testCreateZone_WithoutRedirectUrls() throws Exception {
+        String zoneName = "zone-without-redirects";
+        String subDomain = zoneName;
+
+        OrchestratorZoneRequest orchestratorZoneRequest =
+                getOrchestratorZoneRequest(zoneName, ADMIN_CLIENT_SECRET, subDomain, null);
+
+        OrchestratorZoneResponse expectedResponse = new OrchestratorZoneResponse();
+        expectedResponse.setName(zoneName);
+        expectedResponse.setMessage(ZONE_CREATED_MESSAGE);
+        expectedResponse.setState(OrchestratorState.CREATE_IN_PROGRESS.toString());
+
+        performMockMvcCallAndAssertResponse(
+                post("/orchestrator/zones")
+                        .contentType(APPLICATION_JSON)
+                        .content(JsonUtils.writeValueAsString(orchestratorZoneRequest)),
+                orchestratorZonesWriteToken,
+                status().isAccepted(), expectedResponse);
+
+        // Verify the zone was created and retrieve it
+        OrchestratorZoneResponse getResponse = performMockMvcCall(
+                get("/orchestrator/zones").param("name", zoneName),
+                orchestratorZonesReadToken,
+                status().isOk());
+
+        assertNotNull(getResponse);
+        assertNotNull(getResponse.getConnectionDetails());
+
+        // Get the identity zone directly to verify default logout redirect URL whitelist is set
+        String zoneId = getResponse.getConnectionDetails().getZone().getHttpHeaderValue();
+        MvcResult zoneResult = mockMvc.perform(
+                get("/identity-zones/" + zoneId)
+                        .header("Authorization", "Bearer " + uaaAdminClientToken))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        IdentityZone zone = JsonUtils.readValue(zoneResult.getResponse().getContentAsString(), IdentityZone.class);
+        assertNotNull(zone.getConfig());
+        // When no redirect URLs are provided, the default whitelist should be set
+        assertNotNull(zone.getConfig().getLinks().getLogout().getWhitelist());
+
+        // Clean up
+        performMockMvcCall(delete("/orchestrator/zones").param("name", zoneName),
+                orchestratorZonesWriteToken, status().isAccepted());
+    }
+
+    @Test
+    void testCreateZone_WithTenantAlias() throws Exception {
+        String zoneName = "zone-tenant-alias";
+        String subdomain = "subdomain-tenant-alias";
+        String tenantAlias = "My Custom Tenant Name";
+
+        Map<String, Object> additionalParameters = new HashMap<>();
+        additionalParameters.put("tenant_alias", tenantAlias);
+
+        OrchestratorZoneRequest orchestratorZoneRequest =
+                getOrchestratorZoneRequestWithAdditionalParams(zoneName, ADMIN_CLIENT_SECRET, subdomain, additionalParameters);
+
+        OrchestratorZoneResponse expectedResponse = new OrchestratorZoneResponse();
+        expectedResponse.setName(zoneName);
+        expectedResponse.setMessage(ZONE_CREATED_MESSAGE);
+        expectedResponse.setState(OrchestratorState.CREATE_IN_PROGRESS.toString());
+
+        try {
+            performMockMvcCallAndAssertResponse(
+                    post("/orchestrator/zones")
+                            .contentType(APPLICATION_JSON)
+                            .content(JsonUtils.writeValueAsString(orchestratorZoneRequest)),
+                    orchestratorZonesWriteToken,
+                    status().isAccepted(), expectedResponse);
+
+            // Verify the orchestrator zone was created - lookup by zoneName (not tenantAlias)
+            OrchestratorZoneResponse getResponse = performMockMvcCall(
+                    get("/orchestrator/zones").param("name", zoneName),
+                    orchestratorZonesReadToken,
+                    status().isOk());
+
+            assertNotNull(getResponse);
+            assertNotNull(getResponse.getConnectionDetails());
+            // Orchestrator zone name should be the original zoneName
+            assertEquals(zoneName, getResponse.getName());
+
+            // Verify the identity zone name is set to tenant_alias
+            String zoneId = getResponse.getConnectionDetails().getZone().getHttpHeaderValue();
+            MvcResult zoneResult = mockMvc.perform(
+                    get("/identity-zones/" + zoneId)
+                            .header("Authorization", "Bearer " + uaaAdminClientToken))
+                    .andExpect(status().isOk())
+                    .andReturn();
+
+            IdentityZone identityZone = JsonUtils.readValue(zoneResult.getResponse().getContentAsString(), IdentityZone.class);
+            // Identity zone name should be tenant_alias
+            assertEquals(tenantAlias, identityZone.getName());
+        } finally {
+            // Clean up
+            performMockMvcCall(delete("/orchestrator/zones").param("name", zoneName),
+                    orchestratorZonesWriteToken, status().isAccepted());
+        }
+    }
+
+    @Test
+    void testCreateZone_WithoutTenantAlias_FallsBackToZoneName() throws Exception {
+        String zoneName = "zone-no-alias";
+        String subdomain = "subdomain-no-alias";
+
+        // No additionalParameters at all
+        OrchestratorZoneRequest orchestratorZoneRequest =
+                getOrchestratorZoneRequest(zoneName, ADMIN_CLIENT_SECRET, subdomain, null);
+
+        OrchestratorZoneResponse expectedResponse = new OrchestratorZoneResponse();
+        expectedResponse.setName(zoneName);
+        expectedResponse.setMessage(ZONE_CREATED_MESSAGE);
+        expectedResponse.setState(OrchestratorState.CREATE_IN_PROGRESS.toString());
+
+        try {
+            performMockMvcCallAndAssertResponse(
+                    post("/orchestrator/zones")
+                            .contentType(APPLICATION_JSON)
+                            .content(JsonUtils.writeValueAsString(orchestratorZoneRequest)),
+                    orchestratorZonesWriteToken,
+                    status().isAccepted(), expectedResponse);
+
+            // Verify the orchestrator zone was created with the zone name
+            OrchestratorZoneResponse getResponse = performMockMvcCall(
+                    get("/orchestrator/zones").param("name", zoneName),
+                    orchestratorZonesReadToken,
+                    status().isOk());
+
+            assertNotNull(getResponse);
+            assertEquals(zoneName, getResponse.getName());
+
+            // Verify the identity zone name falls back to zoneName
+            String zoneId = getResponse.getConnectionDetails().getZone().getHttpHeaderValue();
+            MvcResult zoneResult = mockMvc.perform(
+                    get("/identity-zones/" + zoneId)
+                            .header("Authorization", "Bearer " + uaaAdminClientToken))
+                    .andExpect(status().isOk())
+                    .andReturn();
+
+            IdentityZone identityZone = JsonUtils.readValue(zoneResult.getResponse().getContentAsString(), IdentityZone.class);
+            // Identity zone name should fall back to zoneName when tenant_alias is not provided
+            assertEquals(zoneName, identityZone.getName());
+        } finally {
+            // Clean up
+            performMockMvcCall(delete("/orchestrator/zones").param("name", zoneName),
+                    orchestratorZonesWriteToken, status().isAccepted());
+        }
+    }
+
+    @Test
+    void testCreateZone_WithOtherAdditionalParams_NoTenantAliasKey() throws Exception {
+        String zoneName = "zone-other-params";
+        String subdomain = "subdomain-other-params";
+
+        // additionalParameters exists but doesn't have tenant_alias key
+        // Using only allowed key: logout_redirect_url_whitelist
+        Map<String, Object> additionalParameters = new HashMap<>();
+        additionalParameters.put("logout_redirect_url_whitelist",
+                java.util.Collections.singletonList("https://example.com/logout"));
+
+        OrchestratorZoneRequest orchestratorZoneRequest =
+                getOrchestratorZoneRequestWithAdditionalParams(zoneName, ADMIN_CLIENT_SECRET, subdomain, additionalParameters);
+
+        OrchestratorZoneResponse expectedResponse = new OrchestratorZoneResponse();
+        expectedResponse.setName(zoneName);
+        expectedResponse.setMessage(ZONE_CREATED_MESSAGE);
+        expectedResponse.setState(OrchestratorState.CREATE_IN_PROGRESS.toString());
+
+        try {
+            performMockMvcCallAndAssertResponse(
+                    post("/orchestrator/zones")
+                            .contentType(APPLICATION_JSON)
+                            .content(JsonUtils.writeValueAsString(orchestratorZoneRequest)),
+                    orchestratorZonesWriteToken,
+                    status().isAccepted(), expectedResponse);
+
+            // Verify the zone was created with the zone name (no tenant_alias key)
+            OrchestratorZoneResponse getResponse = performMockMvcCall(
+                    get("/orchestrator/zones").param("name", zoneName),
+                    orchestratorZonesReadToken,
+                    status().isOk());
+
+            assertNotNull(getResponse);
+            assertEquals(zoneName, getResponse.getName());
+        } finally {
+            // Clean up
+            performMockMvcCall(delete("/orchestrator/zones").param("name", zoneName),
+                    orchestratorZonesWriteToken, status().isAccepted());
+        }
+    }
+
+    @Test
+    void testCreateZone_WithInvalidAdditionalParams_ShouldFail() throws Exception {
+        String zoneName = "zone-invalid-params";
+        String subdomain = "subdomain-invalid-params";
+
+        // additionalParameters has an invalid key that is not allowed
+        Map<String, Object> additionalParameters = new HashMap<>();
+        additionalParameters.put("custom_key", "custom_value");
+
+        OrchestratorZoneRequest orchestratorZoneRequest =
+                getOrchestratorZoneRequestWithAdditionalParams(zoneName, ADMIN_CLIENT_SECRET, subdomain, additionalParameters);
+
+        // Should fail with 400 Bad Request due to invalid key
+        MvcResult result = mockMvc.perform(
+                post("/orchestrator/zones")
+                        .contentType(APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + orchestratorZonesWriteToken)
+                        .content(JsonUtils.writeValueAsString(orchestratorZoneRequest)))
+                .andExpect(status().isBadRequest())
+                .andReturn();
+
+        String errorMessage = result.getResponse().getContentAsString();
+        assertTrue(errorMessage.contains("Invalid key") || errorMessage.contains("Only 'logout_redirect_url_whitelist' and 'tenant_alias' are allowed"));
+    }
+
+    @Test
+    void testCreateZone_WithEmptyTenantAlias_FallsBackToZoneName() throws Exception {
+        String zoneName = "zone-empty-alias";
+        String subdomain = "subdomain-empty-alias";
+
+        Map<String, Object> additionalParameters = new HashMap<>();
+        additionalParameters.put("tenant_alias", "");
+
+        OrchestratorZoneRequest orchestratorZoneRequest =
+                getOrchestratorZoneRequestWithAdditionalParams(zoneName, ADMIN_CLIENT_SECRET, subdomain, additionalParameters);
+
+        OrchestratorZoneResponse expectedResponse = new OrchestratorZoneResponse();
+        expectedResponse.setName(zoneName);
+        expectedResponse.setMessage(ZONE_CREATED_MESSAGE);
+        expectedResponse.setState(OrchestratorState.CREATE_IN_PROGRESS.toString());
+
+        try {
+            performMockMvcCallAndAssertResponse(
+                    post("/orchestrator/zones")
+                            .contentType(APPLICATION_JSON)
+                            .content(JsonUtils.writeValueAsString(orchestratorZoneRequest)),
+                    orchestratorZonesWriteToken,
+                    status().isAccepted(), expectedResponse);
+
+            // Verify the orchestrator zone was created with zone name
+            OrchestratorZoneResponse getResponse = performMockMvcCall(
+                    get("/orchestrator/zones").param("name", zoneName),
+                    orchestratorZonesReadToken,
+                    status().isOk());
+
+            assertNotNull(getResponse);
+            assertEquals(zoneName, getResponse.getName());
+
+            // Verify the identity zone name falls back to zoneName when tenant_alias is empty
+            String zoneId = getResponse.getConnectionDetails().getZone().getHttpHeaderValue();
+            MvcResult zoneResult = mockMvc.perform(
+                    get("/identity-zones/" + zoneId)
+                            .header("Authorization", "Bearer " + uaaAdminClientToken))
+                    .andExpect(status().isOk())
+                    .andReturn();
+
+            IdentityZone identityZone = JsonUtils.readValue(zoneResult.getResponse().getContentAsString(), IdentityZone.class);
+            // Identity zone name should fall back to zoneName when tenant_alias is empty
+            assertEquals(zoneName, identityZone.getName());
+        } finally {
+            // Clean up
+            performMockMvcCall(delete("/orchestrator/zones").param("name", zoneName),
+                    orchestratorZonesWriteToken, status().isAccepted());
+        }
+    }
+
+    @Test
+    void testCreateZone_WithWhitespaceTenantAlias_FallsBackToZoneName() throws Exception {
+        String zoneName = "zone-ws-alias";
+        String subdomain = "subdomain-ws-alias";
+
+        Map<String, Object> additionalParameters = new HashMap<>();
+        additionalParameters.put("tenant_alias", "   "); // Only whitespace
+
+        OrchestratorZoneRequest orchestratorZoneRequest =
+                getOrchestratorZoneRequestWithAdditionalParams(zoneName, ADMIN_CLIENT_SECRET, subdomain, additionalParameters);
+
+        OrchestratorZoneResponse expectedResponse = new OrchestratorZoneResponse();
+        expectedResponse.setName(zoneName);
+        expectedResponse.setMessage(ZONE_CREATED_MESSAGE);
+        expectedResponse.setState(OrchestratorState.CREATE_IN_PROGRESS.toString());
+
+        try {
+            performMockMvcCallAndAssertResponse(
+                    post("/orchestrator/zones")
+                            .contentType(APPLICATION_JSON)
+                            .content(JsonUtils.writeValueAsString(orchestratorZoneRequest)),
+                    orchestratorZonesWriteToken,
+                    status().isAccepted(), expectedResponse);
+
+            // Verify the zone was created with zone name (whitespace tenant_alias falls back)
+            OrchestratorZoneResponse getResponse = performMockMvcCall(
+                    get("/orchestrator/zones").param("name", zoneName),
+                    orchestratorZonesReadToken,
+                    status().isOk());
+
+            assertNotNull(getResponse);
+            assertEquals(zoneName, getResponse.getName());
+        } finally {
+            // Clean up
+            performMockMvcCall(delete("/orchestrator/zones").param("name", zoneName),
+                    orchestratorZonesWriteToken, status().isAccepted());
+        }
+    }
+
+    private OrchestratorZoneRequest getOrchestratorZoneRequestWithAdditionalParams(String name, String adminClientSecret,
+                                                                                   String subdomain, Map<String, Object> additionalParameters) {
+        OrchestratorZone orchestratorZone = new OrchestratorZone(adminClientSecret, subdomain, null, additionalParameters);
+        OrchestratorZoneRequest orchestratorZoneRequest = new OrchestratorZoneRequest();
+        orchestratorZoneRequest.setName(name);
+        orchestratorZoneRequest.setParameters(orchestratorZone);
+        return orchestratorZoneRequest;
     }
 
     private void createOrchestratorZoneAndAssert() throws Exception {
