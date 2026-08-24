@@ -116,6 +116,7 @@ public class CheckTokenEndpoint implements InitializingBean {
         }
 
         Claims response = UaaTokenUtils.getClaimsFromTokenString(token.getValue());
+        logger.info("check_token request processed for client_id: {}", response.getClientId());
 
         List<String> claimScopes = Optional.ofNullable(response.getScope()).orElse(emptyList()).stream()
                 .map(String::toLowerCase)
