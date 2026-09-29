@@ -643,7 +643,7 @@ public class LoginInfoEndpoint {
     private String redirectToExternalProvider(AbstractIdentityProviderDefinition idpForRedirect, String idpOriginKey, HttpServletRequest request) {
         if (idpForRedirect != null) {
             if (idpForRedirect instanceof SamlIdentityProviderDefinition samlIdentityProviderDefinition) {
-                String url = SamlRedirectUtils.getIdpRedirectUrl(samlIdentityProviderDefinition);s
+                String url = SamlRedirectUtils.getIdpRedirectUrl(samlIdentityProviderDefinition);
                 String incomingPrompt = request.getParameter("prompt");
                 if (StringUtils.hasText(incomingPrompt)) {
                     url = UriComponentsBuilder.fromUriString(url)
