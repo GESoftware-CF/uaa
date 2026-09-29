@@ -479,6 +479,9 @@ public class LoginInfoEndpoint {
         model.addAttribute(LINK_CREATE_ACCOUNT_SHOW, linkCreateAccountShow);
         model.addAttribute(FIELD_USERNAME_SHOW, fieldUsernameShow);
         model.addAttribute(IDP_DEFINITIONS, samlIdentityProviders.values().stream().sorted(sortingByLinkText).toList());
+        boolean forceReauthentication = SessionUtils.isOidcReauthentication(request.getSession(false));
+        model.addAttribute("forceIdpReauthentication",
+                SessionUtils.isSamlReauthentication(request.getSession(false)));
         Map<String, String> oauthLinks = new HashMap<>();
         ofNullable(oauthIdentityProviders).orElse(emptyMap()).entrySet().stream()
                 .filter(e -> e.getValue() != null && e.getValue().isShowLinkText() && e.getKey() != null)
@@ -487,7 +490,8 @@ public class LoginInfoEndpoint {
                                 externalOAuthProviderConfigurator.getIdpAuthenticationUrl(
                                         e.getValue(),
                                         e.getKey(),
-                                        request),
+                request,
+                forceReauthentication),
                                 e.getValue().getLinkText()
                         )
                 );
@@ -643,18 +647,20 @@ public class LoginInfoEndpoint {
     private String redirectToExternalProvider(AbstractIdentityProviderDefinition idpForRedirect, String idpOriginKey, HttpServletRequest request) {
         if (idpForRedirect != null) {
             if (idpForRedirect instanceof SamlIdentityProviderDefinition samlIdentityProviderDefinition) {
-                String url = SamlRedirectUtils.getIdpRedirectUrl(samlIdentityProviderDefinition);
+                String url = SamlRedirectUtils.getIdpRedirectUrl(samlIdentityProviderDefinition,
+                        SessionUtils.isSamlReauthentication(request.getSession(false)));
                 return "redirect:/" + url;
             } else if (idpForRedirect instanceof AbstractExternalOAuthIdentityProviderDefinition providerDefinition) {
-                String redirectUrl = getRedirectUrlForExternalOAuthIDP(request, idpOriginKey, providerDefinition);
+                String redirectUrl = getRedirectUrlForExternalOAuthIDP(request, idpOriginKey, providerDefinition,
+                        SessionUtils.isOidcReauthentication(request.getSession(false)));
                 return REDIRECT + redirectUrl;
             }
         }
         return null;
     }
 
-    private String getRedirectUrlForExternalOAuthIDP(HttpServletRequest request, String idpOriginKey, AbstractExternalOAuthIdentityProviderDefinition definition) {
-        String idpAuthenticationUrl = externalOAuthProviderConfigurator.getIdpAuthenticationUrl(definition, idpOriginKey, request);
+    private String getRedirectUrlForExternalOAuthIDP(HttpServletRequest request, String idpOriginKey, AbstractExternalOAuthIdentityProviderDefinition definition, boolean forceReauthentication) {
+        String idpAuthenticationUrl = externalOAuthProviderConfigurator.getIdpAuthenticationUrl(definition, idpOriginKey, request, forceReauthentication);
         if (request.getParameter(USERNAME_PARAMETER) != null && definition.getUserPropagationParameter() != null) {
             idpAuthenticationUrl = UriComponentsBuilder.fromUriString(idpAuthenticationUrl).queryParam(definition.getUserPropagationParameter(), request.getParameter(USERNAME_PARAMETER)).build().toUriString();
         }

@@ -18,6 +18,7 @@ import org.cloudfoundry.identity.uaa.provider.oauth.OidcMetadataFetcher;
 import org.cloudfoundry.identity.uaa.provider.saml.SamlIdentityProviderConfigurator;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.util.SessionUtils;
+import org.cloudfoundry.identity.uaa.web.UaaSavedRequestCache;
 import org.cloudfoundry.identity.uaa.util.TimeServiceImpl;
 import org.cloudfoundry.identity.uaa.util.UaaRandomStringUtil;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
@@ -1660,6 +1661,25 @@ class LoginInfoEndpointTests {
 
         Collection<Map<String, String>> oauthLinks = (Collection<Map<String, String>>) extendedModelMap.get("oauthLinks");
         assertThat(oauthLinks).hasSize(1);
+        String ordinaryLink = ((Map.Entry<String, String>) oauthLinks.iterator().next()).getKey();
+        assertThat(ordinaryLink).doesNotContain("prompt=");
+        assertThat(extendedModelMap).containsEntry("forceIdpReauthentication", false);
+
+        String continuationUrl = SessionUtils.startIdpReauthentication(
+                mockHttpServletRequest.getSession(),
+                "http://localhost/oauth/authorize?client_id=client-id", true, false);
+        SessionUtils.setSavedRequestSession(mockHttpServletRequest.getSession(),
+                new UaaSavedRequestCache.ClientRedirectSavedRequest(
+                mockHttpServletRequest, continuationUrl));
+        redirect = endpoint.loginForHtml(extendedModelMap, null, mockHttpServletRequest,
+                singletonList(MediaType.TEXT_HTML));
+
+        assertThat(redirect).isEqualTo("login");
+        assertThat(extendedModelMap).containsEntry("forceIdpReauthentication", false);
+        Collection<Map.Entry<String, String>> reauthenticationLinks = (Collection<Map.Entry<String, String>>) extendedModelMap
+                .get("oauthLinks");
+        assertThat(reauthenticationLinks).hasSize(1);
+        assertThat(reauthenticationLinks.iterator().next().getKey()).contains("prompt=login");
     }
 
     @Test
@@ -1811,6 +1831,7 @@ class LoginInfoEndpointTests {
         when(mockProvider.getOriginKey()).thenReturn("my-OIDC-idp1");
         when(mockProvider.getType()).thenReturn(OriginKeys.OIDC10);
         AbstractExternalOAuthIdentityProviderDefinition mockOidcConfig = mock(OIDCIdentityProviderDefinition.class);
+        when(mockOidcConfig.getParameterizedClass()).thenReturn(OIDCIdentityProviderDefinition.class);
         when(mockOidcConfig.getAuthUrl()).thenReturn(URI.create("http://localhost:8080/uaa").toURL());
         when(mockOidcConfig.getRelyingPartyId()).thenReturn("client-id");
         when(mockOidcConfig.getRelyingPartySecret()).thenReturn("client-secret");
