@@ -4,6 +4,7 @@
                 isUaa=${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).isUaa()},
                 zoneName=${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).get().getName()},
                 branding=${T(org.cloudfoundry.identity.uaa.zone.MergedZoneBrandingInformation).resolveBranding()},
+                backgroundImageUrl=${branding.getBackgroundImageUrl() != null ? branding.getBackgroundImageUrl() : @environment.getProperty('background-image.default-url', null)},
                 banner=${branding.getBanner()},
                 companyName=${branding.getCompanyName() ?: 'GE Vernova'},
                 copyrightCompanyName=${branding.getCompanyName() ?: 'GE Vernova'},
@@ -26,6 +27,13 @@
     <link href="/resources/predix/stylesheets/application.css" th:href="@{${assetBaseUrl}+'/stylesheets/application.css'}" rel="stylesheet"/>
     <link th:href="@{${assetBaseUrl}+'/stylesheets/predix-styles.css'}" rel="stylesheet"/>
     <link th:href="@{${assetBaseUrl}+'/stylesheets/roboto.css'}" rel="stylesheet"/>
+    <!-- Override CSS background with S3 URL (zone-specific → default property); omitted when no URL is configured. -->
+    <style th:if="${backgroundImageUrl != null}" th:inline="text">
+        html {
+            background: url("[(${backgroundImageUrl})]") no-repeat center center fixed !important;
+            background-size: cover !important;
+        }
+    </style>
 </head>
 <body class="predix-uaa">
     <div th:if="${banner != null && (T(org.cloudfoundry.identity.uaa.util.UaaStringUtils).hasText(banner.getText()) || T(org.cloudfoundry.identity.uaa.util.UaaStringUtils).hasText(banner.getLogo()))}" class="login-header top-header banner-header"

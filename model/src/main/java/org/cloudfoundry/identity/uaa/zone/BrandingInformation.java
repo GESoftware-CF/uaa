@@ -15,6 +15,9 @@ public class BrandingInformation implements BrandingInformationSource {
     private Map<String, String> footerLinks;
     private Banner banner;
     private Consent consent;
+    private String backgroundImageUrl;
+    private String backgroundImageUploadedAt;
+    private String backgroundImageUploadedBy;
 
     public Banner getBanner() {
         return banner;
@@ -78,6 +81,30 @@ public class BrandingInformation implements BrandingInformationSource {
 
     public Consent getConsent() {
         return consent;
+    }
+
+    public String getBackgroundImageUrl() {
+        return backgroundImageUrl;
+    }
+
+    public void setBackgroundImageUrl(String backgroundImageUrl) {
+        this.backgroundImageUrl = backgroundImageUrl;
+    }
+
+    public String getBackgroundImageUploadedAt() {
+        return backgroundImageUploadedAt;
+    }
+
+    public void setBackgroundImageUploadedAt(String backgroundImageUploadedAt) {
+        this.backgroundImageUploadedAt = backgroundImageUploadedAt;
+    }
+
+    public String getBackgroundImageUploadedBy() {
+        return backgroundImageUploadedBy;
+    }
+
+    public void setBackgroundImageUploadedBy(String backgroundImageUploadedBy) {
+        this.backgroundImageUploadedBy = backgroundImageUploadedBy;
     }
 
     public static class Banner {

@@ -18,4 +18,6 @@ public interface BrandingInformationSource {
     String getFooterLegalText();
 
     Map<String, String> getFooterLinks();
+
+    String getBackgroundImageUrl();
 }
