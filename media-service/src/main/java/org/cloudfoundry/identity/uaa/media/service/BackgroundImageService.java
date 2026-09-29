@@ -31,7 +31,7 @@ import java.util.Set;
  * timestamp updated on every upload.
  */
 @Service
-@ConditionalOnProperty(name = {"AWS_REGION", "BACKGROUND_IMAGE_STORAGE_BUCKET", "BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES"})
+@ConditionalOnProperty(name = {"AWS_REGION", "BACKGROUND_IMAGE_STORAGE_BUCKET", "BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES", "BACKGROUND_IMAGE_CLOUDFRONT_DOMAIN"})
 public class BackgroundImageService implements BackgroundImageUrlProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(BackgroundImageService.class);
@@ -46,15 +46,18 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
     private final IdentityZoneProvisioning zoneProvisioning;
     private final String bucket;
     private final long maxFileSizeBytes;
+    private final String cloudFrontDomain;
 
     public BackgroundImageService(S3StorageManager s3StorageManager,
                                   IdentityZoneProvisioning zoneProvisioning,
                                   @Value("${BACKGROUND_IMAGE_STORAGE_BUCKET}") String bucket,
-                                  @Value("${BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES}") long maxFileSizeBytes) {
+                                  @Value("${BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES}") long maxFileSizeBytes,
+                                  @Value("${BACKGROUND_IMAGE_CLOUDFRONT_DOMAIN}") String cloudFrontDomain) {
         this.s3StorageManager = s3StorageManager;
         this.zoneProvisioning = zoneProvisioning;
         this.bucket = bucket;
         this.maxFileSizeBytes = maxFileSizeBytes;
+        this.cloudFrontDomain = cloudFrontDomain;
     }
 
     // -------------------------------------------------------------------------
@@ -82,7 +85,7 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
             throw new RuntimeException("Failed to read uploaded image file", e);
         }
         Instant now = Instant.now();
-        String url = s3StorageManager.getDirectUrl(bucket, s3Key) + "?v=" + now.toEpochMilli();
+        String url = String.format("https://%s/%s?v=%d", cloudFrontDomain, s3Key, now.toEpochMilli());
         try {
             IdentityZone zone = zoneProvisioning.retrieve(zoneId);
             IdentityZoneConfiguration config = zone.getConfig() != null ? zone.getConfig() : new IdentityZoneConfiguration();
