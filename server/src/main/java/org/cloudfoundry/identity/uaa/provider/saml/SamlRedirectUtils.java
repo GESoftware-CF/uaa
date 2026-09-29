@@ -25,9 +25,18 @@ public final class SamlRedirectUtils {
         throw new java.lang.UnsupportedOperationException("This is a utility class and cannot be instantiated");
     }
 
+    public static final String FORCE_AUTHN_PARAMETER = "force_authn";
+
     public static String getIdpRedirectUrl(SamlIdentityProviderDefinition definition) {
+        return getIdpRedirectUrl(definition, false);
+    }
+
+    public static String getIdpRedirectUrl(SamlIdentityProviderDefinition definition, boolean forceAuthn) {
         String entityIdAlias = definition.getIdpEntityAlias();
         UriComponentsBuilder builder = UriComponentsBuilder.fromPath("saml2/authenticate/%s".formatted(entityIdAlias));
+        if (forceAuthn) {
+            builder.queryParam(FORCE_AUTHN_PARAMETER, "true");
+        }
         return builder.build().toUriString();
     }
 

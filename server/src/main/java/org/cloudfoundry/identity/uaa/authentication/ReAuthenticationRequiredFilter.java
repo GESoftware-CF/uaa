@@ -4,8 +4,11 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.cloudfoundry.identity.uaa.util.SessionUtils;
 import org.cloudfoundry.identity.uaa.util.UaaUrlUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.web.util.UrlUtils;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -25,10 +28,21 @@ public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         boolean reAuthenticationRequired = false;
+        boolean authorizationRequest = request.getRequestURI()
+                .equals(request.getContextPath() + "/oauth/authorize");
+        boolean oidcLogin = authorizationRequest
+        && "login".equals(request.getParameter(SessionUtils.OIDC_PROMPT_PARAMETER));
+        boolean samlLogin = authorizationRequest
+        && "login".equals(request.getParameter(SessionUtils.SAML_PROMPT_PARAMETER));
         HashMap<String, String[]> requestParams = new HashMap<>(request.getParameterMap());
         if ("login".equals(request.getParameter("prompt"))) {
             reAuthenticationRequired = true;
             requestParams.remove("prompt");
+        }
+        if (oidcLogin || samlLogin) {
+            reAuthenticationRequired = true;
+            requestParams.remove(SessionUtils.OIDC_PROMPT_PARAMETER);
+            requestParams.remove(SessionUtils.SAML_PROMPT_PARAMETER);
         }
         if (request.getParameter("max_age") != null
             && SecurityContextHolder.getContext().getAuthentication() instanceof UaaAuthentication auth
@@ -39,8 +53,24 @@ public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
         }
         if (reAuthenticationRequired) {
             request.getSession().invalidate();
-            sendRedirect(request.getRequestURL().toString(), requestParams, response);
+            String redirectUrl = buildRedirectUrl(request.getRequestURL().toString(), requestParams);
+            if (oidcLogin || samlLogin) {
+                // Otherwise the repository saves the still-authenticated context into the new session.
+                SecurityContextHolder.clearContext();
+                redirectUrl = SessionUtils.startIdpReauthentication(
+                        request.getSession(true), redirectUrl, oidcLogin, samlLogin);
+            }
+            response.sendRedirect(redirectUrl);
         } else {
+            if (authorizationRequest) {
+                var authentication = SecurityContextHolder.getContext().getAuthentication();
+                boolean authenticated = authentication != null && authentication.isAuthenticated()
+                && !(authentication instanceof AnonymousAuthenticationToken);
+                if (authenticated || !SessionUtils.isForceIdpReauthentication(
+                        request.getSession(false), UrlUtils.buildFullRequestUrl(request))) {
+                    SessionUtils.clearForceIdpReauthentication(request.getSession(false));
+                }
+            }
             if (request.getServletPath().startsWith("/saml/SingleLogout/alias/" + samlEntityID)) {
                 CsrfFilter.skipRequest(request);
             }
@@ -48,9 +78,9 @@ public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
         }
     }
 
-    private void sendRedirect(String redirectUrl, Map<String, String[]> params, HttpServletResponse response) throws IOException {
+    private String buildRedirectUrl(String redirectUrl, Map<String, String[]> params) {
         UriComponentsBuilder builder = UaaUrlUtils.fromUriString(redirectUrl);
         params.forEach(builder::queryParam);
-        response.sendRedirect(builder.build().toUriString());
+        return builder.build().toUriString();
     }
 }

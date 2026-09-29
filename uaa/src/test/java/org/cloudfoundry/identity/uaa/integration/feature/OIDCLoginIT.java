@@ -117,7 +117,8 @@ public class OIDCLoginIT {
 
     public static boolean doesSupportZoneDNS() {
         try {
-            return Arrays.equals(Inet4Address.getByName("oidcloginit.localhost").getAddress(), new byte[]{127, 0, 0, 1});
+            return Arrays.equals(Inet4Address.getByName("oidcloginit.localhost").getAddress(),
+                    new byte[] { 127, 0, 0, 1 });
         } catch (UnknownHostException e) {
             return false;
         }
@@ -125,24 +126,25 @@ public class OIDCLoginIT {
 
     @BeforeEach
     void setUp() throws Exception {
-        assertThat(doesSupportZoneDNS()).as("/etc/hosts should contain the host 'oidcloginit.localhost' for this test to work").isTrue();
+        assertThat(doesSupportZoneDNS())
+                .as("/etc/hosts should contain the host 'oidcloginit.localhost' for this test to work").isTrue();
 
         subdomain = "oidcloginit";
-        //identity client token
+        // identity client token
         identityClient = IntegrationTestUtils.getClientCredentialsTemplate(
-                IntegrationTestUtils.getClientCredentialsResource(baseUrl, new String[]{"zones.write", "zones.read", "scim.zones"}, "identity", "identitysecret")
-        );
+                IntegrationTestUtils.getClientCredentialsResource(baseUrl,
+                        new String[] { "zones.write", "zones.read", "scim.zones" }, "identity", "identitysecret"));
 
         IdentityZoneConfiguration zoneConfiguration = new IdentityZoneConfiguration();
-        //create the zone
-        zone = IntegrationTestUtils.createZoneOrUpdateSubdomain(identityClient, baseUrl, subdomain, subdomain, zoneConfiguration);
+        // create the zone
+        zone = IntegrationTestUtils.createZoneOrUpdateSubdomain(identityClient, baseUrl, subdomain, subdomain,
+                zoneConfiguration);
         adminToken = IntegrationTestUtils.getClientCredentialsToken(baseUrl, "admin", "adminsecret");
 
         String zoneHost = zone.getSubdomain() + ".localhost";
         zoneUrl = "http://" + zoneHost + ":8080/uaa";
 
         String createdGroupName = new RandomValueStringGenerator(10).generate() + ".created.scope";
-
 
         String urlBase = "http://localhost:8080/uaa";
         identityProvider = new IdentityProvider<>();
@@ -179,22 +181,27 @@ public class OIDCLoginIT {
         clientCredentialsToken = IntegrationTestUtils.getClientCredentialsToken(baseUrl, "admin", "adminsecret");
         updateProvider();
 
-        createdGroup = IntegrationTestUtils.createOrUpdateGroup(adminToken, subdomain, baseUrl, new ScimGroup(createdGroupName));
-        ScimGroupExternalMember createdGroupExternalMapping = new ScimGroupExternalMember(createdGroup.getId(), "openid");
+        createdGroup = IntegrationTestUtils.createOrUpdateGroup(adminToken, subdomain, baseUrl,
+                new ScimGroup(createdGroupName));
+        ScimGroupExternalMember createdGroupExternalMapping = new ScimGroupExternalMember(createdGroup.getId(),
+                "openid");
         createdGroupExternalMapping.setOrigin(identityProvider.getOriginKey());
         IntegrationTestUtils.mapExternalGroup(adminToken, subdomain, baseUrl, createdGroupExternalMapping);
 
-        zoneClient = new UaaClientDetails(new RandomValueStringGenerator().generate(), null, "openid,user_attributes", "authorization_code,client_credentials", "uaa.admin,scim.read,scim.write,uaa.resource", zoneUrl);
+        zoneClient = new UaaClientDetails(new RandomValueStringGenerator().generate(), null, "openid,user_attributes",
+                "authorization_code,client_credentials", "uaa.admin,scim.read,scim.write,uaa.resource", zoneUrl);
         zoneClient.setClientSecret("secret");
         zoneClient.setAutoApproveScopes(Collections.singleton("true"));
-        zoneClient = IntegrationTestUtils.createClientAsZoneAdmin(clientCredentialsToken, baseUrl, zone.getId(), zoneClient);
+        zoneClient = IntegrationTestUtils.createClientAsZoneAdmin(clientCredentialsToken, baseUrl, zone.getId(),
+                zoneClient);
         zoneClient.setClientSecret("secret");
 
         doLogout(zoneUrl);
     }
 
     public void updateProvider() {
-        identityProvider = IntegrationTestUtils.createOrUpdateProvider(clientCredentialsToken, baseUrl, identityProvider);
+        identityProvider = IntegrationTestUtils.createOrUpdateProvider(clientCredentialsToken, baseUrl,
+                identityProvider);
         assertThat(identityProvider.getConfig().getRelyingPartySecret()).isNull();
     }
 
@@ -267,19 +274,22 @@ public class OIDCLoginIT {
         Long beforeTest = System.currentTimeMillis();
 
         String zoneAdminToken = IntegrationTestUtils.getClientCredentialsToken(serverRunning, "admin", "adminsecret");
-        String zoneClientToken = IntegrationTestUtils.getClientCredentialsToken(zoneUrl, zoneClient.getClientId(), zoneClient.getClientSecret());
+        String zoneClientToken = IntegrationTestUtils.getClientCredentialsToken(zoneUrl, zoneClient.getClientId(),
+                zoneClient.getClientSecret());
         ScimUser minimalShadowUser = new ScimUser();
         minimalShadowUser.setUserName(testAccounts.getUserName());
         minimalShadowUser.addEmail(testAccounts.getUserName());
         minimalShadowUser.setOrigin(identityProvider.getOriginKey());
         IntegrationTestUtils.createUser(zoneClientToken, zoneUrl, minimalShadowUser, null);
-        ScimUser userCreated = IntegrationTestUtils.getUserByZone(zoneAdminToken, baseUrl, subdomain, testAccounts.getUserName());
+        ScimUser userCreated = IntegrationTestUtils.getUserByZone(zoneAdminToken, baseUrl, subdomain,
+                testAccounts.getUserName());
         assertThat(StringUtils.hasText(userCreated.getExternalId())).isFalse();
 
         validateSuccessfulOIDCLogin(zoneUrl, testAccounts.getUserName(), testAccounts.getPassword());
         Long afterTest = System.currentTimeMillis();
         String origUserId = IntegrationTestUtils.getUserId(adminToken, baseUrl, "uaa", testAccounts.getUserName());
-        ScimUser user = IntegrationTestUtils.getUserByZone(zoneAdminToken, baseUrl, subdomain, testAccounts.getUserName());
+        ScimUser user = IntegrationTestUtils.getUserByZone(zoneAdminToken, baseUrl, subdomain,
+                testAccounts.getUserName());
         IntegrationTestUtils.validateUserLastLogon(user, beforeTest, afterTest);
         assertThat(user.getExternalId()).isEqualTo(origUserId);
         assertThat(user.getUserName()).isEqualTo(user.getGivenName());
@@ -321,17 +331,59 @@ public class OIDCLoginIT {
         assertThat(webDriver.getCurrentUrl()).startsWith(baseUrl);
     }
 
+    private String zoneAuthorizeUrl(String extraParameters) {
+        return "%s/oauth/authorize?client_id=%s&response_type=code&redirect_uri=%s&state=8tp0tR%s".formatted(
+                zoneUrl, zoneClient.getClientId(), URLEncoder.encode(zoneUrl, StandardCharsets.UTF_8), extraParameters);
+    }
+
+    private String oidcProviderLinkAfterAuthorize(String extraParameters) {
+        webDriver.get(zoneUrl + "/logout.do");
+        webDriver.get(zoneAuthorizeUrl(extraParameters));
+        return webDriver.findElement(By.linkText("My OIDC Provider")).getAttribute("href");
+    }
+
+    @Test
+    void oidcPromptLoginAddsPromptLoginToExternalProviderLink() {
+        assertThat(oidcProviderLinkAfterAuthorize("&oidc_prompt=login"))
+                .containsPattern("[?&]prompt=login(&|$)");
+    }
+
+    @Test
+    void authorizeWithoutOidcPromptDoesNotAddPromptLoginToExternalProviderLink() {
+        assertThat(oidcProviderLinkAfterAuthorize("")).doesNotContain("prompt=login");
+    }
+
+    @Test
+    void samlPromptLoginDoesNotAddPromptLoginToExternalProviderLink() {
+        assertThat(oidcProviderLinkAfterAuthorize("&saml_prompt=login")).doesNotContain("prompt=login");
+    }
+
+    @Test
+    void oidcPromptLoginForcesExternalProviderToAskForCredentialsAgain() {
+        login(zoneUrl, testAccounts.getUserName(), testAccounts.getPassword());
+
+        webDriver.get(zoneAuthorizeUrl("&oidc_prompt=login"));
+        webDriver.clickAndWait(By.linkText("My OIDC Provider"));
+
+        assertThat(webDriver.getCurrentUrl()).startsWith(baseUrl);
+        assertThat(webDriver.findElements(By.name("username"))).isNotEmpty();
+        assertThat(webDriver.findElements(By.name("password"))).isNotEmpty();
+    }
+
     @Test
     void successfulLoginWithOIDCProviderWithExternalGroups() {
 
         validateSuccessfulOIDCLogin(zoneUrl, testAccounts.getUserName(), testAccounts.getPassword());
         String anAdminToken = IntegrationTestUtils.getClientCredentialsToken(serverRunning, "admin", "adminsecret");
-        ScimUser user = IntegrationTestUtils.getUserByZone(anAdminToken, baseUrl, subdomain, testAccounts.getUserName());
+        ScimUser user = IntegrationTestUtils.getUserByZone(anAdminToken, baseUrl, subdomain,
+                testAccounts.getUserName());
         assertThat(user.getUserName()).isEqualTo(user.getGivenName());
 
-        ScimGroup updatedCreatedGroup = IntegrationTestUtils.getGroup(anAdminToken, subdomain, baseUrl, createdGroup.getDisplayName());
+        ScimGroup updatedCreatedGroup = IntegrationTestUtils.getGroup(anAdminToken, subdomain, baseUrl,
+                createdGroup.getDisplayName());
         assertThat(isMember(user.getId(), updatedCreatedGroup)).isTrue();
-        assertThat(updatedCreatedGroup.getMembers().stream().allMatch(p -> user.getOrigin().equals(p.getOrigin()))).as("Expect group members to have origin: " + user.getOrigin()).isTrue();
+        assertThat(updatedCreatedGroup.getMembers().stream().allMatch(p -> user.getOrigin().equals(p.getOrigin())))
+                .as("Expect group members to have origin: " + user.getOrigin()).isTrue();
     }
 
     @Test
@@ -360,7 +412,9 @@ public class OIDCLoginIT {
 
     @Test
     void login_with_wrong_keys() throws Exception {
-        identityProvider.getConfig().setTokenKeyUrl(URI.create("https://login.microsoftonline.com/9bc40aaf-e150-4c30-bb3c-a8b3b677266e/discovery/v2.0/keys").toURL());
+        identityProvider.getConfig().setTokenKeyUrl(
+                URI.create("https://login.microsoftonline.com/9bc40aaf-e150-4c30-bb3c-a8b3b677266e/discovery/v2.0/keys")
+                        .toURL());
         updateProvider();
         webDriver.get(zoneUrl + "/login");
         webDriver.clickAndWait(By.linkText("My OIDC Provider"));
@@ -373,7 +427,8 @@ public class OIDCLoginIT {
         assertThat(webDriver.getCurrentUrl()).contains(zoneUrl + "/oauth_error")
                 // no error as parameter sent
                 .doesNotContain("?error=");
-        assertThat(webDriver.findElement(By.cssSelector("h2")).getText()).contains("There was an error when authenticating against the external identity provider");
+        assertThat(webDriver.findElement(By.cssSelector("h2")).getText())
+                .contains("There was an error when authenticating against the external identity provider");
 
         List<String> cookies = IntegrationTestUtils.getAccountChooserCookies(zoneUrl, webDriver);
         assertThat(cookies).noneMatch(e -> e.startsWith("Saved-Account-"));
@@ -401,12 +456,14 @@ public class OIDCLoginIT {
         localhostServerRunning.setHostName("localhost");
 
         String clientId = "client" + new RandomValueStringGenerator(5).generate();
-        UaaClientDetails client = new UaaClientDetails(clientId, null, "openid", GRANT_TYPE_AUTHORIZATION_CODE, "openid", baseUrl);
+        UaaClientDetails client = new UaaClientDetails(clientId, null, "openid", GRANT_TYPE_AUTHORIZATION_CODE,
+                "openid", baseUrl);
         client.setClientSecret("clientsecret");
         client.setAutoApproveScopes(Collections.singletonList("true"));
         IntegrationTestUtils.createClient(adminToken, baseUrl, client);
 
-        Map<String, String> authCodeTokenResponse = IntegrationTestUtils.getAuthorizationCodeTokenMap(localhostServerRunning,
+        Map<String, String> authCodeTokenResponse = IntegrationTestUtils.getAuthorizationCodeTokenMap(
+                localhostServerRunning,
                 clientId,
                 "clientsecret",
                 null,
@@ -417,7 +474,8 @@ public class OIDCLoginIT {
                 null,
                 false);
 
-        //validate that we have an ID token, and that it contains costCenter and manager values
+        // validate that we have an ID token, and that it contains costCenter and
+        // manager values
         String idToken = authCodeTokenResponse.get("id_token");
         assertThat(idToken).isNotNull();
 
@@ -426,14 +484,17 @@ public class OIDCLoginIT {
         });
         String expectedUsername = (String) claims.get(SUB);
 
-        String anAdminToken = IntegrationTestUtils.getClientCredentialsToken(zoneUrl, zoneClient.getClientId(), zoneClient.getClientSecret());
-        ScimUser shadowUser = IntegrationTestUtils.getUser(anAdminToken, zoneUrl, identityProvider.getOriginKey(), expectedUsername);
+        String anAdminToken = IntegrationTestUtils.getClientCredentialsToken(zoneUrl, zoneClient.getClientId(),
+                zoneClient.getClientSecret());
+        ScimUser shadowUser = IntegrationTestUtils.getUser(anAdminToken, zoneUrl, identityProvider.getOriginKey(),
+                expectedUsername);
         assertThat(shadowUser.getUserName()).isEqualTo(expectedUsername);
     }
 
     @Test
     void successfulLoginWithOIDC_and_SAML_Provider_PlusRefreshRotation() throws Exception {
-        SamlIdentityProviderDefinition saml = IntegrationTestUtils.createSimplePHPSamlIDP("simplesamlphp", OriginKeys.UAA, samlServerConfig.getSamlServerUrl());
+        SamlIdentityProviderDefinition saml = IntegrationTestUtils.createSimplePHPSamlIDP("simplesamlphp",
+                OriginKeys.UAA, samlServerConfig.getSamlServerUrl());
         saml.setLinkText("SAML Login");
         saml.setShowSamlLink(true);
         IdentityProvider<SamlIdentityProviderDefinition> samlProvider = new IdentityProvider<>();
@@ -445,7 +506,8 @@ public class OIDCLoginIT {
                 .setIdentityZoneId(saml.getZoneId());
         samlProvider = IntegrationTestUtils.createOrUpdateProvider(clientCredentialsToken, baseUrl, samlProvider);
         try {
-            // This test creates an OIDC provider. That provider in turn has a SAML provider.
+            // This test creates an OIDC provider. That provider in turn has a SAML
+            // provider.
             // The end user is authenticated using OIDC federating to SAML
             webDriver.get(zoneUrl + "/login");
             webDriver.clickAndWait(By.linkText("My OIDC Provider"));
@@ -460,14 +522,16 @@ public class OIDCLoginIT {
 
             Page.assertThatUrlEventuallySatisfies(webDriver, assertUrl -> assertUrl.startsWith(zoneUrl));
             // Updated to match the actual welcome message in the new UI
-            assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("You should not see this page. Set up your redirect URI.");
+            assertThat(webDriver.findElement(By.cssSelector("h1")).getText())
+                    .contains("You should not see this page. Set up your redirect URI.");
 
             Cookie cookie = webDriver.manage().getCookieNamed("JSESSIONID");
 
             ServerRunningExtension zoneServerRunning = ServerRunningExtension.connect();
             zoneServerRunning.setHostName(zone.getSubdomain() + ".localhost");
 
-            Map<String, String> authCodeTokenResponse = IntegrationTestUtils.getAuthorizationCodeTokenMap(zoneServerRunning,
+            Map<String, String> authCodeTokenResponse = IntegrationTestUtils.getAuthorizationCodeTokenMap(
+                    zoneServerRunning,
                     zoneClient.getClientId(),
                     "secret",
                     null,
@@ -478,7 +542,8 @@ public class OIDCLoginIT {
                     null,
                     false);
 
-            //validate that we have an ID token, and that it contains costCenter and manager values
+            // validate that we have an ID token, and that it contains costCenter and
+            // manager values
             String idToken = authCodeTokenResponse.get("id_token");
             assertThat(idToken).isNotNull();
 
@@ -493,7 +558,8 @@ public class OIDCLoginIT {
             assertThat((List<String>) acr.get("values"))
                     .as("acr claim should contain values attribute")
                     .contains(PASSWORD_AUTHN_CTX);
-            UserInfoResponse userInfo = IntegrationTestUtils.getUserInfo(zoneUrl, authCodeTokenResponse.get("access_token"));
+            UserInfoResponse userInfo = IntegrationTestUtils.getUserInfo(zoneUrl,
+                    authCodeTokenResponse.get("access_token"));
 
             Map<String, List<String>> userAttributeMap = userInfo.getUserAttributes();
             assertThat(userAttributeMap).isNotNull();
@@ -501,27 +567,33 @@ public class OIDCLoginIT {
             assertThat(clientIds).isNotNull();
             assertThat(clientIds.getFirst()).isEqualTo("identity");
             setRefreshTokenRotate(false);
-            String refreshToken1 = getRefreshTokenResponse(zoneServerRunning, authCodeTokenResponse.get("refresh_token"));
+            String refreshToken1 = getRefreshTokenResponse(zoneServerRunning,
+                    authCodeTokenResponse.get("refresh_token"));
             String refreshToken2 = getRefreshTokenResponse(zoneServerRunning, refreshToken1);
             assertThat(refreshToken2).as("New refresh token should be equal to the old one.").isEqualTo(refreshToken1);
             setRefreshTokenRotate(true);
             refreshToken1 = getRefreshTokenResponse(zoneServerRunning, refreshToken2);
             refreshToken2 = getRefreshTokenResponse(zoneServerRunning, refreshToken1);
-            assertThat(refreshToken2).as("New access token should be different from the old one.").isNotEqualTo(refreshToken1);
+            assertThat(refreshToken2).as("New access token should be different from the old one.")
+                    .isNotEqualTo(refreshToken1);
         } finally {
-            IntegrationTestUtils.deleteProvider(clientCredentialsToken, baseUrl, OriginKeys.UAA, samlProvider.getOriginKey());
+            IntegrationTestUtils.deleteProvider(clientCredentialsToken, baseUrl, OriginKeys.UAA,
+                    samlProvider.getOriginKey());
         }
     }
 
     @Test
     void responseTypeRequired() {
-        UaaClientDetails uaaClient = new UaaClientDetails(new RandomValueStringGenerator().generate(), null, "openid,user_attributes", "authorization_code,client_credentials", "uaa.admin,scim.read,scim.write,uaa.resource", baseUrl);
+        UaaClientDetails uaaClient = new UaaClientDetails(new RandomValueStringGenerator().generate(), null,
+                "openid,user_attributes", "authorization_code,client_credentials",
+                "uaa.admin,scim.read,scim.write,uaa.resource", baseUrl);
         uaaClient.setClientSecret("secret");
         uaaClient.setAutoApproveScopes(Collections.singleton("true"));
         uaaClient = IntegrationTestUtils.createClient(clientCredentialsToken, baseUrl, uaaClient);
         uaaClient.setClientSecret("secret");
 
-        String uriBuilder = baseUrl + "/oauth/authorize" + "?scope=openid&client_id=" + uaaClient.getClientId() + "&redirect_uri=" + baseUrl;
+        String uriBuilder = baseUrl + "/oauth/authorize" + "?scope=openid&client_id=" + uaaClient.getClientId()
+                + "&redirect_uri=" + baseUrl;
         webDriver.get(uriBuilder);
         webDriver.findElement(By.name("username")).sendKeys(testAccounts.getUserName());
         webDriver.findElement(By.name("password")).sendKeys(testAccounts.getPassword());
@@ -540,7 +612,9 @@ public class OIDCLoginIT {
 
         String externalOIDCProviderLoginPage = baseUrl;
         webDriver.get(externalOIDCProviderLoginPage);
-        assertThat(webDriver.getCurrentUrl()).as("Did not land on the external OIDC provider login page (as an unauthenticated user).").endsWith("/login");
+        assertThat(webDriver.getCurrentUrl())
+                .as("Did not land on the external OIDC provider login page (as an unauthenticated user).")
+                .endsWith("/login");
     }
 
     @Test
@@ -552,7 +626,9 @@ public class OIDCLoginIT {
 
         String externalOIDCProviderLoginPage = baseUrl;
         webDriver.get(externalOIDCProviderLoginPage);
-        assertThat(webDriver.getPageSource()).as("Did not land on the external OIDC provider home page (as an authenticated user).").contains("You should not see this page. Set up your redirect URI.");
+        assertThat(webDriver.getPageSource())
+                .as("Did not land on the external OIDC provider home page (as an authenticated user).")
+                .contains("You should not see this page. Set up your redirect URI.");
     }
 
     private String getRefreshTokenResponse(ServerRunningExtension serverRunning, String refreshToken) {
@@ -576,6 +652,7 @@ public class OIDCLoginIT {
         policy.setRefreshTokenRotate(isRotate);
         policy.setRefreshTokenFormat(TokenConstants.TokenFormat.OPAQUE.getStringValue());
         config.setTokenPolicy(policy);
-        IntegrationTestUtils.createZoneOrUpdateSubdomain(identityClient, baseUrl, zone.getId(), zone.getSubdomain(), config);
+        IntegrationTestUtils.createZoneOrUpdateSubdomain(identityClient, baseUrl, zone.getId(), zone.getSubdomain(),
+                config);
     }
 }
