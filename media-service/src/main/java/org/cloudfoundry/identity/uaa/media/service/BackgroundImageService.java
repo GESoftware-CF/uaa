@@ -173,6 +173,17 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
         return "uaa/" + zoneId + "/" + BACKGROUND_IMAGE_OBJECT_NAME;
     }
 
+    private static String buildS3Key(String zoneId, String imageName) {
+        return "fss-iam/uaa/" + zoneId + "/background_image/" + imageName;
+    }
+
+    private static String sanitizeFileName(String fileName) {
+        if (fileName == null || fileName.isBlank()) {
+            return "background-image";
+        }
+        return fileName.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
     private static String resolveContentType(MultipartFile file) {
         String raw = file.getContentType();
         if (raw == null || raw.isBlank()) {
