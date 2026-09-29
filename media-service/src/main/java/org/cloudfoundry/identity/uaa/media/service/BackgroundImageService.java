@@ -71,7 +71,10 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
             throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
                     "Unsupported image type '" + contentType + "'. Allowed: " + ALLOWED_CONTENT_TYPES);
         }
-        String s3Key = buildFixedKey(zoneId);
+
+        String imageName = sanitizeFileName(file.getOriginalFilename());
+        String s3Key = buildS3Key(zoneId, imageName);
+
         logger.info("Uploading background image: bucket={}, key={}, contentType={}", bucket, s3Key, contentType);
         try {
             s3StorageManager.upload(bucket, s3Key, file.getInputStream(), file.getSize(), contentType);
