@@ -51,7 +51,16 @@ public class SamlAuthenticationFilterConfig {
      */
     @Bean
     FilterRegistrationBean<Filter> saml2WebSsoAuthenticationRequestFilter(RelyingPartyRegistrationResolver relyingPartyRegistrationResolver) {
-        OpenSaml4AuthenticationRequestResolver openSaml4AuthenticationRequestResolver = new OpenSaml4AuthenticationRequestResolver(relyingPartyRegistrationResolver);
+        OpenSaml4AuthenticationRequestResolver openSaml4AuthenticationRequestResolver =
+                new OpenSaml4AuthenticationRequestResolver(relyingPartyRegistrationResolver);
+
+        // NEW: translate the incoming "prompt=login" parameter into SAML's ForceAuthn attribute
+        openSaml4AuthenticationRequestResolver.setAuthnRequestCustomizer(context -> {
+            String incomingPrompt = context.getRequest().getParameter("prompt");
+            if ("login".equals(incomingPrompt)) {
+                context.getAuthnRequest().setForceAuthn(true);
+            }
+        });
 
         Saml2WebSsoAuthenticationRequestFilter filter = new Saml2WebSsoAuthenticationRequestFilter(openSaml4AuthenticationRequestResolver);
         FilterRegistrationBean<Filter> bean = new FilterRegistrationBean<>(filter);
