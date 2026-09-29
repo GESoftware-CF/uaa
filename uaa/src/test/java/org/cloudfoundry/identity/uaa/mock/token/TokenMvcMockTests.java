@@ -3803,10 +3803,18 @@ public class TokenMvcMockTests extends AbstractTokenMockMvcTests {
         assertThat(result.getResponse().getRedirectedUrl().split("\\?")[0]).isEqualTo(result.getRequest().getRequestURL().toString());
         Map<String, String[]> mapRequest = result.getRequest().getParameterMap();
         Map<String, String[]> mapResponse = UaaUrlUtils.getParameterMap(result.getResponse().getRedirectedUrl());
-        for (String key : mapResponse.keySet()) {
-            assertThat(mapRequest).containsKey(key);
-            assertThat(mapResponse.get(key)).containsExactly(mapRequest.get(key));
+        assertThat(mapResponse).doesNotContainKeys("prompt", SessionUtils.IDP_REAUTHENTICATION_PARAMETER);
+        for (String key : mapRequest.keySet()) {
+            if (!"prompt".equals(key)) {
+                assertThat(mapResponse).containsKey(key);
+                assertThat(mapResponse.get(key)).containsExactly(mapRequest.get(key));
+            }
         }
+        Set<String> addedKeys = new HashSet<>(mapResponse.keySet());
+        addedKeys.removeAll(mapRequest.keySet());
+        assertThat(addedKeys).isEmpty();
+        assertThat(SessionUtils.isForceIdpReauthentication(result.getRequest().getSession(false),
+                result.getResponse().getRedirectedUrl())).isFalse();
         Set<String> requestKeys = new HashSet<>(mapRequest.keySet());
         requestKeys.removeAll(mapResponse.keySet());
         assertThat(requestKeys).hasSize(1)

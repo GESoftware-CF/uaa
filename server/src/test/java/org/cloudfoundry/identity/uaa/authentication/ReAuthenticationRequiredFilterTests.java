@@ -18,13 +18,22 @@ package org.cloudfoundry.identity.uaa.authentication;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.cloudfoundry.identity.uaa.util.SessionUtils;
+import org.cloudfoundry.identity.uaa.web.UaaSavedRequestCache;
+import java.net.URI;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletResponse;
 
 import static org.mockito.Mockito.anyString;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.matches;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -64,8 +73,23 @@ class ReAuthenticationRequiredFilterTests {
         request.setParameter("scope", "openid");
         filter.doFilterInternal(request, response, chain);
         verify(chain, never()).doFilter(same(request), same(response));
-        // verify that the redirect is happening and the redirect url does not contain the prompt parameter
+        // verify that the redirect is happening and the redirect url does not contain
+        // the prompt parameter
         verify(response, times(1)).sendRedirect(matches("^((?!prompt).)*$"));
+        assertThat(request.getSession(false)).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "oidc_prompt", "saml_prompt" })
+    void shouldNotKeepAuthenticatedUserAfterIdpReauthenticationRedirect(String promptParameter) throws Exception {
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        request.setRequestURI("/oauth/authorize");
+        request.setServletPath("/oauth/authorize");
+        request.setParameter(promptParameter, "login");
+
+        filter.doFilterInternal(request, new MockHttpServletResponse(), chain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }
 
     @Test
@@ -77,6 +101,53 @@ class ReAuthenticationRequiredFilterTests {
         verify(response, never()).sendRedirect(anyString());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = { "oidc_prompt", "saml_prompt" })
+    void shouldPreserveReauthenticationOnlyForItsContinuation(String promptParameter) throws Exception {
+        request.setRequestURI("/oauth/authorize");
+        request.setServletPath("/oauth/authorize");
+        request.setParameter("client_id", "testclient");
+        request.setParameter(promptParameter, "login");
+        MockHttpServletResponse redirectResponse = new MockHttpServletResponse();
+        filter.doFilterInternal(request, redirectResponse, chain);
+
+        String continuationUrl = redirectResponse.getRedirectedUrl();
+        MockHttpSession session = (MockHttpSession) request.getSession(false);
+        MockHttpServletRequest continuation = new MockHttpServletRequest("GET", "/oauth/authorize");
+        continuation.setServletPath("/oauth/authorize");
+        continuation.setQueryString(URI.create(continuationUrl).getRawQuery());
+        continuation.setSession(session);
+        filter.doFilterInternal(continuation, response, chain);
+        SessionUtils.setSavedRequestSession(session,
+                new UaaSavedRequestCache.ClientRedirectSavedRequest(continuation, continuationUrl));
+        assertThat(SessionUtils.isForceIdpReauthentication(session)).isTrue();
+        assertThat(SessionUtils.isOidcReauthentication(session))
+                .isEqualTo(SessionUtils.OIDC_PROMPT_PARAMETER.equals(promptParameter));
+        assertThat(SessionUtils.isSamlReauthentication(session))
+                .isEqualTo(SessionUtils.SAML_PROMPT_PARAMETER.equals(promptParameter));
+        assertThat(UriComponentsBuilder.fromUriString(continuationUrl).build().getQueryParams())
+                .doesNotContainKeys("prompt", "oidc_prompt", "saml_prompt");
+
+        MockHttpServletRequest nextAuthorization = new MockHttpServletRequest("GET", "/oauth/authorize");
+        nextAuthorization.setServletPath("/oauth/authorize");
+        nextAuthorization.setQueryString("client_id=testclient");
+        nextAuthorization.setSession(session);
+        filter.doFilterInternal(nextAuthorization, response, chain);
+        assertThat(session.getAttribute(SessionUtils.FORCE_IDP_REAUTHENTICATION)).isNull();
+        assertThat(SessionUtils.isForceIdpReauthentication(session)).isFalse();
+    }
+
+    @Test
+    void shouldRejectSavedRequestFromAnotherAuthorization() {
+        MockHttpSession session = new MockHttpSession();
+        SessionUtils.startIdpReauthentication(session,
+                "http://localhost/oauth/authorize?client_id=first", true, false);
+        SessionUtils.setSavedRequestSession(session,
+                new UaaSavedRequestCache.ClientRedirectSavedRequest(request,
+                        "http://localhost/oauth/authorize?client_id=second"));
+        assertThat(SessionUtils.isForceIdpReauthentication(session)).isFalse();
+    }
+
     @Test
     void request_with_max_age_redirect_expected() throws Exception {
         SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -86,7 +157,8 @@ class ReAuthenticationRequiredFilterTests {
         request.setParameter("scope", "openid");
         filter.doFilterInternal(request, response, chain);
         verify(chain, never()).doFilter(same(request), same(response));
-        // verify that the redirect was happening and the url does not contain the max_age parameter
+        // verify that the redirect was happening and the url does not contain the
+        // max_age parameter
         verify(response, times(1)).sendRedirect(matches("^((?!max_age).)*$"));
     }
 
