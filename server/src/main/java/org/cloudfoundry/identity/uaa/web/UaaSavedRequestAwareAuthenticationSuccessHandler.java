@@ -19,6 +19,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.cloudfoundry.identity.uaa.util.SessionUtils;
 import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
 import org.cloudfoundry.identity.uaa.util.UaaUrlUtils;
 import org.springframework.security.core.Authentication;
@@ -42,6 +43,7 @@ public class UaaSavedRequestAwareAuthenticationSuccessHandler extends SavedReque
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws ServletException, IOException {
+        SessionUtils.clearForceIdpReauthentication(request.getSession(false));
         SavedRequest savedRequest = this.requestCache.getRequest(request, response);
         if (savedRequest == null) {
             String relayState = UaaStringUtils.getCleanedUserControlString(request.getParameter(Saml2ParameterNames.RELAY_STATE), UaaStringUtils.EMPTY_STRING);
