@@ -644,6 +644,13 @@ public class LoginInfoEndpoint {
         if (idpForRedirect != null) {
             if (idpForRedirect instanceof SamlIdentityProviderDefinition samlIdentityProviderDefinition) {
                 String url = SamlRedirectUtils.getIdpRedirectUrl(samlIdentityProviderDefinition);
+                String incomingPrompt = request.getParameter("prompt");
+                if (StringUtils.hasText(incomingPrompt)) {
+                    url = UriComponentsBuilder.fromUriString(url)
+                            .queryParam("prompt", incomingPrompt)
+                            .build().toUriString();
+                }
+
                 return "redirect:/" + url;
             } else if (idpForRedirect instanceof AbstractExternalOAuthIdentityProviderDefinition providerDefinition) {
                 String redirectUrl = getRedirectUrlForExternalOAuthIDP(request, idpOriginKey, providerDefinition);

@@ -20,6 +20,7 @@ import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -107,17 +108,24 @@ public class ExternalOAuthProviderConfigurator implements IdentityProviderProvis
             uriBuilder.queryParam("scope", URLEncoder.encode(String.join(" ", definition.getScopes()), StandardCharsets.UTF_8));
         }
 
+        Map<String, String> additionalParameters = emptyMap();
         if (OIDCIdentityProviderDefinition.class.equals(definition.getParameterizedClass())) {
             var nonceGenerator = new RandomValueStringGenerator(12);
             uriBuilder.queryParam("nonce", nonceGenerator.generate());
 
-            Map<String, String> additionalParameters = ofNullable(((OIDCIdentityProviderDefinition) definition).getAdditionalAuthzParameters()).orElse(emptyMap());
-            additionalParameters.keySet().forEach(e -> uriBuilder.queryParam(e, additionalParameters.get(e)));
+            additionalParameters = ofNullable(((OIDCIdentityProviderDefinition) definition).getAdditionalAuthzParameters()).orElse(emptyMap());
+
+            final Map<String, String> finalAdditionalParameters = additionalParameters;
+            finalAdditionalParameters.keySet().forEach(e -> uriBuilder.queryParam(e, finalAdditionalParameters.get(e)));
+        }
+
+        String incomingPrompt = request.getParameter("prompt");
+        if (StringUtils.hasText(incomingPrompt) && !additionalParameters.containsKey("prompt")) {
+            uriBuilder.queryParam("prompt", incomingPrompt);
         }
 
         return uriBuilder.build().toUriString();
     }
-
     protected static boolean isPkceNeeded(AbstractExternalOAuthIdentityProviderDefinition definition) {
         return definition.isPkce() || definition.getRelyingPartySecret() == null;
     }
