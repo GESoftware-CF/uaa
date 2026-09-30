@@ -114,7 +114,9 @@ public class ExternalOAuthProviderConfigurator implements IdentityProviderProvis
             uriBuilder.queryParam("nonce", nonceGenerator.generate());
 
             additionalParameters = ofNullable(((OIDCIdentityProviderDefinition) definition).getAdditionalAuthzParameters()).orElse(emptyMap());
-            additionalParameters.keySet().forEach(e -> uriBuilder.queryParam(e, additionalParameters.get(e)));
+
+            final Map<String, String> finalAdditionalParameters = additionalParameters;
+            finalAdditionalParameters.keySet().forEach(e -> uriBuilder.queryParam(e, finalAdditionalParameters.get(e)));
         }
 
         String incomingPrompt = request.getParameter("prompt");
