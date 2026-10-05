@@ -8,7 +8,6 @@ import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
 import org.cloudfoundry.identity.uaa.provider.OIDCIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.provider.RawExternalOAuthIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.util.AlphanumericRandomValueStringGenerator;
-import org.cloudfoundry.identity.uaa.util.SessionUtils;
 import org.cloudfoundry.identity.uaa.util.UaaRandomStringUtil;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneProvisioning;
@@ -25,7 +24,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.security.web.savedrequest.SavedRequest;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.MalformedURLException;
@@ -53,7 +51,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
@@ -64,8 +61,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(PollutionPreventionExtension.class)
 @ExtendWith(MockitoExtension.class)
 class ExternalOAuthProviderConfiguratorTests {
-    private static final AlphanumericRandomValueStringGenerator RANDOM_STRING_GENERATOR = new AlphanumericRandomValueStringGenerator(
-            6);
+    private static final AlphanumericRandomValueStringGenerator RANDOM_STRING_GENERATOR =
+            new AlphanumericRandomValueStringGenerator(6);
 
     private OIDCIdentityProviderDefinition oidc;
     private RawExternalOAuthIdentityProviderDefinition oauth;
@@ -138,19 +135,16 @@ class ExternalOAuthProviderConfiguratorTests {
 
     @Test
     void retrieveAll() {
-        when(mockIdentityProviderProvisioning.retrieveAll(eq(true), anyString()))
-                .thenReturn(Arrays.asList(oidcProvider, oauthProvider, new IdentityProvider<>().setType(LDAP)));
+        when(mockIdentityProviderProvisioning.retrieveAll(eq(true), anyString())).thenReturn(Arrays.asList(oidcProvider, oauthProvider, new IdentityProvider<>().setType(LDAP)));
 
-        List<IdentityProvider> activeExternalOAuthProviders = configurator.retrieveAll(true,
-                IdentityZone.getUaaZoneId());
+        List<IdentityProvider> activeExternalOAuthProviders = configurator.retrieveAll(true, IdentityZone.getUaaZoneId());
         assertThat(activeExternalOAuthProviders).hasSize(2);
         verify(configurator, times(1)).overlay(config);
     }
 
     @Test
     void retrieveActive() {
-        when(mockIdentityProviderProvisioning.retrieveAll(eq(true), anyString()))
-                .thenReturn(Arrays.asList(oidcProvider, oauthProvider, new IdentityProvider<>().setType(LDAP)));
+        when(mockIdentityProviderProvisioning.retrieveAll(eq(true), anyString())).thenReturn(Arrays.asList(oidcProvider, oauthProvider, new IdentityProvider<>().setType(LDAP)));
 
         List<IdentityProvider> activeExternalOAuthProviders = configurator.retrieveActive(IdentityZone.getUaaZoneId());
         assertThat(activeExternalOAuthProviders).hasSize(2);
@@ -163,10 +157,8 @@ class ExternalOAuthProviderConfiguratorTests {
     void retrieveActiveByTypes_ShouldReturnEmptyListWhenNeitherOidcNorOAuthInTypes(final String[] types) {
         final String zoneId = RandomStringUtils.randomAlphanumeric(8);
 
-        /*
-         * arrange one active IdP per type being present in the zone
-         * -> however, they should not be returned since the types don't match
-         */
+        /* arrange one active IdP per type being present in the zone
+         * -> however, they should not be returned since the types don't match */
         final String originKeyPrefix = RandomStringUtils.randomAlphanumeric(8) + "-";
         final List<IdentityProvider> idps = new HashSet<>(Arrays.asList(types)).stream()
                 .map(type -> {
@@ -185,10 +177,10 @@ class ExternalOAuthProviderConfiguratorTests {
 
     private static Stream<Arguments> retrieveActiveByTypes_ShouldReturnEmptyListWhenNeitherOidcNorOAuthInTypes() {
         return Stream.of(
-                new String[] { SAML },
-                new String[] { SAML, LDAP },
-                new String[] {},
-                (Object) new String[] { UAA, LDAP, LDAP } // contains duplicates
+                new String[]{SAML},
+                new String[]{SAML, LDAP},
+                new String[]{},
+                (Object) new String[]{UAA, LDAP, LDAP} // contains duplicates
         ).map(Arguments::of);
     }
 
@@ -207,8 +199,7 @@ class ExternalOAuthProviderConfiguratorTests {
         final boolean inputContainsOidc = typesAsSet.contains(OIDC10);
         final boolean inputContainsOauth = typesAsSet.contains(OAUTH20);
 
-        // arrange one active IdP of every type in "oauth2.0" and "oidc1.0" exists in
-        // the zone
+        // arrange one active IdP of every type in "oauth2.0" and "oidc1.0" exists in the zone
         final String originKeyPrefix = RandomStringUtils.randomAlphanumeric(8) + "-";
         final List<IdentityProvider> idps = Stream.of(OIDC10, OAUTH20)
                 .filter(type -> !OIDC10.equals(type) || inputContainsOidc)
@@ -238,11 +229,8 @@ class ExternalOAuthProviderConfiguratorTests {
 
         final List<IdentityProvider> result = configurator.retrieveActiveByTypes(zoneId, types);
 
-        /*
-         * the result should contain only IdPs of type "oauth2.0" and "oidc1.0" and only
-         * if the corresponding type
-         * was part of the input types
-         */
+        /* the result should contain only IdPs of type "oauth2.0" and "oidc1.0" and only if the corresponding type
+         * was part of the input types */
         final int expectedSize = (inputContainsOauth ? 1 : 0) + (inputContainsOidc ? 1 : 0);
         assertThat(result).hasSize(expectedSize);
 
@@ -258,20 +246,19 @@ class ExternalOAuthProviderConfiguratorTests {
 
     private static Stream<Arguments> retrieveActiveByTypes() {
         return Stream.of(
-                new String[] { OIDC10, OAUTH20 },
-                new String[] { OIDC10 },
-                new String[] { OAUTH20 },
-                new String[] { OIDC10, OIDC10, OAUTH20 }, // contains duplicates
-                new String[] { OIDC10, LDAP, SAML }, // ldap and saml should be ignored
-                new String[] { OIDC10, OIDC10, LDAP, SAML }, // ldap and saml should be ignored
-                (Object) new String[] { OIDC10, OIDC10, OAUTH20, LDAP, SAML } // ldap and saml should be ignored
+                new String[]{OIDC10, OAUTH20},
+                new String[]{OIDC10},
+                new String[]{OAUTH20},
+                new String[]{OIDC10, OIDC10, OAUTH20}, // contains duplicates
+                new String[]{OIDC10, LDAP, SAML}, // ldap and saml should be ignored
+                new String[]{OIDC10, OIDC10, LDAP, SAML}, // ldap and saml should be ignored
+                (Object) new String[]{OIDC10, OIDC10, OAUTH20, LDAP, SAML} // ldap and saml should be ignored
         ).map(Arguments::of);
     }
 
     @Test
     void retrieve_by_issuer() throws Exception {
-        when(mockIdentityProviderProvisioning.retrieveAll(eq(true), anyString()))
-                .thenReturn(Arrays.asList(oidcProvider, oauthProvider, new IdentityProvider<>().setType(LDAP)));
+        when(mockIdentityProviderProvisioning.retrieveAll(eq(true), anyString())).thenReturn(Arrays.asList(oidcProvider, oauthProvider, new IdentityProvider<>().setType(LDAP)));
 
         String issuer = "https://accounts.google.com";
         when(identityZoneManager.getCurrentIdentityZoneId()).thenReturn(IdentityZone.getUaaZoneId());
@@ -283,8 +270,7 @@ class ExternalOAuthProviderConfiguratorTests {
         }).when(mockOidcMetadataFetcher)
                 .fetchMetadataAndUpdateDefinition(any(OIDCIdentityProviderDefinition.class));
 
-        IdentityProvider<OIDCIdentityProviderDefinition> activeExternalOAuthProvider = configurator
-                .retrieveByIssuer(issuer, IdentityZone.getUaaZoneId());
+        IdentityProvider<OIDCIdentityProviderDefinition> activeExternalOAuthProvider = configurator.retrieveByIssuer(issuer, IdentityZone.getUaaZoneId());
 
         assertThat(activeExternalOAuthProvider.getConfig().getIssuer()).isEqualTo(issuer);
         verify(configurator, times(1)).overlay(config);
@@ -293,8 +279,7 @@ class ExternalOAuthProviderConfiguratorTests {
 
     @Test
     void retrieve_by_issuer_search() throws Exception {
-        when(mockIdentityProviderProvisioning.retrieveByExternId(anyString(), anyString(), anyString()))
-                .thenReturn(oidcProvider);
+        when(mockIdentityProviderProvisioning.retrieveByExternId(anyString(), anyString(), anyString())).thenReturn(oidcProvider);
 
         String issuer = "https://accounts.google.com";
         doAnswer(invocation -> {
@@ -304,8 +289,7 @@ class ExternalOAuthProviderConfiguratorTests {
         }).when(mockOidcMetadataFetcher)
                 .fetchMetadataAndUpdateDefinition(any(OIDCIdentityProviderDefinition.class));
 
-        IdentityProvider<OIDCIdentityProviderDefinition> activeExternalOAuthProvider = configurator
-                .retrieveByIssuer(issuer, IdentityZone.getUaaZoneId());
+        IdentityProvider<OIDCIdentityProviderDefinition> activeExternalOAuthProvider = configurator.retrieveByIssuer(issuer, IdentityZone.getUaaZoneId());
 
         assertThat(activeExternalOAuthProvider.getConfig().getIssuer()).isEqualTo(issuer);
         verify(configurator, times(1)).overlay(config);
@@ -314,10 +298,8 @@ class ExternalOAuthProviderConfiguratorTests {
 
     @Test
     void retrieve_by_issuer_legacy() throws Exception {
-        when(mockIdentityProviderProvisioning.retrieveAll(eq(true), anyString()))
-                .thenReturn(Arrays.asList(oidcProvider, oauthProvider, new IdentityProvider<>().setType(LDAP)));
-        when(mockIdentityProviderProvisioning.retrieveByExternId(anyString(), anyString(), anyString()))
-                .thenThrow(new EmptyResultDataAccessException(1));
+        when(mockIdentityProviderProvisioning.retrieveAll(eq(true), anyString())).thenReturn(Arrays.asList(oidcProvider, oauthProvider, new IdentityProvider<>().setType(LDAP)));
+        when(mockIdentityProviderProvisioning.retrieveByExternId(anyString(), anyString(), anyString())).thenThrow(new EmptyResultDataAccessException(1));
 
         String issuer = "https://accounts.google.com";
         IdentityZone extraZone = IdentityZone.getUaa();
@@ -332,8 +314,7 @@ class ExternalOAuthProviderConfiguratorTests {
         }).when(mockOidcMetadataFetcher)
                 .fetchMetadataAndUpdateDefinition(any(OIDCIdentityProviderDefinition.class));
 
-        IdentityProvider<OIDCIdentityProviderDefinition> activeExternalOAuthProvider = configurator
-                .retrieveByIssuer(issuer, "customer");
+        IdentityProvider<OIDCIdentityProviderDefinition> activeExternalOAuthProvider = configurator.retrieveByIssuer(issuer, "customer");
 
         assertThat(activeExternalOAuthProvider.getConfig().getIssuer()).isEqualTo(issuer);
         verify(configurator, times(1)).overlay(config);
@@ -343,8 +324,7 @@ class ExternalOAuthProviderConfiguratorTests {
 
     @Test
     void retrieve_by_issuer_not_found_error() {
-        when(mockIdentityProviderProvisioning.retrieveByExternId(anyString(), anyString(), anyString()))
-                .thenThrow(new EmptyResultDataAccessException(1));
+        when(mockIdentityProviderProvisioning.retrieveByExternId(anyString(), anyString(), anyString())).thenThrow(new EmptyResultDataAccessException(1));
 
         String issuer = "https://accounts.google.com";
         IdentityZone extraZone = IdentityZone.getUaa();
@@ -358,8 +338,7 @@ class ExternalOAuthProviderConfiguratorTests {
 
     @Test
     void retrieve_by_issuer_null_error() {
-        when(mockIdentityProviderProvisioning.retrieveByExternId(anyString(), anyString(), anyString()))
-                .thenReturn(null);
+        when(mockIdentityProviderProvisioning.retrieveByExternId(anyString(), anyString(), anyString())).thenReturn(null);
 
         String issuer = "https://accounts.google.com";
         IdentityZone extraZone = IdentityZone.getUaa();
@@ -374,8 +353,7 @@ class ExternalOAuthProviderConfiguratorTests {
     @Test
     void issuer_not_found() {
         String issuer = "https://accounts.google.com";
-        when(mockIdentityProviderProvisioning.retrieveAll(eq(true), anyString()))
-                .thenReturn(Arrays.asList(oauthProvider, new IdentityProvider<>().setType(LDAP)));
+        when(mockIdentityProviderProvisioning.retrieveAll(eq(true), anyString())).thenReturn(Arrays.asList(oauthProvider, new IdentityProvider<>().setType(LDAP)));
         when(identityZoneManager.getCurrentIdentityZoneId()).thenReturn(IdentityZone.getUaaZoneId());
         when(identityZoneManager.getCurrentIdentityZone()).thenReturn(IdentityZone.getUaa());
         assertThatThrownBy(() -> configurator.retrieveByIssuer(issuer, IdentityZone.getUaaZoneId()))
@@ -386,8 +364,7 @@ class ExternalOAuthProviderConfiguratorTests {
     @Test
     void duplicate_issuer_found() throws Exception {
         String issuer = "https://accounts.google.com";
-        when(mockIdentityProviderProvisioning.retrieveAll(eq(true), anyString())).thenReturn(
-                Arrays.asList(oidcProvider, oidcProvider, oauthProvider, new IdentityProvider<>().setType(LDAP)));
+        when(mockIdentityProviderProvisioning.retrieveAll(eq(true), anyString())).thenReturn(Arrays.asList(oidcProvider, oidcProvider, oauthProvider, new IdentityProvider<>().setType(LDAP)));
         when(identityZoneManager.getCurrentIdentityZoneId()).thenReturn(IdentityZone.getUaaZoneId());
         when(identityZoneManager.getCurrentIdentityZone()).thenReturn(IdentityZone.getUaa());
         doAnswer(invocation -> {
@@ -436,51 +413,33 @@ class ExternalOAuthProviderConfiguratorTests {
 
     @Test
     void getIdpAuthenticationUrl_includesNonceOnOIDC() {
-        when(mockUaaRandomStringUtil.getSecureRandom(anyInt()))
-                .thenReturn("01234567890123456789012345678901234567890123456789");
+        when(mockUaaRandomStringUtil.getSecureRandom(anyInt())).thenReturn("01234567890123456789012345678901234567890123456789");
         String authzUri = configurator.getIdpAuthenticationUrl(oidc, "alias", mockHttpServletRequest);
 
-        Map<String, String> queryParams = UriComponentsBuilder.fromUriString(authzUri).build().getQueryParams()
-                .toSingleValueMap();
+        Map<String, String> queryParams =
+                UriComponentsBuilder.fromUriString(authzUri).build().getQueryParams().toSingleValueMap();
         assertThat(queryParams).containsKey("nonce");
     }
 
     @Test
     void getIdpAuthenticationUrl_doesNotIncludeNonceOnOAuth() {
-        when(mockUaaRandomStringUtil.getSecureRandom(anyInt()))
-                .thenReturn("01234567890123456789012345678901234567890123456789");
+        when(mockUaaRandomStringUtil.getSecureRandom(anyInt())).thenReturn("01234567890123456789012345678901234567890123456789");
         String authzUri = configurator.getIdpAuthenticationUrl(oauth, "alias", mockHttpServletRequest);
 
-        Map<String, String> queryParams = UriComponentsBuilder.fromUriString(authzUri).build().getQueryParams()
-                .toSingleValueMap();
+        Map<String, String> queryParams =
+                UriComponentsBuilder.fromUriString(authzUri).build().getQueryParams().toSingleValueMap();
         assertThat(queryParams).doesNotContainKey("nonce");
-    }
-
-    @Test
-    void getIdpAuthenticationUrl_includesPromptFromSavedOAuthAuthorizeRequest() {
-        SavedRequest savedRequest = mock(SavedRequest.class);
-        when(savedRequest.getParameterValues("prompt")).thenReturn(new String[] { "login" });
-        SessionUtils.setSavedRequestSession(mockHttpServletRequest.getSession(true), savedRequest);
-
-        String oidcAuthzUri = configurator.getIdpAuthenticationUrl(oidc, "alias", mockHttpServletRequest);
-        String oauthAuthzUri = configurator.getIdpAuthenticationUrl(oauth, "alias", mockHttpServletRequest);
-
-        assertThat(UriComponentsBuilder.fromUriString(oidcAuthzUri).build().getQueryParams().getFirst("prompt"))
-                .isEqualTo("login");
-        assertThat(UriComponentsBuilder.fromUriString(oauthAuthzUri).build().getQueryParams().getFirst("prompt"))
-                .isEqualTo("login");
     }
 
     @Test
     void getIdpAuthenticationUrl_includesPkceOnPublicOIDC() {
         oidc.setRelyingPartySecret(null); // public client means no secret
         oidc.setPkce(false);
-        when(mockUaaRandomStringUtil.getSecureRandom(anyInt()))
-                .thenReturn("01234567890123456789012345678901234567890123456789");
+        when(mockUaaRandomStringUtil.getSecureRandom(anyInt())).thenReturn("01234567890123456789012345678901234567890123456789");
         String authzUri = configurator.getIdpAuthenticationUrl(oidc, "alias", mockHttpServletRequest);
 
-        Map<String, String> queryParams = UriComponentsBuilder.fromUriString(authzUri).build().getQueryParams()
-                .toSingleValueMap();
+        Map<String, String> queryParams =
+                UriComponentsBuilder.fromUriString(authzUri).build().getQueryParams().toSingleValueMap();
         assertThat(queryParams).containsKeys("code_challenge", "code_challenge_method");
     }
 
@@ -488,12 +447,11 @@ class ExternalOAuthProviderConfiguratorTests {
     void getIdpAuthenticationUrl_includesPkce() {
         oauth.setRelyingPartySecret(null);
         oauth.setPkce(true);
-        when(mockUaaRandomStringUtil.getSecureRandom(anyInt()))
-                .thenReturn("01234567890123456789012345678901234567890123456789");
+        when(mockUaaRandomStringUtil.getSecureRandom(anyInt())).thenReturn("01234567890123456789012345678901234567890123456789");
         String authzUri = configurator.getIdpAuthenticationUrl(oauth, "alias", mockHttpServletRequest);
 
-        Map<String, String> queryParams = UriComponentsBuilder.fromUriString(authzUri).build().getQueryParams()
-                .toSingleValueMap();
+        Map<String, String> queryParams =
+                UriComponentsBuilder.fromUriString(authzUri).build().getQueryParams().toSingleValueMap();
         assertThat(queryParams)
                 .containsKey("code_challenge")
                 .containsKey("code_challenge_method");
@@ -529,18 +487,16 @@ class ExternalOAuthProviderConfiguratorTests {
     void getIdpAuthenticationUrl_deactivatesPkce() {
         oauth.setRelyingPartySecret("secret");
         oauth.setPkce(false);
-        when(mockUaaRandomStringUtil.getSecureRandom(anyInt()))
-                .thenReturn("01234567890123456789012345678901234567890123456789");
+        when(mockUaaRandomStringUtil.getSecureRandom(anyInt())).thenReturn("01234567890123456789012345678901234567890123456789");
         String authzUri = configurator.getIdpAuthenticationUrl(oauth, "alias", mockHttpServletRequest);
 
-        Map<String, String> queryParams = UriComponentsBuilder.fromUriString(authzUri).build().getQueryParams()
-                .toSingleValueMap();
+        Map<String, String> queryParams =
+                UriComponentsBuilder.fromUriString(authzUri).build().getQueryParams().toSingleValueMap();
         assertThat(queryParams).doesNotContainKeys("code_challenge", "code_challenge_method");
     }
 
     @Test
-    void getIdpAuthenticationUrl_withOnlyDiscoveryUrlForOIDCProvider()
-            throws MalformedURLException, OidcMetadataFetchingException {
+    void getIdpAuthenticationUrl_withOnlyDiscoveryUrlForOIDCProvider() throws MalformedURLException, OidcMetadataFetchingException {
         String discoveryUrl = "https://accounts.google.com/.well-known/openid-configuration";
         oidc.setDiscoveryUrl(URI.create(discoveryUrl).toURL());
         oidc.setAuthUrl(null);
@@ -551,8 +507,7 @@ class ExternalOAuthProviderConfiguratorTests {
         }).when(mockOidcMetadataFetcher)
                 .fetchMetadataAndUpdateDefinition(any(OIDCIdentityProviderDefinition.class));
 
-        when(mockUaaRandomStringUtil.getSecureRandom(anyInt()))
-                .thenReturn("01234567890123456789012345678901234567890123456789");
+        when(mockUaaRandomStringUtil.getSecureRandom(anyInt())).thenReturn("01234567890123456789012345678901234567890123456789");
         String authorizationURI = configurator.getIdpAuthenticationUrl(oidc, "alias", mockHttpServletRequest);
 
         assertThat(authorizationURI).startsWith("https://accounts.google.com/o/oauth2/v2/auth");
@@ -561,13 +516,12 @@ class ExternalOAuthProviderConfiguratorTests {
 
     @Test
     void getIdpAuthenticationUrl_hasAllRequiredQueryParametersForOidc() {
-        when(mockUaaRandomStringUtil.getSecureRandom(anyInt()))
-                .thenReturn("01234567890123456789012345678901234567890123456789");
+        when(mockUaaRandomStringUtil.getSecureRandom(anyInt())).thenReturn("01234567890123456789012345678901234567890123456789");
 
         String authzUri = configurator.getIdpAuthenticationUrl(oidc, "alias", mockHttpServletRequest);
 
-        Map<String, String> queryParams = UriComponentsBuilder.fromUriString(authzUri).build().getQueryParams()
-                .toSingleValueMap();
+        Map<String, String> queryParams =
+                UriComponentsBuilder.fromUriString(authzUri).build().getQueryParams().toSingleValueMap();
 
         assertThat(authzUri).startsWith(oidc.getAuthUrl().toString());
         assertThat(queryParams)
@@ -581,16 +535,16 @@ class ExternalOAuthProviderConfiguratorTests {
 
     @Test
     void getIdpAuthenticationUrl_hasAllRequiredQueryParametersForOauth() {
-        when(mockUaaRandomStringUtil.getSecureRandom(anyInt()))
-                .thenReturn("01234567890123456789012345678901234567890123456789");
+        when(mockUaaRandomStringUtil.getSecureRandom(anyInt())).thenReturn("01234567890123456789012345678901234567890123456789");
 
         String authzUri = configurator.getIdpAuthenticationUrl(
                 oauth,
                 "alias",
-                mockHttpServletRequest);
+                mockHttpServletRequest
+        );
 
-        Map<String, String> queryParams = UriComponentsBuilder.fromUriString(authzUri).build().getQueryParams()
-                .toSingleValueMap();
+        Map<String, String> queryParams =
+                UriComponentsBuilder.fromUriString(authzUri).build().getQueryParams().toSingleValueMap();
 
         assertThat(authzUri).startsWith(oidc.getAuthUrl().toString());
         assertThat(queryParams)
@@ -603,8 +557,7 @@ class ExternalOAuthProviderConfiguratorTests {
 
     @Test
     void excludeUnreachableOidcProvider() throws OidcMetadataFetchingException {
-        when(mockIdentityProviderProvisioning.retrieveAll(eq(true), anyString()))
-                .thenReturn(Arrays.asList(oidcProvider, oauthProvider, new IdentityProvider<>().setType(LDAP)));
+        when(mockIdentityProviderProvisioning.retrieveAll(eq(true), anyString())).thenReturn(Arrays.asList(oidcProvider, oauthProvider, new IdentityProvider<>().setType(LDAP)));
 
         doThrow(new NullPointerException("")).when(mockOidcMetadataFetcher)
                 .fetchMetadataAndUpdateDefinition(any(OIDCIdentityProviderDefinition.class));
@@ -617,17 +570,16 @@ class ExternalOAuthProviderConfiguratorTests {
 
     @Test
     void getIdpAuthenticationUrlAndCheckTokenFormatParameter() {
-        when(mockUaaRandomStringUtil.getSecureRandom(anyInt()))
-                .thenReturn("01234567890123456789012345678901234567890123456789");
+        when(mockUaaRandomStringUtil.getSecureRandom(anyInt())).thenReturn("01234567890123456789012345678901234567890123456789");
         String authzUri = configurator.getIdpAuthenticationUrl(oidc, OIDC10, mockHttpServletRequest);
 
-        Map<String, String> queryParams = UriComponentsBuilder.fromUriString(authzUri).build().getQueryParams()
-                .toSingleValueMap();
+        Map<String, String> queryParams =
+                UriComponentsBuilder.fromUriString(authzUri).build().getQueryParams().toSingleValueMap();
         assertThat(queryParams).containsEntry("token_format", "jwt");
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = { true, false })
+    @ValueSource(booleans = {true, false})
     void idpWithAliasExistsInZone(final boolean resultFromDelegate) {
         final String zoneId = RANDOM_STRING_GENERATOR.generate();
         when(mockIdentityProviderProvisioning.idpWithAliasExistsInZone(zoneId)).thenReturn(resultFromDelegate);
