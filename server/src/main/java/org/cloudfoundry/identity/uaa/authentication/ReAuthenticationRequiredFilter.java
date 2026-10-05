@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.cloudfoundry.identity.uaa.util.SessionUtils;
 import org.cloudfoundry.identity.uaa.util.UaaUrlUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.csrf.CsrfFilter;
@@ -25,9 +26,11 @@ public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         boolean reAuthenticationRequired = false;
+        boolean promptLogin = false;
         HashMap<String, String[]> requestParams = new HashMap<>(request.getParameterMap());
         if ("login".equals(request.getParameter("prompt"))) {
             reAuthenticationRequired = true;
+            promptLogin = true;
             requestParams.remove("prompt");
         }
         if (request.getParameter("max_age") != null
@@ -39,6 +42,10 @@ public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
         }
         if (reAuthenticationRequired) {
             request.getSession().invalidate();
+            if (promptLogin) {
+                // prompt must stay out of the redirect URL, otherwise the replayed SavedRequest loops
+                SessionUtils.setForceIdpReauthentication(request.getSession(true));
+            }
             sendRedirect(request.getRequestURL().toString(), requestParams, response);
         } else {
             if (request.getServletPath().startsWith("/saml/SingleLogout/alias/" + samlEntityID)) {

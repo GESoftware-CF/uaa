@@ -77,6 +77,14 @@ public class ExternalOAuthProviderConfigurator implements IdentityProviderProvis
             final AbstractExternalOAuthIdentityProviderDefinition definition,
             final String idpOriginKey,
             final HttpServletRequest request) {
+        return getIdpAuthenticationUrl(definition, idpOriginKey, request, false);
+    }
+
+    public String getIdpAuthenticationUrl(
+            final AbstractExternalOAuthIdentityProviderDefinition definition,
+            final String idpOriginKey,
+            final HttpServletRequest request,
+            final boolean forceReauthentication) {
         var idpUrlBase = getIdpUrlBase(definition);
         var callbackUrl = getCallbackUrlForIdp(idpOriginKey, UaaUrlUtils.getBaseURL(request));
         var responseType = URLEncoder.encode(definition.getResponseType(), StandardCharsets.UTF_8);
@@ -113,6 +121,10 @@ public class ExternalOAuthProviderConfigurator implements IdentityProviderProvis
 
             Map<String, String> additionalParameters = ofNullable(((OIDCIdentityProviderDefinition) definition).getAdditionalAuthzParameters()).orElse(emptyMap());
             additionalParameters.keySet().forEach(e -> uriBuilder.queryParam(e, additionalParameters.get(e)));
+            // a statically configured prompt takes precedence
+            if (forceReauthentication && !additionalParameters.containsKey("prompt")) {
+                uriBuilder.queryParam("prompt", "login");
+            }
         }
 
         return uriBuilder.build().toUriString();

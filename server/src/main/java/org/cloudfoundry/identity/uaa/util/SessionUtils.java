@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpSession;
 public final class SessionUtils {
     public static final String PASSWORD_CHANGE_REQUIRED = "PASSWORD_CHANGE_REQUIRED";
     public static final String FORCE_PASSWORD_EXPIRED_USER = "FORCE_PASSWORD_EXPIRED_USER";
+    public static final String FORCE_IDP_REAUTHENTICATION = "FORCE_IDP_REAUTHENTICATION";
 
     // shadows org.springframework.security.web.savedrequest.HttpSessionRequestCache.SAVED_REQUEST
     //         org.springframework.security.web.server.savedrequest.WebSessionServerRequestCache.DEFAULT_SAVED_REQUEST_ATTR
@@ -28,6 +29,14 @@ public final class SessionUtils {
     private static final String EXTERNAL_OAUTH_CODE_VERIFIER_ATTRIBUTE_PREFIX = "external-oauth-verifier-";
 
     private SessionUtils() {
+    }
+
+    public static void setForceIdpReauthentication(HttpSession session) {
+        session.setAttribute(FORCE_IDP_REAUTHENTICATION, Boolean.TRUE);
+    }
+
+    public static boolean isForceIdpReauthentication(HttpSession session) {
+        return session != null && Boolean.TRUE.equals(session.getAttribute(FORCE_IDP_REAUTHENTICATION));
     }
 
     public static boolean isPasswordChangeRequired(HttpSession session) {
