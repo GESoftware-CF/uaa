@@ -1,5 +1,6 @@
 package org.cloudfoundry.identity.uaa.provider.oauth;
 
+import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
 import org.cloudfoundry.identity.uaa.oauth.pkce.verifiers.S256PkceVerifier;
 import org.cloudfoundry.identity.uaa.provider.AbstractExternalOAuthIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
@@ -17,7 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
-import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
+import org.springframework.security.web.savedrequest.SavedRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
@@ -56,8 +57,7 @@ public class ExternalOAuthProviderConfigurator implements IdentityProviderProvis
             final @Qualifier("oidcMetadataFetcher") OidcMetadataFetcher oidcMetadataFetcher,
             final UaaRandomStringUtil uaaRandomStringUtil,
             final @Qualifier("identityZoneProvisioning") IdentityZoneProvisioning identityZoneProvisioning,
-            final IdentityZoneManager identityZoneManager
-    ) {
+            final IdentityZoneManager identityZoneManager) {
         this.providerProvisioning = providerProvisioning;
         this.oidcMetadataFetcher = oidcMetadataFetcher;
         this.uaaRandomStringUtil = uaaRandomStringUtil;
@@ -84,7 +84,8 @@ public class ExternalOAuthProviderConfigurator implements IdentityProviderProvis
         var relyingPartyId = definition.getRelyingPartyId();
 
         var state = generateStateParam();
-        SessionUtils.setStateParam(request.getSession(), SessionUtils.stateParameterAttributeKeyForIdp(idpOriginKey), state);
+        SessionUtils.setStateParam(request.getSession(), SessionUtils.stateParameterAttributeKeyForIdp(idpOriginKey),
+                state);
 
         UriComponentsBuilder uriBuilder = UriComponentsBuilder
                 .fromUriString(idpUrlBase)
@@ -93,19 +94,22 @@ public class ExternalOAuthProviderConfigurator implements IdentityProviderProvis
                 .queryParam("redirect_uri", callbackUrl)
                 .queryParam("state", state);
 
-        // no client-secret, switch to PKCE and treat client as public, same logic is implemented in spring security
+        // no client-secret, switch to PKCE and treat client as public, same logic is
+        // implemented in spring security
         // https://docs.spring.io/spring-security/site/docs/5.3.1.RELEASE/reference/html5/#initiating-the-authorization-request
         if (isPkceNeeded(definition)) {
             var pkceVerifier = new S256PkceVerifier();
             var codeVerifier = generateCodeVerifier();
             var codeChallenge = pkceVerifier.compute(codeVerifier);
-            SessionUtils.setStateParam(request.getSession(), SessionUtils.codeVerifierParameterAttributeKeyForIdp(idpOriginKey), codeVerifier);
+            SessionUtils.setStateParam(request.getSession(),
+                    SessionUtils.codeVerifierParameterAttributeKeyForIdp(idpOriginKey), codeVerifier);
             uriBuilder.queryParam("code_challenge", codeChallenge);
             uriBuilder.queryParam("code_challenge_method", pkceVerifier.getCodeChallengeMethod());
         }
 
         if (!CollectionUtils.isEmpty(definition.getScopes())) {
-            uriBuilder.queryParam("scope", URLEncoder.encode(String.join(" ", definition.getScopes()), StandardCharsets.UTF_8));
+            uriBuilder.queryParam("scope",
+                    URLEncoder.encode(String.join(" ", definition.getScopes()), StandardCharsets.UTF_8));
         }
 
         Map<String, String> additionalParameters = emptyMap();
@@ -113,19 +117,32 @@ public class ExternalOAuthProviderConfigurator implements IdentityProviderProvis
             var nonceGenerator = new RandomValueStringGenerator(12);
             uriBuilder.queryParam("nonce", nonceGenerator.generate());
 
-            additionalParameters = ofNullable(((OIDCIdentityProviderDefinition) definition).getAdditionalAuthzParameters()).orElse(emptyMap());
+            additionalParameters = ofNullable(
+                    ((OIDCIdentityProviderDefinition) definition).getAdditionalAuthzParameters()).orElse(emptyMap());
 
             final Map<String, String> finalAdditionalParameters = additionalParameters;
             finalAdditionalParameters.keySet().forEach(e -> uriBuilder.queryParam(e, finalAdditionalParameters.get(e)));
         }
 
-        String incomingPrompt = request.getParameter("prompt");
+        String incomingPrompt = getIncomingPrompt(request);
         if (StringUtils.hasText(incomingPrompt) && !additionalParameters.containsKey("prompt")) {
             uriBuilder.queryParam("prompt", incomingPrompt);
         }
 
         return uriBuilder.build().toUriString();
     }
+
+    private String getIncomingPrompt(HttpServletRequest request) {
+        SavedRequest savedRequest = Optional.ofNullable(request.getSession(false))
+                .map(SessionUtils::getSavedRequestSession)
+                .orElse(null);
+        String[] savedPromptValues = savedRequest == null ? null : savedRequest.getParameterValues("prompt");
+        if (savedPromptValues != null && savedPromptValues.length > 0 && StringUtils.hasText(savedPromptValues[0])) {
+            return savedPromptValues[0];
+        }
+        return request.getParameter("prompt");
+    }
+
     protected static boolean isPkceNeeded(AbstractExternalOAuthIdentityProviderDefinition definition) {
         return definition.isPkce() || definition.getRelyingPartySecret() == null;
     }
@@ -159,7 +176,8 @@ public class ExternalOAuthProviderConfigurator implements IdentityProviderProvis
         } else {
             idzConfig = identityZoneProvisioning.retrieve(zoneId).getConfig();
         }
-        return idzConfig == null || Optional.of(idzConfig.getUserConfig()).map(UserConfig::isAllowOriginLoop).orElse(true) ? 1 : 0;
+        return idzConfig == null
+                || Optional.of(idzConfig.getUserConfig()).map(UserConfig::isAllowOriginLoop).orElse(true) ? 1 : 0;
     }
 
     @Override
@@ -207,29 +225,32 @@ public class ExternalOAuthProviderConfigurator implements IdentityProviderProvis
 
         final List<IdentityProvider> idps = providerProvisioning.retrieveActiveByTypes(
                 zoneId,
-                filteredTypes.toArray(new String[0])
-        );
+                filteredTypes.toArray(new String[0]));
         return overlayConfigurationsOfOidcIdps(idps);
     }
 
-    public IdentityProvider retrieveByIssuer(String issuer, String zoneId) throws IncorrectResultSizeDataAccessException {
+    public IdentityProvider retrieveByIssuer(String issuer, String zoneId)
+            throws IncorrectResultSizeDataAccessException {
         IdentityProvider issuedProvider = null;
         int originLoopCheckDone = -1;
         try {
             issuedProvider = retrieveByExternId(issuer, OIDC10, zoneId);
             if (issuedProvider != null && issuedProvider.isActive()
-                    && issuedProvider.getConfig() instanceof AbstractExternalOAuthIdentityProviderDefinition<?> oAuthIdentityProviderDefinition
+                    && issuedProvider
+                            .getConfig() instanceof AbstractExternalOAuthIdentityProviderDefinition<?> oAuthIdentityProviderDefinition
                     && oAuthIdentityProviderDefinition.getIssuer().equals(issuer)) {
                 return issuedProvider;
             }
         } catch (EmptyResultDataAccessException e) {
             originLoopCheckDone = isOriginLoopAllowed(zoneId, originLoopCheckDone);
             if (originLoopCheckDone == 0) {
-                throw new IncorrectResultSizeDataAccessException("No provider with unique issuer[%s] found".formatted(issuer), 1, 0, e);
+                throw new IncorrectResultSizeDataAccessException(
+                        "No provider with unique issuer[%s] found".formatted(issuer), 1, 0, e);
             }
         }
         if (isOriginLoopAllowed(zoneId, originLoopCheckDone) == 0 && issuedProvider == null) {
-            throw new IncorrectResultSizeDataAccessException("Active provider with unique issuer[%s] not found".formatted(issuer), 1);
+            throw new IncorrectResultSizeDataAccessException(
+                    "Active provider with unique issuer[%s] not found".formatted(issuer), 1);
         }
         List<IdentityProvider> providers = retrieveAll(true, zoneId)
                 .stream()
@@ -237,17 +258,19 @@ public class ExternalOAuthProviderConfigurator implements IdentityProviderProvis
                         issuer.equals(((OIDCIdentityProviderDefinition) p.getConfig()).getIssuer()))
                 .toList();
         if (providers.isEmpty()) {
-            throw new IncorrectResultSizeDataAccessException("Active provider with issuer[%s] not found".formatted(issuer), 1);
+            throw new IncorrectResultSizeDataAccessException(
+                    "Active provider with issuer[%s] not found".formatted(issuer), 1);
         } else if (providers.size() > 1) {
-            throw new IncorrectResultSizeDataAccessException("Duplicate providers with issuer[%s] not found".formatted(issuer), 1);
+            throw new IncorrectResultSizeDataAccessException(
+                    "Duplicate providers with issuer[%s] not found".formatted(issuer), 1);
         }
         return providers.getFirst();
     }
 
     @Override
     public List<IdentityProvider> retrieveAll(boolean activeOnly, String zoneId) {
-        final List<IdentityProvider> providers =
-            Optional.ofNullable(providerProvisioning.retrieveAll(activeOnly, zoneId)).orElse(emptyList());
+        final List<IdentityProvider> providers = Optional
+                .ofNullable(providerProvisioning.retrieveAll(activeOnly, zoneId)).orElse(emptyList());
         return retrieveAll(providers);
     }
 
