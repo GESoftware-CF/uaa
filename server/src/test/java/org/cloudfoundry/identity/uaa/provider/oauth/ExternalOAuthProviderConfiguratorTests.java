@@ -462,25 +462,14 @@ class ExternalOAuthProviderConfiguratorTests {
         when(savedRequest.getParameterValues("prompt")).thenReturn(new String[] { "login" });
         SessionUtils.setSavedRequestSession(mockHttpServletRequest.getSession(true), savedRequest);
 
-                String oidcAuthzUri = configurator.getIdpAuthenticationUrl(oidc, "alias", mockHttpServletRequest, "login");
-                String oauthAuthzUri = configurator.getIdpAuthenticationUrl(oauth, "alias", mockHttpServletRequest, "login");
+        String oidcAuthzUri = configurator.getIdpAuthenticationUrl(oidc, "alias", mockHttpServletRequest);
+        String oauthAuthzUri = configurator.getIdpAuthenticationUrl(oauth, "alias", mockHttpServletRequest);
 
         assertThat(UriComponentsBuilder.fromUriString(oidcAuthzUri).build().getQueryParams().getFirst("prompt"))
                 .isEqualTo("login");
         assertThat(UriComponentsBuilder.fromUriString(oauthAuthzUri).build().getQueryParams().getFirst("prompt"))
                 .isEqualTo("login");
     }
-
-        @Test
-        void getIdpAuthenticationUrl_doesNotReadPromptFromSavedRequestWithoutExplicitPrompt() {
-                SavedRequest savedRequest = mock(SavedRequest.class);
-                when(savedRequest.getParameterValues("prompt")).thenReturn(new String[] { "login" });
-                SessionUtils.setSavedRequestSession(mockHttpServletRequest.getSession(true), savedRequest);
-
-                String authzUri = configurator.getIdpAuthenticationUrl(oidc, "alias", mockHttpServletRequest);
-
-                assertThat(UriComponentsBuilder.fromUriString(authzUri).build().getQueryParams()).doesNotContainKey("prompt");
-        }
 
     @Test
     void getIdpAuthenticationUrl_includesPkceOnPublicOIDC() {
