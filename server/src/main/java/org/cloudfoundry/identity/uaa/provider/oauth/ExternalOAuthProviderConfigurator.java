@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
+import org.springframework.security.web.savedrequest.SavedRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
@@ -77,14 +78,6 @@ public class ExternalOAuthProviderConfigurator implements IdentityProviderProvis
             final AbstractExternalOAuthIdentityProviderDefinition definition,
             final String idpOriginKey,
             final HttpServletRequest request) {
-        return getIdpAuthenticationUrl(definition, idpOriginKey, request, null);
-        }
-
-        public String getIdpAuthenticationUrl(
-            final AbstractExternalOAuthIdentityProviderDefinition definition,
-            final String idpOriginKey,
-            final HttpServletRequest request,
-            final String promptParam) {
         var idpUrlBase = getIdpUrlBase(definition);
         var callbackUrl = getCallbackUrlForIdp(idpOriginKey, UaaUrlUtils.getBaseURL(request));
         var responseType = URLEncoder.encode(definition.getResponseType(), StandardCharsets.UTF_8);
@@ -131,11 +124,23 @@ public class ExternalOAuthProviderConfigurator implements IdentityProviderProvis
             finalAdditionalParameters.keySet().forEach(e -> uriBuilder.queryParam(e, finalAdditionalParameters.get(e)));
         }
 
-        if (StringUtils.hasText(promptParam) && !additionalParameters.containsKey("prompt")) {
-            uriBuilder.queryParam("prompt", promptParam);
+        String incomingPrompt = getIncomingPrompt(request);
+        if (StringUtils.hasText(incomingPrompt) && !additionalParameters.containsKey("prompt")) {
+            uriBuilder.queryParam("prompt", incomingPrompt);
         }
 
         return uriBuilder.build().toUriString();
+    }
+
+    private String getIncomingPrompt(HttpServletRequest request) {
+        SavedRequest savedRequest = Optional.ofNullable(request.getSession(false))
+                .map(SessionUtils::getSavedRequestSession)
+                .orElse(null);
+        String[] savedPromptValues = savedRequest == null ? null : savedRequest.getParameterValues("prompt");
+        if (savedPromptValues != null && savedPromptValues.length > 0 && StringUtils.hasText(savedPromptValues[0])) {
+            return savedPromptValues[0];
+        }
+        return request.getParameter("prompt");
     }
 
     protected static boolean isPkceNeeded(AbstractExternalOAuthIdentityProviderDefinition definition) {
