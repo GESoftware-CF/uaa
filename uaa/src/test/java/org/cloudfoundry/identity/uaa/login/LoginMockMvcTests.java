@@ -50,6 +50,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -1380,7 +1382,110 @@ public class LoginMockMvcTests {
         mockMvc.perform(get("/login").accept(TEXT_HTML).with(new SetServerNameRequestPostProcessor(identityZone.getSubdomain() + ".localhost")))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString(activeSamlIdentityProviderDefinition.getLinkText())))
-                .andExpect(content().string(not(containsString(inactiveSamlIdentityProviderDefinition.getLinkText()))));
+                .andExpect(content().string(not(containsString(inactiveSamlIdentityProviderDefinition.getLinkText()))))
+                .andExpect(xpath("//a[contains(@href, 'saml2/authenticate/" + activeAlias + "')]/@href")
+                        .string(not(containsString("force_authn"))));
+
+        MockHttpSession session = new MockHttpSession();
+        SessionUtils.setForceIdpReauthentication(session);
+        mockMvc.perform(get("/login").accept(TEXT_HTML).session(session)
+                        .with(new SetServerNameRequestPostProcessor(identityZone.getSubdomain() + ".localhost")))
+                .andExpect(status().isOk())
+                .andExpect(xpath("//a[contains(@href, 'saml2/authenticate/" + activeAlias + "')]/@href")
+                        .string(containsString("force_authn=true")));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldPropagatePromptToOidcChooserWhenRequested(boolean forceReauthentication)
+            throws Exception {
+        assertOidcPromptFlow(forceReauthentication, null);
+    }
+
+    @Test
+    void shouldPreserveStaticOidcPromptWhenLoginRequested() throws Exception {
+        assertOidcPromptFlow(true, "select_account");
+    }
+
+    private void assertOidcPromptFlow(boolean forceReauthentication, String staticPrompt)
+            throws Exception {
+        String originKey = createOIDCProvider(jdbcIdentityProviderProvisioning, generator,
+                identityZone, "code");
+        if (staticPrompt != null) {
+            IdentityProvider provider = jdbcIdentityProviderProvisioning.retrieveByOrigin(
+                    originKey, identityZone.getId());
+            ((OIDCIdentityProviderDefinition) provider.getConfig())
+                    .setAdditionalAuthzParameters(Map.of("prompt", staticPrompt));
+            jdbcIdentityProviderProvisioning.update(provider, identityZone.getId());
+        }
+        String clientId = generator.generate();
+        UaaClientDetails client = new UaaClientDetails(clientId, null, "openid",
+                "authorization_code", "uaa.none", "http://localhost/callback");
+        client.setClientSecret("secret");
+        client.addAdditionalInformation(ClientConstants.ALLOWED_PROVIDERS,
+                asList(UAA, originKey));
+        MockMvcUtils.createClient(webApplicationContext, client, identityZone);
+        String serverName = identityZone.getSubdomain() + ".localhost";
+        MockHttpServletRequestBuilder authorize = get("/oauth/authorize")
+                .servletPath("/oauth/authorize").accept(TEXT_HTML)
+                .param("client_id", clientId).param("response_type", "code")
+                .param("redirect_uri", "http://localhost/callback")
+                .param("scope", "openid").param("state", "prompt-test")
+                .with(new SetServerNameRequestPostProcessor(serverName));
+        if (forceReauthentication) {
+            authorize.param("prompt", "login");
+        }
+        MvcResult authorizationResult = mockMvc.perform(authorize)
+                .andExpect(status().isFound()).andReturn();
+        MockHttpSession session = (MockHttpSession) authorizationResult.getRequest()
+                .getSession(false);
+        if (forceReauthentication) {
+            String replayUrl = authorizationResult.getResponse().getRedirectedUrl();
+            assertThat(UriComponentsBuilder.fromUriString(replayUrl).build().getQueryParams())
+                    .doesNotContainKey("prompt");
+            authorizationResult = mockMvc.perform(get(URI.create(replayUrl)).session(session)
+                            .servletPath("/oauth/authorize").accept(TEXT_HTML)
+                            .with(new SetServerNameRequestPostProcessor(serverName)))
+                    .andExpect(status().isFound()).andReturn();
+        }
+        assertThat(authorizationResult.getResponse().getRedirectedUrl()).endsWith("/login");
+        session = (MockHttpSession) authorizationResult.getRequest().getSession(false);
+        assertThat(SessionUtils.isForceIdpReauthentication(session))
+                .isEqualTo(forceReauthentication);
+        SavedRequest savedRequest = SessionUtils.getSavedRequestSession(session);
+        assertThat(savedRequest).isNotNull();
+        assertThat(savedRequest.getParameterValues("prompt")).isNull();
+
+        MvcResult loginResult = mockMvc.perform(get("/login").session(session).accept(TEXT_HTML)
+                        .with(new SetServerNameRequestPostProcessor(serverName)))
+                .andExpect(status().isOk()).andExpect(view().name("login")).andReturn();
+        Collection<Map.Entry<String, String>> links =
+                (Collection<Map.Entry<String, String>>) loginResult.getModelAndView()
+                        .getModel().get("oauthLinks");
+        assertThat(links).hasSize(1);
+        String idpUrl = links.iterator().next().getKey();
+        var parameters = UriComponentsBuilder.fromUriString(idpUrl).build().getQueryParams();
+        String expectedPrompt = staticPrompt != null ? staticPrompt
+                : forceReauthentication ? "login" : null;
+        if (expectedPrompt == null) {
+            assertThat(parameters).doesNotContainKey("prompt");
+        } else {
+            assertThat(parameters.get("prompt")).containsExactly(expectedPrompt);
+        }
+        assertThat(loginResult.getResponse().getContentAsString())
+                .contains(idpUrl.replace("&", "&amp;"));
+
+        MvcResult automaticRedirect = mockMvc.perform(get("/login").session(session)
+                        .accept(TEXT_HTML).param("login_hint", "{\"origin\":\"" + originKey + "\"}")
+                        .with(new SetServerNameRequestPostProcessor(serverName)))
+                .andExpect(status().isFound()).andReturn();
+        var automaticParameters = UriComponentsBuilder.fromUriString(
+                automaticRedirect.getResponse().getRedirectedUrl()).build().getQueryParams();
+        if (expectedPrompt == null) {
+            assertThat(automaticParameters).doesNotContainKey("prompt");
+        } else {
+            assertThat(automaticParameters.get("prompt")).containsExactly(expectedPrompt);
+        }
     }
 
     @Test
