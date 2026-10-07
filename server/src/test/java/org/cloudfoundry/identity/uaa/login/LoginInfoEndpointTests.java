@@ -1660,6 +1660,21 @@ class LoginInfoEndpointTests {
 
         Collection<Map<String, String>> oauthLinks = (Collection<Map<String, String>>) extendedModelMap.get("oauthLinks");
         assertThat(oauthLinks).hasSize(1);
+        String ordinaryLink = ((Map.Entry<String, String>) oauthLinks.iterator().next()).getKey();
+        assertThat(ordinaryLink).doesNotContain("prompt=");
+        assertThat(extendedModelMap).containsEntry("forceIdpReauthentication", false);
+
+        org.cloudfoundry.identity.uaa.util.SessionUtils.setForceIdpReauthentication(
+            mockHttpServletRequest.getSession());
+        redirect = endpoint.loginForHtml(extendedModelMap, null, mockHttpServletRequest,
+            singletonList(MediaType.TEXT_HTML));
+
+        assertThat(redirect).isEqualTo("login");
+        assertThat(extendedModelMap).containsEntry("forceIdpReauthentication", true);
+        Collection<Map.Entry<String, String>> reauthenticationLinks =
+            (Collection<Map.Entry<String, String>>) extendedModelMap.get("oauthLinks");
+        assertThat(reauthenticationLinks).hasSize(1);
+        assertThat(reauthenticationLinks.iterator().next().getKey()).contains("prompt=login");
     }
 
     @Test

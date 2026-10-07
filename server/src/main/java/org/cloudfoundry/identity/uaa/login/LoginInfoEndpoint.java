@@ -480,6 +480,8 @@ public class LoginInfoEndpoint {
         model.addAttribute(LINK_CREATE_ACCOUNT_SHOW, linkCreateAccountShow);
         model.addAttribute(FIELD_USERNAME_SHOW, fieldUsernameShow);
         model.addAttribute(IDP_DEFINITIONS, samlIdentityProviders.values().stream().sorted(sortingByLinkText).toList());
+        boolean forceReauthentication = SessionUtils.isForceIdpReauthentication(request.getSession(false));
+        model.addAttribute("forceIdpReauthentication", forceReauthentication);
         Map<String, String> oauthLinks = new HashMap<>();
         ofNullable(oauthIdentityProviders).orElse(emptyMap()).entrySet().stream()
                 .filter(e -> e.getValue() != null && e.getValue().isShowLinkText() && e.getKey() != null)
@@ -488,7 +490,8 @@ public class LoginInfoEndpoint {
                                 externalOAuthProviderConfigurator.getIdpAuthenticationUrl(
                                         e.getValue(),
                                         e.getKey(),
-                                        request),
+                                        request,
+                                        forceReauthentication),
                                 e.getValue().getLinkText()
                         )
                 );
