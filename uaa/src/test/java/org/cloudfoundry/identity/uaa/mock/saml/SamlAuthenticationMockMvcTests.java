@@ -24,6 +24,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.opensaml.saml.saml2.core.Response;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -113,11 +115,13 @@ class SamlAuthenticationMockMvcTests {
         createUser(jdbcScimUserProvisioning, idpZone);
     }
 
-    @Test
-    void sendAuthnRequestToIdpRedirectBindingMode() throws Exception {
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
+        void sendAuthnRequestToIdpRedirectBindingMode(boolean forceAuthn) throws Exception {
         MvcResult mvcResult = mockMvc.perform(
                         get("/uaa/saml2/authenticate/%s".formatted("testsaml-redirect-binding"))
                                 .contextPath("/uaa")
+                                .param("force_authn", Boolean.toString(forceAuthn))
                                 .header(HOST, "localhost:8080")
                 )
                 .andDo(print())
@@ -137,6 +141,11 @@ class SamlAuthenticationMockMvcTests {
         String samlRequestXml = samlDecodeAndInflate(parameterMap.get(SAML_REQUEST)[0]);
         assertThat(samlRequestXml)
                 .contains("<saml2p:AuthnRequest");
+                if (forceAuthn) {
+                        assertThat(samlRequestXml).contains("ForceAuthn=\"true\"");
+                } else {
+                        assertThat(samlRequestXml).doesNotContain("ForceAuthn=\"true\"");
+                }
 
         XmlAssert xmlAssert = XmlAssert.assertThat(samlRequestXml)
                 .withNamespaceContext(xmlNamespaces());
@@ -148,12 +157,14 @@ class SamlAuthenticationMockMvcTests {
                 .isEqualTo("urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"); // matches login.saml.nameID
     }
 
-    @Test
-    void sendAuthnRequestToIdpPostBindingMode() throws Exception {
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
+        void sendAuthnRequestToIdpPostBindingMode(boolean forceAuthn) throws Exception {
         final String samlRequestMatch = "name=\"SAMLRequest\" value=\"";
 
         MvcResult mvcResult = mockMvc.perform(get("/uaa/saml2/authenticate/%s".formatted("testsaml-post-binding"))
                         .contextPath("/uaa")
+                        .param("force_authn", Boolean.toString(forceAuthn))
                         .header(HOST, "localhost:8080")
                 )
                 .andDo(print())
@@ -168,6 +179,11 @@ class SamlAuthenticationMockMvcTests {
         contentHtml = contentHtml.substring(0, contentHtml.indexOf("\""));
         String samlRequestXml = new String(samlDecode(contentHtml), StandardCharsets.UTF_8);
         assertThat(samlRequestXml).contains("<saml2p:AuthnRequest");
+                if (forceAuthn) {
+                        assertThat(samlRequestXml).contains("ForceAuthn=\"true\"");
+                } else {
+                        assertThat(samlRequestXml).doesNotContain("ForceAuthn=\"true\"");
+                }
 
         // In the post-binding, Signature is part of the SAML AuthnRequest
         XmlAssert xmlAssert = XmlAssert.assertThat(samlRequestXml)

@@ -15,6 +15,7 @@
 
 package org.cloudfoundry.identity.uaa.web;
 
+import org.cloudfoundry.identity.uaa.util.SessionUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -118,5 +119,22 @@ class UaaSavedRequestAwareAuthenticationSuccessHandlerTests {
 
         handler.onAuthenticationSuccess(request, response, authentication);
         assertThat(response.getRedirectedUrl()).isEqualTo(redirectUri);
+    }
+
+    @Test
+    void shouldClearReauthenticationIntentAfterSuccessfulLogin() throws Exception {
+        HttpSession session = request.getSession();
+        String continuationUrl = SessionUtils.startIdpReauthentication(session,
+                "http://localhost/oauth/authorize?client_id=testclient");
+        SessionUtils.setSavedRequestSession(session,
+                new UaaSavedRequestCache.ClientRedirectSavedRequest(request, continuationUrl));
+        assertThat(SessionUtils.isForceIdpReauthentication(session)).isTrue();
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        handler.onAuthenticationSuccess(request, response, mock(Authentication.class));
+
+        assertThat(response.getRedirectedUrl()).isEqualTo(continuationUrl);
+        assertThat(session.getAttribute(SessionUtils.FORCE_IDP_REAUTHENTICATION)).isNull();
+        assertThat(SessionUtils.isForceIdpReauthentication(session)).isFalse();
     }
 }

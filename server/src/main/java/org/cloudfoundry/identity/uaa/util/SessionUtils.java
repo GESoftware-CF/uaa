@@ -7,27 +7,73 @@ import org.springframework.security.web.WebAttributes;
 import org.springframework.security.web.savedrequest.SavedRequest;
 
 import jakarta.servlet.http.HttpSession;
+import java.io.Serializable;
+import java.time.Duration;
+import java.util.UUID;
+import org.springframework.web.util.UriComponentsBuilder;
 
 public final class SessionUtils {
     public static final String PASSWORD_CHANGE_REQUIRED = "PASSWORD_CHANGE_REQUIRED";
     public static final String FORCE_PASSWORD_EXPIRED_USER = "FORCE_PASSWORD_EXPIRED_USER";
+    public static final String FORCE_IDP_REAUTHENTICATION = "FORCE_IDP_REAUTHENTICATION";
+    public static final String IDP_REAUTHENTICATION_PARAMETER = "_uaa_reauth";
+    private static final long IDP_REAUTHENTICATION_TIMEOUT = Duration.ofMinutes(5).toMillis();
 
-    // shadows org.springframework.security.web.savedrequest.HttpSessionRequestCache.SAVED_REQUEST
-    //         org.springframework.security.web.server.savedrequest.WebSessionServerRequestCache.DEFAULT_SAVED_REQUEST_ATTR
+    // shadows
+    // org.springframework.security.web.savedrequest.HttpSessionRequestCache.SAVED_REQUEST
+    // org.springframework.security.web.server.savedrequest.WebSessionServerRequestCache.DEFAULT_SAVED_REQUEST_ATTR
     //
     public static final String SAVED_REQUEST_SESSION_ATTRIBUTE = "SPRING_SECURITY_SAVED_REQUEST";
 
-    // shadows org.springframework.security.web.context.HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY
-    //         org.springframework.security.web.server.context.WebSessionServerSecurityContextRepository.DEFAULT_SPRING_SECURITY_CONTEXT_ATTR_NAME
-    //         org.springframework.session.jdbc.JdbcIndexedSessionRepository.SPRING_SECURITY_CONTEXT
-    //         org.springframework.session.PrincipalNameIndexResolver.SPRING_SECURITY_CONTEXT
-    //         org.springframework.session.security.SpringSessionBackedSessionInformation.SPRING_SECURITY_CONTEXT
+    // shadows
+    // org.springframework.security.web.context.HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY
+    // org.springframework.security.web.server.context.WebSessionServerSecurityContextRepository.DEFAULT_SPRING_SECURITY_CONTEXT_ATTR_NAME
+    // org.springframework.session.jdbc.JdbcIndexedSessionRepository.SPRING_SECURITY_CONTEXT
+    // org.springframework.session.PrincipalNameIndexResolver.SPRING_SECURITY_CONTEXT
+    // org.springframework.session.security.SpringSessionBackedSessionInformation.SPRING_SECURITY_CONTEXT
     public static final String SPRING_SECURITY_CONTEXT = "SPRING_SECURITY_CONTEXT";
 
     private static final String EXTERNAL_OAUTH_STATE_ATTRIBUTE_PREFIX = "external-oauth-state-";
     private static final String EXTERNAL_OAUTH_CODE_VERIFIER_ATTRIBUTE_PREFIX = "external-oauth-verifier-";
 
     private SessionUtils() {
+    }
+
+    public static String startIdpReauthentication(HttpSession session, String authorizationUrl) {
+        String continuationUrl = UriComponentsBuilder.fromUriString(authorizationUrl)
+                .replaceQueryParam(IDP_REAUTHENTICATION_PARAMETER, UUID.randomUUID().toString())
+                .build().toUriString();
+        session.setAttribute(FORCE_IDP_REAUTHENTICATION, new IdpReauthentication(
+                continuationUrl, System.currentTimeMillis() + IDP_REAUTHENTICATION_TIMEOUT));
+        return continuationUrl;
+    }
+
+    public static boolean isForceIdpReauthentication(HttpSession session) {
+        SavedRequest savedRequest = session == null ? null : getSavedRequestSession(session);
+        return savedRequest != null
+                && isForceIdpReauthentication(session, savedRequest.getRedirectUrl());
+    }
+
+    public static boolean isForceIdpReauthentication(HttpSession session, String authorizationUrl) {
+        if (session == null
+                || !(session.getAttribute(FORCE_IDP_REAUTHENTICATION) instanceof IdpReauthentication pending)) {
+            return false;
+        }
+        if (System.currentTimeMillis() >= pending.expiresAt()) {
+            clearForceIdpReauthentication(session);
+            return false;
+        }
+        return pending.authorizationUrl().equals(authorizationUrl);
+    }
+
+    public static void clearForceIdpReauthentication(HttpSession session) {
+        if (session != null) {
+            session.removeAttribute(FORCE_IDP_REAUTHENTICATION);
+        }
+    }
+
+    private record IdpReauthentication(String authorizationUrl, long expiresAt)
+            implements Serializable {
     }
 
     public static boolean isPasswordChangeRequired(HttpSession session) {
@@ -38,7 +84,8 @@ public final class SessionUtils {
         }
 
         if (!(passwordChangeRequired instanceof Boolean)) {
-            throw new IllegalArgumentException("The %s attribute on the session must be a Boolean".formatted(PASSWORD_CHANGE_REQUIRED));
+            throw new IllegalArgumentException(
+                    "The %s attribute on the session must be a Boolean".formatted(PASSWORD_CHANGE_REQUIRED));
         }
 
         return (Boolean) passwordChangeRequired;
