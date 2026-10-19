@@ -7,6 +7,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.cloudfoundry.identity.uaa.util.SessionUtils;
 import org.cloudfoundry.identity.uaa.util.UaaUrlUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.web.util.UrlUtils;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -24,7 +26,8 @@ public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
         boolean reAuthenticationRequired = false;
         boolean promptLogin = false;
         HashMap<String, String[]> requestParams = new HashMap<>(request.getParameterMap());
@@ -34,20 +37,29 @@ public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
             requestParams.remove("prompt");
         }
         if (request.getParameter("max_age") != null
-            && SecurityContextHolder.getContext().getAuthentication() instanceof UaaAuthentication auth
-            && (System.currentTimeMillis() - auth.getAuthenticatedTime()) > (Long.parseLong(request.getParameter("max_age")) * 1000))
-        {
-                reAuthenticationRequired = true;
-                requestParams.remove("max_age");
+                && SecurityContextHolder.getContext().getAuthentication() instanceof UaaAuthentication auth
+                && (System.currentTimeMillis()
+                        - auth.getAuthenticatedTime()) > (Long.parseLong(request.getParameter("max_age")) * 1000)) {
+            reAuthenticationRequired = true;
+            requestParams.remove("max_age");
         }
         if (reAuthenticationRequired) {
             request.getSession().invalidate();
+            String redirectUrl = buildRedirectUrl(request.getRequestURL().toString(), requestParams);
             if (promptLogin) {
-                // prompt must stay out of the redirect URL, otherwise the replayed SavedRequest loops
-                SessionUtils.setForceIdpReauthentication(request.getSession(true));
+                redirectUrl = SessionUtils.startIdpReauthentication(request.getSession(true), redirectUrl);
             }
-            sendRedirect(request.getRequestURL().toString(), requestParams, response);
+            response.sendRedirect(redirectUrl);
         } else {
+            if ("/oauth/authorize".equals(request.getServletPath())) {
+                var authentication = SecurityContextHolder.getContext().getAuthentication();
+                boolean authenticated = authentication != null && authentication.isAuthenticated()
+                        && !(authentication instanceof AnonymousAuthenticationToken);
+                if (authenticated || !SessionUtils.isForceIdpReauthentication(
+                        request.getSession(false), UrlUtils.buildFullRequestUrl(request))) {
+                    SessionUtils.clearForceIdpReauthentication(request.getSession(false));
+                }
+            }
             if (request.getServletPath().startsWith("/saml/SingleLogout/alias/" + samlEntityID)) {
                 CsrfFilter.skipRequest(request);
             }
@@ -55,9 +67,9 @@ public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
         }
     }
 
-    private void sendRedirect(String redirectUrl, Map<String, String[]> params, HttpServletResponse response) throws IOException {
+    private String buildRedirectUrl(String redirectUrl, Map<String, String[]> params) {
         UriComponentsBuilder builder = UaaUrlUtils.fromUriString(redirectUrl);
         params.forEach(builder::queryParam);
-        response.sendRedirect(builder.build().toUriString());
+        return builder.build().toUriString();
     }
 }
