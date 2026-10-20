@@ -29,20 +29,20 @@ import java.util.UUID;
  * Business logic for background image upload and deletion.
  *
  * <p>Uploads to a unique S3 key
- * ({@code fss-iam/uaa/background_image/{zoneId}/background-image-{timestamp}-{random}.{ext}})
+ * ({@code {env}/iam/uaa/background_images/{zoneId}/background-image-{timestamp}-{random}.{ext}})
  * and persists the CloudFront URL together with audit metadata ({@code uploadedAt},
  * {@code uploadedBy}) in {@code identity_zone.config.branding}. Each upload creates a new
  * object, so the previous image is removed after the new one is saved.
  */
 @Service
 @ConditionalOnProperty(name = {"AWS_REGION", "BACKGROUND_IMAGE_STORAGE_BUCKET",
-        "BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES", "BACKGROUND_IMAGE_CLOUDFRONT_DOMAIN"})
+        "BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES", "BACKGROUND_IMAGE_CLOUDFRONT_DOMAIN",
+        "BACKGROUND_IMAGE_ENVIRONMENT"})
 public class BackgroundImageService implements BackgroundImageUrlProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(BackgroundImageService.class);
 
-    private static final String KEY_PREFIX = "fss-iam/uaa/background_image/";
-    private static final String OBJECT_NAME = "background-image";
+    private static final String KEY_SUFFIX_PATH = "/iam/uaa/background_images/";
     private static final int MAX_UPLOAD_ATTEMPTS = 3;
     private static final long RETRY_BACKOFF_MS = 500;
 
@@ -57,16 +57,23 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
     private final long minFileSizeBytes;
     private final long maxFileSizeBytes;
     private final String cloudFrontDomain;
+    /** {@code {env}/iam/uaa/background_images/} */
+    private final String keyPrefix;
 
     public BackgroundImageService(S3StorageManager s3StorageManager,
                                   IdentityZoneProvisioning zoneProvisioning,
                                   @Value("${BACKGROUND_IMAGE_STORAGE_BUCKET}") String bucket,
                                   @Value("${BACKGROUND_IMAGE_UPLOAD_MIN_SIZE_BYTES:1}") long minFileSizeBytes,
                                   @Value("${BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES}") long maxFileSizeBytes,
-                                  @Value("${BACKGROUND_IMAGE_CLOUDFRONT_DOMAIN}") String cloudFrontDomain) {
+                                  @Value("${BACKGROUND_IMAGE_CLOUDFRONT_DOMAIN}") String cloudFrontDomain,
+                                  @Value("${BACKGROUND_IMAGE_ENVIRONMENT}") String environmentName) {
         if (minFileSizeBytes <= 0 || minFileSizeBytes > maxFileSizeBytes) {
             throw new IllegalArgumentException(
                     "BACKGROUND_IMAGE_UPLOAD_MIN_SIZE_BYTES must be > 0 and <= BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES");
+        }
+        if (environmentName == null || !environmentName.matches("[a-z0-9][a-z0-9-]{0,62}")) {
+            throw new IllegalArgumentException(
+                    "BACKGROUND_IMAGE_ENVIRONMENT must contain only lowercase letters, digits and hyphens (e.g. 'int', 'pre-prod')");
         }
         this.s3StorageManager = s3StorageManager;
         this.zoneProvisioning = zoneProvisioning;
@@ -74,6 +81,7 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
         this.minFileSizeBytes = minFileSizeBytes;
         this.maxFileSizeBytes = maxFileSizeBytes;
         this.cloudFrontDomain = cloudFrontDomain;
+        this.keyPrefix = environmentName + KEY_SUFFIX_PATH;
     }
 
     // -------------------------------------------------------------------------
@@ -193,7 +201,7 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
             s3StorageManager.delete(bucket, s3Key.get());
             logger.info("S3 object deleted: bucket={}, key={}", bucket, s3Key.get());
         } else {
-            logger.warn("Stored URL is not a managed image URL for this zone; skipping S3 delete. zone={}", zoneId);
+            logger.warn("Stored URL is not a managed image URL for this zone/environment; skipping S3 delete. zone={}", zoneId);
         }
 
         branding.setBackgroundImageUrl(null);
@@ -235,8 +243,8 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
 
     /**
      * Returns the S3 key for a URL on our CloudFront domain, but only if the key belongs to the
-     * given zone. Returns empty for any other URL, so a tampered DB value cannot cause deletion
-     * of an unrelated object.
+     * given zone under this environment's prefix. Returns empty for any other URL, so a tampered
+     * DB value cannot cause deletion of an unrelated object.
      */
     private Optional<String> extractManagedKey(String url, String zoneId) {
         try {
@@ -247,18 +255,16 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
                 return Optional.empty();
             }
             String key = path.substring(1);
-            boolean currentFormat = key.startsWith(KEY_PREFIX + zoneId + "/");
-            boolean legacyFormat = key.startsWith("fss-iam/uaa/" + zoneId + "/background_image/");
-            return (currentFormat || legacyFormat) ? Optional.of(key) : Optional.empty();
+            return key.startsWith(keyPrefix + zoneId + "/") ? Optional.of(key) : Optional.empty();
         } catch (IllegalArgumentException e) {
             logger.warn("Malformed background image URL: {}", url);
             return Optional.empty();
         }
     }
 
-    private static String buildS3Key(String zoneId, String contentType, long timestampMillis) {
+    private String buildS3Key(String zoneId, String contentType, long timestampMillis) {
         String randomSuffix = UUID.randomUUID().toString().substring(0, 8);
-        return KEY_PREFIX + zoneId + "/" + OBJECT_NAME + "-" + timestampMillis + "-" + randomSuffix
+        return keyPrefix + zoneId + "/" + timestampMillis + "-" + randomSuffix
                 + "." + ALLOWED_TYPES_TO_EXTENSION.get(contentType);
     }
 
