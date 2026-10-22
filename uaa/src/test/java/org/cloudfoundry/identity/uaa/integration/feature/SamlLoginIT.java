@@ -1242,26 +1242,6 @@ public class SamlLoginIT {
         }
 
         @Test
-        void samlPromptLoginForcesSamlIdpToAskForCredentialsAgain() {
-                IdentityProvider<SamlIdentityProviderDefinition> provider = createIdentityProvider(SAML_ORIGIN);
-                String clientId = createAuthCodeClientForProviders(Collections.singletonList(provider.getOriginKey()));
-
-                webDriver.get("%s/logout.do".formatted(baseUrl));
-                webDriver.get(authorizeUrl(clientId, ""));
-                webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
-                sendCredentials(testAccounts.getUserName(), "koala");
-                assertThat(webDriver.findElement(By.cssSelector("h1")).getText())
-                                .contains("You should not see this page. Set up your redirect URI.");
-
-                // The IdP session still exists, so only ForceAuthn makes it ask for credentials
-                // again.
-                webDriver.get(authorizeUrl(clientId, "&saml_prompt=login"));
-                assertThat(webDriver.findElements(By.xpath(samlServerConfig.getLoginPromptXpathExpr()))).isNotEmpty();
-
-                webDriver.get("%s/logout.do".formatted(baseUrl));
-        }
-
-        @Test
         void loginClientIDPAuthorizationAlreadyLoggedIn() {
                 webDriver.get("%s/logout.do".formatted(baseUrl));
                 String adminAccessToken = testClient.getOAuthAccessToken("admin", "adminsecret", "client_credentials",

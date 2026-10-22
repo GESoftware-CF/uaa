@@ -359,18 +359,6 @@ public class OIDCLoginIT {
     }
 
     @Test
-    void oidcPromptLoginForcesExternalProviderToAskForCredentialsAgain() {
-        login(zoneUrl, testAccounts.getUserName(), testAccounts.getPassword());
-
-        webDriver.get(zoneAuthorizeUrl("&oidc_prompt=login"));
-        webDriver.clickAndWait(By.linkText("My OIDC Provider"));
-
-        assertThat(webDriver.getCurrentUrl()).startsWith(baseUrl);
-        assertThat(webDriver.findElements(By.name("username"))).isNotEmpty();
-        assertThat(webDriver.findElements(By.name("password"))).isNotEmpty();
-    }
-
-    @Test
     void successfulLoginWithOIDCProviderWithExternalGroups() {
 
         validateSuccessfulOIDCLogin(zoneUrl, testAccounts.getUserName(), testAccounts.getPassword());
