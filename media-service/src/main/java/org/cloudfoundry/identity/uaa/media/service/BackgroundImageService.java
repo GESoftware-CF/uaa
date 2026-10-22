@@ -19,34 +19,45 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 /**
  * Business logic for background image upload and deletion.
  *
- * <p>Uploads to a unique S3 key
- * ({@code {env}/iam/uaa/background_images/{zoneId}/background-image-{timestamp}-{random}.{ext}})
- * and persists the CloudFront URL together with audit metadata ({@code uploadedAt},
- * {@code uploadedBy}) in {@code identity_zone.config.branding}. Each upload creates a new
- * object, so the previous image is removed after the new one is saved.
+ * <p>Objects are stored in S3 at {@code {basePath}/{zoneId}/{timestamp}-{random}.{ext}}.
+ * The database stores only the relative value {@code {zoneId}/{timestamp}-{random}.{ext}}
+ * in {@code identity_zone.config.branding.backgroundImageUrl}, with audit metadata
+ * ({@code uploadedAt}, {@code uploadedBy}). The full CloudFront URL is built from configuration
+ * at read time. Zones without a valid image get {@code {basePath}/defaultimage.jpg}.
+ *
+ * <p>Transient S3 failures are retried by the AWS SDK client configured in {@link S3StorageManager}.
  */
 @Service
 @ConditionalOnProperty(name = {"AWS_REGION", "BACKGROUND_IMAGE_STORAGE_BUCKET",
         "BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES", "BACKGROUND_IMAGE_CLOUDFRONT_DOMAIN",
-        "BACKGROUND_IMAGE_ENVIRONMENT"})
+        "BACKGROUND_IMAGE_BASE_PATH"})
 public class BackgroundImageService implements BackgroundImageUrlProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(BackgroundImageService.class);
 
-    private static final String KEY_SUFFIX_PATH = "/iam/uaa/background_images/";
-    private static final int MAX_UPLOAD_ATTEMPTS = 3;
-    private static final long RETRY_BACKOFF_MS = 500;
+    /** Fallback image at {basePath}/defaultimage.jpg, uploaded once per environment outside the app. */
+    private static final String DEFAULT_IMAGE_NAME = "defaultimage.jpg";
 
-    /** Permitted MIME types mapped to the file extension used in the S3 key. */
+    /** e.g. int/iam/uaa/background_images (no leading or trailing slash). */
+    private static final Pattern BASE_PATH_PATTERN =
+            Pattern.compile("[a-z0-9][a-z0-9._-]*(/[a-z0-9][a-z0-9._-]*)*");
+    private static final Pattern HOSTNAME_PATTERN = Pattern.compile("[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?");
+    /** Any id of 1-255 safe characters, except "." and "..". */
+    private static final Pattern ZONE_ID_PATTERN = Pattern.compile("(?!\\.{1,2}$)[a-zA-Z0-9._-]{1,255}");
+    /** {timestamp}-{8 hex chars}.{ext} */
+    private static final Pattern IMAGE_NAME_PATTERN = Pattern.compile("\\d{10,}-[0-9a-f]{8}\\.(png|jpg)");
+
+    /** Permitted MIME types mapped to the file extension used in the image name. */
     private static final Map<String, String> ALLOWED_TYPES_TO_EXTENSION = Map.of(
             "image/png", "png",
             "image/jpeg", "jpg");
@@ -56,9 +67,11 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
     private final String bucket;
     private final long minFileSizeBytes;
     private final long maxFileSizeBytes;
-    private final String cloudFrontDomain;
-    /** {@code {env}/iam/uaa/background_images/} */
+    /** {@code {basePath}/} */
     private final String keyPrefix;
+    /** {@code https://{cloudFrontDomain}/{basePath}/} */
+    private final String imageUrlPrefix;
+    private final String defaultImageUrl;
 
     public BackgroundImageService(S3StorageManager s3StorageManager,
                                   IdentityZoneProvisioning zoneProvisioning,
@@ -66,22 +79,28 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
                                   @Value("${BACKGROUND_IMAGE_UPLOAD_MIN_SIZE_BYTES:1}") long minFileSizeBytes,
                                   @Value("${BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES}") long maxFileSizeBytes,
                                   @Value("${BACKGROUND_IMAGE_CLOUDFRONT_DOMAIN}") String cloudFrontDomain,
-                                  @Value("${BACKGROUND_IMAGE_ENVIRONMENT}") String environmentName) {
+                                  @Value("${BACKGROUND_IMAGE_BASE_PATH}") String basePath) {
         if (minFileSizeBytes <= 0 || minFileSizeBytes > maxFileSizeBytes) {
             throw new IllegalArgumentException(
                     "BACKGROUND_IMAGE_UPLOAD_MIN_SIZE_BYTES must be > 0 and <= BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES");
         }
-        if (environmentName == null || !environmentName.matches("[a-z0-9][a-z0-9-]{0,62}")) {
+        if (cloudFrontDomain == null || !HOSTNAME_PATTERN.matcher(cloudFrontDomain).matches()) {
             throw new IllegalArgumentException(
-                    "BACKGROUND_IMAGE_ENVIRONMENT must contain only lowercase letters, digits and hyphens (e.g. 'int', 'pre-prod')");
+                    "BACKGROUND_IMAGE_CLOUDFRONT_DOMAIN must be a hostname without scheme, path or port");
+        }
+        if (basePath == null || !BASE_PATH_PATTERN.matcher(basePath).matches()) {
+            throw new IllegalArgumentException(
+                    "BACKGROUND_IMAGE_BASE_PATH must be a relative path without leading/trailing slash, "
+                            + "e.g. 'int/iam/uaa/background_images'");
         }
         this.s3StorageManager = s3StorageManager;
         this.zoneProvisioning = zoneProvisioning;
         this.bucket = bucket;
         this.minFileSizeBytes = minFileSizeBytes;
         this.maxFileSizeBytes = maxFileSizeBytes;
-        this.cloudFrontDomain = cloudFrontDomain;
-        this.keyPrefix = environmentName + KEY_SUFFIX_PATH;
+        this.keyPrefix = basePath + "/";
+        this.imageUrlPrefix = "https://" + cloudFrontDomain.toLowerCase(Locale.ROOT) + "/" + keyPrefix;
+        this.defaultImageUrl = imageUrlPrefix + DEFAULT_IMAGE_NAME;
     }
 
     // -------------------------------------------------------------------------
@@ -89,6 +108,7 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
     // -------------------------------------------------------------------------
 
     public void uploadBackgroundImage(MultipartFile file, String zoneId) {
+        validateZoneId(zoneId);
         long size = file.getSize();
         if (size > maxFileSizeBytes) {
             throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE,
@@ -99,81 +119,47 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
                     "Image must be at least " + minFileSizeBytes + " bytes");
         }
         String contentType = resolveContentType(file);
-        if (!ALLOWED_TYPES_TO_EXTENSION.containsKey(contentType)) {
+        String extension = ALLOWED_TYPES_TO_EXTENSION.get(contentType);
+        if (extension == null) {
             throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
                     "Unsupported image type '" + contentType + "'. Allowed: " + ALLOWED_TYPES_TO_EXTENSION.keySet());
         }
 
         Instant now = Instant.now();
-        String s3Key = buildS3Key(zoneId, contentType, now.toEpochMilli());
+        String storedValue = zoneId + "/" + now.toEpochMilli() + "-"
+                + UUID.randomUUID().toString().substring(0, 8) + "." + extension;
+        String s3Key = keyPrefix + storedValue;
 
         logger.info("Uploading background image: bucket={}, key={}, contentType={}", bucket, s3Key, contentType);
-        uploadWithRetry(file, s3Key, contentType);
+        try (InputStream in = file.getInputStream()) {
+            s3StorageManager.upload(bucket, s3Key, in, size, contentType);
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unable to read uploaded image", e);
+        }
 
-        String url = "https://" + cloudFrontDomain + "/" + s3Key;
-        String previousUrl;
+        String previousValue;
         try {
             IdentityZone zone = zoneProvisioning.retrieve(zoneId);
             IdentityZoneConfiguration config = zone.getConfig() != null ? zone.getConfig() : new IdentityZoneConfiguration();
             BrandingInformation branding = config.getBranding() != null ? config.getBranding() : new BrandingInformation();
-            previousUrl = branding.getBackgroundImageUrl();
-            branding.setBackgroundImageUrl(url);
+            previousValue = branding.getBackgroundImageUrl();
+            branding.setBackgroundImageUrl(storedValue);
             branding.setBackgroundImageUploadedAt(now.toString());
             branding.setBackgroundImageUploadedBy(resolveUploader());
             config.setBranding(branding);
             zone.setConfig(config);
             zoneProvisioning.update(zone);
-        } catch (Exception e) {
-            logger.error("S3 upload succeeded but DB update failed for zone={}; S3 key={} may be orphaned. URL={}",
-                    zoneId, s3Key, url, e);
-            throw new RuntimeException("Image uploaded to S3 but failed to persist URL in zone config", e);
-        }
-        logger.info("Uploaded to S3 and stored URL in zone config: {}", url);
-
-        deletePreviousImageQuietly(previousUrl, s3Key, zoneId);
-    }
-
-    /**
-     * Uploads to S3, making up to {@link #MAX_UPLOAD_ATTEMPTS} attempts.
-     * A fresh input stream is opened for each attempt because a consumed stream cannot be re-read.
-     */
-    private void uploadWithRetry(MultipartFile file, String s3Key, String contentType) {
-        for (int attempt = 1; ; attempt++) {
-            try (InputStream in = file.getInputStream()) {
-                s3StorageManager.upload(bucket, s3Key, in, file.getSize(), contentType);
-                return;
-            } catch (IOException | RuntimeException e) {
-                if (attempt >= MAX_UPLOAD_ATTEMPTS) {
-                    logger.error("S3 upload failed after {} attempts: key={}", attempt, s3Key, e);
-                    throw new RuntimeException("Failed to upload image to S3 after " + attempt + " attempts", e);
-                }
-                logger.warn("S3 upload attempt {}/{} failed for key={}; retrying", attempt, MAX_UPLOAD_ATTEMPTS, s3Key, e);
-                backoff(attempt);
-            }
-        }
-    }
-
-    private static void backoff(int attempt) {
-        try {
-            Thread.sleep(RETRY_BACKOFF_MS * attempt);
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Upload interrupted while waiting to retry", ie);
-        }
-    }
-
-    /** Removes the replaced image. Never fails the request, since the new image is already live. */
-    private void deletePreviousImageQuietly(String previousUrl, String newKey, String zoneId) {
-        if (previousUrl == null || previousUrl.isBlank()) {
-            return;
-        }
-        try {
-            extractManagedKey(previousUrl, zoneId)
-                    .filter(previousKey -> !previousKey.equals(newKey))
-                    .ifPresent(previousKey -> s3StorageManager.delete(bucket, previousKey));
         } catch (RuntimeException e) {
-            logger.warn("Previous background image cleanup failed for zone={}, url={}", zoneId, previousUrl, e);
+            logger.error("DB update failed for zone={}; removing uploaded object key={}", zoneId, s3Key, e);
+            deleteQuietly(s3Key);
+            throw e;
         }
+        logger.info("Stored image reference in zone config: zone={}, value={}", zoneId, storedValue);
+
+        // The new image is already live; cleanup of the replaced one must never fail the request.
+        resolveManagedKey(previousValue, zoneId)
+                .filter(previousKey -> !previousKey.equals(s3Key))
+                .ifPresent(this::deleteQuietly);
     }
 
     // -------------------------------------------------------------------------
@@ -181,42 +167,29 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
     // -------------------------------------------------------------------------
 
     /**
-     * Deletes the zone's background image from S3 and clears upload metadata from the zone config.
+     * Clears the zone's image reference, then removes the object from S3 (best-effort).
+     * The database is the source of truth, so the login page never points to a deleted object.
      *
      * @return {@code true} if an image was removed, {@code false} if the zone had none
      */
     public boolean deleteBackgroundImage(String zoneId) {
+        validateZoneId(zoneId);
         IdentityZone zone = zoneProvisioning.retrieve(zoneId);
-        IdentityZoneConfiguration config = zone.getConfig();
-        BrandingInformation branding = config != null ? config.getBranding() : null;
-        if (branding == null || branding.getBackgroundImageUrl() == null || branding.getBackgroundImageUrl().isBlank()) {
+        Optional<String> stored = storedReference(zone);
+        if (stored.isEmpty()) {
             logger.info("Delete requested but no background image in zone config: zoneId={}", zoneId);
             return false;
         }
 
-        // The key is derived from the stored URL, because keys are unique per upload.
-        Optional<String> s3Key = extractManagedKey(branding.getBackgroundImageUrl(), zoneId);
-        if (s3Key.isPresent()) {
-            logger.info("Deleting background image for zone={}, key={}", zoneId, s3Key.get());
-            s3StorageManager.delete(bucket, s3Key.get());
-            logger.info("S3 object deleted: bucket={}, key={}", bucket, s3Key.get());
-        } else {
-            logger.warn("Stored URL is not a managed image URL for this zone/environment; skipping S3 delete. zone={}", zoneId);
-        }
-
+        BrandingInformation branding = zone.getConfig().getBranding();
         branding.setBackgroundImageUrl(null);
         branding.setBackgroundImageUploadedAt(null);
         branding.setBackgroundImageUploadedBy(null);
-        config.setBranding(branding);
-        zone.setConfig(config);
-        try {
-            zoneProvisioning.update(zone);
-        } catch (Exception e) {
-            logger.error("S3 delete succeeded but DB update failed for zone={}; DB metadata may be stale. key={}",
-                    zoneId, s3Key.orElse(null), e);
-            throw new RuntimeException("Background image deleted from S3 but failed to clear URL in zone config", e);
-        }
-        logger.info("Cleared background image metadata from zone config: zoneId={}", zoneId);
+        zoneProvisioning.update(zone);
+        logger.info("Cleared background image reference from zone config: zoneId={}", zoneId);
+
+        resolveManagedKey(stored.get(), zoneId).ifPresentOrElse(this::deleteQuietly,
+                () -> logger.warn("Stored value is not a managed image reference; skipping S3 delete. zone={}", zoneId));
         return true;
     }
 
@@ -224,67 +197,74 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
     // BackgroundImageUrlProvider
     // -------------------------------------------------------------------------
 
+    /**
+     * Returns the CloudFront URL for the current zone's image, or the shared default image when the
+     * zone has no valid stored reference. Reads only the in-memory zone config; no S3 or extra DB call.
+     */
     @Override
     public Optional<String> getBackgroundImageUrl() {
         try {
-            return Optional.ofNullable(IdentityZoneHolder.get().getConfig())
-                    .map(IdentityZoneConfiguration::getBranding)
-                    .map(BrandingInformation::getBackgroundImageUrl)
-                    .filter(url -> !url.isBlank());
-        } catch (Exception e) {
-            logger.warn("Failed to resolve background image URL; falling back to default", e);
-            return Optional.empty();
+            IdentityZone zone = IdentityZoneHolder.get();
+            Optional<String> stored = storedReference(zone);
+            if (stored.isPresent()) {
+                if (isValidStoredValue(stored.get(), zone.getId())) {
+                    return Optional.of(imageUrlPrefix + stored.get());
+                }
+                logger.warn("Invalid background image reference for zone={}; using default image", zone.getId());
+            }
+        } catch (RuntimeException e) {
+            logger.warn("Failed to resolve background image URL; using default image", e);
         }
+        return Optional.of(defaultImageUrl);
     }
 
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
+    private static Optional<String> storedReference(IdentityZone zone) {
+        return Optional.ofNullable(zone.getConfig())
+                .map(IdentityZoneConfiguration::getBranding)
+                .map(BrandingInformation::getBackgroundImageUrl)
+                .filter(value -> !value.isBlank());
+    }
+
     /**
-     * Returns the S3 key for a URL on our CloudFront domain, but only if the key belongs to the
-     * given zone under this environment's prefix. Returns empty for any other URL, so a tampered
-     * DB value cannot cause deletion of an unrelated object.
+     * Maps a stored value to its S3 key, only if it has the expected format and belongs to the zone.
+     * A tampered value therefore cannot cause deletion of an unrelated object.
      */
-    private Optional<String> extractManagedKey(String url, String zoneId) {
+    private Optional<String> resolveManagedKey(String stored, String zoneId) {
+        return stored != null && isValidStoredValue(stored, zoneId)
+                ? Optional.of(keyPrefix + stored)
+                : Optional.empty();
+    }
+
+    private static boolean isValidStoredValue(String stored, String zoneId) {
+        String prefix = zoneId + "/";
+        return stored.startsWith(prefix) && IMAGE_NAME_PATTERN.matcher(stored.substring(prefix.length())).matches();
+    }
+
+    private void deleteQuietly(String s3Key) {
         try {
-            URI uri = URI.create(url);
-            String path = uri.getPath();
-            if (uri.getHost() == null || !uri.getHost().equalsIgnoreCase(cloudFrontDomain)
-                    || path == null || path.length() < 2 || path.contains("..")) {
-                return Optional.empty();
-            }
-            String key = path.substring(1);
-            return key.startsWith(keyPrefix + zoneId + "/") ? Optional.of(key) : Optional.empty();
-        } catch (IllegalArgumentException e) {
-            logger.warn("Malformed background image URL: {}", url);
-            return Optional.empty();
+            s3StorageManager.delete(bucket, s3Key);
+        } catch (RuntimeException e) {
+            logger.warn("Could not delete S3 object key={}; it may be orphaned", s3Key, e);
         }
     }
 
-    private String buildS3Key(String zoneId, String contentType, long timestampMillis) {
-        String randomSuffix = UUID.randomUUID().toString().substring(0, 8);
-        return keyPrefix + zoneId + "/" + timestampMillis + "-" + randomSuffix
-                + "." + ALLOWED_TYPES_TO_EXTENSION.get(contentType);
+    private static void validateZoneId(String zoneId) {
+        if (zoneId == null || !ZONE_ID_PATTERN.matcher(zoneId).matches()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid identity zone id");
+        }
     }
 
     private static String resolveUploader() {
-        try {
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.getName() != null) {
-                return auth.getName();
-            }
-        } catch (Exception ignored) {
-            // best-effort
-        }
-        return "unknown";
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getName() != null ? auth.getName() : "unknown";
     }
 
     private static String resolveContentType(MultipartFile file) {
         String raw = file.getContentType();
-        if (raw == null || raw.isBlank()) {
-            return "application/octet-stream";
-        }
-        return raw.split(";")[0].trim();
+        return raw == null ? "" : raw.split(";", 2)[0].trim().toLowerCase(Locale.ROOT);
     }
 }
