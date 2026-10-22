@@ -53,8 +53,8 @@ public class SamlAuthenticationFilterConfig {
     FilterRegistrationBean<Filter> saml2WebSsoAuthenticationRequestFilter(RelyingPartyRegistrationResolver relyingPartyRegistrationResolver) {
         OpenSaml4AuthenticationRequestResolver openSaml4AuthenticationRequestResolver = new OpenSaml4AuthenticationRequestResolver(relyingPartyRegistrationResolver);
         openSaml4AuthenticationRequestResolver.setAuthnRequestCustomizer(context -> {
-            if ("true".equals(context.getRequest().getParameter(SamlRedirectUtils.FORCE_AUTHN_PARAMETER))) {
-                context.getAuthnRequest().setForceAuthn(true);
+                    if ("true".equals(context.getRequest().getParameter(SamlRedirectUtils.FORCE_AUTHN_PARAMETER))) {
+                        context.getAuthnRequest().setForceAuthn(true);
             }
         });
 

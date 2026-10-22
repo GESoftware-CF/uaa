@@ -384,8 +384,7 @@ public class LoginInfoEndpoint {
         }
         if (idpForRedirect != null && !jsonResponse) {
             String externalRedirect = redirectToExternalProvider(
-                    idpForRedirect.getValue(), idpForRedirect.getKey(), request,
-                    SessionUtils.isForceIdpReauthentication(session)
+                    idpForRedirect.getValue(), idpForRedirect.getKey(), request
             );
             if (externalRedirect != null) {
                 log.debug("Following external redirect : {}", externalRedirect);
@@ -480,8 +479,9 @@ public class LoginInfoEndpoint {
         model.addAttribute(LINK_CREATE_ACCOUNT_SHOW, linkCreateAccountShow);
         model.addAttribute(FIELD_USERNAME_SHOW, fieldUsernameShow);
         model.addAttribute(IDP_DEFINITIONS, samlIdentityProviders.values().stream().sorted(sortingByLinkText).toList());
-        boolean forceReauthentication = SessionUtils.isForceIdpReauthentication(request.getSession(false));
-        model.addAttribute("forceIdpReauthentication", forceReauthentication);
+        boolean forceReauthentication = SessionUtils.isOidcReauthentication(request.getSession(false));
+        model.addAttribute("forceIdpReauthentication",
+                SessionUtils.isSamlReauthentication(request.getSession(false)));
         Map<String, String> oauthLinks = new HashMap<>();
         ofNullable(oauthIdentityProviders).orElse(emptyMap()).entrySet().stream()
                 .filter(e -> e.getValue() != null && e.getValue().isShowLinkText() && e.getKey() != null)
@@ -490,8 +490,8 @@ public class LoginInfoEndpoint {
                                 externalOAuthProviderConfigurator.getIdpAuthenticationUrl(
                                         e.getValue(),
                                         e.getKey(),
-                                        request,
-                                        forceReauthentication),
+                request,
+                forceReauthentication),
                                 e.getValue().getLinkText()
                         )
                 );
@@ -644,13 +644,15 @@ public class LoginInfoEndpoint {
         return "redirect:/login";
     }
 
-    private String redirectToExternalProvider(AbstractIdentityProviderDefinition idpForRedirect, String idpOriginKey, HttpServletRequest request, boolean forceReauthentication) {
+    private String redirectToExternalProvider(AbstractIdentityProviderDefinition idpForRedirect, String idpOriginKey, HttpServletRequest request) {
         if (idpForRedirect != null) {
             if (idpForRedirect instanceof SamlIdentityProviderDefinition samlIdentityProviderDefinition) {
-                String url = SamlRedirectUtils.getIdpRedirectUrl(samlIdentityProviderDefinition, forceReauthentication);
+                String url = SamlRedirectUtils.getIdpRedirectUrl(samlIdentityProviderDefinition,
+                        SessionUtils.isSamlReauthentication(request.getSession(false)));
                 return "redirect:/" + url;
             } else if (idpForRedirect instanceof AbstractExternalOAuthIdentityProviderDefinition providerDefinition) {
-                String redirectUrl = getRedirectUrlForExternalOAuthIDP(request, idpOriginKey, providerDefinition, forceReauthentication);
+                String redirectUrl = getRedirectUrlForExternalOAuthIDP(request, idpOriginKey, providerDefinition,
+                        SessionUtils.isOidcReauthentication(request.getSession(false)));
                 return REDIRECT + redirectUrl;
             }
         }
@@ -865,8 +867,7 @@ public class LoginInfoEndpoint {
                 return goToPasswordPage(email, model);
             } else {
                 String redirectUrl;
-                if ((redirectUrl = redirectToExternalProvider(matchedIdp.getConfig(), matchedIdp.getOriginKey(), request,
-                        SessionUtils.isForceIdpReauthentication(session))) != null) {
+                if ((redirectUrl = redirectToExternalProvider(matchedIdp.getConfig(), matchedIdp.getOriginKey(), request)) != null) {
                     return redirectUrl;
                 }
             }

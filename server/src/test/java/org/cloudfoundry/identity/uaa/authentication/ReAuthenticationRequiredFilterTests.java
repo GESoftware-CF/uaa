@@ -18,6 +18,8 @@ package org.cloudfoundry.identity.uaa.authentication;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -71,9 +73,9 @@ class ReAuthenticationRequiredFilterTests {
         request.setParameter("scope", "openid");
         filter.doFilterInternal(request, response, chain);
         verify(chain, never()).doFilter(same(request), same(response));
-        // verify that the redirect is happening and the redirect url does not contain
-        // the prompt parameter
+        // verify that the redirect is happening and the redirect url does not contain the prompt parameter
         verify(response, times(1)).sendRedirect(matches("^((?!prompt).)*$"));
+        assertThat(request.getSession(false).getAttribute(SessionUtils.FORCE_IDP_REAUTHENTICATION)).isNull();
     }
 
     @Test
@@ -85,12 +87,13 @@ class ReAuthenticationRequiredFilterTests {
         verify(response, never()).sendRedirect(anyString());
     }
 
-    @Test
-    void shouldPreserveReauthenticationOnlyForItsContinuation() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = { "oidc_prompt", "saml_prompt" })
+    void shouldPreserveReauthenticationOnlyForItsContinuation(String promptParameter) throws Exception {
         request.setRequestURI("/oauth/authorize");
         request.setServletPath("/oauth/authorize");
         request.setParameter("client_id", "testclient");
-        request.setParameter("prompt", "login");
+        request.setParameter(promptParameter, "login");
         MockHttpServletResponse redirectResponse = new MockHttpServletResponse();
         filter.doFilterInternal(request, redirectResponse, chain);
 
@@ -104,8 +107,12 @@ class ReAuthenticationRequiredFilterTests {
         SessionUtils.setSavedRequestSession(session,
                 new UaaSavedRequestCache.ClientRedirectSavedRequest(continuation, continuationUrl));
         assertThat(SessionUtils.isForceIdpReauthentication(session)).isTrue();
+        assertThat(SessionUtils.isOidcReauthentication(session))
+                .isEqualTo(SessionUtils.OIDC_PROMPT_PARAMETER.equals(promptParameter));
+        assertThat(SessionUtils.isSamlReauthentication(session))
+                .isEqualTo(SessionUtils.SAML_PROMPT_PARAMETER.equals(promptParameter));
         assertThat(UriComponentsBuilder.fromUriString(continuationUrl).build().getQueryParams())
-                .doesNotContainKey("prompt");
+                .doesNotContainKeys("prompt", "oidc_prompt", "saml_prompt");
 
         MockHttpServletRequest nextAuthorization = new MockHttpServletRequest("GET", "/oauth/authorize");
         nextAuthorization.setServletPath("/oauth/authorize");
@@ -120,10 +127,10 @@ class ReAuthenticationRequiredFilterTests {
     void shouldRejectSavedRequestFromAnotherAuthorization() {
         MockHttpSession session = new MockHttpSession();
         SessionUtils.startIdpReauthentication(session,
-                "http://localhost/oauth/authorize?client_id=first");
+                "http://localhost/oauth/authorize?client_id=first", true, false);
         SessionUtils.setSavedRequestSession(session,
                 new UaaSavedRequestCache.ClientRedirectSavedRequest(request,
-                        "http://localhost/oauth/authorize?client_id=second"));
+                "http://localhost/oauth/authorize?client_id=second"));
         assertThat(SessionUtils.isForceIdpReauthentication(session)).isFalse();
     }
 
@@ -136,8 +143,7 @@ class ReAuthenticationRequiredFilterTests {
         request.setParameter("scope", "openid");
         filter.doFilterInternal(request, response, chain);
         verify(chain, never()).doFilter(same(request), same(response));
-        // verify that the redirect was happening and the url does not contain the
-        // max_age parameter
+        // verify that the redirect was happening and the url does not contain the max_age parameter
         verify(response, times(1)).sendRedirect(matches("^((?!max_age).)*$"));
     }
 

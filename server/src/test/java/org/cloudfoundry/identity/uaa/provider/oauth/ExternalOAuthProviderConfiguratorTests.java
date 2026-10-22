@@ -579,6 +579,24 @@ class ExternalOAuthProviderConfiguratorTests {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = { "select_account", "none", "login" })
+    void shouldOverrideStaticPromptOnlyForExplicitReauthentication(String staticPrompt) {
+        when(mockUaaRandomStringUtil.getSecureRandom(anyInt())).thenReturn("random-state");
+        oidc.setAdditionalAuthzParameters(Map.of("prompt", staticPrompt, "token_format", "jwt"));
+
+        String forcedUrl = configurator.getIdpAuthenticationUrl(
+                oidc, OIDC10, mockHttpServletRequest, true);
+        var forcedParameters = UriComponentsBuilder.fromUriString(forcedUrl).build().getQueryParams();
+        assertThat(forcedParameters.get("prompt")).containsExactly("login");
+        assertThat(forcedParameters.get("token_format")).containsExactly("jwt");
+
+        String ordinaryUrl = configurator.getIdpAuthenticationUrl(oidc, OIDC10, mockHttpServletRequest);
+        var ordinaryParameters = UriComponentsBuilder.fromUriString(ordinaryUrl).build().getQueryParams();
+        assertThat(ordinaryParameters.get("prompt")).containsExactly(staticPrompt);
+        assertThat(oidc.getAdditionalAuthzParameters()).containsEntry("prompt", staticPrompt);
+    }
+
+    @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void idpWithAliasExistsInZone(final boolean resultFromDelegate) {
         final String zoneId = RANDOM_STRING_GENERATOR.generate();

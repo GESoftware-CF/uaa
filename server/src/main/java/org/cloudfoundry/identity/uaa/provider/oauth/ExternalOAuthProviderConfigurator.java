@@ -121,9 +121,8 @@ public class ExternalOAuthProviderConfigurator implements IdentityProviderProvis
 
             Map<String, String> additionalParameters = ofNullable(((OIDCIdentityProviderDefinition) definition).getAdditionalAuthzParameters()).orElse(emptyMap());
             additionalParameters.keySet().forEach(e -> uriBuilder.queryParam(e, additionalParameters.get(e)));
-            // a statically configured prompt takes precedence
-            if (forceReauthentication && !additionalParameters.containsKey("prompt")) {
-                uriBuilder.queryParam("prompt", "login");
+            if (forceReauthentication) {
+                uriBuilder.replaceQueryParam("prompt", "login");
             }
         }
 

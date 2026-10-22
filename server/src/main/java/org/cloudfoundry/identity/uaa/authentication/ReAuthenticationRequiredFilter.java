@@ -26,35 +26,44 @@ public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         boolean reAuthenticationRequired = false;
-        boolean promptLogin = false;
+        boolean authorizationRequest = request.getRequestURI()
+                .equals(request.getContextPath() + "/oauth/authorize");
+        boolean oidcLogin = authorizationRequest
+        && "login".equals(request.getParameter(SessionUtils.OIDC_PROMPT_PARAMETER));
+        boolean samlLogin = authorizationRequest
+        && "login".equals(request.getParameter(SessionUtils.SAML_PROMPT_PARAMETER));
         HashMap<String, String[]> requestParams = new HashMap<>(request.getParameterMap());
         if ("login".equals(request.getParameter("prompt"))) {
             reAuthenticationRequired = true;
-            promptLogin = true;
             requestParams.remove("prompt");
         }
-        if (request.getParameter("max_age") != null
-                && SecurityContextHolder.getContext().getAuthentication() instanceof UaaAuthentication auth
-                && (System.currentTimeMillis()
-                        - auth.getAuthenticatedTime()) > (Long.parseLong(request.getParameter("max_age")) * 1000)) {
+        if (oidcLogin || samlLogin) {
             reAuthenticationRequired = true;
-            requestParams.remove("max_age");
+            requestParams.remove(SessionUtils.OIDC_PROMPT_PARAMETER);
+            requestParams.remove(SessionUtils.SAML_PROMPT_PARAMETER);
+        }
+        if (request.getParameter("max_age") != null
+            && SecurityContextHolder.getContext().getAuthentication() instanceof UaaAuthentication auth
+            && (System.currentTimeMillis() - auth.getAuthenticatedTime()) > (Long.parseLong(request.getParameter("max_age")) * 1000))
+        {
+                reAuthenticationRequired = true;
+                requestParams.remove("max_age");
         }
         if (reAuthenticationRequired) {
             request.getSession().invalidate();
             String redirectUrl = buildRedirectUrl(request.getRequestURL().toString(), requestParams);
-            if (promptLogin) {
-                redirectUrl = SessionUtils.startIdpReauthentication(request.getSession(true), redirectUrl);
+            if (oidcLogin || samlLogin) {
+                redirectUrl = SessionUtils.startIdpReauthentication(
+                        request.getSession(true), redirectUrl, oidcLogin, samlLogin);
             }
             response.sendRedirect(redirectUrl);
         } else {
-            if ("/oauth/authorize".equals(request.getServletPath())) {
+            if (authorizationRequest) {
                 var authentication = SecurityContextHolder.getContext().getAuthentication();
                 boolean authenticated = authentication != null && authentication.isAuthenticated()
-                        && !(authentication instanceof AnonymousAuthenticationToken);
+                && !(authentication instanceof AnonymousAuthenticationToken);
                 if (authenticated || !SessionUtils.isForceIdpReauthentication(
                         request.getSession(false), UrlUtils.buildFullRequestUrl(request))) {
                     SessionUtils.clearForceIdpReauthentication(request.getSession(false));
