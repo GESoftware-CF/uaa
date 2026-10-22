@@ -387,7 +387,6 @@ public class LoginInfoEndpoint {
                     idpForRedirect.getValue(), idpForRedirect.getKey(), request
             );
             if (externalRedirect != null) {
-                SessionUtils.clearForceIdpReauthentication(session);
                 log.debug("Following external redirect : {}", externalRedirect);
                 return externalRedirect;
             }
@@ -498,7 +497,6 @@ public class LoginInfoEndpoint {
                 );
         model.addAttribute(OAUTH_LINKS, oauthLinks.entrySet().stream().sorted(Map.Entry.comparingByValue(String::compareToIgnoreCase)).toList());
         model.addAttribute("clientName", clientName);
-        SessionUtils.clearForceIdpReauthentication(request.getSession(false));
     }
 
     private void setJsonInfo(
