@@ -73,9 +73,10 @@ class ReAuthenticationRequiredFilterTests {
         request.setParameter("scope", "openid");
         filter.doFilterInternal(request, response, chain);
         verify(chain, never()).doFilter(same(request), same(response));
-        // verify that the redirect is happening and the redirect url does not contain the prompt parameter
+        // verify that the redirect is happening and the redirect url does not contain
+        // the prompt parameter
         verify(response, times(1)).sendRedirect(matches("^((?!prompt).)*$"));
-        assertThat(request.getSession(false).getAttribute(SessionUtils.FORCE_IDP_REAUTHENTICATION)).isNull();
+        assertThat(request.getSession(false)).isNull();
     }
 
     @Test
@@ -130,7 +131,7 @@ class ReAuthenticationRequiredFilterTests {
                 "http://localhost/oauth/authorize?client_id=first", true, false);
         SessionUtils.setSavedRequestSession(session,
                 new UaaSavedRequestCache.ClientRedirectSavedRequest(request,
-                "http://localhost/oauth/authorize?client_id=second"));
+                        "http://localhost/oauth/authorize?client_id=second"));
         assertThat(SessionUtils.isForceIdpReauthentication(session)).isFalse();
     }
 
@@ -143,7 +144,8 @@ class ReAuthenticationRequiredFilterTests {
         request.setParameter("scope", "openid");
         filter.doFilterInternal(request, response, chain);
         verify(chain, never()).doFilter(same(request), same(response));
-        // verify that the redirect was happening and the url does not contain the max_age parameter
+        // verify that the redirect was happening and the url does not contain the
+        // max_age parameter
         verify(response, times(1)).sendRedirect(matches("^((?!max_age).)*$"));
     }
 
