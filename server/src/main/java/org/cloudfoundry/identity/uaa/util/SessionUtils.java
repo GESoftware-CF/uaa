@@ -21,16 +21,18 @@ public final class SessionUtils {
     public static final String SAML_PROMPT_PARAMETER = "saml_prompt";
     private static final long IDP_REAUTHENTICATION_TIMEOUT = Duration.ofMinutes(5).toMillis();
 
-    // shadows org.springframework.security.web.savedrequest.HttpSessionRequestCache.SAVED_REQUEST
-    //         org.springframework.security.web.server.savedrequest.WebSessionServerRequestCache.DEFAULT_SAVED_REQUEST_ATTR
+    // shadows
+    // org.springframework.security.web.savedrequest.HttpSessionRequestCache.SAVED_REQUEST
+    // org.springframework.security.web.server.savedrequest.WebSessionServerRequestCache.DEFAULT_SAVED_REQUEST_ATTR
     //
     public static final String SAVED_REQUEST_SESSION_ATTRIBUTE = "SPRING_SECURITY_SAVED_REQUEST";
 
-    // shadows org.springframework.security.web.context.HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY
-    //         org.springframework.security.web.server.context.WebSessionServerSecurityContextRepository.DEFAULT_SPRING_SECURITY_CONTEXT_ATTR_NAME
-    //         org.springframework.session.jdbc.JdbcIndexedSessionRepository.SPRING_SECURITY_CONTEXT
-    //         org.springframework.session.PrincipalNameIndexResolver.SPRING_SECURITY_CONTEXT
-    //         org.springframework.session.security.SpringSessionBackedSessionInformation.SPRING_SECURITY_CONTEXT
+    // shadows
+    // org.springframework.security.web.context.HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY
+    // org.springframework.security.web.server.context.WebSessionServerSecurityContextRepository.DEFAULT_SPRING_SECURITY_CONTEXT_ATTR_NAME
+    // org.springframework.session.jdbc.JdbcIndexedSessionRepository.SPRING_SECURITY_CONTEXT
+    // org.springframework.session.PrincipalNameIndexResolver.SPRING_SECURITY_CONTEXT
+    // org.springframework.session.security.SpringSessionBackedSessionInformation.SPRING_SECURITY_CONTEXT
     public static final String SPRING_SECURITY_CONTEXT = "SPRING_SECURITY_CONTEXT";
 
     private static final String EXTERNAL_OAUTH_STATE_ATTRIBUTE_PREFIX = "external-oauth-state-";
@@ -41,11 +43,12 @@ public final class SessionUtils {
 
     public static String startIdpReauthentication(HttpSession session, String authorizationUrl,
             boolean oidcLogin, boolean samlLogin) {
+        String continuationToken = UUID.randomUUID().toString();
         String continuationUrl = UriComponentsBuilder.fromUriString(authorizationUrl)
-                .replaceQueryParam(IDP_REAUTHENTICATION_PARAMETER, UUID.randomUUID().toString())
+                .replaceQueryParam(IDP_REAUTHENTICATION_PARAMETER, continuationToken)
                 .build().toUriString();
         session.setAttribute(FORCE_IDP_REAUTHENTICATION, new IdpReauthentication(
-                continuationUrl, System.currentTimeMillis() + IDP_REAUTHENTICATION_TIMEOUT,
+                continuationToken, System.currentTimeMillis() + IDP_REAUTHENTICATION_TIMEOUT,
                 oidcLogin, samlLogin));
         return continuationUrl;
     }
@@ -65,16 +68,6 @@ public final class SessionUtils {
     }
 
     private static IdpReauthentication getIdpReauthentication(HttpSession session) {
-        SavedRequest savedRequest = session == null ? null : getSavedRequestSession(session);
-        return savedRequest == null ? null
-                : getIdpReauthentication(session, savedRequest.getRedirectUrl());
-    }
-
-    public static boolean isForceIdpReauthentication(HttpSession session, String authorizationUrl) {
-        return getIdpReauthentication(session, authorizationUrl) != null;
-    }
-
-    private static IdpReauthentication getIdpReauthentication(HttpSession session, String authorizationUrl) {
         if (session == null
                 || !(session.getAttribute(FORCE_IDP_REAUTHENTICATION) instanceof IdpReauthentication pending)) {
             return null;
@@ -83,7 +76,21 @@ public final class SessionUtils {
             clearForceIdpReauthentication(session);
             return null;
         }
-        return pending.authorizationUrl().equals(authorizationUrl) ? pending : null;
+        return pending;
+    }
+
+    public static boolean isForceIdpReauthentication(HttpSession session, String authorizationUrl) {
+        return getIdpReauthentication(session, authorizationUrl) != null;
+    }
+
+    private static IdpReauthentication getIdpReauthentication(HttpSession session, String authorizationUrl) {
+        IdpReauthentication pending = getIdpReauthentication(session);
+        if (pending == null) {
+            return null;
+        }
+        String continuationToken = UriComponentsBuilder.fromUriString(authorizationUrl)
+                .build().getQueryParams().getFirst(IDP_REAUTHENTICATION_PARAMETER);
+        return pending.continuationToken().equals(continuationToken) ? pending : null;
     }
 
     public static void clearForceIdpReauthentication(HttpSession session) {
@@ -92,9 +99,9 @@ public final class SessionUtils {
         }
     }
 
-    private record IdpReauthentication(String authorizationUrl, long expiresAt,
+    private record IdpReauthentication(String continuationToken, long expiresAt,
             boolean oidcLogin, boolean samlLogin)
-    implements Serializable {
+            implements Serializable {
     }
 
     public static boolean isPasswordChangeRequired(HttpSession session) {
@@ -105,7 +112,8 @@ public final class SessionUtils {
         }
 
         if (!(passwordChangeRequired instanceof Boolean)) {
-            throw new IllegalArgumentException("The %s attribute on the session must be a Boolean".formatted(PASSWORD_CHANGE_REQUIRED));
+            throw new IllegalArgumentException(
+                    "The %s attribute on the session must be a Boolean".formatted(PASSWORD_CHANGE_REQUIRED));
         }
 
         return (Boolean) passwordChangeRequired;
