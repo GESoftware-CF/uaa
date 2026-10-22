@@ -55,6 +55,8 @@ public class ReAuthenticationRequiredFilter extends OncePerRequestFilter {
             request.getSession().invalidate();
             String redirectUrl = buildRedirectUrl(request.getRequestURL().toString(), requestParams);
             if (oidcLogin || samlLogin) {
+                // Otherwise the repository saves the still-authenticated context into the new session.
+                SecurityContextHolder.clearContext();
                 redirectUrl = SessionUtils.startIdpReauthentication(
                         request.getSession(true), redirectUrl, oidcLogin, samlLogin);
             }

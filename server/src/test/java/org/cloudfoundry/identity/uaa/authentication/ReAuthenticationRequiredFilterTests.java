@@ -79,6 +79,19 @@ class ReAuthenticationRequiredFilterTests {
         assertThat(request.getSession(false)).isNull();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = { "oidc_prompt", "saml_prompt" })
+    void shouldNotKeepAuthenticatedUserAfterIdpReauthenticationRedirect(String promptParameter) throws Exception {
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        request.setRequestURI("/oauth/authorize");
+        request.setServletPath("/oauth/authorize");
+        request.setParameter(promptParameter, "login");
+
+        filter.doFilterInternal(request, new MockHttpServletResponse(), chain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
     @Test
     void request_with_prompt_none() throws Exception {
         SecurityContextHolder.getContext().setAuthentication(authentication);
