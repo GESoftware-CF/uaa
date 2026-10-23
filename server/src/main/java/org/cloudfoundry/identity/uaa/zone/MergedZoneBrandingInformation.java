@@ -61,6 +61,11 @@ public final class MergedZoneBrandingInformation implements BrandingInformationS
         return resolve(BrandingInformationSource::getFooterLinks);
     }
 
+    @Override
+    public String getBackgroundImageUrl() {
+        return resolve(BrandingInformationSource::getBackgroundImageUrl);
+    }
+
     private static <T> T resolve(Function<BrandingInformationSource, T> brandingProperty) {
         return
                 tryGet(IdentityZoneHolder.get(), brandingProperty)

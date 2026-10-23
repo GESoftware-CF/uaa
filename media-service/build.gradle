@@ -1,0 +1,40 @@
+description = "CloudFoundry Identity Media Service JAR"
+
+dependencies {
+    implementation(project(":cloudfoundry-identity-server"))
+    implementation(project(":cloudfoundry-identity-model"))
+
+    implementation(libraries.springBootStarter)
+    implementation(libraries.springBootStarterWeb) {
+        exclude(group: "org.glassfish", module: "jakarta.el")
+    }
+    implementation(libraries.springJdbc)
+    implementation(libraries.springSecurityCore)
+    implementation(libraries.springSecurityWeb)
+    implementation(libraries.springSecurityConfig)
+
+    implementation(libraries.jacksonDatabind)
+    implementation(libraries.slf4jApi)
+
+    // AWS SDK v2 (synchronous client only for MVP)
+    implementation(platform(libraries.awsSdkV2Bom))
+    implementation("software.amazon.awssdk:s3")
+    implementation("software.amazon.awssdk:sts")  // Required for IRSA/WebIdentityTokenCredentialsProvider on EKS
+
+    compileOnly(libraries.lombok)
+    annotationProcessor(libraries.lombok)
+
+    testImplementation(libraries.springBootStarterTest) {
+        exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+    }
+    testImplementation(libraries.springSecurityTest)
+    testImplementation(libraries.mockitoJunit5)
+    testImplementation(libraries.hamcrest)
+    testImplementation(libraries.junit5JupiterApi)
+    testImplementation(libraries.junit5JupiterParams)
+    testImplementation(libraries.junit5JupiterEngine)
+}
+
+integrationTest {}.onlyIf {
+    false // TODO: Enable when integration tests are written
+}
