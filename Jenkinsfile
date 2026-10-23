@@ -662,7 +662,7 @@ pipeline
                     stage('Quality Gate') {
                         steps {
                             timeout(time: 5, unit: 'MINUTES') {
-                                waitForQualityGate abortPipeline: false
+                                waitForQualityGate abortPipeline: true
                             } // abortPipeline is set to false else all builds will fail due to less coverage percentage
                         }
                     }
