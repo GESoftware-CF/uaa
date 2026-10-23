@@ -57,12 +57,13 @@
             th:src="@{/resources/javascripts/browser-loader.js}"></script>
 
     <!-- Override CSS background with S3 URL (zone-specific → default property); omitted when no URL is configured. -->
-    <style th:if="${resolvedBackgroundImageUrl != null}" th:inline="text">
+    <style th:inline="text">
         html {
-          background: url("[(${resolvedBackgroundImageUrl})]") no-repeat center center fixed !important;
-            background-size: cover !important;
-        }
+        background: url("[(${resolvedBackgroundImageUrl ?: '../images/background-image.jpg'})]") no-repeat center center fixed !important;
+        background-size: cover !important;
+      }
     </style>
+
   </head>
 <body class="predix-uaa">
 
