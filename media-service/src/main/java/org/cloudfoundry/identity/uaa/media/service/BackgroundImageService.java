@@ -16,6 +16,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.core.exception.SdkServiceException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,6 +26,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 
 /**
@@ -35,7 +38,9 @@ import java.util.regex.Pattern;
  * ({@code uploadedAt}, {@code uploadedBy}). The full CloudFront URL is built from configuration
  * at read time. Zones without a valid image get {@code {basePath}/defaultimage.jpg}.
  *
- * <p>Transient S3 failures are retried by the AWS SDK client configured in {@link S3StorageManager}.
+ * <p>Uploads are retried up to {@link #MAX_UPLOAD_ATTEMPTS} times, but only for transient S3
+ * failures (5xx, throttling, timeouts, network errors). Permanent failures such as 403 fail
+ * immediately without retrying.
  */
 @Service
 @ConditionalOnProperty(name = {"AWS_REGION", "BACKGROUND_IMAGE_STORAGE_BUCKET",
@@ -47,6 +52,9 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
 
     /** Fallback image at {basePath}/defaultimage.jpg, uploaded once per environment outside the app. */
     private static final String DEFAULT_IMAGE_NAME = "defaultimage.jpg";
+
+    private static final int MAX_UPLOAD_ATTEMPTS = 3;
+    private static final long RETRY_BASE_DELAY_MS = 300;
 
     /** e.g. int/iam/uaa/background_images (no leading or trailing slash). */
     private static final Pattern BASE_PATH_PATTERN =
@@ -131,11 +139,7 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
         String s3Key = keyPrefix + storedValue;
 
         logger.info("Uploading background image: bucket={}, key={}, contentType={}", bucket, s3Key, contentType);
-        try (InputStream in = file.getInputStream()) {
-            s3StorageManager.upload(bucket, s3Key, in, size, contentType);
-        } catch (IOException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unable to read uploaded image", e);
-        }
+        uploadWithRetry(file, s3Key, contentType);
 
         String previousValue;
         try {
@@ -160,6 +164,68 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
         resolveManagedKey(previousValue, zoneId)
                 .filter(previousKey -> !previousKey.equals(s3Key))
                 .ifPresent(this::deleteQuietly);
+    }
+
+    /**
+     * Uploads to S3, retrying up to {@link #MAX_UPLOAD_ATTEMPTS} times, but only for transient
+     * failures (5xx, throttling, timeouts, network errors). Permanent failures such as 403 fail
+     * immediately. A fresh input stream is opened for each attempt because a consumed stream
+     * cannot be re-read.
+     */
+    private void uploadWithRetry(MultipartFile file, String s3Key, String contentType) {
+        for (int attempt = 1; ; attempt++) {
+            try (InputStream in = file.getInputStream()) {
+                s3StorageManager.upload(bucket, s3Key, in, file.getSize(), contentType);
+                return;
+            } catch (IOException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unable to read uploaded image", e);
+            } catch (RuntimeException e) {
+                boolean transientFailure = isTransient(e);
+                if (!transientFailure || attempt >= MAX_UPLOAD_ATTEMPTS) {
+                    logger.error("S3 upload failed: key={}, attempt={}/{}, transient={}",
+                            s3Key, attempt, MAX_UPLOAD_ATTEMPTS, transientFailure, e);
+                    throw new ResponseStatusException(
+                            transientFailure ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.BAD_GATEWAY,
+                            "Image storage is currently unavailable", e);
+                }
+                logger.warn("S3 upload attempt {}/{} failed for key={}; retrying",
+                        attempt, MAX_UPLOAD_ATTEMPTS, s3Key, e);
+                sleepBeforeRetry(attempt);
+            }
+        }
+    }
+
+    /** Walks the cause chain because the storage manager wraps the SDK exception in a RuntimeException. */
+    private static boolean isTransient(Throwable error) {
+        for (Throwable t = error; t != null; t = t.getCause()) {
+            if (t instanceof SdkServiceException service) {
+                int status = service.statusCode();
+                return status >= 500 || status == 429 || status == 408;
+            }
+            if (t instanceof SdkClientException) {
+                return true; // timeouts, connection resets
+            }
+        }
+        return false; // unknown errors are not retried
+    }
+
+    private static void sleepBeforeRetry(int attempt) {
+        long delay = RETRY_BASE_DELAY_MS * (1L << (attempt - 1)) + ThreadLocalRandom.current().nextLong(100);
+        try {
+            Thread.sleep(delay);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Upload interrupted", ie);
+        }
+    }
+
+    /** Removes the replaced image. Never fails the request, since the new image is already live. */
+    private void deleteQuietly(String s3Key) {
+        try {
+            s3StorageManager.delete(bucket, s3Key);
+        } catch (RuntimeException e) {
+            logger.warn("Could not delete S3 object key={}; it may be orphaned", s3Key, e);
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -242,14 +308,6 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
     private static boolean isValidStoredValue(String stored, String zoneId) {
         String prefix = zoneId + "/";
         return stored.startsWith(prefix) && IMAGE_NAME_PATTERN.matcher(stored.substring(prefix.length())).matches();
-    }
-
-    private void deleteQuietly(String s3Key) {
-        try {
-            s3StorageManager.delete(bucket, s3Key);
-        } catch (RuntimeException e) {
-            logger.warn("Could not delete S3 object key={}; it may be orphaned", s3Key, e);
-        }
     }
 
     private static void validateZoneId(String zoneId) {
