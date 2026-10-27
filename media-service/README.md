@@ -89,6 +89,27 @@ Ensure file is PNG, JPEG, or WebP. Validation is based on the declared `Content-
 
 Ensure server version includes `restoreBrandingProperties()` fix (PR #751). A `PUT /identity-zones/{id}` request without `backgroundImageUrl` in the body no longer clears the stored URL.
 
+## Pangea audit
+
+Pangea forwarding is disabled by default. Configure `PANGEA_AUDIT_ENABLED=true` to enable it.
+
+| Variable | Description |
+|---|---|
+| `PANGEA_AUDIT_URL` | Full Pangea audit endpoint URL, used as provided |
+| `PANGEA_AUDIT_CONFIG_ID` | Pangea audit configuration ID |
+| `PANGEA_AUDIT_TOKEN` | Static Pangea API token; secret |
+| `PANGEA_AUDIT_APP_NAME` | Application name; defaults to `uaa` |
+| `PANGEA_AUDIT_RETRY_COUNTER` | Maximum result-poll attempts; defaults to `5` |
+| `PANGEA_AUDIT_RETRY_INTERVAL_MS` | Delay between `202` result polls; defaults to `500` ms |
+| `PANGEA_AUDIT_CONNECT_TIMEOUT_MS` | HTTP connect timeout; defaults to `2000` ms |
+| `PANGEA_AUDIT_READ_TIMEOUT_MS` | HTTP read timeout; defaults to `5000` ms |
+| `PANGEA_AUDIT_VAULT_URI` | Vault endpoint used to retrieve the Pangea token |
+| `PANGEA_AUDIT_VAULT_TOKEN` | Vault API token; secret |
+| `PANGEA_AUDIT_VAULT_TOKEN_ID` | Vault item ID containing the Pangea token |
+| `PANGEA_AUDIT_VAULT_TOKEN_REFRESH_MINUTES` | Cached-token refresh period; defaults to `720`, valid range `1`–`1440` |
+
+Configure either `PANGEA_AUDIT_TOKEN` or all three Vault values: `PANGEA_AUDIT_VAULT_URI`, `PANGEA_AUDIT_VAULT_TOKEN`, and `PANGEA_AUDIT_VAULT_TOKEN_ID`. Provide both token secrets through Kubernetes Secrets or a Secrets Manager integration. Do not put either token in `values.yaml`.
+
 ## License
 
 Apache License 2.0 (same as UAA)

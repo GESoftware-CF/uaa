@@ -1,11 +1,13 @@
 package org.cloudfoundry.identity.uaa.media.service;
 
 import org.cloudfoundry.identity.uaa.login.BackgroundImageUrlProvider;
+import org.cloudfoundry.identity.uaa.audit.AuditEventType;
 import org.cloudfoundry.identity.uaa.zone.BrandingInformation;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneProvisioning;
+import org.cloudfoundry.identity.uaa.zone.event.BackgroundImageAuditPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,6 +28,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 
@@ -72,6 +75,7 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
 
     private final S3StorageManager s3StorageManager;
     private final IdentityZoneProvisioning zoneProvisioning;
+    private final BackgroundImageAuditPublisher backgroundImageAuditPublisher;
     private final String bucket;
     private final long minFileSizeBytes;
     private final long maxFileSizeBytes;
@@ -87,7 +91,8 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
                                   @Value("${BACKGROUND_IMAGE_UPLOAD_MIN_SIZE_BYTES:1}") long minFileSizeBytes,
                                   @Value("${BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES}") long maxFileSizeBytes,
                                   @Value("${BACKGROUND_IMAGE_CLOUDFRONT_DOMAIN}") String cloudFrontDomain,
-                                  @Value("${BACKGROUND_IMAGE_BASE_PATH}") String basePath) {
+                                  @Value("${BACKGROUND_IMAGE_BASE_PATH}") String basePath,
+                                  BackgroundImageAuditPublisher backgroundImageAuditPublisher) {
         if (minFileSizeBytes <= 0 || minFileSizeBytes > maxFileSizeBytes) {
             throw new IllegalArgumentException(
                     "BACKGROUND_IMAGE_UPLOAD_MIN_SIZE_BYTES must be > 0 and <= BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES");
@@ -103,6 +108,7 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
         }
         this.s3StorageManager = s3StorageManager;
         this.zoneProvisioning = zoneProvisioning;
+        this.backgroundImageAuditPublisher = backgroundImageAuditPublisher;
         this.bucket = bucket;
         this.minFileSizeBytes = minFileSizeBytes;
         this.maxFileSizeBytes = maxFileSizeBytes;
@@ -116,6 +122,7 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
     // -------------------------------------------------------------------------
 
     public void uploadBackgroundImage(MultipartFile file, String zoneId) {
+        String operationId = UUID.randomUUID().toString();
         validateZoneId(zoneId);
         long size = file.getSize();
         if (size > maxFileSizeBytes) {
@@ -139,11 +146,20 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
         String s3Key = keyPrefix + storedValue;
 
         logger.info("Uploading background image: bucket={}, key={}, contentType={}", bucket, s3Key, contentType);
-        uploadWithRetry(file, s3Key, contentType);
+        try {
+            uploadWithRetry(file, s3Key, contentType);
+        } catch (RuntimeException e) {
+            Exception auditCause = rootCause(e);
+            publishAudit(() -> backgroundImageAuditPublisher.failed(AuditEventType.BackgroundImageUploadedEvent,
+                    zoneId, currentSubdomain(), operationId, storedValue, size, contentType, "s3Upload", auditCause), zoneId);
+            throw e;
+        }
 
         String previousValue;
+        AtomicReference<String> subdomain = new AtomicReference<>("-");
         try {
             IdentityZone zone = zoneProvisioning.retrieve(zoneId);
+            subdomain.set(zone.getSubdomain());
             IdentityZoneConfiguration config = zone.getConfig() != null ? zone.getConfig() : new IdentityZoneConfiguration();
             BrandingInformation branding = config.getBranding() != null ? config.getBranding() : new BrandingInformation();
             previousValue = branding.getBackgroundImageUrl();
@@ -156,14 +172,23 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
         } catch (RuntimeException e) {
             logger.error("DB update failed for zone={}; removing uploaded object key={}", zoneId, s3Key, e);
             deleteQuietly(s3Key);
+            publishAudit(() -> backgroundImageAuditPublisher.failed(AuditEventType.BackgroundImageUploadedEvent,
+                    zoneId, subdomain.get(), operationId, storedValue, size, contentType, "dbUpdate", e), zoneId);
             throw e;
         }
         logger.info("Stored image reference in zone config: zone={}, value={}", zoneId, storedValue);
 
         // The new image is already live; cleanup of the replaced one must never fail the request.
-        resolveManagedKey(previousValue, zoneId)
-                .filter(previousKey -> !previousKey.equals(s3Key))
-                .ifPresent(this::deleteQuietly);
+        Optional<String> previousKey = resolveManagedKey(previousValue, zoneId)
+                .filter(key -> !key.equals(s3Key));
+        if (previousKey.isPresent()) {
+            boolean previousDeleted = deleteQuietly(previousKey.get());
+            publishAudit(() -> backgroundImageAuditPublisher.replaced(zoneId, subdomain.get(), operationId, storedValue,
+                    previousValue, previousDeleted, size, contentType), zoneId);
+        } else {
+            publishAudit(() -> backgroundImageAuditPublisher.uploaded(
+                    zoneId, subdomain.get(), operationId, storedValue, size, contentType), zoneId);
+        }
     }
 
     /**
@@ -220,11 +245,21 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
     }
 
     /** Removes the replaced image. Never fails the request, since the new image is already live. */
-    private void deleteQuietly(String s3Key) {
+    private boolean deleteQuietly(String s3Key) {
         try {
             s3StorageManager.delete(bucket, s3Key);
+            return true;
         } catch (RuntimeException e) {
             logger.warn("Could not delete S3 object key={}; it may be orphaned", s3Key, e);
+            return false;
+        }
+    }
+
+    private void publishAudit(Runnable event, String zoneId) {
+        try {
+            event.run();
+        } catch (RuntimeException e) {
+            logger.warn("Could not publish background-image audit event for zone={}", zoneId, e);
         }
     }
 
@@ -239,6 +274,7 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
      * @return {@code true} if an image was removed, {@code false} if the zone had none
      */
     public boolean deleteBackgroundImage(String zoneId) {
+        String operationId = UUID.randomUUID().toString();
         validateZoneId(zoneId);
         IdentityZone zone = zoneProvisioning.retrieve(zoneId);
         Optional<String> stored = storedReference(zone);
@@ -251,11 +287,21 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
         branding.setBackgroundImageUrl(null);
         branding.setBackgroundImageUploadedAt(null);
         branding.setBackgroundImageUploadedBy(null);
-        zoneProvisioning.update(zone);
+        try {
+            zoneProvisioning.update(zone);
+        } catch (RuntimeException e) {
+            publishAudit(() -> backgroundImageAuditPublisher.failed(AuditEventType.BackgroundImageDeletedEvent,
+                    zoneId, zone.getSubdomain(), operationId, stored.get(), 0, "-", "dbUpdate", e), zoneId);
+            throw e;
+        }
         logger.info("Cleared background image reference from zone config: zoneId={}", zoneId);
 
-        resolveManagedKey(stored.get(), zoneId).ifPresentOrElse(this::deleteQuietly,
-                () -> logger.warn("Stored value is not a managed image reference; skipping S3 delete. zone={}", zoneId));
+        boolean s3Deleted = resolveManagedKey(stored.get(), zoneId).map(this::deleteQuietly).orElse(false);
+        if (!s3Deleted) {
+            logger.warn("Stored value is not managed or S3 deletion failed; zoneId={}", zoneId);
+        }
+        publishAudit(() -> backgroundImageAuditPublisher.deleted(
+                zoneId, zone.getSubdomain(), operationId, stored.get(), s3Deleted), zoneId);
         return true;
     }
 
@@ -319,6 +365,24 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
     private static String resolveUploader() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         return auth != null && auth.getName() != null ? auth.getName() : "unknown";
+    }
+
+    private static String currentSubdomain() {
+        try {
+            IdentityZone zone = IdentityZoneHolder.get();
+            return zone == null || zone.getSubdomain() == null || zone.getSubdomain().isBlank()
+                    ? "-" : zone.getSubdomain();
+        } catch (RuntimeException e) {
+            return "-";
+        }
+    }
+
+    private static Exception rootCause(Exception exception) {
+        Throwable cause = exception;
+        while (cause.getCause() != null && cause.getCause() != cause) {
+            cause = cause.getCause();
+        }
+        return cause instanceof Exception root ? root : exception;
     }
 
     private static String resolveContentType(MultipartFile file) {
