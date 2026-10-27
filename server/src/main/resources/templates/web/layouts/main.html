@@ -2,10 +2,11 @@
 <html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" dir="ltr" lang="en"
       th:with="assetBaseUrl=${@environment.getProperty('assetBaseUrl','/resources/oss')},
                 predixBaseUrl=${@environment.getProperty('predixBaseUrl','/resources/predix')},
+                modelUrl=${backgroundImageUrl},
+                staticBaseUrl=${predixBaseUrl},
                 isUaa=${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).isUaa()},
                 zoneName=${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).get()?.getName()},
                 branding=${T(org.cloudfoundry.identity.uaa.zone.MergedZoneBrandingInformation).resolveBranding()},
-                resolvedBackgroundImageUrl=${backgroundImageUrl != null ? backgroundImageUrl : (branding.getBackgroundImageUrl() != null and branding.getBackgroundImageUrl().startsWith('https://') ? branding.getBackgroundImageUrl() : @environment.getProperty('background-image.default-url', null))},
                 companyName=${branding.getZoneCompanyName() ?: ''},
                 copyrightCompanyName=${branding.getCompanyName() ?: 'GE Vernova'},
                 copyrightFallback=${'Copyright &#169; ' + #dates.year(#dates.createNow()) + ' ' + copyrightCompanyName + ' and/or its affiliates. All rights reserved.'},
@@ -18,9 +19,16 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title th:text="${(companyName != null and !companyName.isEmpty()) ? companyName : zoneName}" th:inline="text"></title>
     <link href='/resources/oss/images/square-logo.png' th:with="icon=${branding.getSquareLogo()}" th:href="@{${icon != null and !icon.isEmpty() ? 'data:image/png;base64,'+icon : (assetBaseUrl + '/images/square-logo.png')}}" rel='shortcut icon' />
-    <!-- Preload background image: only when a zone-specific image is available -->
-    <th:block th:if="${resolvedBackgroundImageUrl != null}">
-        <link rel="preload" as="image" th:href="${resolvedBackgroundImageUrl}" />
+
+    <th:block th:fragment="background(modelUrl, staticBaseUrl)"
+          th:with="resolved=${modelUrl != null ? modelUrl : (staticBaseUrl + '/images/background-image.png')}">
+      <link rel="preload" as="image" th:href="${resolved}" />
+      <style th:inline="text">
+        html {
+          background: url("[(${resolved})]") no-repeat center center fixed !important;
+          background-size: cover !important;
+        }
+      </style>
     </th:block>
 
     <meta charset='utf-8' />
@@ -56,14 +64,7 @@
             src="/resources/javascripts/browser-loader.js"
             th:src="@{/resources/javascripts/browser-loader.js}"></script>
 
-    <!-- Override CSS background with S3 URL (zone-specific → default property); omitted when no URL is configured. -->
-    <style th:if="${resolvedBackgroundImageUrl != null}" th:inline="text">
-        html {
-          background: url("[(${resolvedBackgroundImageUrl})]") no-repeat center center fixed !important;
-            background-size: cover !important;
-        }
-    </style>
-  </head>
+</head>
 <body class="predix-uaa">
 
   <!-- Card Component -->

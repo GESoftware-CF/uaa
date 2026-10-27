@@ -17,14 +17,10 @@ import org.springframework.web.multipart.MultipartFile;
 /**
  * REST endpoint for background image management.
  *
- * <ul>
- *   <li>POST   /background_images/upload – upload image for current zone to S3,
- *       store public URL in identity_zone.config.branding.backgroundImageUrl</li>
- *   <li>DELETE /background_images        – delete the zone's background image</li>
- * </ul>
- *
- * <p>The login page reads the background image URL directly from the identity zone
- * configuration — no GET API is needed.
+ * <p>POST uploads a PNG or JPEG under a unique S3 key and stores its relative reference in
+ * {@code identity_zone.config.branding.backgroundImageUrl}. DELETE clears that reference and
+ * removes the object on a best-effort basis. The login URL is built from the stored reference at
+ * render time; when absent or invalid, the templates use their bundled static image.
  */
 @RestController
 @RequestMapping("/background_images")
@@ -46,13 +42,13 @@ public class BackgroundImageEndpoint {
     /**
      * Upload a background image for the current identity zone.
      *
-     * <p>The image is stored in S3 at the fixed key
-     * {@code uaa/{zoneId}/background-image} and the public URL (with a {@code ?v=} cache-buster)
-     * is persisted in the identity zone's config JSON at
-     * {@code config.branding.backgroundImageUrl}.
+        * <p>The image is stored in S3 at
+        * {@code {basePath}/{zoneId}/{timestamp}-{random}.{png|jpg}}. The database stores only the
+        * relative reference {@code {zoneId}/{timestamp}-{random}.{png|jpg}}; the CloudFront URL is
+        * constructed when the login page is rendered.
      *
-     * @param file multipart image file (PNG, JPEG, or WebP)
-     * @return 200 OK on success
+    * @param file multipart image file (PNG or JPEG)
+    * @return 200 OK with no response body on success
      */
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Void> uploadBackgroundImage(

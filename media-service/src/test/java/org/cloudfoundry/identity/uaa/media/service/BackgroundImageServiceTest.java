@@ -9,7 +9,6 @@ import org.cloudfoundry.identity.uaa.zone.IdentityZoneProvisioning;
 import org.cloudfoundry.identity.uaa.zone.event.BackgroundImageAuditPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -67,14 +66,6 @@ class BackgroundImageServiceTest {
     void setUp() {
         service = new BackgroundImageService(storage, zones, BUCKET, 1, MAX_SIZE,
                 CLOUDFRONT, BASE_PATH, auditPublisher);
-        IdentityZoneHolder.set(zone(null));
-        SecurityContextHolder.clearContext();
-    }
-
-    @AfterEach
-    void tearDown() {
-        IdentityZoneHolder.clear();
-        SecurityContextHolder.clearContext();
         IdentityZoneHolder.set(zone(null));
         SecurityContextHolder.clearContext();
     }
@@ -327,28 +318,25 @@ class BackgroundImageServiceTest {
     @ParameterizedTest
     @ValueSource(strings = {"  ", "another-zone/1792387343803-97c57c94.jpg",
             "https://legacy.example.com/image.jpg"})
-    void getBackgroundImageUrlUsesDefaultForBlankForeignAndLegacyValues(String value) {
+    void getBackgroundImageUrlIsEmptyForBlankForeignAndLegacyValues(String value) {
         IdentityZoneHolder.set(zone(value));
 
-        assertThat(service.getBackgroundImageUrl())
-                .isEqualTo(Optional.of("https://" + CLOUDFRONT + "/" + BASE_PATH + "/defaultimage.jpg"));
+        assertThat(service.getBackgroundImageUrl()).isEmpty();
     }
 
     @Test
-    void getBackgroundImageUrlUsesDefaultForNullValue() {
+    void getBackgroundImageUrlIsEmptyForNullValue() {
         IdentityZoneHolder.set(zone(null));
 
-        assertThat(service.getBackgroundImageUrl())
-                .isEqualTo(Optional.of("https://" + CLOUDFRONT + "/" + BASE_PATH + "/defaultimage.jpg"));
+        assertThat(service.getBackgroundImageUrl()).isEmpty();
     }
 
     @Test
-    void getBackgroundImageUrlUsesDefaultWhenZoneHolderThrows() {
+    void getBackgroundImageUrlIsEmptyWhenZoneHolderThrows() {
         try (var holder = mockStatic(IdentityZoneHolder.class)) {
             holder.when(IdentityZoneHolder::get).thenThrow(new IllegalStateException("zone unavailable"));
 
-            assertThat(service.getBackgroundImageUrl())
-                    .isEqualTo(Optional.of("https://" + CLOUDFRONT + "/" + BASE_PATH + "/defaultimage.jpg"));
+            assertThat(service.getBackgroundImageUrl()).isEmpty();
         }
     }
 

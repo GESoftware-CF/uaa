@@ -39,7 +39,7 @@ import java.util.regex.Pattern;
  * The database stores only the relative value {@code {zoneId}/{timestamp}-{random}.{ext}}
  * in {@code identity_zone.config.branding.backgroundImageUrl}, with audit metadata
  * ({@code uploadedAt}, {@code uploadedBy}). The full CloudFront URL is built from configuration
- * at read time. Zones without a valid image get {@code {basePath}/defaultimage.jpg}.
+ * at read time. If no valid reference exists, the login template uses its bundled static image.
  *
  * <p>Uploads are retried up to {@link #MAX_UPLOAD_ATTEMPTS} times, but only for transient S3
  * failures (5xx, throttling, timeouts, network errors). Permanent failures such as 403 fail
@@ -52,9 +52,6 @@ import java.util.regex.Pattern;
 public class BackgroundImageService implements BackgroundImageUrlProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(BackgroundImageService.class);
-
-    /** Fallback image at {basePath}/defaultimage.jpg, uploaded once per environment outside the app. */
-    private static final String DEFAULT_IMAGE_NAME = "defaultimage.jpg";
 
     private static final int MAX_UPLOAD_ATTEMPTS = 3;
     private static final long RETRY_BASE_DELAY_MS = 300;
@@ -83,7 +80,6 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
     private final String keyPrefix;
     /** {@code https://{cloudFrontDomain}/{basePath}/} */
     private final String imageUrlPrefix;
-    private final String defaultImageUrl;
 
     public BackgroundImageService(S3StorageManager s3StorageManager,
                                   IdentityZoneProvisioning zoneProvisioning,
@@ -114,7 +110,6 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
         this.maxFileSizeBytes = maxFileSizeBytes;
         this.keyPrefix = basePath + "/";
         this.imageUrlPrefix = "https://" + cloudFrontDomain.toLowerCase(Locale.ROOT) + "/" + keyPrefix;
-        this.defaultImageUrl = imageUrlPrefix + DEFAULT_IMAGE_NAME;
     }
 
     // -------------------------------------------------------------------------
@@ -310,8 +305,9 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
     // -------------------------------------------------------------------------
 
     /**
-     * Returns the CloudFront URL for the current zone's image, or the shared default image when the
-     * zone has no valid stored reference. Reads only the in-memory zone config; no S3 or extra DB call.
+        * Returns the CloudFront URL for the current zone's image, or empty when the zone has no valid
+        * stored reference. The login template uses its bundled static image when this is empty. Reads
+        * only the in-memory zone config; no S3 or extra DB call.
      */
     @Override
     public Optional<String> getBackgroundImageUrl() {
@@ -322,12 +318,13 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
                 if (isValidStoredValue(stored.get(), zone.getId())) {
                     return Optional.of(imageUrlPrefix + stored.get());
                 }
-                logger.warn("Invalid background image reference for zone={}; using default image", zone.getId());
+                logger.warn("Invalid image reference for zone={}; login template uses bundled static image",
+                    zone.getId());
             }
         } catch (RuntimeException e) {
-            logger.warn("Failed to resolve background image URL; using default image", e);
+            logger.warn("Could not resolve image URL; login template uses bundled static image", e);
         }
-        return Optional.of(defaultImageUrl);
+        return Optional.empty();
     }
 
     // -------------------------------------------------------------------------

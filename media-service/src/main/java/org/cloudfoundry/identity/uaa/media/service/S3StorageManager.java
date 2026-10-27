@@ -20,7 +20,7 @@ import java.io.InputStream;
  * Manages uploads and deletions to/from AWS S3.
  *
  * <p>Only the operations required by the background-image upload flow are exposed:
- * {@link #upload}, {@link #getDirectUrl}, and {@link #delete}.
+ * {@link #upload} and {@link #delete}.
  */
 @Service
 @ConditionalOnProperty(name = "AWS_REGION")
@@ -51,7 +51,7 @@ public class S3StorageManager {
         }
     }
 
-    /** 365 days — images are replaced in-place (same key), so long-lived caching is safe. */
+    /** 365 days — each upload gets a unique key, so long-lived caching is safe. */
     private static final String CACHE_CONTROL_ONE_YEAR = "public, max-age=31536000";
 
     /**
@@ -81,20 +81,6 @@ public class S3StorageManager {
             logger.error("S3 upload failed: bucket={}, key={}", bucket, key, e);
             throw new RuntimeException("Failed to upload image to S3", e);
         }
-    }
-
-    /**
-     * Build the plain, unsigned HTTPS URL for an S3 object.
-     *
-     * <p>Returns {@code https://{bucket}.s3.{region}.amazonaws.com/{key}}.
-     * The object must be publicly readable via bucket policy for this URL to resolve.
-     *
-     * @param bucket S3 bucket name
-     * @param key    S3 object key (pass an empty string to obtain just the bucket base URL)
-     * @return public HTTPS URL for the object
-     */
-    public String getDirectUrl(String bucket, String key) {
-        return String.format("https://%s.s3.%s.amazonaws.com/%s", bucket, awsRegion, key);
     }
 
     /**

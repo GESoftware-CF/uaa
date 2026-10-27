@@ -120,9 +120,6 @@ public class UaaConfiguration {
     public Integer clientMaxCount;
     public RateLimit ratelimit;
 
-    @Valid
-    public Map<String, Object> backgroundImage;
-
     // --- Added for external_idp YAML mapping ---
     @Valid
     private ExternalIdp external_idp;
@@ -367,8 +364,6 @@ public class UaaConfiguration {
             addPropertyAlias("user.override", Scim.class, "userOverride");
             addPropertyAlias("use-bcrypt-prefix", OAuthClient.class, "useBcryptPrefix");
             addPropertyAlias("external_idp", UaaConfiguration.class, "external_idp");
-            addPropertyAlias("background-image", UaaConfiguration.class, "backgroundImage");
-
         }
 
         @Override
