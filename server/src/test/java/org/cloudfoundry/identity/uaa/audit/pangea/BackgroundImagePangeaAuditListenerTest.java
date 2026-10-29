@@ -213,16 +213,22 @@ class BackgroundImagePangeaAuditListenerTest {
 
     private static Stream<Arguments> backgroundImageTypes() {
         return Stream.of(
-                Arguments.of(AuditEventType.BackgroundImageUploadedEvent, "BACKGROUND_IMAGE_UPLOADED"),
-                Arguments.of(AuditEventType.BackgroundImageReplacedEvent, "BACKGROUND_IMAGE_REPLACED"),
-                Arguments.of(AuditEventType.BackgroundImageDeletedEvent, "BACKGROUND_IMAGE_DELETED"));
+                Arguments.of(AuditEventType.BackgroundImageUploadedEvent,
+                        BackgroundImagePangeaAuditListener.ACTION_UPLOADED),
+                Arguments.of(AuditEventType.BackgroundImageReplacedEvent,
+                        BackgroundImagePangeaAuditListener.ACTION_REPLACED),
+                Arguments.of(AuditEventType.BackgroundImageDeletedEvent,
+                        BackgroundImagePangeaAuditListener.ACTION_DELETED));
     }
 
     private static Stream<Arguments> failureImageTypes() {
         return Stream.of(
-                Arguments.of(AuditEventType.BackgroundImageUploadedEvent, "BACKGROUND_IMAGE_UPLOAD_FAILED"),
-                Arguments.of(AuditEventType.BackgroundImageReplacedEvent, "BACKGROUND_IMAGE_UPLOAD_FAILED"),
-                Arguments.of(AuditEventType.BackgroundImageDeletedEvent, "BACKGROUND_IMAGE_DELETE_FAILED"));
+                Arguments.of(AuditEventType.BackgroundImageUploadedEvent,
+                        BackgroundImagePangeaAuditListener.ACTION_UPLOAD_FAILED),
+                Arguments.of(AuditEventType.BackgroundImageReplacedEvent,
+                        BackgroundImagePangeaAuditListener.ACTION_UPLOAD_FAILED),
+                Arguments.of(AuditEventType.BackgroundImageDeletedEvent,
+                        BackgroundImagePangeaAuditListener.ACTION_DELETE_FAILED));
     }
 
     private static BackgroundImageEvent event(AuditEventType type, Authentication authentication) {
