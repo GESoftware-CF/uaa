@@ -61,6 +61,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -1726,7 +1727,8 @@ class LoginInfoEndpointTests {
                 "",
                 globalLinks,
                 clientDetailsService,
-                mockSamlIdentityProviderConfigurator);
+                mockSamlIdentityProviderConfigurator,
+                Optional.empty());
         if (identityZone.getConfig() != null) {
             identityZone.getConfig().setPrompts(prompts);
         }

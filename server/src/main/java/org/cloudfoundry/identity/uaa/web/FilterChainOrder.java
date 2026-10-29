@@ -59,6 +59,9 @@ public class FilterChainOrder {
     // codestore-endpoints.xml: 900
     public static final int CODESTORE = 900;
 
+    // media-service (background images): 950
+    public static final int BACKGROUND_IMAGES = 950;
+
     // login-ui.xml: 1200
     public static final int AUTOLOGIN_CODE = 1200;
     public static final int AUTOLOGIN = 1201;

@@ -58,4 +58,40 @@ class MergedZoneBrandingInformationTest {
         BrandingInformationSource brandingInformationSource = MergedZoneBrandingInformation.resolveBranding();
         assertThat(defaultZoneBranding.getProductLogo()).isEqualTo(brandingInformationSource.getProductLogo());
     }
+
+    @Test
+    void getBackgroundImageUrlReturnsZoneSpecificUrl() {
+        IdentityZone testZone = new IdentityZone();
+        IdentityZoneHolder.set(testZone);
+        BrandingInformation branding = new BrandingInformation();
+        branding.setBackgroundImageUrl("https://s3.example.com/zone/background-image?v=1");
+        IdentityZoneHolder.get().getConfig().setBranding(branding);
+
+        BrandingInformationSource source = MergedZoneBrandingInformation.resolveBranding();
+        assertThat(source.getBackgroundImageUrl()).isEqualTo("https://s3.example.com/zone/background-image?v=1");
+    }
+
+    @Test
+    void getBackgroundImageUrlFallsBackToUaaZoneUrl() {
+        defaultZoneBranding.setBackgroundImageUrl("https://s3.example.com/default/background-image");
+        fakeUaa.getConfig().setBranding(defaultZoneBranding);
+
+        IdentityZone testZone = new IdentityZone();
+        testZone.getConfig().setBranding(new BrandingInformation()); // no backgroundImageUrl
+        IdentityZoneHolder.set(testZone);
+
+        BrandingInformationSource source = MergedZoneBrandingInformation.resolveBranding();
+        assertThat(source.getBackgroundImageUrl()).isEqualTo("https://s3.example.com/default/background-image");
+    }
+
+    @Test
+    void getBackgroundImageUrlReturnsNullWhenNeitherZoneHasUrl() {
+        IdentityZone testZone = new IdentityZone();
+        testZone.getConfig().setBranding(new BrandingInformation());
+        IdentityZoneHolder.set(testZone);
+        // fakeUaa has no backgroundImageUrl set (only productLogo)
+
+        BrandingInformationSource source = MergedZoneBrandingInformation.resolveBranding();
+        assertThat(source.getBackgroundImageUrl()).isNull();
+    }
 }

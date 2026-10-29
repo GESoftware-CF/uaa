@@ -364,7 +364,6 @@ public class UaaConfiguration {
             addPropertyAlias("user.override", Scim.class, "userOverride");
             addPropertyAlias("use-bcrypt-prefix", OAuthClient.class, "useBcryptPrefix");
             addPropertyAlias("external_idp", UaaConfiguration.class, "external_idp");
-
         }
 
         @Override
