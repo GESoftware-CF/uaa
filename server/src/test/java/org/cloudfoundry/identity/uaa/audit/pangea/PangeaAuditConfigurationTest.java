@@ -7,10 +7,11 @@ import org.springframework.context.annotation.Import;
 import org.springframework.core.env.SystemEnvironmentPropertySource;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.util.Throwables.getStackTraceAsString;
 
 class PangeaAuditConfigurationTest {
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
@@ -181,7 +182,9 @@ class PangeaAuditConfigurationTest {
     }
 
     private static String trace(org.springframework.boot.test.context.assertj.AssertableApplicationContext context) {
-        return getStackTraceAsString(context.getStartupFailure());
+        StringWriter writer = new StringWriter();
+        context.getStartupFailure().printStackTrace(new PrintWriter(writer));
+        return writer.toString();
     }
 
     private ApplicationContextRunner withPangeaEnvironment(Map<String, Object> variables) {
