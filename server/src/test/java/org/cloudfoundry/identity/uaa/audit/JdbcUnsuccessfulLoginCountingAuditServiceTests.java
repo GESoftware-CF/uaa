@@ -1,10 +1,14 @@
 package org.cloudfoundry.identity.uaa.audit;
 
 import org.cloudfoundry.identity.uaa.annotations.WithDatabaseContext;
+import org.cloudfoundry.identity.uaa.audit.event.AuditListener;
 import org.cloudfoundry.identity.uaa.util.TimeService;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
+import org.cloudfoundry.identity.uaa.zone.event.BackgroundImageEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -13,6 +17,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.sql.Timestamp;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.audit.AuditEventType.ClientAuthenticationFailure;
@@ -169,5 +174,31 @@ class JdbcUnsuccessfulLoginCountingAuditServiceTests {
 
     private AuditEvent getAuditEvent(AuditEventType type, String principal, String data) {
         return new AuditEvent(type, principal, authDetails, data, System.currentTimeMillis(), IdentityZone.getUaaZoneId(), null, null);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = AuditEventType.class,
+            names = {"BackgroundImageUploadedEvent", "BackgroundImageDeletedEvent"})
+    void shouldPersistBackgroundImageEventsThroughAuditListener(AuditEventType type) {
+        String zoneId = UUID.randomUUID().toString();
+        String successData = "outcome=SUCCESS; op=upload-or-delete";
+        String failureData = "outcome=FAILURE; op=upload-or-delete; stage=dbUpdate; reason=IllegalStateException";
+        AuditListener listener = new AuditListener(auditService);
+
+        try {
+            listener.onApplicationEvent(new BackgroundImageEvent(zoneId, type, successData, null));
+            listener.onApplicationEvent(new BackgroundImageEvent(zoneId, type, failureData, null));
+
+            List<AuditEvent> events = auditService.find(zoneId, 0, zoneId);
+            assertThat(events).hasSize(2);
+            assertThat(events).extracting(AuditEvent::getType).containsOnly(type);
+            assertThat(events).extracting(AuditEvent::getPrincipalId).containsOnly(zoneId);
+            assertThat(events).extracting(AuditEvent::getIdentityZoneId).containsOnly(zoneId);
+            assertThat(events).extracting(AuditEvent::getData)
+                    .containsExactlyInAnyOrder(successData, failureData);
+            assertThat(auditService.find(zoneId, 0, "different-zone")).isEmpty();
+        } finally {
+            jdbcTemplate.update("DELETE FROM sec_audit WHERE principal_id=? AND identity_zone_id=?", zoneId, zoneId);
+        }
     }
 }

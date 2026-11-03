@@ -14,5 +14,8 @@ class AuditEventTypeTests {
             assertThat(AuditEventType.fromCode(count)).isEqualTo(type);
             count++;
         }
+        assertThat(AuditEventType.BackgroundImageUploadedEvent.getCode()).isEqualTo(43);
+        assertThat(AuditEventType.BackgroundImageReplacedEvent.getCode()).isEqualTo(44);
+        assertThat(AuditEventType.BackgroundImageDeletedEvent.getCode()).isEqualTo(45);
     }
 }

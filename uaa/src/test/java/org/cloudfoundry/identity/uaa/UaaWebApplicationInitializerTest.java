@@ -3,6 +3,8 @@ package org.cloudfoundry.identity.uaa;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
@@ -13,6 +15,7 @@ import org.springframework.web.context.ContextLoaderListener;
 import org.springframework.web.context.support.StandardServletEnvironment;
 
 import jakarta.servlet.FilterRegistration;
+import jakarta.servlet.MultipartConfigElement;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRegistration;
@@ -20,6 +23,7 @@ import java.util.EventListener;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
@@ -27,7 +31,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class UaaWebApplicationInitializerTest {
+
+    private static final String TEST_MAX_UPLOAD_BYTES = "5242880";
+
     private UaaWebApplicationInitializer initializer;
+    private String maxUploadSize;
     private ConfigurableWebApplicationContext context;
     private StandardServletEnvironment environment;
     private ServletContext servletContext;
@@ -39,7 +47,17 @@ class UaaWebApplicationInitializerTest {
 
     @BeforeEach
     void setup() {
-        initializer = new UaaWebApplicationInitializer();
+        maxUploadSize = TEST_MAX_UPLOAD_BYTES;
+        // Subclass overrides getEnvVar() so no real env var is required during tests
+        initializer = new UaaWebApplicationInitializer() {
+            @Override
+            String getEnvVar(String name) {
+                if ("BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES".equals(name)) {
+                    return maxUploadSize;
+                }
+                return System.getenv(name);
+            }
+        };
         context = mock(ConfigurableWebApplicationContext.class);
         environment = new StandardServletEnvironment();
         servletContext = mock(ServletContext.class);
@@ -74,6 +92,42 @@ class UaaWebApplicationInitializerTest {
         assertThat(listeners.size()).isEqualTo(2);
         assertThat(listeners.getFirst()).isInstanceOf(HttpSessionEventPublisher.class);
         assertThat(listeners.get(1)).isInstanceOf(ContextLoaderListener.class);
+    }
+
+    @Test
+    void shouldConfigureMultipartWithMaxFileSizeFromEnvVar() throws ServletException {
+        initializer.onStartup(servletContext);
+
+        ArgumentCaptor<MultipartConfigElement> multipartCaptor =
+                ArgumentCaptor.forClass(MultipartConfigElement.class);
+        verify(servletRegistration).setMultipartConfig(multipartCaptor.capture());
+
+        MultipartConfigElement config = multipartCaptor.getValue();
+        assertThat(config.getMaxFileSize()).isEqualTo(Long.parseLong(TEST_MAX_UPLOAD_BYTES));
+        assertThat(config.getMaxRequestSize()).isEqualTo(Long.parseLong(TEST_MAX_UPLOAD_BYTES));
+        assertThat(config.getFileSizeThreshold()).isZero();
+    }
+
+    @Test
+    void shouldNotRequireMultipartEnvVarDuringStartup() throws ServletException {
+        maxUploadSize = null;
+
+        initializer.onStartup(servletContext);
+
+        Mockito.verify(servletRegistration, Mockito.never())
+                .setMultipartConfig(ArgumentMatchers.any(MultipartConfigElement.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"invalid", "0", "-1", "9223372036854775808"})
+    void shouldRejectInvalidMultipartLimit(String value) {
+        maxUploadSize = value;
+
+        assertThatThrownBy(() -> initializer.onStartup(servletContext))
+                .isInstanceOf(ServletException.class)
+                .hasMessage("BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES must be a positive integer");
+        Mockito.verify(servletRegistration, Mockito.never())
+                .setMultipartConfig(ArgumentMatchers.any(MultipartConfigElement.class));
     }
 
 }
