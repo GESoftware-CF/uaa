@@ -134,6 +134,7 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -1436,7 +1437,8 @@ class DeprecatedUaaTokenServicesTests {
         Authentication userAuthentication = tokenSupport.defaultUserAuthentication;
 
         OAuth2Authentication authentication = new OAuth2Authentication(authorizationRequest.createOAuth2Request(), userAuthentication);
-        when(tokenSupport.timeService.getCurrentTimeMillis()).thenReturn(1000L);
+        long fixedNow = tokenSupport.defaultUser.getPasswordLastModified().getTime() + 1000L;
+        doReturn(fixedNow).when(tokenSupport.timeService).getCurrentTimeMillis();
         OAuth2AccessToken accessToken = tokenServices.createAccessToken(authentication);
 
         assertThat(accessToken).is(matching(validFor(is(3600))));
