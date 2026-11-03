@@ -28,7 +28,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 
@@ -151,10 +150,10 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
         }
 
         String previousValue;
-        AtomicReference<String> subdomain = new AtomicReference<>("-");
+        String subdomain = "-";
         try {
             IdentityZone zone = zoneProvisioning.retrieve(zoneId);
-            subdomain.set(zone.getSubdomain());
+            subdomain = zone.getSubdomain();
             IdentityZoneConfiguration config = zone.getConfig() != null ? zone.getConfig() : new IdentityZoneConfiguration();
             BrandingInformation branding = config.getBranding() != null ? config.getBranding() : new BrandingInformation();
             previousValue = branding.getBackgroundImageUrl();
@@ -167,8 +166,9 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
         } catch (RuntimeException e) {
             logger.error("DB update failed for zone={}; removing uploaded object key={}", zoneId, s3Key, e);
             deleteQuietly(s3Key);
+            String failureSubdomain = subdomain;
             publishAudit(() -> backgroundImageAuditPublisher.failed(AuditEventType.BackgroundImageUploadedEvent,
-                    zoneId, subdomain.get(), operationId, storedValue, size, contentType, "dbUpdate", e), zoneId);
+                    zoneId, failureSubdomain, operationId, storedValue, size, contentType, "dbUpdate", e), zoneId);
             throw e;
         }
         logger.info("Stored image reference in zone config: zone={}, value={}", zoneId, storedValue);
@@ -176,13 +176,14 @@ public class BackgroundImageService implements BackgroundImageUrlProvider {
         // The new image is already live; cleanup of the replaced one must never fail the request.
         Optional<String> previousKey = resolveManagedKey(previousValue, zoneId)
                 .filter(key -> !key.equals(s3Key));
+        String auditSubdomain = subdomain;
         if (previousKey.isPresent()) {
             boolean previousDeleted = deleteQuietly(previousKey.get());
-            publishAudit(() -> backgroundImageAuditPublisher.uploaded(zoneId, subdomain.get(), operationId, storedValue,
+            publishAudit(() -> backgroundImageAuditPublisher.uploaded(zoneId, auditSubdomain, operationId, storedValue,
                     previousValue, previousDeleted, size, contentType), zoneId);
         } else {
             publishAudit(() -> backgroundImageAuditPublisher.uploaded(
-                    zoneId, subdomain.get(), operationId, storedValue, size, contentType), zoneId);
+                    zoneId, auditSubdomain, operationId, storedValue, size, contentType), zoneId);
         }
     }
 

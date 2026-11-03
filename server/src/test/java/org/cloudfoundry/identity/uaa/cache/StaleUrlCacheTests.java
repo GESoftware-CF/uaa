@@ -110,10 +110,14 @@ class StaleUrlCacheTests {
     @Test
     void entry_refreshes_after_time() throws URISyntaxException {
         when(mockTimeService.getCurrentTimeMillis()).thenAnswer(e -> ticker.nanos / 1_000_000); // Use ticker's value
+        CompletableFuture<Void> refreshStarted = new CompletableFuture<>();
         CompletableFuture<byte[]> refreshedContent = new CompletableFuture<>();
         when(mockRestTemplate.getForObject(eq(new URI(URL)), same(byte[].class)))
                 .thenReturn(content1)
-                .thenAnswer(invocation -> refreshedContent.join());
+                .thenAnswer(invocation -> {
+                    refreshStarted.complete(null);
+                    return refreshedContent.join();
+                });
 
         // populate the cache
         byte[] c1 = cache.getUrlContent(URL, mockRestTemplate);
@@ -126,10 +130,7 @@ class StaleUrlCacheTests {
             byte[] c2 = cache.getUrlContent(URL, mockRestTemplate);
             assertThat(c2).isSameAs(c1);
 
-            await().atMost(1, TimeUnit.SECONDS)
-                    .untilAsserted(() -> verify(mockRestTemplate, times(2))
-                            .getForObject(eq(new URI(URL)), same(byte[].class))
-                    );
+            await().atMost(1, TimeUnit.SECONDS).until(refreshStarted::isDone);
         } finally {
             refreshedContent.complete(content2);
         }
@@ -137,9 +138,10 @@ class StaleUrlCacheTests {
         // Allow time for the async update to caffeine's cache.
         await().atMost(1, TimeUnit.SECONDS)
                 .untilAsserted(() -> assertThat(cache.getUrlContent(URL, mockRestTemplate))
-                    .isSameAs(content2)
+                        .isSameAs(content2)
                         .isNotSameAs(c1)
                 );
+        verify(mockRestTemplate, times(2)).getForObject(eq(new URI(URL)), same(byte[].class));
     }
 
     @Test

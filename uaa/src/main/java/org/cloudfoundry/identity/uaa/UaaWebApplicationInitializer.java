@@ -65,7 +65,17 @@ public class UaaWebApplicationInitializer implements WebApplicationInitializer {
         String maxUploadSize = getEnvVar("BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES");
         if (maxUploadSize != null && !maxUploadSize.isBlank()) {
             // Enable multipart support for file uploads when k8s-deploy provides the limit.
-            long maxUploadSizeBytes = Long.parseLong(maxUploadSize);
+            long maxUploadSizeBytes;
+            try {
+                maxUploadSizeBytes = Long.parseLong(maxUploadSize);
+            } catch (NumberFormatException e) {
+                throw new ServletException(
+                        "BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES must be a positive integer", e);
+            }
+            if (maxUploadSizeBytes <= 0) {
+                throw new ServletException(
+                        "BACKGROUND_IMAGE_UPLOAD_MAX_SIZE_BYTES must be a positive integer");
+            }
             springRegistration.setMultipartConfig(new MultipartConfigElement(
                     "",        // location (temp dir)
                     maxUploadSizeBytes,

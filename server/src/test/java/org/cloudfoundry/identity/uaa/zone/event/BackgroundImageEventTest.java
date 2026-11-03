@@ -26,7 +26,7 @@ class BackgroundImageEventTest {
         String zoneId = "target-zone";
         String data = "outcome=SUCCESS; op=operation";
         var event = new BackgroundImageEvent(zoneId, AuditEventType.BackgroundImageUploadedEvent,
-            data, null, "SUCCESS", "operation");
+            data, null);
 
         AuditEvent audit = event.getAuditEvent();
 
@@ -39,26 +39,13 @@ class BackgroundImageEventTest {
     }
 
     @Test
-    void shouldExposeStructuredFieldsWithoutChangingAuditRecord() {
+    void shouldPreserveFailureDataInAuditRecord() {
         String data = "outcome=FAILURE; op=operation-2; stage=dbUpdate";
         var event = new BackgroundImageEvent("target-zone", AuditEventType.BackgroundImageDeletedEvent,
-            data, null, "FAILURE", "operation-2");
+            data, null);
 
         assertThat(event.getIdentityZoneId()).isEqualTo("target-zone");
         assertThat(event.getAuditEvent().getType()).isEqualTo(AuditEventType.BackgroundImageDeletedEvent);
-        assertThat(event.getOutcome()).isEqualTo("FAILURE");
-        assertThat(event.getOperationId()).isEqualTo("operation-2");
-        assertThat(event.getAuditEvent().getData()).isEqualTo(data);
-    }
-
-    @Test
-    void preservesExplicitOutcomeAndOperationId() {
-        String data = "outcome=SUCCESS; op=from-data";
-        var event = new BackgroundImageEvent("target-zone", AuditEventType.BackgroundImageUploadedEvent,
-                data, null, "FAILURE", "explicit-op");
-
-        assertThat(event.getOutcome()).isEqualTo("FAILURE");
-        assertThat(event.getOperationId()).isEqualTo("explicit-op");
         assertThat(event.getAuditEvent().getData()).isEqualTo(data);
     }
 
@@ -72,7 +59,7 @@ class BackgroundImageEventTest {
         LoggingAuditService service = spy(new LoggingAuditService());
         service.setLogger(logger);
         AuditListener listener = new AuditListener(service);
-        var event = new BackgroundImageEvent(zoneId, type, data, null, "SUCCESS", "operation");
+        var event = new BackgroundImageEvent(zoneId, type, data, null);
 
         listener.onApplicationEvent(event);
 
@@ -89,7 +76,7 @@ class BackgroundImageEventTest {
     @ParameterizedTest
     @EnumSource(value = AuditEventType.class,
             names = {"BackgroundImageUploadedEvent", "BackgroundImageDeletedEvent"})
-    void shouldPersistBackgroundImageEventsThroughJdbcListener(AuditEventType type) {
+    void shouldRequestJdbcInsertForBackgroundImageEvents(AuditEventType type) {
         String zoneId = "target-zone";
         JdbcTemplate template = mock(JdbcTemplate.class);
         AuditListener listener = new AuditListener(
@@ -97,7 +84,7 @@ class BackgroundImageEventTest {
 
         for (String outcome : new String[]{"SUCCESS", "FAILURE"}) {
             String data = "outcome=" + outcome + "; op=operation";
-            listener.onApplicationEvent(new BackgroundImageEvent(zoneId, type, data, null, outcome, "operation"));
+            listener.onApplicationEvent(new BackgroundImageEvent(zoneId, type, data, null));
 
             verify(template).update("insert into sec_audit (principal_id, event_type, origin, event_data, identity_zone_id) values (?,?,?,?,?)",
                     zoneId, type.getCode(), "", data, zoneId);

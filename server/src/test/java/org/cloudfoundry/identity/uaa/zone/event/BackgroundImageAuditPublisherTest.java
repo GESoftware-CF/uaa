@@ -39,8 +39,6 @@ class BackgroundImageAuditPublisherTest {
         publisher.uploaded("zone1", "subdomain", "op-1", "zone1/file.png", 123, "image/png");
 
         BackgroundImageEvent event = captureEvent();
-        assertThat(event.getOutcome()).isEqualTo("SUCCESS");
-        assertThat(event.getOperationId()).isEqualTo("op-1");
         assertThat(event.getAuditEvent().getType()).isEqualTo(AuditEventType.BackgroundImageUploadedEvent);
         assertThat(event.getAuditEvent().getPrincipalId()).isEqualTo("zone1");
         assertThat(event.getAuditEvent().getIdentityZoneId()).isEqualTo("zone1");
@@ -78,10 +76,8 @@ class BackgroundImageAuditPublisherTest {
                 new IllegalStateException("secret message must not be logged into audit data"));
 
         var event = captureEvent();
-        assertThat(event.getOutcome()).isEqualTo("FAILURE");
-        assertThat(event.getOperationId()).isEqualTo("op-4");
         assertThat(event.getAuditEvent().getType()).isEqualTo(AuditEventType.BackgroundImageUploadedEvent);
-        assertThat(event.getAuditEvent().getData()).contains("outcome=FAILURE", "stage=s3Upload",
+        assertThat(event.getAuditEvent().getData()).contains("outcome=FAILURE", "op=op-4", "stage=s3Upload",
                 "reason=IllegalStateException").doesNotContain("secret message");
     }
 
@@ -112,7 +108,10 @@ class BackgroundImageAuditPublisherTest {
         publisher.uploaded(zoneId, subdomain, operationId, object, object, false, 1234567, "image/jpeg");
 
         String data = captureEvent().getAuditEvent().getData();
-        assertThat(data).hasSize(300).contains("previousDeleted=false", "sizeBytes=1234567", "contentType=image/jpeg");
+        assertThat(data).hasSizeLessThanOrEqualTo(512)
+            .contains("outcome=SUCCESS", "op=" + operationId, "subdomain=" + subdomain,
+                "object=" + object, "previous=" + object, "previousDeleted=false",
+                "sizeBytes=1234567", "contentType=image/jpeg");
     }
 
     @Test

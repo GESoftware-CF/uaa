@@ -1436,7 +1436,7 @@ class DeprecatedUaaTokenServicesTests {
         Authentication userAuthentication = tokenSupport.defaultUserAuthentication;
 
         OAuth2Authentication authentication = new OAuth2Authentication(authorizationRequest.createOAuth2Request(), userAuthentication);
-        when(tokenSupport.timeService.getCurrentTimeMillis()).thenReturn(System.currentTimeMillis());
+        when(tokenSupport.timeService.getCurrentTimeMillis()).thenReturn(1000L);
         OAuth2AccessToken accessToken = tokenServices.createAccessToken(authentication);
 
         assertThat(accessToken).is(matching(validFor(is(3600))));

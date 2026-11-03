@@ -93,7 +93,7 @@ public class BackgroundImageAuditPublisher implements ApplicationEventPublisherA
         try {
             if (publisher != null) {
                 Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-                publisher.publishEvent(new BackgroundImageEvent(zoneId, type, data, authentication, outcome, operationId));
+                publisher.publishEvent(new BackgroundImageEvent(zoneId, type, data, authentication));
                 logger.info("Background image audit published type={} zoneId={} op={} outcome={}",
                     type, value(zoneId), value(operationId), value(outcome));
             }
