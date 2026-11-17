@@ -1,6 +1,5 @@
 package org.cloudfoundry.identity.uaa.invitations;
 
-import jakarta.annotation.PostConstruct;
 import org.cloudfoundry.identity.uaa.authentication.UaaPrincipal;
 import org.cloudfoundry.identity.uaa.authentication.manager.DynamicLdapAuthenticationManager;
 import org.cloudfoundry.identity.uaa.authentication.manager.DynamicZoneAwareAuthenticationManager;
@@ -20,6 +19,7 @@ import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.scim.ScimUserProvisioning;
 import org.cloudfoundry.identity.uaa.scim.exception.InvalidPasswordException;
 import org.cloudfoundry.identity.uaa.scim.validate.PasswordValidator;
+import org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository;
 import org.cloudfoundry.identity.uaa.user.UaaAuthority;
 import org.cloudfoundry.identity.uaa.user.UaaUser;
 import org.cloudfoundry.identity.uaa.user.UaaUserDatabase;
@@ -57,7 +57,6 @@ import org.springframework.web.context.ConfigurableWebApplicationContext;
 import org.springframework.web.servlet.config.annotation.DefaultServletHandlerConfigurer;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter;
 
 import java.net.URI;
 import java.sql.Timestamp;
@@ -68,8 +67,6 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.codestore.ExpiringCodeType.INVITATION;
 import static org.cloudfoundry.identity.uaa.constants.OriginKeys.LDAP;
-import static org.hamcrest.CoreMatchers.not;
-import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -82,7 +79,6 @@ import static org.mockito.Mockito.when;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -249,14 +245,13 @@ class InvitationsControllerTest {
         MockHttpServletRequestBuilder get = get("/invitations/accept")
                 .param("code", "the_secret_code");
 
-        mockMvc.perform(get)
+        MvcResult result = mockMvc.perform(get)
                 .andExpect(view().name("invitations/accept_invite"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Email: " + "user@example.com")))
-                .andExpect(content().string(containsString("Sign in with enterprise credentials:")))
-                .andExpect(content().string(containsString("username")))
                 .andExpect(model().attribute("code", "the_secret_code"))
                 .andReturn();
+        assertThat(result.getResponse().getContentAsString())
+                .contains("Email: " + "user@example.com", "Sign in with enterprise credentials:", "username");
     }
 
     private Map<String, String> getInvitationsCode(String origin) {
@@ -364,19 +359,18 @@ class InvitationsControllerTest {
         when(scimUserProvisioning.retrieve("user-id-001", zoneId)).thenReturn(invitedUser);
         when(expiringCodeStore.generateCode(anyString(), any(), eq(null), eq(zoneId))).thenReturn(new ExpiringCode("code", new Timestamp(System.currentTimeMillis()), JsonUtils.writeValueAsString(codeData), null));
 
-        mockMvc.perform(post("/invitations/accept_enterprise.do")
+        MvcResult result = mockMvc.perform(post("/invitations/accept_enterprise.do")
                         .param("enterprise_username", "test-ldap-user")
                         .param("enterprise_password", "password")
                         .param("enterprise_email", "email")
                         .param("code", "the_secret_code"))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(view().name("invitations/accept_invite"))
-                .andExpect(content().string(containsString("Email: " + "user@example.com")))
-                .andExpect(content().string(containsString("Sign in with enterprise credentials:")))
-                .andExpect(content().string(containsString("username")))
                 .andExpect(model().attribute("code", "code"))
                 .andExpect(model().attribute("error_message", "invite.email_mismatch"))
                 .andReturn();
+        assertThat(result.getResponse().getContentAsString())
+                .contains("Email: " + "user@example.com", "Sign in with enterprise credentials:", "username");
 
         verify(ldapActual).authenticate(any());
     }
@@ -507,7 +501,7 @@ class InvitationsControllerTest {
                 .andExpect(status().isFound())
                 .andExpect(model().attribute("error_message", "Msg 1c Msg 2c"))
                 .andExpect(model().attribute("code", "thenewcode2"))
-                .andExpect(view().name("redirect:accept"));
+                .andExpect(view().name("redirect:/invitations/accept"));
         verify(expiringCodeStore).retrieveCode("thecode", zoneId);
         verify(expiringCodeStore, times(2)).generateCode(anyString(), any(), anyString(), eq(zoneId));
         verify(invitationsService, never()).acceptInvitation(anyString(), anyString());
@@ -651,7 +645,7 @@ class InvitationsControllerTest {
                 .andExpect(status().isFound())
                 .andExpect(model().attribute("error_message_code", "form_error"))
                 .andExpect(model().attribute("code", "thenewcode2"))
-                .andExpect(view().name("redirect:accept"));
+                .andExpect(view().name("redirect:/invitations/accept"));
         verify(expiringCodeStore).retrieveCode("thecode", zoneId);
         verify(expiringCodeStore, times(2)).generateCode(anyString(), any(), anyString(), eq(zoneId));
         verify(invitationsService, never()).acceptInvitation(anyString(), anyString());
@@ -675,9 +669,10 @@ class InvitationsControllerTest {
         when(expiringCodeStore.peekCode("thecode", zoneId))
                 .thenReturn(expiringCode, null);
 
-        mockMvc.perform(get("/invitations/accept")
+        MvcResult result = mockMvc.perform(get("/invitations/accept")
                         .param("code", "thecode"))
-                .andExpect(content().string(containsString("Jaskanwal")));
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).contains("Jaskanwal");
 
         // cleanup changes to default zone
         defaultZone.getConfig().setBranding(null);
@@ -698,9 +693,10 @@ class InvitationsControllerTest {
         when(expiringCodeStore.generateCode(anyString(), any(), eq(INVITATION.name()), eq(zoneId)))
                 .thenReturn(expiringCode);
 
-        mockMvc.perform(get("/invitations/accept")
+        MvcResult result = mockMvc.perform(get("/invitations/accept")
                         .param("code", "thecode"))
-                .andExpect(content().string(not(containsString("I agree"))));
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).doesNotContain("I agree");
     }
 
     @Test
@@ -728,7 +724,9 @@ class InvitationsControllerTest {
         MvcResult mvcResult = mockMvc.perform(startAcceptInviteFlow("password", "password"))
                 .andReturn();
 
-        mockMvc.perform(get("/invitations/" + mvcResult.getResponse().getHeader("Location")))
+        String location = mvcResult.getResponse().getHeader("Location");
+        String followPath = (location != null && location.startsWith("/")) ? location : "/invitations/" + location;
+        mockMvc.perform(get(followPath))
                 .andExpect(model().attribute("error_message_code", "missing_consent"));
 
         // cleanup changes to default zone
@@ -770,14 +768,6 @@ class InvitationsControllerTest {
     @EnableWebMvc
     @Import(ThymeleafConfig.class)
     static class ContextConfiguration implements WebMvcConfigurer {
-
-        @Autowired
-        private RequestMappingHandlerAdapter requestMappingHandlerAdapter;
-
-        @PostConstruct
-        public void init() {
-            requestMappingHandlerAdapter.setIgnoreDefaultModelOnRedirect(false);
-        }
 
         @Override
         public void configureDefaultServletHandling(DefaultServletHandlerConfigurer configurer) {
@@ -865,6 +855,11 @@ class InvitationsControllerTest {
         @Bean
         DynamicZoneAwareAuthenticationManager zoneAwareAuthenticationManager() {
             return mock(DynamicZoneAwareAuthenticationManager.class);
+        }
+
+        @Bean
+        CookieBasedCsrfTokenRepository loginCookieCsrfRepository() {
+            return mock(CookieBasedCsrfTokenRepository.class);
         }
 
         @Bean

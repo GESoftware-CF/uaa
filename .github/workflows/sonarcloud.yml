@@ -15,11 +15,11 @@ jobs:
     runs-on: ubuntu-latest
     if: github.actor != 'dependabot[bot]' && github.actor != 'dependabot-preview[bot]'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: 'liberica'
-          java-version: '21'
+          java-version: '25'
           cache: 'gradle'
       - name: Analyze with SonarCloud
         env:

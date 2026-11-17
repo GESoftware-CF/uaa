@@ -2,11 +2,14 @@ package org.cloudfoundry.identity.uaa.zone;
 
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class BannerValidatorTest {
     @Test
-    void validatesUrls() throws InvalidIdentityZoneConfigurationException {
+    void validatesUrls() throws Exception {
         String[] validUrls = {
                 "https://example.com",
                 "https://example.com/",
@@ -58,7 +61,7 @@ class BannerValidatorTest {
     }
 
     @Test
-    void validateColor() throws InvalidIdentityZoneConfigurationException {
+    void validateColor() throws Exception {
         String[] validColors = {
                 "#123456",
                 "#000",
@@ -101,7 +104,7 @@ class BannerValidatorTest {
     }
 
     @Test
-    void base64Logo() throws InvalidIdentityZoneConfigurationException {
+    void base64Logo() throws Exception {
         String[] validBase64 = {
                 "BIPUQGEWGPIUB64",
                 ""
@@ -116,6 +119,49 @@ class BannerValidatorTest {
             testBanner.setLogo(base64);
             BannerValidator.validate(testBanner);
         }
+
+        for (String base64 : invalidBase64) {
+            BrandingInformation.Banner testBanner = new BrandingInformation.Banner();
+            testBanner.setLogo(base64);
+            assertThatThrownBy(() -> BannerValidator.validate(testBanner))
+                    .isInstanceOf(InvalidIdentityZoneConfigurationException.class)
+                    .hasMessageContaining("Invalid banner logo. Must be in BASE64 format.");
+        }
+    }
+
+    // Additional coverage confirming the JDK-regex-based Base64 validation, which replaced
+    // Apache Commons Codec's Base64.isBase64(), still accepts real standard/url-safe/MIME-chunked
+    // base64 data and still rejects malformed base64.
+    @Test
+    void base64LogoAcceptsRealEncodedPayloads() throws Exception {
+        byte[] payload = "some banner logo bytes".getBytes(StandardCharsets.UTF_8);
+        String[] validBase64 = {
+                Base64.getEncoder().encodeToString(payload),
+                Base64.getUrlEncoder().encodeToString(payload),
+                Base64.getUrlEncoder().withoutPadding().encodeToString(payload),
+                Base64.getMimeEncoder().encodeToString(payload),
+                "SGVsbG8=",
+                "SGVsbG8",
+                "SGVsbG-_",
+                "SGVsbG8g\nV29ybGQ=",
+                "SGVsbG8=V29ybGQ=",
+                "SGVsbG8===",
+        };
+
+        for (String base64 : validBase64) {
+            BrandingInformation.Banner testBanner = new BrandingInformation.Banner();
+            testBanner.setLogo(base64);
+            BannerValidator.validate(testBanner);
+        }
+    }
+
+    @Test
+    void base64LogoRejectsMalformedPayloads() {
+        String[] invalidBase64 = {
+                "abc!def",
+                "SGVsbG8!",
+                "SGVsbG8@#$",
+        };
 
         for (String base64 : invalidBase64) {
             BrandingInformation.Banner testBanner = new BrandingInformation.Banner();

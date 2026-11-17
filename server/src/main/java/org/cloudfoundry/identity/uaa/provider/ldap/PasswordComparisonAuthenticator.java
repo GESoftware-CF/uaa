@@ -34,7 +34,7 @@ import org.springframework.security.ldap.authentication.AbstractLdapAuthenticato
 import javax.naming.NamingException;
 import javax.naming.directory.Attribute;
 import javax.naming.directory.Attributes;
-import java.util.Arrays;
+import java.security.MessageDigest;
 import java.util.function.Supplier;
 
 /**
@@ -69,7 +69,7 @@ public class PasswordComparisonAuthenticator extends AbstractLdapAuthenticator {
         for (String userDn : getUserDns(username)) {
             try {
                 user = ldapTemplate.retrieveEntry(userDn, getUserAttributes());
-            } catch (NameNotFoundException ignore) {
+            } catch (NameNotFoundException _) {
                 // ignore
             }
             if (user != null) {
@@ -110,14 +110,14 @@ public class PasswordComparisonAuthenticator extends AbstractLdapAuthenticator {
             }
             for (int i = 0; (!match) && (i < attr.size()); i++) {
                 Object valObject = attr.get(i);
-                if (valObject instanceof byte[] valBytes) {
+                if (valObject != null && valObject instanceof byte[] valBytes) {
                     if (passwordEncoder instanceof DynamicPasswordComparator comparator) {
                         byte[] received = password.getBytes();
                         match = comparator.comparePasswords(received, valBytes);
                     } else {
                         String encodedPassword = passwordEncoder.encode(password);
                         byte[] passwordBytes = Utf8.encode(encodedPassword);
-                        match = Arrays.equals(passwordBytes, valBytes);
+                        match = MessageDigest.isEqual(passwordBytes, valBytes);
                     }
                 }
             }

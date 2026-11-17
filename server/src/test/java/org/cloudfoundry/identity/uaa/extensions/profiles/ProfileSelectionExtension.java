@@ -1,7 +1,7 @@
 package org.cloudfoundry.identity.uaa.extensions.profiles;
 
 import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.extension.BeforeTestExecutionCallback;
+import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.platform.commons.util.AnnotationUtils;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
@@ -17,10 +17,10 @@ import java.util.List;
  * @see DisabledIfProfile
  * @see EnabledIfProfile
  */
-public class ProfileSelectionExtension implements BeforeTestExecutionCallback {
+public class ProfileSelectionExtension implements BeforeEachCallback {
 
     @Override
-    public void beforeTestExecution(ExtensionContext context) {
+    public void beforeEach(ExtensionContext context) {
         var activeProfiles = getActiveProfilesOrNull(context);
         if (activeProfiles == null) {
             return;
@@ -63,7 +63,7 @@ public class ProfileSelectionExtension implements BeforeTestExecutionCallback {
         try {
             var applicationContext = SpringExtension.getApplicationContext(context);
             return Arrays.asList(applicationContext.getEnvironment().getActiveProfiles());
-        } catch (IllegalStateException ignore) {
+        } catch (IllegalStateException _) {
             return null;
         }
     }

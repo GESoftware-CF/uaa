@@ -1,5 +1,6 @@
 package org.cloudfoundry.identity.uaa.authentication.manager;
 
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.cloudfoundry.identity.uaa.authentication.AccountNotVerifiedException;
 import org.cloudfoundry.identity.uaa.authentication.AuthenticationPolicyRejectionException;
 import org.cloudfoundry.identity.uaa.authentication.AuthzAuthenticationRequest;
@@ -46,13 +47,14 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -65,7 +67,7 @@ class AuthzAuthenticationManagerTests {
     private ApplicationEventPublisher publisher;
     private static final String PASSWORD = "password";
     private UaaUser user;
-    private PasswordEncoder encoder = new PasswordEncoderConfig().nonCachingPasswordEncoder();
+    private PasswordEncoder encoder = spy(new PasswordEncoderConfig().nonCachingPasswordEncoder());
     private String loginServerUserName = "loginServerUser".toLowerCase();
     private IdentityProviderProvisioning providerProvisioning;
 
@@ -117,7 +119,7 @@ class AuthzAuthenticationManagerTests {
         assertThat(((UaaAuthentication) result).getAuthenticationMethods()).containsExactlyInAnyOrder("pwd");
 
         List<ApplicationEvent> events = eventCaptor.getAllValues();
-        assertThat(events.getFirst()).isInstanceOf(IdentityProviderAuthenticationSuccessEvent.class);
+        assertThat(events).first().isInstanceOf(IdentityProviderAuthenticationSuccessEvent.class);
         assertThat(((IdentityProviderAuthenticationSuccessEvent) events.getFirst()).getUser().getUsername()).isEqualTo("auser");
     }
 
@@ -158,14 +160,14 @@ class AuthzAuthenticationManagerTests {
     @Test
     void unsuccessfulLoginServerUserAuthentication() {
         when(db.retrieveUserByName(loginServerUserName, OriginKeys.UAA)).thenReturn(null);
-        assertThatExceptionOfType(BadCredentialsException.class).isThrownBy(() -> mgr.authenticate(createAuthRequest(loginServerUserName, "")));
+        assertThatThrownBy(() -> mgr.authenticate(createAuthRequest(loginServerUserName, ""))).asInstanceOf(InstanceOfAssertFactories.throwable(BadCredentialsException.class));
         verify(db, times(0)).updateLastLogonTime(anyString());
     }
 
     @Test
     void unsuccessfulLoginServerUserWithPasswordAuthentication() {
         when(db.retrieveUserByName(loginServerUserName, OriginKeys.UAA)).thenReturn(null);
-        assertThatExceptionOfType(BadCredentialsException.class).isThrownBy(() -> mgr.authenticate(createAuthRequest(loginServerUserName, "dadas")));
+        assertThatThrownBy(() -> mgr.authenticate(createAuthRequest(loginServerUserName, "dadas"))).asInstanceOf(InstanceOfAssertFactories.throwable(BadCredentialsException.class));
     }
 
     @Test
@@ -184,7 +186,7 @@ class AuthzAuthenticationManagerTests {
     void invalidPasswordPublishesAuthenticationFailureEvent() {
         when(db.retrieveUserByName("auser", OriginKeys.UAA)).thenReturn(user);
 
-        assertThatExceptionOfType(BadCredentialsException.class).isThrownBy(() -> mgr.authenticate(createAuthRequest("auser", "wrongpassword")));
+        assertThatThrownBy(() -> mgr.authenticate(createAuthRequest("auser", "wrongpassword"))).asInstanceOf(InstanceOfAssertFactories.throwable(BadCredentialsException.class));
 
         verify(publisher).publishEvent(isA(IdentityProviderAuthenticationFailureEvent.class));
         verify(publisher).publishEvent(isA(UserAuthenticationFailureEvent.class));
@@ -197,15 +199,31 @@ class AuthzAuthenticationManagerTests {
         AccountLoginPolicy lp = mock(AccountLoginPolicy.class);
         when(lp.isAllowed(any(UaaUser.class), any(Authentication.class))).thenReturn(false);
         mgr.setAccountLoginPolicy(lp);
-        assertThatExceptionOfType(AuthenticationPolicyRejectionException.class).isThrownBy(() -> mgr.authenticate(createAuthRequest("auser", "password")));
+        assertThatThrownBy(() -> mgr.authenticate(createAuthRequest("auser", "password"))).asInstanceOf(InstanceOfAssertFactories.throwable(AuthenticationPolicyRejectionException.class));
         verify(db, times(0)).updateLastLogonTime(anyString());
     }
 
     @Test
     void missingUserPublishesNotFoundEvent() {
         when(db.retrieveUserByName("aguess", OriginKeys.UAA)).thenThrow(new UsernameNotFoundException("mocked"));
-        assertThatExceptionOfType(BadCredentialsException.class).isThrownBy(() -> mgr.authenticate(createAuthRequest("aguess", "password")));
+        assertThatThrownBy(() -> mgr.authenticate(createAuthRequest("aguess", "password"))).asInstanceOf(InstanceOfAssertFactories.throwable(BadCredentialsException.class));
         verify(publisher).publishEvent(isA(UserNotFoundEvent.class));
+    }
+
+    @Test
+    void missingUserWithNonEmptyPasswordInvokesDummyMatch() {
+        when(db.retrieveUserByName("aguess", OriginKeys.UAA)).thenReturn(null);
+        assertThatThrownBy(() -> mgr.authenticate(createAuthRequest("aguess", "password")))
+                .asInstanceOf(InstanceOfAssertFactories.throwable(BadCredentialsException.class));
+        verify(encoder).matches(eq("password"), anyString());
+    }
+
+    @Test
+    void missingUserWithEmptyPasswordDoesNotInvokeDummyMatch() {
+        when(db.retrieveUserByName("aguess", OriginKeys.UAA)).thenReturn(null);
+        assertThatThrownBy(() -> mgr.authenticate(createAuthRequest("aguess", "")))
+                .asInstanceOf(InstanceOfAssertFactories.throwable(BadCredentialsException.class));
+        verify(encoder, times(0)).matches(anyString(), anyString());
     }
 
     @Test
@@ -222,7 +240,7 @@ class AuthzAuthenticationManagerTests {
     @Test
     void originAuthenticationFail() {
         when(db.retrieveUserByName("auser", "not UAA")).thenReturn(user);
-        assertThatExceptionOfType(BadCredentialsException.class).isThrownBy(() -> mgr.authenticate(createAuthRequest("auser", "password")));
+        assertThatThrownBy(() -> mgr.authenticate(createAuthRequest("auser", "password"))).asInstanceOf(InstanceOfAssertFactories.throwable(BadCredentialsException.class));
     }
 
     @Test
@@ -241,7 +259,7 @@ class AuthzAuthenticationManagerTests {
         mgr.setAllowUnverifiedUsers(true);
         user.setVerified(false);
         when(db.retrieveUserByName("auser", OriginKeys.UAA)).thenReturn(user);
-        assertThatExceptionOfType(AccountNotVerifiedException.class).isThrownBy(() -> mgr.authenticate(createAuthRequest("auser", "password")));
+        assertThatThrownBy(() -> mgr.authenticate(createAuthRequest("auser", "password"))).asInstanceOf(InstanceOfAssertFactories.throwable(AccountNotVerifiedException.class));
         verify(publisher).publishEvent(isA(UnverifiedUserAuthenticationEvent.class));
     }
 
@@ -260,7 +278,7 @@ class AuthzAuthenticationManagerTests {
         mgr.setAllowUnverifiedUsers(false);
         user.setVerified(false);
         when(db.retrieveUserByName("auser", OriginKeys.UAA)).thenReturn(user);
-        assertThatExceptionOfType(AccountNotVerifiedException.class).isThrownBy(() -> mgr.authenticate(createAuthRequest("auser", "password")));
+        assertThatThrownBy(() -> mgr.authenticate(createAuthRequest("auser", "password"))).asInstanceOf(InstanceOfAssertFactories.throwable(AccountNotVerifiedException.class));
         verify(publisher).publishEvent(isA(UnverifiedUserAuthenticationEvent.class));
     }
 
@@ -301,7 +319,7 @@ class AuthzAuthenticationManagerTests {
         Authentication authentication = createAuthRequest("auser", "password");
         when(lockoutPolicy.isAllowed(any(UaaUser.class), eq(authentication))).thenReturn(false);
 
-        assertThatExceptionOfType(AuthenticationPolicyRejectionException.class).isThrownBy(() -> mgr.authenticate(authentication));
+        assertThatThrownBy(() -> mgr.authenticate(authentication)).asInstanceOf(InstanceOfAssertFactories.throwable(AuthenticationPolicyRejectionException.class));
 
         assertThat(authentication.isAuthenticated()).isFalse();
         verify(publisher).publishEvent(isA(AuthenticationFailureLockedEvent.class));

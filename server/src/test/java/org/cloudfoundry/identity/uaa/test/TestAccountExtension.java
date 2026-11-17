@@ -29,6 +29,7 @@ import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.ClientHttpResponse;
@@ -43,6 +44,7 @@ import org.springframework.web.client.RestOperations;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -119,9 +121,6 @@ public final class TestAccountExtension implements BeforeAllCallback {
             if (!cfClientExists(client)) {
                 createCfClient(client);
             }
-            if (!orchestratorClientExists(client)) {
-                createOrchestratorClient(client);
-            }
             initialized = true;
         }
         resource = testAccounts.getClientCredentialsResource("oauth.clients.scim", "scim", "scimsecret");
@@ -151,13 +150,6 @@ public final class TestAccountExtension implements BeforeAllCallback {
         createClient(client, testAccounts.getClientDetails("oauth.clients.app", clientDetails));
     }
 
-    private void createOrchestratorClient(RestOperations client) {
-        UaaClientDetails clientDetails = new UaaClientDetails("orchestrator-zone-provisioner", "none",
-                "uaa.none", "client_credentials","orchestrator.zones.write,orchestrator.zones.read");
-        clientDetails.setClientSecret("orchestratorsecret");
-        createClient(client, testAccounts.getClientDetails("oauth.clients.orchestrator", clientDetails));
-    }
-
     private void createClient(RestOperations client, ClientDetails clientDetails) {
         ResponseEntity<String> response = client.postForEntity(serverRunning.getClientsUri(), clientDetails,
                 String.class);
@@ -182,11 +174,6 @@ public final class TestAccountExtension implements BeforeAllCallback {
     private boolean appClientExists(RestOperations client) {
         return clientExists(client,
                 testAccounts.getClientCredentialsResource("oauth.clients.app", "app", "appclientsecret"));
-    }
-
-    private boolean orchestratorClientExists(RestOperations client) {
-        return clientExists(client,
-                testAccounts.getClientCredentialsResource("oauth.clients.orchestrator", "orchestrator-zone-provisioner", "orchestratorsecret"));
     }
 
     private void initializeUserAccount(RestOperations client) {
@@ -300,7 +287,7 @@ public final class TestAccountExtension implements BeforeAllCallback {
             }
 
             @Override
-            public void handleError(ClientHttpResponse response) {
+            public void handleError(URI url, HttpMethod method, ClientHttpResponse response) {
                 // do nothing
             }
         });

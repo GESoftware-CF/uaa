@@ -1,6 +1,6 @@
 package org.cloudfoundry.identity.uaa.integration.feature;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import org.cloudfoundry.identity.uaa.ServerRunningExtension;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
@@ -202,18 +202,17 @@ class PrivateKeyJwtClientAuthIT {
         assertThat(passwordToken).isNotNull();
         assertThat(getTokenClaims(passwordToken)).containsAllEntriesOf(expectedClaims);
         // When
-        // commenting above since we have our own jwt bearer flow
-        // String accessToken = getJwtBearerGrantToken(usedClientId, passwordToken, "access_token", OK);
+        String accessToken = getJwtBearerGrantToken(usedClientId, passwordToken, "access_token", OK);
         // Then
-//        assertThat(accessToken).isNotNull();
-//        assertThat(getTokenClaims(accessToken)).containsAllEntriesOf(Map.of(
-//                "client_auth_method", "private_key_jwt",
-//                "client_id", usedClientId,
-//                "origin", "uaa",
-//                "zid", "uaa",
-//                "user_name", testAccounts.getUserName(),
-//                "grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer"
-//        ));
+        assertThat(accessToken).isNotNull();
+        assertThat(getTokenClaims(accessToken)).containsAllEntriesOf(Map.of(
+                "client_auth_method", "private_key_jwt",
+                "client_id", usedClientId,
+                "origin", "uaa",
+                "zid", "uaa",
+                "user_name", testAccounts.getUserName(),
+                "grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer"
+        ));
     }
 
     @Test
@@ -285,7 +284,7 @@ class PrivateKeyJwtClientAuthIT {
         // When
         String response = getPasswordGrantToken("admin", "access_token", UNAUTHORIZED);
         // Then
-        assertThat(response).isNotNull()
+        assertThat(response)
                 .contains("401");
     }
 
@@ -294,7 +293,7 @@ class PrivateKeyJwtClientAuthIT {
         // When
         String response = getClientCredentialsGrantToken("any-other-not-existing-client", "access_token", UNAUTHORIZED);
         // Then
-        assertThat(response).isNotNull()
+        assertThat(response)
                 .contains("401");
     }
 

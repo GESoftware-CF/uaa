@@ -2,28 +2,44 @@ package org.cloudfoundry.identity.uaa.util;
 
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsServer;
-import org.apache.hc.core5.http.HttpException;
-import org.apache.hc.core5.http.HttpHost;
-import org.apache.hc.core5.http.HttpRequest;
 import org.apache.hc.client5.http.HttpRoute;
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
 import org.apache.hc.client5.http.routing.HttpRoutePlanner;
+import org.apache.hc.core5.http.HttpException;
+import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.HttpRequest;
 import org.apache.hc.core5.http.protocol.HttpContext;
+import org.cloudfoundry.identity.uaa.impl.config.RestTemplateConfig;
+import org.cloudfoundry.identity.uaa.security.IdpOutboundTrustCache;
 import org.cloudfoundry.identity.uaa.test.network.NetworkTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import javax.net.ssl.SSLHandshakeException;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+import java.net.ServerSocket;
+import java.nio.file.Files;
+import java.security.KeyStore;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.X509Certificate;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -31,6 +47,8 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.assertj.core.api.Assertions.fail;
 import static org.cloudfoundry.identity.uaa.util.UaaHttpRequestUtils.createRequestFactory;
 import static org.springframework.http.HttpStatus.OK;
@@ -73,11 +91,12 @@ class UaaHttpRequestUtilsTest {
     HttpsServer httpsServer;
     HttpServer httpServer;
     private String httpsUrl;
+    private File keystore;
 
     @BeforeEach
     void setup() throws Exception {
         clearSystemProxyConfig();
-        File keystore = NetworkTestUtils.getKeystore(new Date(), 10);
+        keystore = NetworkTestUtils.getKeystore(new Date(), 10);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         httpResponseHandler = new NetworkTestUtils.SimpleHttpResponseHandler(headers, "OK");
@@ -128,14 +147,14 @@ class UaaHttpRequestUtilsTest {
     }
 
     public void testHttpProxy(String url, int expectedPort, String expectedHost, boolean wantHandlerInvoked) {
-        HttpClientBuilder builder = UaaHttpRequestUtils.getClientBuilder(true, 20, 2, 5, 2000, 2);
+        HttpClientBuilder builder = UaaHttpRequestUtils.getClientBuilder(true, new UaaHttpRequestUtils.HttpClientConfig(20, 2, 5, 2000, 2, 3000, 3000, Integer.MAX_VALUE));
         HttpRoutePlanner planner = (HttpRoutePlanner) ReflectionTestUtils.getField(builder.build(), "routePlanner");
         SystemProxyRoutePlanner routePlanner = new SystemProxyRoutePlanner(planner);
         builder.setRoutePlanner(routePlanner);
-        RestTemplate template = new RestTemplate(UaaHttpRequestUtils.createRequestFactory(builder, Integer.MAX_VALUE, Integer.MAX_VALUE));
+        RestTemplate template = new RestTemplate(UaaHttpRequestUtils.createRequestFactory(builder, Integer.MAX_VALUE));
         try {
             template.getForObject(url, String.class);
-        } catch (Exception ignored) {
+        } catch (Exception _) {
             // ignored
         }
         assertThat(routePlanner.routes).hasSize(1);
@@ -151,6 +170,72 @@ class UaaHttpRequestUtilsTest {
     }
 
     @Test
+    void clientBuilderAppliesReadTimeout() throws Exception {
+        int readTimeoutMs = 300;
+        var loopback = java.net.InetAddress.getLoopbackAddress();
+        // Accept the connection but hold it open without writing a response to trigger the read timeout.
+        try (ServerSocket ss = new ServerSocket(0, 1, loopback)) {
+            int port = ss.getLocalPort();
+            Thread acceptThread = new Thread(() -> {
+                try (var _ = ss.accept()) {
+                    // Sleep longer than the read timeout so the client times out first.
+                    Thread.sleep(readTimeoutMs * 10L);
+                } catch (Exception _) {
+                    // ignore
+                }
+            });
+            acceptThread.setDaemon(true);
+            acceptThread.start();
+
+            HttpClientBuilder builder = UaaHttpRequestUtils.getClientBuilder(false,
+                    new UaaHttpRequestUtils.HttpClientConfig(10, 5, 0, 2000, 0, 4000, readTimeoutMs, 4000));
+            RestTemplate template = new RestTemplate(UaaHttpRequestUtils.createRequestFactory(builder, 4000));
+            long start = System.currentTimeMillis();
+            assertThat(catchThrowable(
+                    () -> template.getForObject("http://" + loopback.getHostAddress() + ":" + port + "/", String.class)))
+                    .isInstanceOf(ResourceAccessException.class);
+            long elapsed = System.currentTimeMillis() - start;
+            // Must have waited at least readTimeoutMs, and well under the connect timeout
+            assertThat(elapsed).isGreaterThanOrEqualTo(readTimeoutMs).isLessThan(4_000);
+        }
+    }
+
+    @Test
+    void clientBuilderWithZeroTimeoutsDoesNotTimeOut() throws Exception {
+        // Zero timeouts should disable the timeout — a real request to the local HTTP server must succeed.
+        var loopback = java.net.InetAddress.getLoopbackAddress();
+        try (ServerSocket ss = new ServerSocket(0, 1, loopback)) {
+            int port = ss.getLocalPort();
+            Thread serverThread = new Thread(() -> {
+                try {
+                    var clientSocket = ss.accept();
+                    var out = clientSocket.getOutputStream();
+                    var in = clientSocket.getInputStream();
+                    // Read until end of HTTP request headers
+                    var headerReader = new BufferedReader(new InputStreamReader(in, StandardCharsets.US_ASCII));
+                    String line;
+                    while ((line = headerReader.readLine()) != null && !line.isEmpty()) {
+                        // do nothing
+                    }
+                    String response = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+                    out.write(response.getBytes(StandardCharsets.US_ASCII));
+                    out.flush();
+                    clientSocket.close();
+                } catch (Exception _) {
+                    // ignore
+                }
+            });
+            serverThread.setDaemon(true);
+            serverThread.start();
+
+            HttpClientBuilder builder = UaaHttpRequestUtils.getClientBuilder(false,
+                    new UaaHttpRequestUtils.HttpClientConfig(10, 5, 0, 2000, 0, 0, 0, 0));
+            RestTemplate template = new RestTemplate(UaaHttpRequestUtils.createRequestFactory(builder, 0));
+            assertThat(template.getForEntity("http://" + loopback.getHostAddress() + ":" + port + "/", String.class).getStatusCode().value()).isEqualTo(200);
+        }
+    }
+
+    @Test
     void trustedOnly() {
         RestTemplate restTemplate = new RestTemplate(UaaHttpRequestUtils.createRequestFactory(false, 10_000));
         try {
@@ -158,6 +243,132 @@ class UaaHttpRequestUtilsTest {
             fail("We should not reach this step if the above URL is using a self signed certificate");
         } catch (RestClientException e) {
             assertThat(e.getCause().getClass()).isEqualTo(SSLHandshakeException.class);
+        }
+    }
+
+    @Nested
+    class SslContextOverload {
+
+        @Test
+        void trustsServerWhenCertIsInTrustStore() throws Exception {
+            KeyStore ks = KeyStore.getInstance("JKS");
+            try (FileInputStream fis = new FileInputStream(keystore)) {
+                ks.load(fis, NetworkTestUtils.keyPass.toCharArray());
+            }
+            TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            tmf.init(ks);
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, tmf.getTrustManagers(), null);
+
+            RestTemplate restTemplate = new RestTemplate(createRequestFactory(sslContext, 10_000, 10_000, RestTemplateConfig.createDefaults()));
+            assertThat(restTemplate.getForEntity(httpsUrl, String.class).getStatusCode()).isEqualTo(OK);
+        }
+
+        @Test
+        void rejectsServerWhenCertIsNotInTrustStore() throws Exception {
+            TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            tmf.init((KeyStore) null);
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, tmf.getTrustManagers(), null);
+
+            RestTemplate restTemplate = new RestTemplate(createRequestFactory(sslContext, 10_000, 10_000, RestTemplateConfig.createDefaults()));
+            try {
+                restTemplate.getForEntity(httpsUrl, String.class);
+                fail("We should not reach this step if the above URL is using a self signed certificate");
+            } catch (RestClientException e) {
+                assertThat(e.getCause().getClass()).isEqualTo(SSLHandshakeException.class);
+            }
+        }
+    }
+
+    /**
+     * The rest of this class exercises a server presenting a single self-signed certificate. These
+     * tests use a server presenting a full leaf -&gt; intermediate -&gt; root chain, which is what real
+     * identity providers behind a CA hierarchy serve, and which is the case that
+     * {@code skipSslValidation=true} must also cover.
+     */
+    @Nested
+    class CertificateChain {
+
+        private NetworkTestUtils.ChainedKeystore chained;
+        private HttpsServer chainedServer;
+        private String chainedUrl;
+
+        @BeforeEach
+        void startChainedServer() throws Exception {
+            chained = NetworkTestUtils.getChainedKeystore(new Date(), 10);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            chainedServer = NetworkTestUtils.startHttpsServer(chained.file(), NetworkTestUtils.keyPass,
+                    new NetworkTestUtils.SimpleHttpResponseHandler(headers, "OK"));
+            chainedUrl = "https://localhost:" + chainedServer.getAddress().getPort() + "/";
+        }
+
+        /**
+         * Null-guarded so that a failure part-way through {@link #startChainedServer()} surfaces its
+         * own cause rather than being masked by a NullPointerException here.
+         */
+        @AfterEach
+        void stopChainedServer() throws Exception {
+            if (chainedServer != null) {
+                chainedServer.stop(0);
+            }
+            if (chained != null) {
+                Files.deleteIfExists(chained.file().toPath());
+            }
+        }
+
+        /**
+         * Guards the fixture itself: if this chain were malformed, the tests below would pass or
+         * fail for the wrong reasons.
+         */
+        @Test
+        void fixtureBuildsAThreeCertificateChain() {
+            assertThat(chained.leafCertificate().getIssuerX500Principal())
+                    .isEqualTo(chained.intermediateCertificate().getSubjectX500Principal());
+            assertThat(chained.intermediateCertificate().getIssuerX500Principal())
+                    .isEqualTo(chained.rootCertificate().getSubjectX500Principal());
+            assertThat(chained.rootCertificate().getIssuerX500Principal())
+                    .isEqualTo(chained.rootCertificate().getSubjectX500Principal());
+        }
+
+        @Test
+        void skipSslValidationTrustsFullCertificateChain() {
+            RestTemplate restTemplate = new RestTemplate(createRequestFactory(true, 10_000));
+            assertThat(restTemplate.getForEntity(chainedUrl, String.class).getStatusCode()).isEqualTo(OK);
+        }
+
+        @Test
+        void trustedOnlyRejectsUntrustedCertificateChain() {
+            RestTemplate restTemplate = new RestTemplate(createRequestFactory(false, 10_000));
+            assertThatThrownBy(() -> restTemplate.getForEntity(chainedUrl, String.class))
+                    .isInstanceOf(RestClientException.class)
+                    .hasCauseInstanceOf(SSLHandshakeException.class);
+        }
+
+        /**
+         * The secure alternative to {@code skipSslValidation}: trusting only the chain's root via
+         * per-IDP {@code caCertificates} validates the whole chain, with hostname verification left on.
+         */
+        @Test
+        void caCertificatesWithRootOnlyValidatesFullChain() {
+            SSLContext sslContext = new IdpOutboundTrustCache()
+                    .resolveSslContext("test-idp", List.of(pem(chained.rootCertificate())), false);
+
+            RestTemplate restTemplate = new RestTemplate(
+                    createRequestFactory(sslContext, 10_000, 10_000, RestTemplateConfig.createDefaults()));
+            assertThat(restTemplate.getForEntity(chainedUrl, String.class).getStatusCode()).isEqualTo(OK);
+        }
+
+        private String pem(X509Certificate certificate) {
+            try {
+                return "-----BEGIN CERTIFICATE-----\n"
+                        + Base64.getMimeEncoder(64, "\n".getBytes(StandardCharsets.UTF_8))
+                                .encodeToString(certificate.getEncoded())
+                        + "\n-----END CERTIFICATE-----\n";
+            } catch (CertificateEncodingException e) {
+                throw new IllegalStateException(e);
+            }
         }
     }
 

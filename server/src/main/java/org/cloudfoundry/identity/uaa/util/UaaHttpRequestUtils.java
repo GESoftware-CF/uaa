@@ -13,31 +13,36 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.util;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.hc.client5.http.ConnectionKeepAliveStrategy;
 import org.apache.hc.client5.http.HttpRequestRetryStrategy;
+import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.impl.DefaultRedirectStrategy;
 import org.apache.hc.client5.http.impl.NoopUserTokenHandler;
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.client5.http.socket.ConnectionSocketFactory;
 import org.apache.hc.client5.http.socket.PlainConnectionSocketFactory;
+import org.apache.hc.client5.http.ssl.DefaultHostnameVerifier;
 import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
 import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
-import org.apache.hc.client5.http.ssl.TrustSelfSignedStrategy;
+import org.apache.hc.client5.http.ssl.TrustAllStrategy;
 import org.apache.hc.core5.http.HeaderElement;
+import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.HttpRequest;
 import org.apache.hc.core5.http.HttpResponse;
 import org.apache.hc.core5.http.config.Registry;
 import org.apache.hc.core5.http.config.RegistryBuilder;
+import org.apache.hc.core5.http.io.SocketConfig;
 import org.apache.hc.core5.http.message.BasicHeaderElementIterator;
 import org.apache.hc.core5.http.protocol.HttpContext;
 import org.apache.hc.core5.ssl.SSLContextBuilder;
 import org.apache.hc.core5.util.TextUtils;
 import org.apache.hc.core5.util.TimeValue;
-import org.apache.http.protocol.HTTP;
+import org.apache.hc.core5.util.Timeout;
 import org.cloudfoundry.identity.uaa.impl.config.RestTemplateConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,33 +71,83 @@ public abstract class UaaHttpRequestUtils {
 
     private static final Logger logger = LoggerFactory.getLogger(UaaHttpRequestUtils.class);
 
+    record HttpClientConfig(
+            int poolSize,
+            int defaultMaxPerRoute,
+            int maxKeepAlive,
+            int validateAfterInactivity,
+            int retryCount,
+            int connectTimeoutInMs,
+            int readTimeoutInMs,
+            int connectionRequestTimeoutInMs
+    ) {
+        public static HttpClientConfig defaults(int connectTimeoutInMs, int readTimeoutInMs) {
+            return new HttpClientConfig(10, 5, 0, 2000, 0, connectTimeoutInMs, readTimeoutInMs, connectTimeoutInMs);
+        }
+    }
+
     public static ClientHttpRequestFactory createRequestFactory(boolean skipSslValidation, int timeout) {
-        return createRequestFactory(getClientBuilder(skipSslValidation, 10, 5, 0, 2000, 0), timeout, timeout);
+        HttpClientConfig config = HttpClientConfig.defaults(timeout, timeout);
+        return createRequestFactory(getClientBuilder(skipSslValidation, config), config.connectionRequestTimeoutInMs());
     }
 
-    public static ClientHttpRequestFactory createRequestFactory(boolean skipSslValidation, int timeout, int readTimeout, int poolSize, int defaultMaxPerRoute, int maxKeepAlive, int validateAfterInactivity, int retryCount) {
-        return createRequestFactory(getClientBuilder(skipSslValidation, poolSize, defaultMaxPerRoute, maxKeepAlive, validateAfterInactivity, retryCount), timeout, readTimeout);
-    }
-
-    public static ClientHttpRequestFactory createRequestFactory(boolean skipSslValidation, int timeout, int readTimeout, RestTemplateConfig restTemplateConfig) {
-        return createRequestFactory(getClientBuilder(skipSslValidation, restTemplateConfig.maxTotal, restTemplateConfig.maxPerRoute, restTemplateConfig.maxKeepAlive, restTemplateConfig.validateAfterInactivity, restTemplateConfig.retryCount), timeout, readTimeout);
-    }
-
-    protected static ClientHttpRequestFactory createRequestFactory(HttpClientBuilder builder, int timeoutInMs, int readTimeoutInMs) {
-        HttpComponentsClientHttpRequestFactory httpComponentsClientHttpRequestFactory = new HttpComponentsClientHttpRequestFactory(builder.build());
-
-        // Manual migration to `SocketConfig.Builder.setSoTimeout(Timeout)` necessary; see: https://docs.spring.io/spring-framework/docs/6.0.0/javadoc-api/org/springframework/http/client/HttpComponentsClientHttpRequestFactory.html#setReadTimeout(int)
-        httpComponentsClientHttpRequestFactory.setReadTimeout(readTimeoutInMs);
-        httpComponentsClientHttpRequestFactory.setConnectionRequestTimeout(timeoutInMs);
-        httpComponentsClientHttpRequestFactory.setConnectTimeout(timeoutInMs);
-        return httpComponentsClientHttpRequestFactory;
-    }
-
-    protected static HttpClientBuilder getClientBuilder(boolean skipSslValidation, int poolSize, int defaultMaxPerRoute, int maxKeepAlive, int validateAfterInactivity, int retryCount) {
+    /**
+     * Creates a request factory whose DNS resolver blocks private/loopback/link-local
+     * addresses at connection time. Redirects are disabled to prevent SSRF via a
+     * redirect to a private IP literal that would bypass DNS-based blocking.
+     * Use this for outbound fetches to operator-supplied URLs (e.g. jwks_uri).
+     */
+    public static ClientHttpRequestFactory createSafeRequestFactory(RestTemplateConfig restTemplateConfig) {
+        HttpClientConfig config = new HttpClientConfig(restTemplateConfig.maxTotal, restTemplateConfig.maxPerRoute,
+                restTemplateConfig.maxKeepAlive, restTemplateConfig.validateAfterInactivity,
+                restTemplateConfig.retryCount, restTemplateConfig.timeout, restTemplateConfig.timeout,
+                restTemplateConfig.timeout);
         HttpClientBuilder builder = HttpClients.custom()
                 .useSystemProperties()
                 .setUserTokenHandler(NoopUserTokenHandler.INSTANCE)
-                .setRedirectStrategy(new DefaultRedirectStrategy());
+                .disableRedirectHandling();
+        PoolingHttpClientConnectionManager cm = PoolingHttpClientConnectionManagerBuilder.create()
+                .setDnsResolver(PrivateNetworkBlockingDnsResolver.INSTANCE)
+                .build();
+        cm.setMaxTotal(config.poolSize());
+        cm.setDefaultMaxPerRoute(config.defaultMaxPerRoute());
+        cm.setValidateAfterInactivity(TimeValue.of(config.validateAfterInactivity(), TimeUnit.MILLISECONDS));
+        cm.setDefaultConnectionConfig(ConnectionConfig.custom()
+                .setConnectTimeout(toTimeout(config.connectTimeoutInMs()))
+                .build());
+        cm.setDefaultSocketConfig(SocketConfig.custom()
+                .setSoTimeout(toTimeout(config.readTimeoutInMs()))
+                .build());
+        builder.setConnectionManager(cm);
+        if (config.maxKeepAlive() <= 0) {
+            builder.setConnectionReuseStrategy((_, _, _) -> false);
+        } else {
+            builder.setKeepAliveStrategy(new UaaConnectionKeepAliveStrategy(config.maxKeepAlive()));
+        }
+        if (config.retryCount() > 0) {
+            builder.setRetryStrategy(new UaaHttpRequestRetryHandler(config.retryCount()));
+        }
+        return createRequestFactory(builder, config.connectionRequestTimeoutInMs());
+    }
+
+    public static ClientHttpRequestFactory createRequestFactory(boolean skipSslValidation, int connectTimeout, int readTimeout, RestTemplateConfig restTemplateConfig) {
+        HttpClientConfig config = new HttpClientConfig(restTemplateConfig.maxTotal, restTemplateConfig.maxPerRoute, restTemplateConfig.maxKeepAlive, restTemplateConfig.validateAfterInactivity, restTemplateConfig.retryCount, connectTimeout, readTimeout, connectTimeout);
+        return createRequestFactory(getClientBuilder(skipSslValidation, config), config.connectionRequestTimeoutInMs());
+    }
+
+    public static ClientHttpRequestFactory createRequestFactory(SSLContext sslContext, int connectTimeout, int readTimeout, RestTemplateConfig restTemplateConfig) {
+        HttpClientConfig config = new HttpClientConfig(restTemplateConfig.maxTotal, restTemplateConfig.maxPerRoute, restTemplateConfig.maxKeepAlive, restTemplateConfig.validateAfterInactivity, restTemplateConfig.retryCount, connectTimeout, readTimeout, connectTimeout);
+        return createRequestFactory(getClientBuilder(sslContext, config), config.connectionRequestTimeoutInMs());
+    }
+
+    protected static ClientHttpRequestFactory createRequestFactory(HttpClientBuilder builder, int connectionRequestTimeoutInMs) {
+        HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory(builder.build());
+        factory.setConnectionRequestTimeout(connectionRequestTimeoutInMs);
+        return factory;
+    }
+
+    static HttpClientBuilder getClientBuilder(boolean skipSslValidation, HttpClientConfig config) {
+        HttpClientBuilder builder = newClientBuilder();
         PoolingHttpClientConnectionManager cm;
         if (skipSslValidation) {
             SSLContext sslContext = getNonValidatingSslContext();
@@ -108,27 +163,86 @@ public abstract class UaaHttpRequestUtils {
         } else {
             cm = new PoolingHttpClientConnectionManager();
         }
-        cm.setMaxTotal(poolSize);
-        cm.setDefaultMaxPerRoute(defaultMaxPerRoute);
-        cm.setValidateAfterInactivity(TimeValue.of(validateAfterInactivity, TimeUnit.MILLISECONDS));
+        return configureConnectionManager(builder, cm, config);
+    }
+
+    /**
+     * Like {@link #getClientBuilder(boolean, HttpClientConfig)}, but validates against a caller-supplied
+     * {@link SSLContext} instead of choosing between the skip-validation and JDK-default-truststore paths.
+     * This is a real-validation path (not skip-validation), so hostname verification stays on.
+     */
+    static HttpClientBuilder getClientBuilder(SSLContext sslContext, HttpClientConfig config) {
+        HttpClientBuilder builder = newClientBuilder();
+        final String[] supportedProtocols = split(System.getProperty("https.protocols"));
+        final String[] supportedCipherSuites = split(System.getProperty("https.cipherSuites"));
+        SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslContext, supportedProtocols, supportedCipherSuites, new DefaultHostnameVerifier());
+        Registry<ConnectionSocketFactory> socketFactoryRegistry = RegistryBuilder.<ConnectionSocketFactory>create()
+                .register("https", sslSocketFactory)
+                .register("http", PlainConnectionSocketFactory.getSocketFactory())
+                .build();
+        PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager(socketFactoryRegistry);
+        return configureConnectionManager(builder, cm, config);
+    }
+
+    private static HttpClientBuilder newClientBuilder() {
+        return HttpClients.custom()
+                .useSystemProperties()
+                .setUserTokenHandler(NoopUserTokenHandler.INSTANCE)
+                .setRedirectStrategy(new DefaultRedirectStrategy());
+    }
+
+    private static HttpClientBuilder configureConnectionManager(HttpClientBuilder builder, PoolingHttpClientConnectionManager cm, HttpClientConfig config) {
+        cm.setMaxTotal(config.poolSize());
+        cm.setDefaultMaxPerRoute(config.defaultMaxPerRoute());
+        cm.setValidateAfterInactivity(TimeValue.of(config.validateAfterInactivity(), TimeUnit.MILLISECONDS));
+
+        cm.setDefaultConnectionConfig(ConnectionConfig.custom()
+                .setConnectTimeout(toTimeout(config.connectTimeoutInMs()))
+                .build());
+        cm.setDefaultSocketConfig(SocketConfig.custom()
+                .setSoTimeout(toTimeout(config.readTimeoutInMs()))
+                .build());
+
         builder.setConnectionManager(cm);
 
-        if (maxKeepAlive <= 0) {
-            builder.setConnectionReuseStrategy((request, response, context) -> false);
+        if (config.maxKeepAlive() <= 0) {
+            builder.setConnectionReuseStrategy((_, _, _) -> false);
         } else {
-            builder.setKeepAliveStrategy(new UaaConnectionKeepAliveStrategy(maxKeepAlive));
+            builder.setKeepAliveStrategy(new UaaConnectionKeepAliveStrategy(config.maxKeepAlive()));
         }
 
-        if (retryCount > 0) {
-            builder.setRetryStrategy(new UaaHttpRequestRetryHandler(retryCount));
+        if (config.retryCount() > 0) {
+            builder.setRetryStrategy(new UaaHttpRequestRetryHandler(config.retryCount()));
         }
 
         return builder;
     }
 
+    private static Timeout toTimeout(int millis) {
+        return millis <= 0 ? Timeout.DISABLED : Timeout.ofMilliseconds(millis);
+    }
+
+    /**
+     * The {@code skipSslValidation=true} escape hatch: accepts <em>any</em> server certificate chain,
+     * of any length, from any issuer. Combined with the {@link NoopHostnameVerifier} applied alongside
+     * it in {@link #getClientBuilder(boolean, HttpClientConfig)}, this disables peer authentication
+     * entirely and offers no protection against man-in-the-middle attacks.
+     * <p>
+     * This must be {@link TrustAllStrategy}, not {@code TrustSelfSignedStrategy}. The latter's
+     * {@code isTrusted} is {@code chain.length == 1}, and Apache's {@code TrustManagerDelegate} falls
+     * through to normal JDK PKIX validation whenever a strategy returns false -- so it silently
+     * validated (and rejected) every chain of two or more certificates, which is what any real
+     * identity provider behind a CA hierarchy serves. That made the flag a no-op precisely where
+     * operators needed it.
+     * <p>
+     * To trust a private CA <em>without</em> giving up validation, use the per-IDP
+     * {@code caCertificates} property instead, which is served by
+     * {@link org.cloudfoundry.identity.uaa.security.IdpOutboundTrustCache} and keeps both chain
+     * validation and hostname verification switched on.
+     */
     private static SSLContext getNonValidatingSslContext() {
         try {
-            return new SSLContextBuilder().loadTrustMaterial(null, new TrustSelfSignedStrategy()).build();
+            return new SSLContextBuilder().loadTrustMaterial(TrustAllStrategy.INSTANCE).build();
         } catch (KeyManagementException | KeyStoreException | NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
@@ -153,7 +267,7 @@ public abstract class UaaHttpRequestUtils {
                     return result;
                 }
             }
-        } catch (IllegalStateException x) {
+        } catch (IllegalStateException _) {
             //nothing bound on thread.
             logger.debug("Unable to retrieve request attributes looking for invitation.");
 
@@ -173,7 +287,7 @@ public abstract class UaaHttpRequestUtils {
 
         @Override
         public TimeValue getKeepAliveDuration(HttpResponse httpResponse, HttpContext httpContext) {
-            BasicHeaderElementIterator elementIterator = new BasicHeaderElementIterator(httpResponse.headerIterator(HTTP.CONN_KEEP_ALIVE));
+            BasicHeaderElementIterator elementIterator = new BasicHeaderElementIterator(httpResponse.headerIterator(HttpHeaders.KEEP_ALIVE));
             long result = connectionKeepAliveMax;
 
             while (elementIterator.hasNext()) {
@@ -183,7 +297,7 @@ public abstract class UaaHttpRequestUtils {
                 if (elementValue != null && elementName != null && elementName.equalsIgnoreCase(TIMEOUT)) {
                     try {
                         result = Math.min(TimeUnit.SECONDS.toMillis(Long.parseLong(elementValue)), connectionKeepAliveMax);
-                    } catch (NumberFormatException e) {
+                    } catch (NumberFormatException _) {
                         //Ignore Exception and keep current elementValue of result
                     }
                     break;
@@ -243,7 +357,7 @@ public abstract class UaaHttpRequestUtils {
                                 new TypeReference<>() {
                                 });
                         credentials.putAll(jsonCredentials);
-                    } catch (JsonUtils.JsonUtilException e) {
+                    } catch (JsonUtils.JsonUtilException _) {
                         logger.warn("Unknown format of value for request param: {}. Ignoring.", paramName);
                     }
                 } else {

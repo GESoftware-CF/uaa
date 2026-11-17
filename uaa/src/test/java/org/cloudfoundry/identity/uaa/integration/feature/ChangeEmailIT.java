@@ -1,11 +1,11 @@
 package org.cloudfoundry.identity.uaa.integration.feature;
 
-import com.dumbster.smtp.SimpleSmtpServer;
-import com.dumbster.smtp.SmtpMessage;
+import com.icegreen.greenmail.util.GreenMail;
+import com.icegreen.greenmail.util.GreenMailUtil;
+import jakarta.mail.internet.MimeMessage;
 import org.cloudfoundry.identity.uaa.test.UaaWebDriver;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.openqa.selenium.By;
@@ -14,13 +14,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 import java.security.SecureRandom;
-import java.util.Iterator;
 
 import static org.apache.commons.lang3.StringUtils.contains;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringJUnitConfig(classes = DefaultIntegrationTestConfig.class)
-    //Some tests are Ignored to accomodate Predix Branding changes
 class ChangeEmailIT {
 
     @Autowired
@@ -34,7 +32,7 @@ class ChangeEmailIT {
     String baseUrl;
 
     @Autowired
-    SimpleSmtpServer simpleSmtpServer;
+    GreenMail greenMail;
 
     @Autowired
     TestClient testClient;
@@ -46,7 +44,7 @@ class ChangeEmailIT {
     void logout_and_clear_cookies() {
         try {
             webDriver.get(baseUrl + "/logout.do");
-        } catch (org.openqa.selenium.TimeoutException x) {
+        } catch (org.openqa.selenium.TimeoutException _) {
             //try again - this should not be happening - 20 second timeouts
             webDriver.get(baseUrl + "/logout.do");
         }
@@ -69,8 +67,7 @@ class ChangeEmailIT {
     }
 
     @Test
-    @Disabled
-    void changeEmailWithLogout() {
+    void changeEmailWithLogout() throws Exception {
         String newEmail = changeEmail(true);
 
         assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Welcome");
@@ -82,8 +79,7 @@ class ChangeEmailIT {
     }
 
     @Test
-    @Disabled
-    void changeEmailWithoutLogout() {
+    void changeEmailWithoutLogout() throws Exception {
         String newEmail = changeEmail(false);
         assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Account Settings");
         assertThat(webDriver.findElement(By.cssSelector(".alert-success")).getText()).contains("Email address successfully verified.");
@@ -91,9 +87,9 @@ class ChangeEmailIT {
         assertThat(webDriver.findElement(By.cssSelector(".profile")).getText()).contains(newEmail);
     }
 
-    private String changeEmail(boolean logout) {
+    private String changeEmail(boolean logout) throws Exception {
         signIn(userEmail, "secr3T");
-        int receivedEmailSize = simpleSmtpServer.getReceivedEmailSize();
+        int receivedEmailSize = greenMail.getReceivedMessages().length;
 
         webDriver.get(baseUrl + "/profile");
         assertThat(webDriver.findElement(By.cssSelector(".profile .email")).getText()).isEqualTo(userEmail);
@@ -105,16 +101,15 @@ class ChangeEmailIT {
         webDriver.clickAndWait(By.xpath("//input[@value='Send Verification Link']"));
 
         assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Instructions Sent");
-        assertThat(simpleSmtpServer.getReceivedEmailSize()).isEqualTo(receivedEmailSize + 1);
+        greenMail.waitForIncomingEmail(5000, receivedEmailSize + 1);
+        assertThat(greenMail.getReceivedMessages()).hasSize(receivedEmailSize + 1);
 
-        Iterator<SmtpMessage> receivedEmail = simpleSmtpServer.getReceivedEmail();
-        SmtpMessage message = receivedEmail.next();
-        receivedEmail.remove();
+        MimeMessage message = greenMail.getReceivedMessages()[receivedEmailSize];
 
-        assertThat(message.getHeaderValue("To")).isEqualTo(newEmail);
-        assertThat(message.getBody()).contains("Verify your email");
+        assertThat(message.getHeader("To")[0]).isEqualTo(newEmail);
+        assertThat(GreenMailUtil.getBody(message)).contains("Verify your email");
 
-        String link = testClient.extractLink(message.getBody());
+        String link = testClient.extractLink(GreenMailUtil.getBody(message));
         assertThat(contains(link, "@")).isFalse();
         assertThat(contains(link, "%40")).isFalse();
 
@@ -128,20 +123,19 @@ class ChangeEmailIT {
     }
 
     @Test
-    @Disabled
-    void changeEmailWithClientRedirect() {
+    void changeEmailWithClientRedirect() throws Exception {
         signIn(userEmail, "secr3T");
 
         webDriver.get(baseUrl + "/change_email?client_id=app");
 
+        int beforeCount = greenMail.getReceivedMessages().length;
         String newEmail = userEmail.replace("user", "new");
         webDriver.findElement(By.name("newEmail")).sendKeys(newEmail);
         webDriver.clickAndWait(By.xpath("//input[@value='Send Verification Link']"));
 
-        Iterator receivedEmail = simpleSmtpServer.getReceivedEmail();
-        SmtpMessage message = (SmtpMessage) receivedEmail.next();
-        receivedEmail.remove();
-        String link = testClient.extractLink(message.getBody());
+        greenMail.waitForIncomingEmail(5000, beforeCount + 1);
+        MimeMessage message = greenMail.getReceivedMessages()[beforeCount];
+        String link = testClient.extractLink(GreenMailUtil.getBody(message));
 
         webDriver.get(link);
         //simulate redirect to app and back

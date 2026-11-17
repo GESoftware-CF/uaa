@@ -14,6 +14,13 @@
 
 package org.cloudfoundry.identity.uaa.authentication;
 
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.cloudfoundry.identity.uaa.oauth.common.exceptions.OAuth2Exception;
@@ -24,14 +31,20 @@ import org.cloudfoundry.identity.uaa.oauth.provider.OAuth2Request;
 import org.cloudfoundry.identity.uaa.oauth.provider.OAuth2RequestFactory;
 import org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AuthenticationEntryPoint;
 import org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants;
+import org.cloudfoundry.identity.uaa.oauth.token.RevocableToken;
+import org.cloudfoundry.identity.uaa.oauth.token.RevocableTokenProvisioning;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.OIDCIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.provider.oauth.ExternalOAuthAuthenticationManager;
 import org.cloudfoundry.identity.uaa.provider.oauth.ExternalOAuthCodeToken;
+import org.cloudfoundry.identity.uaa.provider.oauth.TokenExchangeData;
 import org.cloudfoundry.identity.uaa.provider.saml.Saml2BearerGrantAuthenticationConverter;
 import org.cloudfoundry.identity.uaa.util.SessionUtils;
 import org.cloudfoundry.identity.uaa.util.UaaSecurityContextUtils;
 import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
+import org.cloudfoundry.identity.uaa.util.UaaTokenUtils;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.security.authentication.AuthenticationDetailsSource;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -43,17 +56,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.util.Assert;
-
-import jakarta.servlet.Filter;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.ServletRequest;
-import jakarta.servlet.ServletResponse;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -62,6 +67,10 @@ import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.GRANT_TYP
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_JWT_BEARER;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_PASSWORD;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_SAML2_BEARER;
+import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_TOKEN_EXCHANGE;
+import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.TOKEN_TYPE_ACCESS;
+import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.TOKEN_TYPE_ID;
+import static org.cloudfoundry.identity.uaa.util.UaaStringUtils.hasText;
 
 /**
  * Provides an implementation that sets the UserAuthentication
@@ -71,7 +80,8 @@ import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYP
  */
 @Slf4j
 public class BackwardsCompatibleTokenEndpointAuthenticationFilter implements Filter {
-    public static final String DEFAULT_FILTER_PROCESSES_URI = "/oauth/token/alias/{{registrationId}}";
+    public static final String DEFAULT_FILTER_PROCESSES_URI = "/oauth/token/alias/{registrationId}";
+    private final AuthenticationManager tokenExchangeAuthenticationManager;
 
     /**
      * A source of authentication details for requests that result in authentication.
@@ -94,18 +104,21 @@ public class BackwardsCompatibleTokenEndpointAuthenticationFilter implements Fil
 
     private final ExternalOAuthAuthenticationManager externalOAuthAuthenticationManager;
 
-    private final AntPathRequestMatcher requestMatcher;
+    private final RequestMatcher requestMatcher;
+
+    private final RevocableTokenProvisioning revocableTokenProvisioning;
 
     public BackwardsCompatibleTokenEndpointAuthenticationFilter(AuthenticationManager authenticationManager,
             OAuth2RequestFactory oAuth2RequestFactory) {
-        this(DEFAULT_FILTER_PROCESSES_URI, authenticationManager, oAuth2RequestFactory, null, null);
+        this(DEFAULT_FILTER_PROCESSES_URI, authenticationManager, oAuth2RequestFactory, null, null, null, null);
     }
 
     public BackwardsCompatibleTokenEndpointAuthenticationFilter(AuthenticationManager authenticationManager,
             OAuth2RequestFactory oAuth2RequestFactory,
             Saml2BearerGrantAuthenticationConverter saml2BearerGrantAuthenticationConverter,
             ExternalOAuthAuthenticationManager externalOAuthAuthenticationManager) {
-        this(DEFAULT_FILTER_PROCESSES_URI, authenticationManager, oAuth2RequestFactory, saml2BearerGrantAuthenticationConverter, externalOAuthAuthenticationManager);
+        this(DEFAULT_FILTER_PROCESSES_URI, authenticationManager, oAuth2RequestFactory,
+                saml2BearerGrantAuthenticationConverter, externalOAuthAuthenticationManager, null, null);
     }
 
     public BackwardsCompatibleTokenEndpointAuthenticationFilter(String requestMatcherUrl,
@@ -113,15 +126,46 @@ public class BackwardsCompatibleTokenEndpointAuthenticationFilter implements Fil
             OAuth2RequestFactory oAuth2RequestFactory,
             Saml2BearerGrantAuthenticationConverter saml2BearerGrantAuthenticationConverter,
             ExternalOAuthAuthenticationManager externalOAuthAuthenticationManager) {
+            this(requestMatcherUrl, authenticationManager, oAuth2RequestFactory,
+                saml2BearerGrantAuthenticationConverter, externalOAuthAuthenticationManager, null, null);
+    }
+
+    public BackwardsCompatibleTokenEndpointAuthenticationFilter(
+            AuthenticationManager authenticationManager,
+            OAuth2RequestFactory oAuth2RequestFactory,
+            Saml2BearerGrantAuthenticationConverter saml2BearerGrantAuthenticationConverter,
+            ExternalOAuthAuthenticationManager externalOAuthAuthenticationManager,
+            AuthenticationManager tokenExchangeAuthenticationManager) {
+        this(
+                DEFAULT_FILTER_PROCESSES_URI,
+                authenticationManager,
+                oAuth2RequestFactory,
+                saml2BearerGrantAuthenticationConverter,
+                externalOAuthAuthenticationManager,
+                tokenExchangeAuthenticationManager,
+                null
+        );
+    }
+
+    public BackwardsCompatibleTokenEndpointAuthenticationFilter(
+            String requestMatcherUrl,
+            AuthenticationManager authenticationManager,
+            OAuth2RequestFactory oAuth2RequestFactory,
+            Saml2BearerGrantAuthenticationConverter saml2BearerGrantAuthenticationConverter,
+            ExternalOAuthAuthenticationManager externalOAuthAuthenticationManager,
+            AuthenticationManager tokenExchangeAuthenticationManager,
+            RevocableTokenProvisioning revocableTokenProvisioning) {
         super();
         Assert.isTrue(requestMatcherUrl.contains("{registrationId}"),
                 "filterProcessesUrl must contain a {registrationId} match variable");
-        requestMatcher = new AntPathRequestMatcher(requestMatcherUrl);
+        requestMatcher = PathPatternRequestMatcher.withDefaults().matcher(requestMatcherUrl);
 
         this.authenticationManager = authenticationManager;
         this.oAuth2RequestFactory = oAuth2RequestFactory;
         this.saml2BearerGrantAuthenticationConverter = saml2BearerGrantAuthenticationConverter;
         this.externalOAuthAuthenticationManager = externalOAuthAuthenticationManager;
+        this.tokenExchangeAuthenticationManager = tokenExchangeAuthenticationManager;
+        this.revocableTokenProvisioning = revocableTokenProvisioning;
     }
 
     public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain) throws IOException, ServletException {
@@ -223,7 +267,7 @@ public class BackwardsCompatibleTokenEndpointAuthenticationFilter implements Fil
             authResult = authenticationManager.authenticate(credentials);
 
             if (authResult != null && authResult.isAuthenticated() && authResult instanceof UaaAuthentication uaaAuthentication
-                    && SessionUtils.isPasswordChangeRequired(request.getSession())) {
+                    && SessionUtils.isPasswordChangeRequired(request.getSession(false))) {
                 throw new PasswordChangeRequiredException(uaaAuthentication, "password change required");
             }
 
@@ -252,7 +296,7 @@ public class BackwardsCompatibleTokenEndpointAuthenticationFilter implements Fil
                 log.debug("No assertion or filter, not attempting SAML authentication for token endpoint.");
                 throw new InsufficientAuthenticationException("SAML Assertion is missing");
             }
-        }/* else if (GRANT_TYPE_JWT_BEARER.equals(grantType)) {
+    } /* else if (GRANT_TYPE_JWT_BEARER.equals(grantType)) {
             log.debug("{} found. Attempting authentication with assertion", GRANT_TYPE_JWT_BEARER);
             String assertion = request.getParameter("assertion");
             if (assertion != null && externalOAuthAuthenticationManager != null) {
@@ -274,13 +318,59 @@ public class BackwardsCompatibleTokenEndpointAuthenticationFilter implements Fil
                 log.debug("No assertion or authentication manager, not attempting JWT bearer authentication for token endpoint.");
                 throw new InsufficientAuthenticationException("Assertion is missing");
             }
+        } */ else if (GRANT_TYPE_TOKEN_EXCHANGE.equals(grantType)) {
+            TokenExchangeData token = getSubjectToken(request);
+            if (token != null && this.tokenExchangeAuthenticationManager != null) {
+                authResult = this.tokenExchangeAuthenticationManager.authenticate(token);
+            } else {
+                log.debug("No subject_token or authentication manager, not attempting JWT token-exchange for token endpoint.");
+                throw new InsufficientAuthenticationException("Invalid or missing subject_token");
+            }
         }
-*/
         if (authResult != null && authResult.isAuthenticated()) {
             log.debug("Authentication success: {}", authResult.getName());
             return authResult;
         }
         return null;
+    }
+
+    protected TokenExchangeData getSubjectToken(HttpServletRequest request) {
+        String subjectToken = request.getParameter("subject_token");
+        if (!hasText(subjectToken)) {
+            return null;
+        }
+        String subjectTokenType = request.getParameter("subject_token_type");
+        String idToken = null;
+        String accessToken = null;
+        if (TOKEN_TYPE_ACCESS.equals(subjectTokenType)) {
+            // If the access token is opaque (not a JWT), resolve it to the backing JWT from the
+            // UAA revocable token store before passing it downstream. If not found in the store,
+            // leave it unchanged - downstream will handle or reject it.
+            if (!UaaTokenUtils.isJwtToken(subjectToken)
+                    && revocableTokenProvisioning != null) {
+                try {
+                    RevocableToken revocableToken = revocableTokenProvisioning.retrieve(
+                            subjectToken, IdentityZoneHolder.get().getId());
+                    subjectToken = revocableToken.getValue();
+                } catch (EmptyResultDataAccessException _) {
+                    log.debug("Opaque subject_token not found in revocable token store, passing through unchanged");
+                }
+            }
+            accessToken = subjectToken;
+        } else if (TOKEN_TYPE_ID.equals(subjectTokenType)) {
+            idToken = subjectToken;
+        }
+        TokenExchangeData token = new TokenExchangeData(
+                null,
+                null,
+                null,
+                idToken,
+                accessToken,
+                null,
+                new UaaAuthenticationDetails(request)
+        );
+        token.setRequestContextPath(getContextPath(request));
+        return token;
     }
 
     private void resolveRegistrationId(HttpServletRequest request) {
@@ -293,7 +383,6 @@ public class BackwardsCompatibleTokenEndpointAuthenticationFilter implements Fil
             return;
         }
         request.setAttribute("registrationId", registrationId);
-
     }
 
     private String getContextPath(HttpServletRequest request) {

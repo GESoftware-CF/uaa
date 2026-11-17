@@ -14,6 +14,7 @@
 package org.cloudfoundry.identity.uaa.zone;
 
 import org.cloudfoundry.identity.uaa.util.UaaUrlUtils;
+import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -29,6 +30,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
+
 /**
  * This filter ensures that all requests are targeting a specific identity zone
  * by hostname. If the hostname doesn't match an identity zone, a 404 error is
@@ -38,54 +40,98 @@ import java.util.Set;
 public class IdentityZoneResolvingFilter extends OncePerRequestFilter implements InitializingBean {
 
     private final IdentityZoneProvisioning dao;
-    private final Set<String> staticResources = Set.of("/resources/", "/vendor/font-awesome/");
+    private final IdentityZoneManager identityZoneManager;
     private final Set<String> defaultZoneHostnames = new HashSet<>();
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    public IdentityZoneResolvingFilter(final IdentityZoneProvisioning dao) {
+    public IdentityZoneResolvingFilter(final IdentityZoneProvisioning dao,
+                                       final IdentityZoneManager identityZoneManager) {
         this.dao = dao;
+        this.identityZoneManager = identityZoneManager;
     }
+
+    private static final String INTERNAL_ERROR_MESSAGE = "Internal server error while fetching identity zone for subdomain ";
+    private static final String NOT_FOUND_MESSAGE = "Cannot find identity zone for subdomain ";
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        IdentityZone identityZone = null;
-        logger.info("Inside zone filter ****************");
-        String hostname = request.getServerName();
-        String subdomain = getSubdomain(hostname);
-        if (subdomain != null) {
-            try {
-                identityZone = dao.retrieveBySubdomain(subdomain);
-            } catch (EmptyResultDataAccessException ex) {
-                logger.debug("Cannot find identity zone for subdomain {}", subdomain);
-            } catch (Exception ex) {
-                String message = "Internal server error while fetching identity zone for subdomain" + subdomain;
-                logger.warn(message, ex);
-                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, message);
-                return;
-            }
-        }
-        if (identityZone == null) {
-            // skip filter to static resources in order to serve images and css in case of invalid zones
-            boolean isStaticResource = staticResources.stream().anyMatch(UaaUrlUtils.getRequestPath(request)::startsWith);
-            if (isStaticResource) {
-                filterChain.doFilter(request, response);
-                return;
-            }
-
-            request.setAttribute("error_message_code", "zone.not.found");
-            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Cannot find identity zone for subdomain " + subdomain);
+        String effectiveSubdomain = resolveEffectiveSubdomain(request, response);
+        if (effectiveSubdomain == null && response.isCommitted()) {
             return;
         }
+
+        IdentityZone identityZone = resolveZoneBySubdomain(effectiveSubdomain, response);
+        if (response.isCommitted()) {
+            return;
+        }
+        if (identityZone == null) {
+            handleZoneNotFound(effectiveSubdomain, request, response, filterChain);
+            return;
+        }
+        doFilterWithZone(identityZone, request, response, filterChain);
+    }
+
+    /**
+     * Resolves the effective subdomain from path (zone path attribute) or hostname. Sends 400 if both are present.
+     *
+     * @return the subdomain to use, or null if from hostname and host did not match any zone root (caller must check response.isCommitted() for 400)
+     */
+    private String resolveEffectiveSubdomain(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        String subdomainFromPath = (String) request.getAttribute(ZonePathContextRewritingFilter.ZONE_SUBDOMAIN_FROM_PATH);
+        String subdomainFromHost = getSubdomainFromHost(request.getServerName());
+        if (subdomainFromPath != null) {
+            if (subdomainFromHost != null && !subdomainFromHost.isEmpty()) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Cannot use both subdomain and zone path");
+                return null;
+            }
+            return subdomainFromPath;
+        }
+        return subdomainFromHost;
+    }
+
+    /**
+     * Looks up identity zone by subdomain. On generic exception sends 500 and returns null; caller should check response.isCommitted().
+     */
+    private IdentityZone resolveZoneBySubdomain(String subdomain, HttpServletResponse response) throws IOException {
+        if (subdomain == null) {
+            return null;
+        }
         try {
-            IdentityZoneHolder.set(identityZone);
-            filterChain.doFilter(request, response);
-        } finally {
-            IdentityZoneHolder.clear();
+            return dao.retrieveBySubdomain(subdomain);
+        } catch (EmptyResultDataAccessException _) {
+            logger.debug("Cannot find identity zone for subdomain {}", subdomain);
+            return null;
+        } catch (Exception ex) {
+            String message = INTERNAL_ERROR_MESSAGE + subdomain;
+            logger.warn(message, ex);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, message);
+            return null;
         }
     }
 
-    private String getSubdomain(String hostname) {
+    /**
+     * Handles the case when no zone was found: serve static resources or send 404. Caller must return after calling.
+     */
+    private void handleZoneNotFound(String subdomain, HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+        if (UaaUrlUtils.isStaticResource(request)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+        request.setAttribute("error_message_code", "zone.not.found");
+        response.sendError(HttpServletResponse.SC_NOT_FOUND, NOT_FOUND_MESSAGE + subdomain);
+    }
+
+    private void doFilterWithZone(IdentityZone identityZone, HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+        try {
+            identityZoneManager.setCurrentIdentityZone(identityZone);
+            filterChain.doFilter(request, response);
+        } finally {
+            identityZoneManager.clear();
+        }
+    }
+
+    private String getSubdomainFromHost(String hostname) {
         String lowerHostName = hostname.toLowerCase();
         if (defaultZoneHostnames.contains(lowerHostName)) {
             return "";

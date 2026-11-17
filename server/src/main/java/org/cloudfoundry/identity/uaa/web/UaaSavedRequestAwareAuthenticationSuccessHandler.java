@@ -19,7 +19,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.cloudfoundry.identity.uaa.util.SessionUtils;
 import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
 import org.cloudfoundry.identity.uaa.util.UaaUrlUtils;
 import org.springframework.security.core.Authentication;
@@ -27,8 +26,12 @@ import org.springframework.security.saml2.core.Saml2ParameterNames;
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
 import org.springframework.security.web.savedrequest.SavedRequest;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 public class UaaSavedRequestAwareAuthenticationSuccessHandler extends SavedRequestAwareAuthenticationSuccessHandler {
@@ -43,13 +46,17 @@ public class UaaSavedRequestAwareAuthenticationSuccessHandler extends SavedReque
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws ServletException, IOException {
-        SessionUtils.clearForceIdpReauthentication(request.getSession(false));
         SavedRequest savedRequest = this.requestCache.getRequest(request, response);
         if (savedRequest == null) {
             String relayState = UaaStringUtils.getCleanedUserControlString(request.getParameter(Saml2ParameterNames.RELAY_STATE), UaaStringUtils.EMPTY_STRING);
             if (UaaStringUtils.hasText(relayState) && UaaUrlUtils.isUrl(relayState)) {
-                log.debug("Redirecting to relayState URI: {}", relayState);
-                this.getRedirectStrategy().sendRedirect(request, response, relayState);
+                List<String> samlRelayStateWhitelist = Optional.ofNullable(
+                        IdentityZoneHolder.get().getConfig().getLinks().getLogout().getWhitelist()
+                ).orElse(Collections.emptyList());
+                String fallbackUrl = this.getDefaultTargetUrl();
+                String redirectUri = UaaUrlUtils.findMatchingRedirectUri(samlRelayStateWhitelist, relayState, fallbackUrl);
+                log.debug("Redirecting after SAML login. requestedRelayState='{}' redirectUri='{}'", relayState, redirectUri);
+                this.getRedirectStrategy().sendRedirect(request, response, redirectUri);
             } else {
                 super.onAuthenticationSuccess(request, response, authentication);
             }

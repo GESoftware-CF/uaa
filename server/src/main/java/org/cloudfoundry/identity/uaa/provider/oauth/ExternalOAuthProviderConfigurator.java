@@ -23,6 +23,7 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -91,7 +92,17 @@ public class ExternalOAuthProviderConfigurator implements IdentityProviderProvis
         var relyingPartyId = definition.getRelyingPartyId();
 
         var state = generateStateParam();
-        SessionUtils.setStateParam(request.getSession(), SessionUtils.stateParameterAttributeKeyForIdp(idpOriginKey), state);
+        var stateAttributeKey = SessionUtils.stateParameterAttributeKeyForIdp(idpOriginKey);
+        var previousState = SessionUtils.getStateParam(request.getSession(), stateAttributeKey);
+        if (previousState instanceof String previous && !previous.equals(state)) {
+            // A login flow for this IDP was already in progress in this session (e.g. another
+            // browser tab). Remember the state we are about to overwrite so a late callback from
+            // that older tab can be recognised as a concurrent login rather than a CSRF attempt.
+            SessionUtils.recordSupersededState(request.getSession(), idpOriginKey, previous);
+        }
+        SessionUtils.setStateParam(request.getSession(), stateAttributeKey, state);
+        SessionUtils.setStateParam(request.getSession(), SessionUtils.redirectUriParameterAttributeKeyForIdp(idpOriginKey),
+                URLDecoder.decode(callbackUrl, StandardCharsets.UTF_8));
 
         UriComponentsBuilder uriBuilder = UriComponentsBuilder
                 .fromUriString(idpUrlBase)
@@ -116,8 +127,10 @@ public class ExternalOAuthProviderConfigurator implements IdentityProviderProvis
         }
 
         if (OIDCIdentityProviderDefinition.class.equals(definition.getParameterizedClass())) {
-            var nonceGenerator = new RandomValueStringGenerator(12);
-            uriBuilder.queryParam("nonce", nonceGenerator.generate());
+            var nonceGenerator = new RandomValueStringGenerator(22);
+            String nonce = nonceGenerator.generate();
+            SessionUtils.setStateParam(request.getSession(), SessionUtils.nonceParameterAttributeKeyForIdp(idpOriginKey), nonce);
+            uriBuilder.queryParam("nonce", nonce);
 
             Map<String, String> additionalParameters = ofNullable(((OIDCIdentityProviderDefinition) definition).getAdditionalAuthzParameters()).orElse(emptyMap());
             additionalParameters.keySet().forEach(e -> uriBuilder.queryParam(e, additionalParameters.get(e)));
@@ -134,7 +147,7 @@ public class ExternalOAuthProviderConfigurator implements IdentityProviderProvis
     }
 
     private String generateStateParam() {
-        return uaaRandomStringUtil.getSecureRandom(10);
+        return uaaRandomStringUtil.getSecureRandom(22);
     }
 
     private String generateCodeVerifier() {

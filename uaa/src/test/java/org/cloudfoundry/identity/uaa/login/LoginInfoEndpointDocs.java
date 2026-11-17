@@ -1,6 +1,6 @@
 package org.cloudfoundry.identity.uaa.login;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthentication;
 import org.cloudfoundry.identity.uaa.authentication.UaaPrincipal;
 import org.cloudfoundry.identity.uaa.mock.EndpointDocs;
@@ -14,17 +14,16 @@ import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.restdocs.snippet.Snippet;
-import org.springframework.security.crypto.codec.Base64;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.Map;
 
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.CSRF_PARAMETER_NAME;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.getLoginForm;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
 import static org.cloudfoundry.identity.uaa.test.SnippetUtils.fieldWithPath;
 import static org.cloudfoundry.identity.uaa.test.SnippetUtils.headerWithName;
 import static org.cloudfoundry.identity.uaa.test.SnippetUtils.parameterWithName;
@@ -100,20 +99,23 @@ class LoginInfoEndpointDocs extends EndpointDocs {
         Snippet formParameters = formParameters(
                 parameterWithName("username").required().type(STRING).description("The username of the user, sometimes the email address."),
                 parameterWithName("password").required().type(STRING).description("The user's password"),
-                parameterWithName(CSRF_PARAMETER_NAME).required().type(STRING).description("Automatically configured by the server upon /login.")
+                parameterWithName("X-Uaa-Csrf").required().type(STRING).description("Automatically configured by the server upon /login. Must match the value of the X-Uaa-Csrf cookie.")
+        );
+        Snippet requestHeaders = requestHeaders(
+                headerWithName("Cookie").optional(null).type(STRING).description("*Required* Must contain the a value for the cookie X-Uaa-Csrf and that must match the request parameter of the same name")
         );
 
-        MockHttpSession session = new MockHttpSession();
-        getLoginForm(mockMvc, session);
         mockMvc.perform(
                 post("/login.do")
-                        .with(csrf(session))
+                        .with(cookieCsrf())
+                        .header("Cookie", "X-Uaa-Csrf=12345a")
                         .param("username", "marissa")
                         .param("password", "koala")
-        )
+                        .param("X-Uaa-Csrf", "12345a"))
                 .andDo(
                         document("{ClassName}/{methodName}",
                                 preprocessResponse(prettyPrint()),
+                                requestHeaders,
                                 formParameters))
                 .andExpect(status().isFound())
                 .andExpect(redirectedUrl("/"));
@@ -137,7 +139,7 @@ class LoginInfoEndpointDocs extends EndpointDocs {
                 Collections.singletonList(UaaAuthority.fromAuthorities("uaa.user")), null);
 
         MockHttpSession session = new MockHttpSession();
-        session.setAttribute(
+        MockMvcUtils.getZoneSession(session).setAttribute(
                 HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
                 new MockMvcUtils.MockSecurityContext(principal)
         );
@@ -182,7 +184,7 @@ class LoginInfoEndpointDocs extends EndpointDocs {
         request.setPassword("koala");
         String body = mockMvc.perform(
                 post("/autologin")
-                        .header("Authorization", "Basic " + new String(Base64.encode("admin:adminsecret".getBytes())))
+                        .header("Authorization", "Basic " + Base64.getEncoder().encodeToString("admin:adminsecret".getBytes(StandardCharsets.UTF_8)))
                         .contentType(APPLICATION_JSON)
                         .accept(APPLICATION_JSON)
                         .content(JsonUtils.writeValueAsString(request)))

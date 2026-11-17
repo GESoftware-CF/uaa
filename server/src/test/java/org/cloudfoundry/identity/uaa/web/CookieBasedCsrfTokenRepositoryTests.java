@@ -142,9 +142,16 @@ class CookieBasedCsrfTokenRepositoryTests {
         MockHttpServletResponse response = new MockHttpServletResponse();
         repo.saveToken(null, request, response);
 
-        Cookie cookie = response.getCookie("X-Uaa-Csrf");
-        assertThat(cookie.getMaxAge()).isZero();
-        assertThat(cookie.getValue()).isNotEmpty();
+        // Spring Framework 7: MockHttpServletResponse.getCookie() no longer parses
+        // Set-Cookie headers added via addHeader(). Check the header directly instead.
+        String setCookieHeader = response.getHeader("Set-Cookie");
+        assertThat(setCookieHeader)
+                .contains("X-Uaa-Csrf=")
+                // Max-Age=0 or Expires at Unix epoch indicates expired/deleted cookie
+                .satisfiesAnyOf(
+            header -> assertThat(header).contains("Max-Age=0"),
+            header -> assertThat(header).contains("Expires=Thu, 1 Jan 1970")
+        );
     }
 
     private MockHttpServletResponse saveTokenAndReturnResponse(boolean isSecure, String protocol) {
@@ -159,6 +166,21 @@ class CookieBasedCsrfTokenRepositoryTests {
     }
 
     private Cookie saveTokenAndReturnCookie(boolean isSecure, String protocol) {
-        return saveTokenAndReturnResponse(isSecure, protocol).getCookie("X-Uaa-Csrf");
+        MockHttpServletResponse response = saveTokenAndReturnResponse(isSecure, protocol);
+        boolean expectSecure = isSecure || "https".equals(protocol);
+        String expectedCookieName = expectSecure ? "__Host-X-Uaa-Csrf" : "X-Uaa-Csrf";
+        
+        String setCookie = response.getHeader("Set-Cookie");
+        if (setCookie == null || !setCookie.contains(expectedCookieName + "=")) {
+            throw new IllegalStateException("Expected Set-Cookie header for " + expectedCookieName + " but was: " + setCookie);
+        }
+
+        int valueStart = setCookie.indexOf(expectedCookieName + "=") + (expectedCookieName + "=").length();
+        int valueEnd = setCookie.indexOf(';', valueStart);
+        String value = valueEnd >= 0 ? setCookie.substring(valueStart, valueEnd) : setCookie.substring(valueStart);
+        Cookie cookie = new Cookie(expectedCookieName, value);
+        cookie.setSecure(setCookie.contains("Secure"));
+        cookie.setHttpOnly(setCookie.contains("HttpOnly"));
+        return cookie;
     }
 }

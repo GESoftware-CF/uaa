@@ -1,6 +1,6 @@
 package org.cloudfoundry.identity.uaa.mock.util;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import org.cloudfoundry.identity.uaa.oauth.KeyInfoService;
 import org.cloudfoundry.identity.uaa.oauth.common.exceptions.InvalidTokenException;
 import org.cloudfoundry.identity.uaa.oauth.jwt.Jwt;
@@ -16,7 +16,7 @@ public class JwtTokenUtils {
         Jwt tokenJwt;
         try {
             tokenJwt = JwtHelper.decode(token);
-        } catch (Throwable t) {
+        } catch (Throwable _) {
             throw new InvalidTokenException("Invalid token (could not decode): " + token);
         }
 

@@ -17,7 +17,7 @@ import static org.cloudfoundry.identity.uaa.constants.OriginKeys.LDAP;
 import static org.cloudfoundry.identity.uaa.constants.OriginKeys.OAUTH20;
 import static org.cloudfoundry.identity.uaa.constants.OriginKeys.OIDC10;
 import static org.cloudfoundry.identity.uaa.constants.OriginKeys.SAML;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
 import static org.cloudfoundry.identity.uaa.provider.IdentityProvider.FIELD_ALIAS_ID;
 import static org.cloudfoundry.identity.uaa.provider.IdentityProvider.FIELD_ALIAS_ZID;
 import static org.cloudfoundry.identity.uaa.provider.IdentityProvider.FIELD_IDENTITY_ZONE_ID;
@@ -102,14 +102,11 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.restdocs.headers.HeaderDescriptor;
 import org.springframework.restdocs.payload.FieldDescriptor;
 import org.springframework.restdocs.snippet.Attributes;
 import org.springframework.restdocs.snippet.Snippet;
 import org.springframework.test.web.servlet.ResultActions;
-
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
 
 class IdentityProviderEndpointDocs extends EndpointDocs {
 
@@ -133,6 +130,7 @@ class IdentityProviderEndpointDocs extends EndpointDocs {
             "Alias identity providers can only be created from or to the \"uaa\" identity zone, i.e., one of `" + FIELD_IDENTITY_ZONE_ID + "` or `" + FIELD_ALIAS_ZID + "` must be set to \"uaa\".";
     private static final FieldDescriptor STORE_CUSTOM_ATTRIBUTES = fieldWithPath("config.storeCustomAttributes").optional(true).type(BOOLEAN).description("Set to true, to store custom user attributes to be fetched from the /userinfo endpoint");
     private static final FieldDescriptor SKIP_SSL_VALIDATION = fieldWithPath("config.skipSslValidation").optional(false).type(BOOLEAN).description("Set to true, to skip SSL validation when fetching metadata.");
+    private static final FieldDescriptor CA_CERTIFICATES = fieldWithPath("config.caCertificates").optional(null).type(ARRAY).description("<small><mark>UAA 79.6.0</mark></small> List of PEM-encoded CA certificates to trust, in addition to the JVM's default trust store, when UAA makes outbound TLS connections to this identity provider (e.g. to fetch metadata or authenticate). Useful when the provider's certificate chain is signed by a private/internal certificate authority. Each entry may contain a single certificate or multiple concatenated PEM certificates (e.g. a full chain); use multiple entries to supply independent trust anchors, such as during a CA rotation. Ignored if skipping SSL validation for this provider. On update (`PUT`), omitting this field (or sending `null`) preserves the identity provider's currently stored CA certificates; to remove them, explicitly send an empty array.");
     private static final FieldDescriptor ATTRIBUTE_MAPPING = fieldWithPath("config.attributeMappings").optional(null).type(OBJECT).description("Map external attribute to UAA recognized mappings.");
     private static final FieldDescriptor ATTRIBUTE_MAPPING_EMAIL = fieldWithPath("config.attributeMappings.email").optional(null).type(STRING).description("Map `email` to the attribute for email in the provider assertion or token.");
     private static final FieldDescriptor ATTRIBUTE_MAPPING_GIVEN_NAME = fieldWithPath("config.attributeMappings.given_name").optional(null).type(STRING).description(GIVEN_NAME_DESC);
@@ -142,7 +140,7 @@ class IdentityProviderEndpointDocs extends EndpointDocs {
     private static final FieldDescriptor ATTRIBUTE_MAPPING_EXTERNAL_GROUP = fieldWithPath("config.attributeMappings.external_groups").optional(null).type(ARRAY).description("Map `external_groups` to the attribute for groups in the provider assertion.");
     private static final FieldDescriptor ATTRIBUTE_MAPPING_CUSTOM_ATTRIBUTES_DEPARTMENT = fieldWithPath("config.attributeMappings['user.attribute.department']").optional(null).type(STRING).description("Map external attribute to UAA recognized mappings. Mapping should be of the format `user.attribute.<attribute_name>`. `department` is used in the documentation as an example attribute.");
     private static final FieldDescriptor ADD_SHADOW_USER = fieldWithPath("config.addShadowUserOnLogin").optional(true).type(BOOLEAN).description(" Determines whether users should be allowed to authenticate without having a user pre-populated in the users database (if true), or whether shadow users must be created before login by an administrator (if false).");
-    private static final FieldDescriptor EXTERNAL_GROUPS_WHITELIST = fieldWithPath("config.externalGroupsWhitelist").optional(null).type(ARRAY).description("List of external groups that will be included in the ID Token if the `roles` scope is requested.");
+    private static final FieldDescriptor EXTERNAL_GROUPS_WHITELIST = fieldWithPath("config.externalGroupsWhitelist").optional(null).type(ARRAY).description("List of external groups that will be included in the ID Token if the `roles` scope is requested. If omitted or empty, all external groups are included at login time, equivalent to `[\"*\"]`; this is a login-time behavior only, an omitted/empty value is not rewritten in the stored/returned config.");
     private static final FieldDescriptor PROVIDER_DESC = fieldWithPath("config.providerDescription").optional(null).type(STRING).description("Human readable name/description of this provider");
     private static final FieldDescriptor EMAIL_DOMAIN = fieldWithPath("config.emailDomain").optional(null).type(ARRAY).description("List of email domains associated with the provider for the purpose of associating users to the correct origin upon invitation. If empty list, no invitations are accepted. Wildcards supported.");
     private static final FieldDescriptor ACTIVE = fieldWithPath("active").optional(null).description(ACTIVE_DESC);
@@ -151,7 +149,7 @@ class IdentityProviderEndpointDocs extends EndpointDocs {
     private static final FieldDescriptor ID = fieldWithPath("id").type(STRING).description(ID_DESC);
     private static final FieldDescriptor CREATED = fieldWithPath("created").description(CREATED_DESC);
     private static final FieldDescriptor LAST_MODIFIED = fieldWithPath("last_modified").description(LAST_MODIFIED_DESC);
-    private static final FieldDescriptor GROUP_WHITELIST = fieldWithPath("config.externalGroupsWhitelist").optional(null).type(ARRAY).description("JSON Array containing the groups names which need to be populated in the user's `id_token` or response from `/userinfo` endpoint. If you don't specify the whitelist no groups will be populated in the `id_token` or `/userinfo` response." +
+    private static final FieldDescriptor GROUP_WHITELIST = fieldWithPath("config.externalGroupsWhitelist").optional(null).type(ARRAY).description("JSON Array containing the groups names which need to be populated in the user's `id_token` or response from `/userinfo` endpoint. If you don't specify the whitelist, all groups will be populated, equivalent to specifying `[\"*\"]`." +
             "<br>Please note that regex is allowed. Acceptable patterns are" +
             "<ul><li>    `*` translates to all groups </li>" +
             "<li>         `*pattern*` Contains pattern </li>" +
@@ -303,6 +301,7 @@ class IdentityProviderEndpointDocs extends EndpointDocs {
             ldapUserMailSubstitute,
             ldapUserMailSubstituteOverridesLdap,
             ldapSslSkipVerification,
+            CA_CERTIFICATES,
             ldapSslTls,
             ldapReferral,
             ldapGroupsIgnorePartial,
@@ -342,6 +341,7 @@ class IdentityProviderEndpointDocs extends EndpointDocs {
                             ldapUserMailSubstitute,
                             ldapUserMailSubstituteOverridesLdap,
                             ldapSslSkipVerification,
+                            CA_CERTIFICATES,
                             ldapSslTls,
                             ldapReferral,
                             ldapGroupsIgnorePartial,
@@ -376,6 +376,7 @@ class IdentityProviderEndpointDocs extends EndpointDocs {
                             ldapUserMailSubstitute,
                             ldapUserMailSubstituteOverridesLdap,
                             ldapSslSkipVerification,
+                            CA_CERTIFICATES,
                             ldapSslTls,
                             ldapReferral,
                             ldapUserDnPattern,
@@ -427,6 +428,7 @@ class IdentityProviderEndpointDocs extends EndpointDocs {
                             ldapUserMailSubstitute,
                             ldapUserMailSubstituteOverridesLdap,
                             ldapSslSkipVerification,
+                            CA_CERTIFICATES,
                             ldapSslTls,
                             ldapReferral,
                             ldapGroupsIgnorePartial,
@@ -472,6 +474,7 @@ class IdentityProviderEndpointDocs extends EndpointDocs {
                 fieldWithPath("type").required().description("`saml`"),
                 fieldWithPath("originKey").required().description("A unique alias for the SAML provider"),
                 SKIP_SSL_VALIDATION,
+                CA_CERTIFICATES,
                 STORE_CUSTOM_ATTRIBUTES,
                 fieldWithPath("config.metaDataLocation").required().type(STRING).description("SAML Metadata - either an XML string or a URL that will deliver XML content"),
                 fieldWithPath("config.nameID").optional(null).type(STRING).description("The name ID to use for the username, default is \"urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified\"."),
@@ -592,6 +595,7 @@ class IdentityProviderEndpointDocs extends EndpointDocs {
                 fieldWithPath("config.linkText").optional(null).type(STRING).description("Text to use for the login link to the provider"),
                 fieldWithPath("config.relyingPartyId").required().type(STRING).description("The client ID which is registered with the external OAuth provider for use by the UAA"),
                 fieldWithPath("config.skipSslValidation").optional(null).type(BOOLEAN).description("A flag controlling whether SSL validation should be skipped when communicating with the external OAuth server"),
+                CA_CERTIFICATES,
                 fieldWithPath("config.scopes").optional(null).type(ARRAY).description("What scopes to request on a call to the external OAuth provider"),
                 fieldWithPath("config.checkTokenUrl").optional(null).type(OBJECT).description("Reserved for future OAuth use."),
                 fieldWithPath("config.logoutUrl").optional(null).type(OBJECT).description("OAuth 2.0 logout endpoint."),
@@ -701,12 +705,14 @@ class IdentityProviderEndpointDocs extends EndpointDocs {
                 fieldWithPath("config.linkText").optional(null).type(STRING).description("Text to use for the login link to the provider"),
                 fieldWithPath("config.relyingPartyId").required().type(STRING).description("The client ID which is registered with the external OAuth provider for use by the UAA"),
                 fieldWithPath("config.skipSslValidation").optional(null).type(BOOLEAN).description("A flag controlling whether SSL validation should be skipped when communicating with the external OAuth server"),
+                CA_CERTIFICATES,
                 fieldWithPath("config.scopes").optional(null).type(ARRAY).description("What scopes to request on a call to the external OAuth/OpenID provider. For example, can provide " +
                         "`openid`, `roles`, or `profile` to request ID token, scopes populated in the ID token external groups attribute mappings, or the user profile information, respectively."),
                 fieldWithPath("config.checkTokenUrl").optional(null).type(OBJECT).description("Reserved for future OAuth/OIDC use."),
                 fieldWithPath("config.clientAuthInBody").optional(false).type(BOOLEAN).description("Only effective if relyingPartySecret is defined. Sends the client credentials in the token retrieval call as body parameters instead of a Basic Authorization header. It is recommended to set `jwtClientAuthentication:true` instead."),
                 fieldWithPath("config.pkce").optional(true).type(BOOLEAN).description("A flag controlling whether PKCE (RFC 7636) is active in authorization code flow when requesting tokens from the external provider."),
                 fieldWithPath("config.performRpInitiatedLogout").optional(true).type(BOOLEAN).description("A flag controlling whether to log out of the external provider after a successful UAA logout per [OIDC RP-Initiated Logout](https://openid.net/specs/openid-connect-rpinitiated-1_0.html)"),
+                fieldWithPath("config.omitIdTokenHintOnLogout").optional(false).type(BOOLEAN).description("Omit the `id_token_hint` parameter when performing RP-Initiated Logout at the OIDC provider."),
                 fieldWithPath("config.userInfoUrl").optional(null).type(OBJECT).description("Reserved for future OIDC use.  This can be left blank if a discovery URL is provided. If both are provided, this property overrides the discovery URL."),
                 fieldWithPath("config.logoutUrl").optional(null).type(OBJECT).description("OIDC logout endpoint. This can be left blank if a discovery URL is provided. If both are provided, this property overrides the discovery URL."),
                 fieldWithPath("config.responseType").optional("code").type(STRING).description("Response type for the authorize request, defaults to `code`, but can be `code id_token` if the OIDC server can return an id_token as a query parameter in the redirect."),
@@ -922,12 +928,10 @@ class IdentityProviderEndpointDocs extends EndpointDocs {
                 responseFields
         ));
 
-        MockHttpSession session = new MockHttpSession();
-
         mockMvc.perform(
                 post("/login.do")
                         .header("Host", zone.getIdentityZone().getSubdomain() + ".localhost")
-                        .with(csrf(session))
+                        .with(cookieCsrf())
                         .param("username", "marissa4")
                         .param("password", "ldap4")
         )

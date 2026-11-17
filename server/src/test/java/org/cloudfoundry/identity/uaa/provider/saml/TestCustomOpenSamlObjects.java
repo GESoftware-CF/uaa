@@ -23,7 +23,7 @@ import javax.xml.namespace.QName;
 
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
-import net.shibboleth.utilities.java.support.xml.ElementSupport;
+import net.shibboleth.shared.xml.ElementSupport;
 import org.opensaml.core.xml.AbstractXMLObject;
 import org.opensaml.core.xml.AbstractXMLObjectBuilder;
 import org.opensaml.core.xml.ElementExtensibleXMLObject;
@@ -40,18 +40,16 @@ import org.opensaml.saml.common.xml.SAMLConstants;
 import org.opensaml.saml.saml2.core.AttributeValue;
 import org.w3c.dom.Element;
 
-import org.springframework.security.saml2.core.OpenSamlInitializationService;
-
 /**
  * This was copied from Spring Security Test Classes
  * <p/>
- * Once we can move to the spring-security version of OpenSaml4AuthenticationProvider,
+ * Once we can move to the spring-security version of OpenSaml5AuthenticationProvider,
  * this class should be removed.
  */
 public final class TestCustomOpenSamlObjects {
 
     static {
-        OpenSamlInitializationService.initialize();
+        SamlConfiguration.setupOpenSaml();
         XMLObjectProviderRegistrySupport.getMarshallerFactory()
                 .registerMarshaller(CustomOpenSamlObject.TYPE_NAME,
                         new TestCustomOpenSamlObjects.CustomSamlObjectMarshaller());
@@ -204,7 +202,7 @@ public final class TestCustomOpenSamlObjects {
         protected void processChildElement(@Nonnull XMLObject parentXMLObject, @Nonnull XMLObject childXMLObject)
                 throws UnmarshallingException {
             final CustomOpenSamlObject customSamlObject = (CustomOpenSamlObject) parentXMLObject;
-            super.processChildElement(customSamlObject, childXMLObject);
+            // OpenSAML 5: super no longer handles unknown elements; add them directly
             customSamlObject.getUnknownXMLObjects().add(childXMLObject);
         }
 

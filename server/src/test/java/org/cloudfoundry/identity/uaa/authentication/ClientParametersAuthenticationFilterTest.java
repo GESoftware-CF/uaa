@@ -1,7 +1,5 @@
 package org.cloudfoundry.identity.uaa.authentication;
 
-import org.cloudfoundry.identity.uaa.authentication.manager.CommonLoginPolicy;
-import org.cloudfoundry.identity.uaa.authentication.manager.LoginPolicy.Result;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.http.MediaType;
@@ -13,10 +11,6 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.AuthenticationEntryPoint;
 
-import jakarta.servlet.ServletException;
-import java.io.IOException;
-
-import static org.cloudfoundry.identity.uaa.oauth.common.util.OAuth2Utils.CLIENT_ID;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.CLIENT_AUTH_NONE;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeast;
@@ -29,7 +23,7 @@ import static org.mockito.Mockito.when;
 class ClientParametersAuthenticationFilterTest {
 
     @Test
-    void doesNotContinueWithFilterChain_IfAuthenticationException() throws IOException, ServletException {
+    void doesNotContinueWithFilterChain_IfAuthenticationException() throws Exception {
         ClientParametersAuthenticationFilter filter = new ClientParametersAuthenticationFilter();
 
         AuthenticationEntryPoint authenticationEntryPoint = mock(AuthenticationEntryPoint.class);
@@ -38,17 +32,12 @@ class ClientParametersAuthenticationFilterTest {
         AuthenticationManager clientAuthenticationManager = mock(AuthenticationManager.class);
         filter.setClientAuthenticationManager(clientAuthenticationManager);
 
-        CommonLoginPolicy clientLoginPolicy = mock(CommonLoginPolicy.class);
-        filter.setLoginPolicy(clientLoginPolicy);
-        when(clientLoginPolicy.isAllowed(Mockito.anyString())).thenReturn(new Result(true, 0));
-
         BadCredentialsException badCredentialsException = new BadCredentialsException("bad credentials");
         when(clientAuthenticationManager.authenticate(Mockito.any())).thenThrow(badCredentialsException);
 
         MockFilterChain chain = mock(MockFilterChain.class);
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader("Content-Type", MediaType.APPLICATION_FORM_URLENCODED_VALUE);
-        request.addParameter(AbstractClientParametersAuthenticationFilter.CLIENT_ID, "testClientId");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         filter.doFilter(request, response, chain);
@@ -58,7 +47,7 @@ class ClientParametersAuthenticationFilterTest {
     }
 
     @Test
-    void storeClientAuthenticationMethod() throws IOException, ServletException {
+    void storeClientAuthenticationMethod() throws Exception {
         ClientParametersAuthenticationFilter filter = new ClientParametersAuthenticationFilter();
 
         AuthenticationEntryPoint authenticationEntryPoint = mock(AuthenticationEntryPoint.class);
@@ -76,7 +65,6 @@ class ClientParametersAuthenticationFilterTest {
 
         MockFilterChain chain = mock(MockFilterChain.class);
         request.addHeader("Content-Type", MediaType.APPLICATION_FORM_URLENCODED_VALUE);
-        request.addParameter(CLIENT_ID, "testClientId");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         filter.doFilter(request, response, chain);
@@ -87,7 +75,7 @@ class ClientParametersAuthenticationFilterTest {
     }
 
     @Test
-    void storeClientAuthenticationMethodNoDetails() throws IOException, ServletException {
+    void storeClientAuthenticationMethodNoDetails() throws Exception {
         ClientParametersAuthenticationFilter filter = new ClientParametersAuthenticationFilter();
 
         AuthenticationEntryPoint authenticationEntryPoint = mock(AuthenticationEntryPoint.class);
@@ -112,7 +100,7 @@ class ClientParametersAuthenticationFilterTest {
     }
 
     @Test
-    void storeClientAuthenticationMethodNoMethod() throws IOException, ServletException {
+    void storeClientAuthenticationMethodNoMethod() throws Exception {
         ClientParametersAuthenticationFilter filter = new ClientParametersAuthenticationFilter();
 
         AuthenticationEntryPoint authenticationEntryPoint = mock(AuthenticationEntryPoint.class);
@@ -130,7 +118,6 @@ class ClientParametersAuthenticationFilterTest {
 
         MockFilterChain chain = mock(MockFilterChain.class);
         request.addHeader("Content-Type", MediaType.APPLICATION_FORM_URLENCODED_VALUE);
-        request.addParameter(CLIENT_ID, "testClientId");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         filter.doFilter(request, response, chain);

@@ -8,6 +8,7 @@ import org.cloudfoundry.identity.uaa.scim.exception.InvalidPasswordException;
 import org.cloudfoundry.identity.uaa.util.DomainFilter;
 import org.cloudfoundry.identity.uaa.zone.BrandingInformation;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -31,12 +32,15 @@ public class AccountsController {
 
     private final AccountCreationService accountCreationService;
     private final IdentityProviderProvisioning identityProviderProvisioning;
+    private final Environment environment;
 
     public AccountsController(
             final AccountCreationService accountCreationService,
-            final IdentityProviderProvisioning identityProviderProvisioning) {
+            final IdentityProviderProvisioning identityProviderProvisioning,
+            final Environment environment) {
         this.accountCreationService = accountCreationService;
         this.identityProviderProvisioning = identityProviderProvisioning;
+        this.environment = environment;
     }
 
     @GetMapping("/create_account")
@@ -90,7 +94,7 @@ public class AccountsController {
         }
         try {
             accountCreationService.beginActivation(email.getEmail(), password, clientId, redirectUri);
-        } catch (UaaException e) {
+        } catch (UaaException _) {
             return handleUnprocessableEntity(model, response, "error_message_code", "username_exists");
         } catch (InvalidPasswordException e) {
             return handleUnprocessableEntity(model, response, "error_message", e.getMessagesAsOneString());
@@ -117,8 +121,9 @@ public class AccountsController {
         AccountCreationService.AccountCreationResponse accountCreation;
         try {
             accountCreation = accountCreationService.completeActivation(code);
-        } catch (HttpClientErrorException e) {
+        } catch (HttpClientErrorException _) {
             model.addAttribute("error_message_code", "code_expired");
+            model.addAttribute("signupLink", environment.getProperty("links.signup"));
             response.setStatus(HttpStatus.UNPROCESSABLE_ENTITY.value());
             return "accounts/link_prompt";
         }

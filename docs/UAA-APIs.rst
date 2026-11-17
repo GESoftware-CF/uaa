@@ -78,6 +78,7 @@ Filtering supports
 Attribute operators
 
 * eq - equalsIgnoreCase
+* ne - not equal - in SQL becomes ``<>``
 * co - contains - in SQL becomes 'like %value%', case insensitive
 * sw - starts with - in SQL becomes 'like value%', case insensitive
 * pr - present - in SQL becomes 'IS NOT NULL'
@@ -90,6 +91,7 @@ Logical operators
 
 * and - logical and
 * or - logical or
+* not - logical negation of a grouped expression, e.g. ``not (username eq "joe")``
 
 Grouping operators
 
@@ -1390,7 +1392,7 @@ Fields            *Available Fields* ::
                     skipSSLVerification         boolean                 Optional Set to true if you wish to skip SSL certificate verification
                     emailDomain                 List<String>            Optional List of email domains associated with the LDAP provider for the purpose of associating users to the correct origin upon invitation. If null or empty list, no invitations are accepted. Wildcards supported.
                     attributeMappings           Map<String, Object>     Optional List of UAA attributes mapped to attributes from LDAP. Currently we support mapping given_name, family_name, email, phone_number and external_groups.
-                    externalGroupsWhitelist     List<String>            Optional List of external groups (`DN` distinguished names`) that can be included in the ID Token if the `roles` scope is requested. See `UAA-LDAP.md UAA-LDAP.md`_ for more information
+                    externalGroupsWhitelist     List<String>            Optional List of external groups (`DN` distinguished names`) that can be included in the ID Token if the `roles` scope is requested. Empty or omitted means all groups are included; this is applied at login time and the stored value is returned as-is. To disable group lookup, use `ldap/ldap-groups-null.xml` as the group file. See `UAA-LDAP.md UAA-LDAP.md`_ for more information
                     providerDescription         String                  Optional Human readable name/description of this provider
 
 Curl Example      POST (Creating a SAML provider)::
@@ -2350,6 +2352,25 @@ The redirect_uri will be validated against allowed redirect_uri for the client.
         ],
         "failed_invites":[]
     }
+
+.. note::
+
+   **Existing unverified UAA-origin users and password handling**
+
+   When ``POST /invite_users`` is called for an email address that already belongs
+   to an *unverified* ``uaa``-origin user, the response shape is unchanged — the
+   invite link is still returned in ``new_invites[].inviteLink``.
+
+   However, when that invitation is accepted via ``POST /invitations/accept.do``
+   with a ``password`` parameter, the password is **ignored** for that user — only
+   the ``verified`` flag is set.  This is intentional: the ``scim.invite`` scope
+   does not grant credential-management rights over pre-existing accounts.
+
+   To reset an existing user's password use ``POST /password_resets``
+   (requires the ``password.write`` scope).
+
+   Newly created users (first-time invitations where the account did not exist
+   before) are unaffected: the supplied password is set normally.
 
 
 

@@ -5,6 +5,7 @@ import org.cloudfoundry.identity.uaa.annotations.WithDatabaseContext;
 import org.cloudfoundry.identity.uaa.impl.config.IdentityZoneConfigurationBootstrap;
 import org.cloudfoundry.identity.uaa.login.Prompt;
 import org.cloudfoundry.identity.uaa.test.TestUtils;
+import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.zone.ClientSecretPolicy;
 import org.cloudfoundry.identity.uaa.zone.GeneralIdentityZoneConfigurationValidator;
 import org.cloudfoundry.identity.uaa.zone.GeneralIdentityZoneValidator;
@@ -30,14 +31,11 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.TokenFormat.JWT;
-import static org.cloudfoundry.identity.uaa.zone.SamlConfig.SignatureAlgorithm.SHA512;
 import static org.cloudfoundry.identity.uaa.provider.saml.TestCredentialObjects.certificate1;
 import static org.cloudfoundry.identity.uaa.provider.saml.TestCredentialObjects.key1;
 import static org.cloudfoundry.identity.uaa.provider.saml.TestCredentialObjects.passphrase1;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 
 @WithDatabaseContext
 public class IdentityZoneConfigurationBootstrapTests {
@@ -94,7 +92,28 @@ public class IdentityZoneConfigurationBootstrapTests {
     }
 
     @Test
-    void multipleKeys() throws InvalidIdentityZoneDetailsException {
+    void bootstrapCopiesNamedTrustBundlesToDefaultZone() throws Exception {
+        org.springframework.beans.BeanWrapper properties = new org.springframework.beans.BeanWrapperImpl(bootstrap);
+        assertThat(properties.isWritableProperty("mtlsTrustBundles"))
+                .as("the default-zone bootstrap must accept the uaa.yml trust bundles")
+                .isTrue();
+        properties.setPropertyValue("mtlsTrustBundles", Map.of("configured-ca", certificate1()));
+        bootstrap.setMtlsEnabled(true);
+        bootstrap.afterPropertiesSet();
+        Map<String, Object> config = JsonUtils.convertValue(
+                provisioning.retrieve(IdentityZone.getUaaZoneId()).getConfig(), Map.class);
+        assertThat(config).containsEntry("mtls", Map.of("enabled", true, "trustBundles", Map.of("configured-ca", certificate1())));
+    }
+
+    @Test
+    void defaultZoneMtlsIsDisabledUnlessTheDeploymentEnablesIt() throws Exception {
+        bootstrap.afterPropertiesSet();
+
+        assertThat(provisioning.retrieve(IdentityZone.getUaaZoneId()).getConfig().getMtls().isEnabled()).isFalse();
+    }
+
+    @Test
+    void multipleKeys() throws Exception {
         bootstrap.setSamlSpPrivateKey(key1());
         bootstrap.setSamlSpCertificate(certificate1());
         bootstrap.setSamlSpPrivateKeyPassphrase(passphrase1());
@@ -134,7 +153,7 @@ public class IdentityZoneConfigurationBootstrapTests {
         keys.put(null, key1);
         bootstrap.setActiveKeyId(null);
         bootstrap.setSamlKeys(keys);
-        assertThatExceptionOfType(InvalidIdentityZoneDetailsException.class).isThrownBy(() -> bootstrap.afterPropertiesSet());
+        assertThatThrownBy(() -> bootstrap.afterPropertiesSet()).isInstanceOf(InvalidIdentityZoneDetailsException.class);
     }
 
     @Test
@@ -148,9 +167,9 @@ public class IdentityZoneConfigurationBootstrapTests {
         keys.put("key1", key1);
         bootstrap.setActiveKeyId(null);
         bootstrap.setSamlKeys(keys);
-        assertThatExceptionOfType(InvalidIdentityZoneDetailsException.class)
-                .isThrownBy(() -> bootstrap.afterPropertiesSet())
-                .withMessage("The zone configuration is invalid. Identity zone cannot be updated with partial Saml CertKey config.");
+        assertThatThrownBy(() -> bootstrap.afterPropertiesSet())
+                .isInstanceOf(InvalidIdentityZoneDetailsException.class)
+                .hasMessage("The zone configuration is invalid. Identity zone cannot be updated with partial Saml CertKey config.");
     }
 
     @Test
@@ -232,20 +251,11 @@ public class IdentityZoneConfigurationBootstrapTests {
 
     @Test
     void disableSelfServiceLinks() throws Exception {
-        bootstrap.setSelfServiceCreateAccountEnabled(false);
+        bootstrap.setSelfServiceLinksEnabled(false);
         bootstrap.afterPropertiesSet();
 
         IdentityZone zone = provisioning.retrieve(IdentityZone.getUaaZoneId());
-        assertThat(zone.getConfig().getLinks().getSelfService().isSelfServiceCreateAccountEnabled()).isFalse();
-    }
-
-    @Test
-    public void disable_self_service_reset_password_links() throws Exception {
-        bootstrap.setSelfServiceResetPasswordEnabled(false);
-        bootstrap.afterPropertiesSet();
-
-        IdentityZone zone = provisioning.retrieve(IdentityZone.getUaaZoneId());
-        assertFalse(zone.getConfig().getLinks().getSelfService().isSelfServiceResetPasswordEnabled());
+        assertThat(zone.getConfig().getLinks().getSelfService().isSelfServiceLinksEnabled()).isFalse();
     }
 
     @Test
@@ -265,14 +275,13 @@ public class IdentityZoneConfigurationBootstrapTests {
 
         IdentityZone zone = provisioning.retrieve(IdentityZone.getUaaZoneId());
         assertThat(zone.getConfig().getLinks().getSelfService().getSignup()).isEqualTo("/configured_signup");
-        assertThat(zone.getConfig().getLinks().getSelfService().getPasswd()).isEqualTo("/forgot_password");
+        assertThat(zone.getConfig().getLinks().getSelfService().getPasswd()).isNull();
     }
 
     @Test
     void passwdLinkConfigured() throws Exception {
         links.put("passwd", "/configured_passwd");
         bootstrap.setSelfServiceLinks(links);
-        bootstrap.setSelfServiceCreateAccountEnabled(false);
         bootstrap.afterPropertiesSet();
 
         IdentityZone zone = provisioning.retrieve(IdentityZone.getUaaZoneId());
@@ -290,20 +299,8 @@ public class IdentityZoneConfigurationBootstrapTests {
         IdentityZoneConfiguration config = provisioning.retrieve(IdentityZone.getUaaZoneId()).getConfig();
         assertThat(config.getLinks().getLogout().getRedirectUrl()).isEqualTo("/configured_login");
         assertThat(config.getLinks().getLogout().getRedirectParameterName()).isEqualTo("test");
-        assertThat(config.getLinks().getLogout().getWhitelist()).isEqualTo(Collections.singletonList("http://single-url"));
+        assertThat(config.getLinks().getLogout().getWhitelist()).containsExactlyElementsOf(Collections.singletonList("http://single-url"));
         assertThat(config.getLinks().getLogout().isDisableRedirectParameter()).isFalse();
-    }
-
-    @Test
-    public void test_default_prompts() throws Exception {
-        List<Prompt> prompts = Arrays.asList(
-                new Prompt("username", "text", "Username"),
-                new Prompt("password", "password", "Password"),
-                new Prompt("passcode", "password", "Temporary Authentication Code (Get on at /passcode)")
-            );
-        bootstrap.afterPropertiesSet();
-        IdentityZoneConfiguration config = provisioning.retrieve(IdentityZone.getUaa().getId()).getConfig();
-        assertEquals(prompts, config.getPrompts());
     }
 
     @Test
@@ -315,7 +312,7 @@ public class IdentityZoneConfigurationBootstrapTests {
         bootstrap.setPrompts(prompts);
         bootstrap.afterPropertiesSet();
         IdentityZoneConfiguration config = provisioning.retrieve(IdentityZone.getUaaZoneId()).getConfig();
-        assertThat(config.getPrompts()).isEqualTo(prompts);
+        assertThat(config.getPrompts()).containsExactlyElementsOf(prompts);
     }
 
     @Test
@@ -324,5 +321,85 @@ public class IdentityZoneConfigurationBootstrapTests {
         bootstrap.afterPropertiesSet();
         IdentityZoneConfiguration config = provisioning.retrieve(IdentityZone.getUaaZoneId()).getConfig();
         assertThat(config.isIdpDiscoveryEnabled()).isTrue();
+    }
+
+    @Test
+    void issuerConfiguration() throws Exception {
+        String testIssuer = "http://test.example.com/uaa";
+
+        // Set up token policy with keys to satisfy validation
+        TokenPolicy tokenPolicy = new TokenPolicy(3600, 7200);
+        Map<String, String> keys = new HashMap<>();
+        keys.put("testkey", "test-signing-key");
+        tokenPolicy.setKeys(keys);
+        tokenPolicy.setActiveKeyId("testkey");
+        bootstrap.setTokenPolicy(tokenPolicy);
+
+        bootstrap.setIssuer(testIssuer);
+        bootstrap.afterPropertiesSet();
+        IdentityZoneConfiguration config = provisioning.retrieve(IdentityZone.getUaaZoneId()).getConfig();
+        assertThat(config.getIssuer()).isEqualTo(testIssuer);
+    }
+
+    @Test
+    void issuerConfiguration_nullValue() throws Exception {
+        bootstrap.setIssuer(null);
+        bootstrap.afterPropertiesSet();
+        IdentityZoneConfiguration config = provisioning.retrieve(IdentityZone.getUaaZoneId()).getConfig();
+        assertThat(config.getIssuer()).isNull();
+    }
+
+    @Test
+    void issuerConfiguration_emptyValue() throws Exception {
+        bootstrap.setIssuer("");
+        bootstrap.afterPropertiesSet();
+        IdentityZoneConfiguration config = provisioning.retrieve(IdentityZone.getUaaZoneId()).getConfig();
+        assertThat(config.getIssuer()).isNull();
+    }
+
+    @Test
+    void issuerConfiguration_defaultZoneWithTokenPolicy() throws Exception {
+        // This test verifies that the default zone can have an issuer set with a proper token policy
+        String testIssuer = "http://localhost:8080/uaa";
+
+        // Set up token policy with keys to satisfy validation
+        TokenPolicy tokenPolicy = new TokenPolicy(3600, 7200);
+        Map<String, String> keys = new HashMap<>();
+        keys.put("defaultkey", "default-signing-key");
+        tokenPolicy.setKeys(keys);
+        tokenPolicy.setActiveKeyId("defaultkey");
+        bootstrap.setTokenPolicy(tokenPolicy);
+
+        bootstrap.setIssuer(testIssuer);
+        bootstrap.afterPropertiesSet();
+
+        IdentityZone defaultZone = provisioning.retrieve(IdentityZone.getUaaZoneId());
+        assertThat(defaultZone.isUaa()).isTrue();
+        assertThat(defaultZone.getConfig().getIssuer()).isEqualTo(testIssuer);
+        assertThat(defaultZone.getConfig().getTokenPolicy().getActiveKeyId()).isEqualTo("defaultkey");
+    }
+
+    @Test
+    void samlEntityIdConfiguration() throws Exception {
+        bootstrap.setSamlEntityID("test-entity-id");
+        bootstrap.afterPropertiesSet();
+        IdentityZoneConfiguration config = provisioning.retrieve(IdentityZone.getUaaZoneId()).getConfig();
+        assertThat(config.getSamlConfig().getEntityID()).isEqualTo("test-entity-id");
+    }
+
+    @Test
+    void samlEntityIdConfiguration_nullValue() throws Exception {
+        bootstrap.setSamlEntityID(null);
+        bootstrap.afterPropertiesSet();
+        IdentityZoneConfiguration config = provisioning.retrieve(IdentityZone.getUaaZoneId()).getConfig();
+        assertThat(config.getSamlConfig().getEntityID()).isNull();
+    }
+
+    @Test
+    void samlEntityIdConfiguration_emptyValue() throws Exception {
+        bootstrap.setSamlEntityID("");
+        bootstrap.afterPropertiesSet();
+        IdentityZoneConfiguration config = provisioning.retrieve(IdentityZone.getUaaZoneId()).getConfig();
+        assertThat(config.getSamlConfig().getEntityID()).isNull();
     }
 }

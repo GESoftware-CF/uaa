@@ -26,7 +26,7 @@ import java.util.function.Consumer;
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class UaaUser {
-    public static final String DEFAULT_EMAIL_DOMAIN = "this-default-was-not-configured.invalid";
+    static final String DEFAULT_EMAIL_DOMAIN = "this-default-was-not-configured.invalid";
     static final String DEFAULT_USER_NAME = "unknown";
 
     public static String emailFrom(String name) {
@@ -50,8 +50,8 @@ public class UaaUser {
         if (prototype.getEmail() == null) {
             prototype.withEmail(emailFrom(prototype.getUsername()));
         }
-        // TODO: check this logic
-        /*if (prototype.getGivenName() == null) {
+
+        if (prototype.getGivenName() == null) {
             prototype.withGivenName(prototype.getEmail().split("@")[0]);
         }
 
@@ -59,7 +59,7 @@ public class UaaUser {
             String email = prototype.getEmail();
             String familyName = email.split("@").length > 1 ? email.split("@")[1] : email;
             prototype.withFamilyName(familyName);
-        }*/
+        }
 
         if (prototype.getCreated() == null) {
             prototype.withCreated(new Date());
@@ -103,8 +103,6 @@ public class UaaUser {
 
     @Setter
     private Long previousLogonTime;
-
-    private final UaaUser previousUser;
 
     private final String zoneId;
 
@@ -176,7 +174,6 @@ public class UaaUser {
         this.passwordChangeRequired = prototype.isPasswordChangeRequired();
         this.lastLogonTime = prototype.getLastLogonTime();
         this.previousLogonTime = prototype.getPreviousLogonTime();
-        this.previousUser = prototype.getPreviousUser();
     }
 
     public String getPassword() {
@@ -230,8 +227,7 @@ public class UaaUser {
                         .withVerified(verified)
                         .withZoneId(zoneId)
                         .withSalt(salt)
-                        .withPasswordLastModified(passwordLastModified)
-                        .withPreviousUser(previousUser));
+                        .withPasswordLastModified(passwordLastModified));
     }
 
     public UaaUser modifyEmail(String email) {
@@ -252,8 +248,7 @@ public class UaaUser {
                         .withVerified(verified)
                         .withZoneId(zoneId)
                         .withSalt(salt)
-                        .withPasswordLastModified(passwordLastModified)
-                        .withPreviousUser(previousUser));
+                        .withPasswordLastModified(passwordLastModified));
     }
 
     public UaaUser modifyOrigin(String origin) {
@@ -274,8 +269,7 @@ public class UaaUser {
                         .withVerified(verified)
                         .withZoneId(zoneId)
                         .withSalt(salt)
-                        .withPasswordLastModified(passwordLastModified)
-                        .withPreviousUser(previousUser));
+                        .withPasswordLastModified(passwordLastModified));
     }
 
     public UaaUser modifyId(String id) {
@@ -296,8 +290,7 @@ public class UaaUser {
                         .withVerified(verified)
                         .withZoneId(zoneId)
                         .withSalt(salt)
-                        .withPasswordLastModified(passwordLastModified)
-                        .withPreviousUser(previousUser));
+                        .withPasswordLastModified(passwordLastModified));
     }
 
     public UaaUser modifyUsername(String username) {
@@ -318,8 +311,7 @@ public class UaaUser {
                         .withVerified(verified)
                         .withZoneId(zoneId)
                         .withSalt(salt)
-                        .withPasswordLastModified(passwordLastModified)
-                        .withPreviousUser(previousUser));
+                        .withPasswordLastModified(passwordLastModified));
     }
 
     public UaaUser modifyAttributes(String email,
@@ -344,32 +336,6 @@ public class UaaUser {
                 .withVerified(verified)
                 .withZoneId(zoneId)
                 .withSalt(salt)
-                .withPasswordLastModified(passwordLastModified)
-                .withPreviousUser(previousUser));
-    }
-
-    public UaaUser getPreviousUser() {
-        return previousUser;
-    }
-
-    public UaaUser withPreviousUser(UaaUser previousUser) {
-        return new UaaUser(new UaaUserPrototype()
-                .withEmail(email)
-                .withGivenName(givenName)
-                .withFamilyName(familyName)
-                .withPhoneNumber(phoneNumber)
-                .withModified(modified)
-                .withId(id)
-                .withUsername(username)
-                .withPassword(password)
-                .withAuthorities(authorities)
-                .withCreated(created)
-                .withOrigin(origin)
-                .withExternalId(externalId)
-                .withVerified(verified)
-                .withZoneId(zoneId)
-                .withSalt(salt)
-                .withPasswordLastModified(passwordLastModified)
-                .withPreviousUser(previousUser));
+                .withPasswordLastModified(passwordLastModified));
     }
 }

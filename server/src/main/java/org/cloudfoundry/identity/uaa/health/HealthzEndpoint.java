@@ -17,6 +17,8 @@ import java.sql.Statement;
  * Simple controller that just returns "ok" in a request body for the purposes
  * of monitoring health of the application. It also registers a shutdown hook
  * and returns "stopping" and a 503 when the process is shutting down.
+ * The background database check obtains a connection and executes a lightweight
+ * query against {@code identity_zone} to verify database connectivity.
  */
 @Controller
 public class HealthzEndpoint {

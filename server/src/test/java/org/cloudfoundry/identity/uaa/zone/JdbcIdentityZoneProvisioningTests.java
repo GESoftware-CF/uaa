@@ -1,5 +1,6 @@
 package org.cloudfoundry.identity.uaa.zone;
 
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.cloudfoundry.identity.uaa.annotations.WithDatabaseContext;
 import org.cloudfoundry.identity.uaa.audit.event.EntityDeletedEvent;
 import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
@@ -10,16 +11,8 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.List;
-import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.fail;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.*;
 
 @WithDatabaseContext
 class JdbcIdentityZoneProvisioningTests {
@@ -34,7 +27,6 @@ class JdbcIdentityZoneProvisioningTests {
     void setUp() {
         jdbcIdentityZoneProvisioning = new JdbcIdentityZoneProvisioning(jdbcTemplate);
         randomValueStringGenerator = new RandomValueStringGenerator(8);
-        jdbcTemplate.execute("delete from orchestrator_zone where identity_zone_id != 'uaa'");
         jdbcTemplate.execute("delete from identity_zone where id != 'uaa'");
     }
 
@@ -72,101 +64,6 @@ class JdbcIdentityZoneProvisioningTests {
         assertThat(createdIdZone.getConfig().getTokenPolicy().getAccessTokenValidity()).isEqualTo(3600);
         assertThat(createdIdZone.getConfig().getTokenPolicy().getRefreshTokenValidity()).isEqualTo(7200);
         assertThat(createdIdZone.isActive()).isTrue();
-
-        assertThat(createdIdZone.getConfig().getLinks().getSelfService().isSelfServiceCreateAccountEnabled()).isFalse();
-        assertThat(createdIdZone.getConfig().getLinks().getSelfService().isSelfServiceResetPasswordEnabled()).isTrue();
-        assertNull(createdIdZone.getConfig().getLinks().getSelfService().getPasswd());
-        assertNull(createdIdZone.getConfig().getLinks().getSelfService().getSignup());
-    }
-
-    @Test
-    void testCreateIdentityZone_enabledLegacySelfService() {
-        IdentityZone identityZone = MultitenancyFixture.identityZone(randomValueStringGenerator.generate(), randomValueStringGenerator.generate());
-        identityZone.setId(randomValueStringGenerator.generate());
-        identityZone.getConfig().getLinks().getSelfService().setSelfServiceLinksEnabled(true);
-        identityZone.getConfig().getLinks().getSelfService().setSignup("");
-        identityZone.getConfig().getLinks().getSelfService().setPasswd("/forgot_password");
-
-        IdentityZone createdIdZone = jdbcIdentityZoneProvisioning.create(identityZone);
-
-        assertThat(identityZone.getId()).isEqualTo(createdIdZone.getId());
-        assertThat(identityZone.getSubdomain()).isEqualTo(createdIdZone.getSubdomain());
-        assertThat(identityZone.getName()).isEqualTo(createdIdZone.getName());
-        assertThat(identityZone.getDescription()).isEqualTo(createdIdZone.getDescription());
-        assertTrue(createdIdZone.isActive());
-
-        assertFalse(createdIdZone.getConfig().getLinks().getSelfService().isSelfServiceCreateAccountEnabled());
-        assertTrue(createdIdZone.getConfig().getLinks().getSelfService().isSelfServiceResetPasswordEnabled());
-        assertEquals(createdIdZone.getConfig().getLinks().getSelfService().getPasswd(), "/forgot_password");
-        assertEquals(createdIdZone.getConfig().getLinks().getSelfService().getSignup(), "");
-    }
-
-    @Test
-    void testCreateIdentityZone_enabledSelfServiceCreateAccount() {
-        IdentityZone identityZone = MultitenancyFixture.identityZone(randomValueStringGenerator.generate(), randomValueStringGenerator.generate());
-        identityZone.setId(randomValueStringGenerator.generate());
-        identityZone.getConfig().getLinks().getSelfService().setSelfServiceCreateAccountEnabled(true);
-
-        IdentityZone createdIdZone = jdbcIdentityZoneProvisioning.create(identityZone);
-
-        assertEquals(identityZone.getId(), createdIdZone.getId());
-        assertEquals(identityZone.getSubdomain(), createdIdZone.getSubdomain());
-        assertEquals(identityZone.getName(), createdIdZone.getName());
-        assertEquals(identityZone.getDescription(), createdIdZone.getDescription());
-        assertTrue(createdIdZone.isActive());
-
-        assertTrue(createdIdZone.getConfig().getLinks().getSelfService().isSelfServiceCreateAccountEnabled());
-    }
-
-    @Test
-    void testCreateIdentityZone_enabledSelfServiceResetPassword() {
-        IdentityZone identityZone = MultitenancyFixture.identityZone(randomValueStringGenerator.generate(), randomValueStringGenerator.generate());
-        identityZone.setId(randomValueStringGenerator.generate());
-        identityZone.getConfig().getLinks().getSelfService().setSelfServiceResetPasswordEnabled(true);
-
-        IdentityZone createdIdZone = jdbcIdentityZoneProvisioning.create(identityZone);
-
-        assertEquals(identityZone.getId(), createdIdZone.getId());
-        assertEquals(identityZone.getSubdomain(), createdIdZone.getSubdomain());
-        assertEquals(identityZone.getName(), createdIdZone.getName());
-        assertEquals(identityZone.getDescription(), createdIdZone.getDescription());
-        assertTrue(createdIdZone.isActive());
-
-        assertTrue(createdIdZone.getConfig().getLinks().getSelfService().isSelfServiceResetPasswordEnabled());
-    }
-
-    @Test
-    void testCreateIdentityZone_disabledSelfServiceResetPassword() {
-        IdentityZone identityZone = MultitenancyFixture.identityZone(randomValueStringGenerator.generate(), randomValueStringGenerator.generate());
-        identityZone.setId(randomValueStringGenerator.generate());
-        identityZone.getConfig().getLinks().getSelfService().setSelfServiceResetPasswordEnabled(false);
-
-        IdentityZone createdIdZone = jdbcIdentityZoneProvisioning.create(identityZone);
-
-        assertEquals(identityZone.getId(), createdIdZone.getId());
-        assertEquals(identityZone.getSubdomain(), createdIdZone.getSubdomain());
-        assertEquals(identityZone.getName(), createdIdZone.getName());
-        assertEquals(identityZone.getDescription(), createdIdZone.getDescription());
-        assertTrue(createdIdZone.isActive());
-
-        assertFalse(createdIdZone.getConfig().getLinks().getSelfService().isSelfServiceResetPasswordEnabled());
-    }
-
-    @Test
-    void testCreateIdentityZone_bothEnabledSelfServiceCreateAccountAndSelfServiceResetPassword() {
-        IdentityZone identityZone = MultitenancyFixture.identityZone(randomValueStringGenerator.generate(), randomValueStringGenerator.generate());
-        identityZone.setId(randomValueStringGenerator.generate());
-        identityZone.getConfig().getLinks().getSelfService().setSelfServiceCreateAccountEnabled(false);
-
-        IdentityZone createdIdZone = jdbcIdentityZoneProvisioning.create(identityZone);
-
-        assertEquals(identityZone.getId(), createdIdZone.getId());
-        assertEquals(identityZone.getSubdomain(), createdIdZone.getSubdomain());
-        assertEquals(identityZone.getName(), createdIdZone.getName());
-        assertEquals(identityZone.getDescription(), createdIdZone.getDescription());
-        assertTrue(createdIdZone.isActive());
-
-        assertFalse(createdIdZone.getConfig().getLinks().getSelfService().isSelfServiceCreateAccountEnabled());
     }
 
     @Test
@@ -186,7 +83,7 @@ class JdbcIdentityZoneProvisioningTests {
 
     @Test
     void null_subdomain() {
-        assertThatExceptionOfType(EmptyResultDataAccessException.class).isThrownBy(() -> jdbcIdentityZoneProvisioning.retrieveBySubdomain(null));
+        assertThatThrownBy(() -> jdbcIdentityZoneProvisioning.retrieveBySubdomain(null)).asInstanceOf(InstanceOfAssertFactories.throwable(EmptyResultDataAccessException.class));
     }
 
     @Test
@@ -280,7 +177,7 @@ class JdbcIdentityZoneProvisioningTests {
     void updateNonExistentIdentityZone() {
         IdentityZone identityZone = MultitenancyFixture.identityZone(randomValueStringGenerator.generate(), randomValueStringGenerator.generate());
         identityZone.setId(randomValueStringGenerator.generate());
-        assertThatExceptionOfType(ZoneDoesNotExistsException.class).isThrownBy(() -> jdbcIdentityZoneProvisioning.update(identityZone));
+        assertThatThrownBy(() -> jdbcIdentityZoneProvisioning.update(identityZone)).asInstanceOf(InstanceOfAssertFactories.throwable(ZoneDoesNotExistsException.class));
     }
 
     @Test
@@ -288,12 +185,7 @@ class JdbcIdentityZoneProvisioningTests {
         IdentityZone identityZone = MultitenancyFixture.identityZone("there-can-be-only-one", "there-can-be-only-one");
         identityZone.setId(randomValueStringGenerator.generate());
         jdbcIdentityZoneProvisioning.create(identityZone);
-        try {
-            jdbcIdentityZoneProvisioning.create(identityZone);
-            fail("Should have thrown exception");
-        } catch (ZoneAlreadyExistsException e) {
-            // success
-        }
+        assertThatThrownBy(() -> jdbcIdentityZoneProvisioning.create(identityZone)).isInstanceOf(ZoneAlreadyExistsException.class);
     }
 
     @Test
@@ -301,22 +193,16 @@ class JdbcIdentityZoneProvisioningTests {
         IdentityZone identityZone = MultitenancyFixture.identityZone("there-can-be-only-one", "there-can-be-only-one");
         identityZone.setId(randomValueStringGenerator.generate());
         jdbcIdentityZoneProvisioning.create(identityZone);
-        try {
+        assertThatThrownBy(() -> {
             identityZone.setId(new RandomValueStringGenerator().generate());
             jdbcIdentityZoneProvisioning.create(identityZone);
-            fail("Should have thrown exception");
-        } catch (ZoneAlreadyExistsException e) {
-            // success
-        }
+        }).isInstanceOf(ZoneAlreadyExistsException.class);
     }
 
     @Test
     void getIdentityZone() {
         IdentityZone identityZone = MultitenancyFixture.identityZone(randomValueStringGenerator.generate(), randomValueStringGenerator.generate());
         identityZone.setId(randomValueStringGenerator.generate());
-        identityZone.getConfig().getLinks().getSelfService().setSelfServiceLinksEnabled(true);
-        identityZone.getConfig().getLinks().getSelfService().setSignup(null);
-        identityZone.getConfig().getLinks().getSelfService().setPasswd(null);
         jdbcIdentityZoneProvisioning.create(identityZone);
 
         IdentityZone retrievedIdZone = jdbcIdentityZoneProvisioning.retrieve(identityZone.getId());
@@ -328,110 +214,6 @@ class JdbcIdentityZoneProvisioningTests {
         assertThat(retrievedIdZone.getConfig().getTokenPolicy().getAccessTokenValidity()).isEqualTo(identityZone.getConfig().getTokenPolicy().getAccessTokenValidity());
         assertThat(retrievedIdZone.getConfig().getTokenPolicy().getRefreshTokenValidity()).isEqualTo(identityZone.getConfig().getTokenPolicy().getRefreshTokenValidity());
         assertThat(retrievedIdZone.isActive()).isTrue();
-
-        assertFalse(retrievedIdZone.getConfig().getLinks().getSelfService().isSelfServiceCreateAccountEnabled());
-        assertTrue(retrievedIdZone.getConfig().getLinks().getSelfService().isSelfServiceResetPasswordEnabled());
-        assertNull(retrievedIdZone.getConfig().getLinks().getSelfService().getPasswd());
-        assertNull(retrievedIdZone.getConfig().getLinks().getSelfService().getSignup());
-    }
-
-    @Test
-    void testGetIdentityZone_disabledLegacySelfService() {
-        IdentityZone identityZone = MultitenancyFixture.identityZone(randomValueStringGenerator.generate(), randomValueStringGenerator.generate());
-        identityZone.setId(randomValueStringGenerator.generate());
-        identityZone.getConfig().getLinks().getSelfService().setSelfServiceLinksEnabled(false);
-        identityZone.getConfig().getLinks().getSelfService().setSignup(null);
-        identityZone.getConfig().getLinks().getSelfService().setPasswd(null);
-        jdbcIdentityZoneProvisioning.create(identityZone);
-
-        IdentityZone retrievedIdZone = jdbcIdentityZoneProvisioning.retrieve(identityZone.getId());
-
-        assertEquals(identityZone.getId(), retrievedIdZone.getId());
-        assertEquals(identityZone.getSubdomain(), retrievedIdZone.getSubdomain());
-        assertEquals(identityZone.getName(), retrievedIdZone.getName());
-        assertEquals(identityZone.getDescription(), retrievedIdZone.getDescription());
-        assertEquals(identityZone.getConfig().getTokenPolicy().getAccessTokenValidity(), retrievedIdZone.getConfig().getTokenPolicy().getAccessTokenValidity());
-        assertEquals(identityZone.getConfig().getTokenPolicy().getRefreshTokenValidity(), retrievedIdZone.getConfig().getTokenPolicy().getRefreshTokenValidity());
-        assertTrue(retrievedIdZone.isActive());
-
-        assertFalse(retrievedIdZone.getConfig().getLinks().getSelfService().isSelfServiceCreateAccountEnabled());
-        assertFalse(retrievedIdZone.getConfig().getLinks().getSelfService().isSelfServiceResetPasswordEnabled());
-        assertNull(retrievedIdZone.getConfig().getLinks().getSelfService().getPasswd());
-        assertNull(retrievedIdZone.getConfig().getLinks().getSelfService().getSignup());
-    }
-
-    @Test
-    void testGetIdentityZone_enabledLegacySelfService() {
-        IdentityZone identityZone = MultitenancyFixture.identityZone(randomValueStringGenerator.generate(), randomValueStringGenerator.generate());
-        identityZone.setId(randomValueStringGenerator.generate());
-        identityZone.getConfig().getLinks().getSelfService().setSelfServiceLinksEnabled(true);
-        identityZone.getConfig().getLinks().getSelfService().setSignup("");
-        identityZone.getConfig().getLinks().getSelfService().setPasswd("/forgot_password");
-        jdbcIdentityZoneProvisioning.create(identityZone);
-
-        IdentityZone retrievedIdZone = jdbcIdentityZoneProvisioning.retrieve(identityZone.getId());
-
-        assertEquals(identityZone.getId(), retrievedIdZone.getId());
-        assertEquals(identityZone.getSubdomain(), retrievedIdZone.getSubdomain());
-        assertEquals(identityZone.getName(), retrievedIdZone.getName());
-        assertEquals(identityZone.getDescription(), retrievedIdZone.getDescription());
-        assertEquals(identityZone.getConfig().getTokenPolicy().getAccessTokenValidity(), retrievedIdZone.getConfig().getTokenPolicy().getAccessTokenValidity());
-        assertEquals(identityZone.getConfig().getTokenPolicy().getRefreshTokenValidity(), retrievedIdZone.getConfig().getTokenPolicy().getRefreshTokenValidity());
-        assertTrue(retrievedIdZone.isActive());
-
-        assertFalse(retrievedIdZone.getConfig().getLinks().getSelfService().isSelfServiceCreateAccountEnabled());
-        assertTrue(retrievedIdZone.getConfig().getLinks().getSelfService().isSelfServiceResetPasswordEnabled());
-        assertEquals(retrievedIdZone.getConfig().getLinks().getSelfService().getPasswd(), "/forgot_password");
-        assertEquals(retrievedIdZone.getConfig().getLinks().getSelfService().getSignup(), "");
-    }
-
-    @Test
-    void testGetIdentityZone_enabledLegacySelfServiceAndLinks() {
-        IdentityZone identityZone = MultitenancyFixture.identityZone(randomValueStringGenerator.generate(), randomValueStringGenerator.generate());
-        identityZone.setId(randomValueStringGenerator.generate());
-        identityZone.getConfig().getLinks().getSelfService().setSelfServiceLinksEnabled(true);
-        identityZone.getConfig().getLinks().getSelfService().setSignup("/create_account");
-        identityZone.getConfig().getLinks().getSelfService().setPasswd("/forgot_password");
-        jdbcIdentityZoneProvisioning.create(identityZone);
-
-        IdentityZone retrievedIdZone = jdbcIdentityZoneProvisioning.retrieve(identityZone.getId());
-
-        assertEquals(identityZone.getId(), retrievedIdZone.getId());
-        assertEquals(identityZone.getSubdomain(), retrievedIdZone.getSubdomain());
-        assertEquals(identityZone.getName(), retrievedIdZone.getName());
-        assertEquals(identityZone.getDescription(), retrievedIdZone.getDescription());
-        assertEquals(identityZone.getConfig().getTokenPolicy().getAccessTokenValidity(), retrievedIdZone.getConfig().getTokenPolicy().getAccessTokenValidity());
-        assertEquals(identityZone.getConfig().getTokenPolicy().getRefreshTokenValidity(), retrievedIdZone.getConfig().getTokenPolicy().getRefreshTokenValidity());
-        assertTrue(retrievedIdZone.isActive());
-
-        assertTrue(retrievedIdZone.getConfig().getLinks().getSelfService().isSelfServiceCreateAccountEnabled());
-        assertTrue(retrievedIdZone.getConfig().getLinks().getSelfService().isSelfServiceResetPasswordEnabled());
-        assertEquals(retrievedIdZone.getConfig().getLinks().getSelfService().getPasswd(), "/forgot_password");
-        assertEquals(retrievedIdZone.getConfig().getLinks().getSelfService().getSignup(), "/create_account");
-    }
-
-
-    @Test
-    void testGetIdentityZone_enabledLegacySelfServiceFlagAndPasswdLink() {
-        IdentityZone identityZone = MultitenancyFixture.identityZone(randomValueStringGenerator.generate(), randomValueStringGenerator.generate());
-        identityZone.setId(randomValueStringGenerator.generate());
-
-        IdentityZoneConfiguration config = new IdentityZoneConfiguration();
-        config.getLinks().getSelfService().setSelfServiceLinksEnabled(true);
-        config.getLinks().getSelfService().setSignup("");
-        config.getLinks().getSelfService().setPasswd("/forgot_password");
-        identityZone.setConfig(config);
-
-        jdbcIdentityZoneProvisioning.create(identityZone);
-
-        IdentityZone retrievedIdZone = jdbcIdentityZoneProvisioning.retrieve(identityZone.getId());
-
-        assertEquals(identityZone.getId(), retrievedIdZone.getId());
-
-        assertFalse(retrievedIdZone.getConfig().getLinks().getSelfService().isSelfServiceCreateAccountEnabled());
-        assertTrue(retrievedIdZone.getConfig().getLinks().getSelfService().isSelfServiceResetPasswordEnabled());
-        assertEquals(retrievedIdZone.getConfig().getLinks().getSelfService().getPasswd(), "/forgot_password");
-        assertEquals(retrievedIdZone.getConfig().getLinks().getSelfService().getSignup(), "");
     }
 
     @Test
@@ -462,127 +244,6 @@ class JdbcIdentityZoneProvisioningTests {
         assertThat(retrievedIdZone.getConfig().getTokenPolicy().getAccessTokenValidity()).isEqualTo(identityZone.getConfig().getTokenPolicy().getAccessTokenValidity());
         assertThat(retrievedIdZone.getConfig().getTokenPolicy().getRefreshTokenValidity()).isEqualTo(identityZone.getConfig().getTokenPolicy().getRefreshTokenValidity());
         assertThat(retrievedIdZone.isActive()).isTrue();
-    }
-
-    @Test
-    void testGetOrchestratorZoneByName() {
-        IdentityZone identityZone = MultitenancyFixture.identityZone(randomValueStringGenerator.generate(), randomValueStringGenerator.generate());
-        identityZone.setName("Test-Identity-Zone");
-        jdbcIdentityZoneProvisioning.create(identityZone);
-        jdbcIdentityZoneProvisioning.createOrchestratorZone(identityZone.getId(), identityZone.getName());
-
-        OrchestratorZoneEntity orchestratorZoneEntity = jdbcIdentityZoneProvisioning.retrieveByName(identityZone.getName());
-
-        assertEquals(identityZone.getId(), orchestratorZoneEntity.getIdentityZoneId());
-        assertEquals(identityZone.getSubdomain(), orchestratorZoneEntity.getSubdomain());
-        assertEquals(identityZone.getName(), orchestratorZoneEntity.getOrchestratorZoneName());
-        assertNotNull(identityZone.getCreated());
-        assertNotNull(identityZone.getLastModified());
-        assertNotNull(orchestratorZoneEntity.getId());
-        assertNotNull(orchestratorZoneEntity.getCreated());
-        assertNotNull(orchestratorZoneEntity.getLastModified());
-    }
-
-    @Test
-    void testGetOrchZoneByIdentityZoneId() {
-        IdentityZone identityZone = MultitenancyFixture.identityZone(randomValueStringGenerator.generate(),
-                randomValueStringGenerator.generate());
-        identityZone.setName("Test-Identity-Zone");
-        jdbcIdentityZoneProvisioning.create(identityZone);
-        jdbcIdentityZoneProvisioning.createOrchestratorZone(identityZone.getId(), identityZone.getName());
-        OrchestratorZoneEntity orchIdentityZoneEntity = jdbcIdentityZoneProvisioning.retrieveOrchestratorZoneByIdentityZoneId(identityZone.getId());
-        assertEquals(identityZone.getId(), orchIdentityZoneEntity.getIdentityZoneId());
-        assertEquals(identityZone.getName(), orchIdentityZoneEntity.getOrchestratorZoneName());
-    }
-
-    @Test
-    void testGetOrchIdentityZoneById_NotFound() {
-        String identityZoneId = randomValueStringGenerator.generate();
-        try {
-            OrchestratorZoneEntity orchIdentityZoneEntity = jdbcIdentityZoneProvisioning.retrieveOrchestratorZoneByIdentityZoneId(identityZoneId);
-            fail("Able to retrieve orchestrator zone.");
-        } catch (ZoneDoesNotExistsException e) {
-            assertEquals("Zone[" + identityZoneId + "] not found.", e.getMessage());
-        }
-    }
-
-    @Test
-    void testGetOrchIdentityZoneById_ZonePresentButNotPorted() {
-        IdentityZone identityZone = MultitenancyFixture.identityZone(randomValueStringGenerator.generate(),
-                randomValueStringGenerator.generate());
-        identityZone.setName("Test-Identity-Zone");
-        jdbcIdentityZoneProvisioning.create(identityZone);
-        try {
-            OrchestratorZoneEntity orchestratorZone = jdbcIdentityZoneProvisioning.retrieveOrchestratorZoneByIdentityZoneId(identityZone.getId());
-            assertNotNull(orchestratorZone);
-            assertEquals(identityZone.getId(),orchestratorZone.getIdentityZoneId());
-            assertNull(orchestratorZone.getOrchestratorZoneName());
-        } catch (ZoneDoesNotExistsException e) {
-            assertEquals("Zone[" + identityZone.getId() + "] not found.", e.getMessage());
-        }
-    }
-
-    @Test
-    void testCreateDuplicateZoneName() {
-        IdentityZone identityZone = MultitenancyFixture.identityZone(randomValueStringGenerator.generate(),
-                                                                     randomValueStringGenerator.generate());
-        identityZone.setName("Test-Identity-Zone");
-        jdbcIdentityZoneProvisioning.create(identityZone);
-        jdbcIdentityZoneProvisioning.createOrchestratorZone(identityZone.getId(), identityZone.getName());
-        try {
-            String newId = UUID.randomUUID().toString();
-            identityZone.setId(newId);
-            identityZone.setSubdomain(UUID.randomUUID().toString());
-            jdbcIdentityZoneProvisioning.create(identityZone);
-            jdbcIdentityZoneProvisioning.createOrchestratorZone(newId, identityZone.getName());
-        } catch (ZoneAlreadyExistsException e) {
-            assertEquals(
-                "The zone name Test-Identity-Zone is already taken. Please use a different zone name",
-                e.getMessage());
-        }
-    }
-
-    @Test
-    void testGetInactiveOrchestratorZoneByName() {
-        IdentityZone identityZone = MultitenancyFixture.identityZone(randomValueStringGenerator.generate(), randomValueStringGenerator.generate());
-        identityZone.setName("Test-Identity-Zone");
-        identityZone.setActive(false);
-        jdbcIdentityZoneProvisioning.create(identityZone);
-        jdbcIdentityZoneProvisioning.createOrchestratorZone(identityZone.getId(), identityZone.getName());
-        try {
-            jdbcIdentityZoneProvisioning.retrieveByName(identityZone.getName());
-            fail("Able to retrieve inactive zone.");
-        } catch (ZoneDoesNotExistsException e) {
-            assertEquals("Zone[Test-Identity-Zone] not found.", e.getMessage());
-        }
-    }
-
-    @Test
-    void testDeleteOrchestratorZone() {
-        IdentityZone identityZone = MultitenancyFixture.identityZone(randomValueStringGenerator.generate(), randomValueStringGenerator.generate());
-        identityZone.setId(randomValueStringGenerator.generate());
-        identityZone.setConfig(new IdentityZoneConfiguration(new TokenPolicy(3600, 7200)));
-
-        IdentityZone createdIdZone = jdbcIdentityZoneProvisioning.create(identityZone);
-        jdbcIdentityZoneProvisioning.createOrchestratorZone(identityZone.getId(), identityZone.getName());
-        assertThat(jdbcTemplate.queryForObject("select count(*) from identity_zone where id = ?", new Object[]{createdIdZone.getId()}, Integer.class)).isEqualTo(1);
-        assertThat(jdbcTemplate.queryForObject("select count(*) from orchestrator_zone where identity_zone_id = ? and orchestrator_zone_name=?", new Object[]{createdIdZone.getId(), createdIdZone.getName()}, Integer.class)).isEqualTo(1);
-        jdbcIdentityZoneProvisioning.deleteOrchestratorZone(identityZone.getName());
-        jdbcIdentityZoneProvisioning.onApplicationEvent(new EntityDeletedEvent<>(identityZone, null, IdentityZoneHolder.getCurrentZoneId()));
-        assertThat(jdbcTemplate.queryForObject("select count(*) from identity_zone where id = ?", new Object[]{createdIdZone.getId()}, Integer.class)).isEqualTo(0);
-        assertThat(jdbcTemplate.queryForObject("select count(*) from orchestrator_zone where identity_zone_id = ? and orchestrator_zone_name=?", new Object[]{createdIdZone.getId(), createdIdZone.getName()}, Integer.class)).isEqualTo(0);
-    }
-
-    @Test
-    void testGetIdentityZoneByName_NotFound() {
-        IdentityZone identityZone = MultitenancyFixture.identityZone(randomValueStringGenerator.generate(), randomValueStringGenerator.generate());
-        identityZone.setName("Test-Identity-Zone");
-        jdbcIdentityZoneProvisioning.create(identityZone);
-        try {
-            jdbcIdentityZoneProvisioning.retrieveByName("random string");
-        } catch (ZoneDoesNotExistsException e) {
-            assertEquals("Zone[random string] not found.", e.getMessage());
-        }
     }
 
     @Test
@@ -622,8 +283,8 @@ class JdbcIdentityZoneProvisioningTests {
 
     @Test
     void identityZoneRetrieveZoneIdNull() {
-        assertThatExceptionOfType(ZoneDoesNotExistsException.class).isThrownBy(() -> jdbcIdentityZoneProvisioning.retrieve(null));
-        assertThatExceptionOfType(ZoneDoesNotExistsException.class).isThrownBy(() -> jdbcIdentityZoneProvisioning.retrieveIgnoreActiveFlag(null));
+        assertThatThrownBy(() -> jdbcIdentityZoneProvisioning.retrieve(null)).asInstanceOf(InstanceOfAssertFactories.throwable(ZoneDoesNotExistsException.class));
+        assertThatThrownBy(() -> jdbcIdentityZoneProvisioning.retrieveIgnoreActiveFlag(null)).asInstanceOf(InstanceOfAssertFactories.throwable(ZoneDoesNotExistsException.class));
     }
 
     @Test
@@ -639,7 +300,7 @@ class JdbcIdentityZoneProvisioningTests {
         assertThat(createdIdZone2.getSubdomain()).isNotEqualTo(createdIdZone.getSubdomain());
         createdIdZone2.setConfig(null);
         createdIdZone2.setSubdomain(subDomain);
-        assertThatExceptionOfType(ZoneAlreadyExistsException.class).isThrownBy(() -> jdbcIdentityZoneProvisioning.update(createdIdZone2));
+        assertThatThrownBy(() -> jdbcIdentityZoneProvisioning.update(createdIdZone2)).asInstanceOf(InstanceOfAssertFactories.throwable(ZoneAlreadyExistsException.class));
     }
 
     @Test

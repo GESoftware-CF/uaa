@@ -14,13 +14,18 @@
 
 package org.cloudfoundry.identity.uaa.provider.oauth;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jwt.JWTClaimsSet;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.ObjectUtils;
 import org.cloudfoundry.identity.uaa.authentication.AbstractClientParametersAuthenticationFilter;
 import org.cloudfoundry.identity.uaa.authentication.ProviderConfigurationException;
@@ -51,9 +56,12 @@ import org.cloudfoundry.identity.uaa.oauth.jwt.SignatureVerifier;
 import org.cloudfoundry.identity.uaa.oauth.jwt.UaaMacSigner;
 import org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants;
 import org.cloudfoundry.identity.uaa.provider.AbstractExternalOAuthIdentityProviderDefinition;
+import org.cloudfoundry.identity.uaa.provider.AbstractExternalOAuthIdentityProviderDefinition.OAuthGroupMappingMode;
 import org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
+import org.cloudfoundry.identity.uaa.impl.config.RestTemplateConfig;
+import org.cloudfoundry.identity.uaa.security.IdpOutboundTrustCache;
 import org.cloudfoundry.identity.uaa.provider.OIDCIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.provider.RawExternalOAuthIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.user.UaaUser;
@@ -78,6 +86,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.util.LinkedMultiValueMap;
@@ -93,10 +102,12 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -104,17 +115,21 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
+import static java.util.Collections.singletonMap;
 import static java.util.Objects.isNull;
-import static java.util.Optional.of;
-import static java.util.Optional.ofNullable;
+import static java.util.stream.Collectors.toSet;
+import static org.cloudfoundry.identity.uaa.constants.OriginKeys.OAUTH20;
 import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.SUB;
 import static org.cloudfoundry.identity.uaa.oauth.token.CompositeToken.ID_TOKEN;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_JWT_BEARER;
+import static org.cloudfoundry.identity.uaa.provider.AbstractExternalOAuthIdentityProviderDefinition.OAuthGroupMappingMode.AS_SCOPES;
+import static org.cloudfoundry.identity.uaa.provider.AbstractExternalOAuthIdentityProviderDefinition.OAuthGroupMappingMode.EXPLICITLY_MAPPED;
 import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.EMAIL_ATTRIBUTE_NAME;
 import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.EMAIL_VERIFIED_ATTRIBUTE_NAME;
 import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.FAMILY_NAME_ATTRIBUTE_NAME;
@@ -136,20 +151,41 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
     private final RestTemplate trustingRestTemplate;
     private final RestTemplate nonTrustingRestTemplate;
     private final OidcMetadataFetcher oidcMetadataFetcher;
-    private TokenEndpointBuilder tokenEndpointBuilder;
+    private final TokenEndpointBuilder tokenEndpointBuilder;
+    @Getter
     private final KeyInfoService keyInfoService;
     private final IdentityZoneManager identityZoneManager;
+    private final boolean externalGroupsFromMappedAuthorities;
+    private final IdpOutboundTrustCache trustCache;
+    private final RestTemplateConfig restTemplateConfig;
 
-    //origin is per thread during execution
-    private final ThreadLocal<String> origin = ThreadLocal.withInitial(() -> "unknown");
+    public ExternalOAuthAuthenticationManager(
+            IdentityProviderProvisioning providerProvisioning,
+            IdentityZoneManager identityZoneManager,
+            RestTemplate trustingRestTemplate,
+            RestTemplate nonTrustingRestTemplate,
+            TokenEndpointBuilder tokenEndpointBuilder,
+            KeyInfoService keyInfoService,
+            OidcMetadataFetcher oidcMetadataFetcher,
+            boolean externalGroupsFromMappedAuthorities
+    ) {
+        this(providerProvisioning, identityZoneManager, trustingRestTemplate, nonTrustingRestTemplate,
+                tokenEndpointBuilder, keyInfoService, oidcMetadataFetcher, externalGroupsFromMappedAuthorities,
+                new IdpOutboundTrustCache(), RestTemplateConfig.createDefaults());
+    }
 
-    public ExternalOAuthAuthenticationManager(IdentityProviderProvisioning providerProvisioning,
-                                              IdentityZoneManager identityZoneManager,
-                                              RestTemplate trustingRestTemplate,
-                                              RestTemplate nonTrustingRestTemplate,
-                                              TokenEndpointBuilder tokenEndpointBuilder,
-                                              KeyInfoService keyInfoService,
-                                              OidcMetadataFetcher oidcMetadataFetcher) {
+    public ExternalOAuthAuthenticationManager(
+            IdentityProviderProvisioning providerProvisioning,
+            IdentityZoneManager identityZoneManager,
+            RestTemplate trustingRestTemplate,
+            RestTemplate nonTrustingRestTemplate,
+            TokenEndpointBuilder tokenEndpointBuilder,
+            KeyInfoService keyInfoService,
+            OidcMetadataFetcher oidcMetadataFetcher,
+            boolean externalGroupsFromMappedAuthorities,
+            IdpOutboundTrustCache trustCache,
+            RestTemplateConfig restTemplateConfig
+    ) {
         super(providerProvisioning);
         this.identityZoneManager = identityZoneManager;
         this.trustingRestTemplate = trustingRestTemplate;
@@ -157,43 +193,48 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
         this.tokenEndpointBuilder = tokenEndpointBuilder;
         this.keyInfoService = keyInfoService;
         this.oidcMetadataFetcher = oidcMetadataFetcher;
+        this.externalGroupsFromMappedAuthorities = externalGroupsFromMappedAuthorities;
+        this.trustCache = trustCache;
+        this.restTemplateConfig = restTemplateConfig;
     }
 
-    @Override
-    public String getOrigin() {
-        //origin is per thread during execution
-        return origin.get();
-    }
-
-    @Override
-    public void setOrigin(String origin) {
-        this.origin.set(origin);
-    }
-
+    /**
+     * Resolve the IdP trust for the received ID token:
+     * <ol>
+     *  <li>if an IdP trust exists with idp.config.issuer equal to the "iss" claim of the token, return it</li>
+     *  <li>if the ID token is issued by UAA (e.g., when exchanging an ID token issued by UAA in a JWT bearer flow),
+     *  build a trust entry containing the issuer and origin key and return it</li>
+     *  <li>else: throw exception</li>
+     * </ol>
+     */
     public IdentityProvider resolveOriginProvider(String idToken) throws AuthenticationException {
         try {
+            // determine value of issuer claim
             Map<String, Object> claims = parseClaimsFromIdTokenString(idToken);
             String issuer = (String) claims.get(ClaimConstants.ISS);
             if (!hasLength(issuer)) {
                 throw new InsufficientAuthenticationException("Issuer is missing in id_token");
             }
-            //1. Check if issuer is registered provider
+
+            // 1. Check if there is an IdP with the 'iss' claim value equal to the 'issuer' field in its configuration
             try {
                 return retrieveRegisteredIdentityProviderByIssuer(issuer);
-            } catch (IncorrectResultSizeDataAccessException x) {
+            } catch (IncorrectResultSizeDataAccessException _) {
                 logger.debug("No registered identity provider found for given issuer. Checking for uaa.");
             }
-            //2. If not, check if issuer is self
+
+            // 2. If not, check if the token was issued by UAA (the issuer is the token endpoint of the current zone)
             if (idTokenWasIssuedByTheUaa(issuer)) {
                 //3. If yes, handle origin correctly
                 String originKey = (String) claims.get(ClaimConstants.ORIGIN);
                 if (hasLength(originKey)) {
+                    // build an "artificial" IdP configuration that has the token endpoint of the current zone as issuer
                     return buildInternalUaaIdpConfig(issuer, originKey);
                 }
             }
             //All other cases: throw Exception
             throw new InsufficientAuthenticationException("Unable to map issuer, %s , to a single registered provider".formatted(issuer));
-        } catch (IllegalArgumentException | JsonUtils.JsonUtilException x) {
+        } catch (IllegalArgumentException | JsonUtils.JsonUtilException _) {
             throw new InsufficientAuthenticationException("Unable to decode expected id_token");
         }
     }
@@ -203,8 +244,8 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
     }
 
     private Map<String, Object> parseClaimsFromIdTokenString(String idToken) {
-        String claimsString = JwtHelper.decode(ofNullable(idToken).orElse("")).getClaims();
-        return JsonUtils.readValue(claimsString, new TypeReference<Map<String, Object>>() {
+        String claimsString = JwtHelper.decode(Optional.ofNullable(idToken).orElse("")).getClaims();
+        return JsonUtils.readValue(claimsString, new TypeReference<>() {
         });
     }
 
@@ -215,7 +256,7 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
     private IdentityProvider buildInternalUaaIdpConfig(String issuer, String originKey) {
         OIDCIdentityProviderDefinition uaaOidcProviderConfig = new OIDCIdentityProviderDefinition();
         uaaOidcProviderConfig.setIssuer(issuer);
-        Map<String, Object> userNameMapping = Collections.singletonMap(USER_NAME_ATTRIBUTE_NAME, USER_NAME_ATTRIBUTE_NAME);
+        Map<String, Object> userNameMapping = singletonMap(USER_NAME_ATTRIBUTE_NAME, USER_NAME_ATTRIBUTE_NAME);
         uaaOidcProviderConfig.setAttributeMappings(userNameMapping);
         IdentityProvider<OIDCIdentityProviderDefinition> uaaIdp = new IdentityProvider<>();
         uaaIdp.setOriginKey(originKey);
@@ -224,39 +265,51 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
     }
 
     @Override
-    public AuthenticationData getExternalAuthenticationDetails(Authentication authentication) {
-        IdentityProvider provider = null;
-        ExternalOAuthCodeToken codeToken = (ExternalOAuthCodeToken) authentication;
+    protected AuthenticationData getExternalAuthenticationDetails(final Authentication authentication) {
+        final ExternalOAuthCodeToken codeToken = (ExternalOAuthCodeToken) authentication;
 
+        // When the caller supplies an explicit origin (interactive browser callback: /login/callback/{origin}),
+        // bind the presented id_token to that IdP's relying party (audience), for both self-referencing
+        // (UAA-issued) and external issuers.
+        // When origin is omitted (JWT Bearer/password-grant token exchange), the relying-party audience binding
+        // is skipped for both: the token was minted for another client/purpose and the calling client has
+        // already authenticated to /oauth/token directly.
+        final boolean enforceRelyingPartyAudience = hasLength(codeToken.getOrigin());
+
+        IdentityProvider provider = null;
         if (!hasLength(codeToken.getOrigin())) {
             provider = resolveOriginProvider(codeToken.getIdToken());
             codeToken.setOrigin(provider.getOriginKey());
         }
 
-        setOrigin(codeToken.getOrigin());
+        final String origin = codeToken.getOrigin();
+
         if (provider == null) {
             try {
-                provider = getProviderProvisioning().retrieveByOrigin(getOrigin(), identityZoneManager.getCurrentIdentityZoneId());
-            } catch (EmptyResultDataAccessException e) {
+                provider = getProviderProvisioning().retrieveByOrigin(origin, identityZoneManager.getCurrentIdentityZoneId());
+            } catch (EmptyResultDataAccessException _) {
                 logger.info("No provider found for given origin");
                 throw new InsufficientAuthenticationException("Could not resolve identity provider with given origin.");
             }
         }
 
         if (provider != null && provider.getConfig() instanceof AbstractExternalOAuthIdentityProviderDefinition config) {
-            AuthenticationData authenticationData = new AuthenticationData();
+            final AuthenticationData authenticationData = new AuthenticationData();
+            authenticationData.setOrigin(origin);
 
-            Map<String, Object> claims = getClaimsFromToken(codeToken, provider);
+            final Map<String, Object> claims = getClaimsFromToken(codeToken, provider, enforceRelyingPartyAudience);
 
             if (claims == null) {
                 return null;
             }
             authenticationData.setClaims(claims);
 
-            Map<String, Object> attributeMappings = config.getAttributeMappings();
+            final Map<String, Object> attributeMappings = config.getAttributeMappings();
 
-            String userNameAttributePrefix = (String) attributeMappings.get(USER_NAME_ATTRIBUTE_NAME);
-            String username;
+            /* determine the username according to the claim configured in the "user_name" attribute mapping
+             * or fallback to the "sub" claim */
+            final String userNameAttributePrefix = (String) attributeMappings.get(USER_NAME_ATTRIBUTE_NAME);
+            final String username;
             if (hasText(userNameAttributePrefix)) {
                 username = getMappedClaim(userNameAttributePrefix, USER_NAME_ATTRIBUTE_NAME, claims);
                 logger.debug("Extracted username for claim: {} and username is: {}", userNameAttributePrefix, username);
@@ -267,42 +320,58 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
             if (!hasText(username)) {
                 throw new InsufficientAuthenticationException("Unable to map claim to a username");
             }
-
             authenticationData.setUsername(username);
 
-            List<? extends GrantedAuthority> oidcAuthorities = extractExternalOAuthUserAuthorities(attributeMappings, claims);
-            List<? extends GrantedAuthority> authorities;
-            AbstractExternalOAuthIdentityProviderDefinition.OAuthGroupMappingMode groupMappingMode = config.getGroupMappingMode() != null ?
-                    config.getGroupMappingMode() : AbstractExternalOAuthIdentityProviderDefinition.OAuthGroupMappingMode.EXPLICITLY_MAPPED;
-            switch (groupMappingMode) {
-                case AS_SCOPES:
-                    authorities = new LinkedList<>(oidcAuthorities);
-                    break;
-                case EXPLICITLY_MAPPED:
-                default:
-                    authorities = mapAuthorities(codeToken.getOrigin(), oidcAuthorities);
-                    break;
-            }
-            authenticationData.setAuthorities(filterOidcAuthorities(config, authorities));
-            ofNullable(attributeMappings).ifPresent(map -> authenticationData.setAttributeMappings(new HashMap<>(map)));
+            // determine the external groups according to the claim configured in the "external_groups" attribute mapping
+            List<SimpleGrantedAuthority> externalAuthorities = extractExternalOAuthUserAuthorities(attributeMappings, claims);
+
+            /* apply allowlist if configured in the IdP
+             * IMPORTANT: the allowlist is applied to the external groups, not the internal ones */
+            externalAuthorities = filterOidcAuthorities(config, externalAuthorities);
+
+            // evaluate group mapping according to the configured mode
+            final OAuthGroupMappingMode groupMappingMode = Optional.ofNullable(config.getGroupMappingMode())
+                    .orElse(EXPLICITLY_MAPPED);
+            final List<SimpleGrantedAuthority> authorities = mapExternalGroups(groupMappingMode, externalAuthorities, codeToken.getOrigin());
+
+            // set external and internal authorities and attribute mappings in authentication data
+            authenticationData.setAuthorities(authorities);
+            authenticationData.setExternalAuthorities(externalAuthorities);
+            authenticationData.setAttributeMappings(new HashMap<>(attributeMappings));
+
             return authenticationData;
         }
-        logger.debug("No identity provider found for origin:{} and zone:{}", getOrigin(), identityZoneManager.getCurrentIdentityZoneId());
+        logger.debug("No identity provider found for origin:{} and zone:{}", origin, identityZoneManager.getCurrentIdentityZoneId());
         return null;
     }
 
-    private static List<? extends GrantedAuthority> filterOidcAuthorities(AbstractExternalOAuthIdentityProviderDefinition<? extends ExternalIdentityProviderDefinition> definition, List<? extends GrantedAuthority> oidcAuthorities) {
-        List<String> whiteList = of(definition.getExternalGroupsWhitelist()).orElse(emptyList());
-        if (whiteList.isEmpty()) {
-            return oidcAuthorities;
-        } else {
-            Set<String> authorities = oidcAuthorities.stream().map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
-            Set<String> result = retainAllMatches(authorities, whiteList);
-            if (ObjectUtils.isNotEmpty(result)) {
-                log.debug("White listed external OIDC groups:'{}'", result);
-            }
-            return result.stream().map(ExternalOAuthUserAuthority::new).toList();
+    /**
+     * Filter the external authorities based on the allowlist (potentially) configured in the IdP.
+     *
+     * @param idpConfig the IdP configuration (containing the allowlist)
+     * @param externalAuthorities the external authorities extracted from the IdP token
+     * @return the filtered external authorities
+     */
+    private static List<SimpleGrantedAuthority> filterOidcAuthorities(
+            final ExternalIdentityProviderDefinition idpConfig,
+            final List<SimpleGrantedAuthority> externalAuthorities
+    ) {
+        final List<String> allowlist = Optional.of(idpConfig.getExternalGroupsWhitelist()).orElse(emptyList());
+        if (allowlist.isEmpty()) {
+            // no or empty allowlist configured in IdP -> allow all groups
+            return externalAuthorities;
         }
+
+        final Set<String> authorities = externalAuthorities.stream().map(GrantedAuthority::getAuthority).collect(toSet());
+
+        // intersect the external groups with the allowlist
+        final Set<String> filteredAuthorities = retainAllMatches(authorities, allowlist);
+
+        if (ObjectUtils.isNotEmpty(filteredAuthorities)) {
+            log.debug("White listed external OIDC groups:'{}'", filteredAuthorities);
+        }
+
+        return filteredAuthorities.stream().map(SimpleGrantedAuthority::new).toList();
     }
 
     @Override
@@ -310,60 +379,66 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
         Map<String, Object> claims = authenticationData.getClaims();
         if (claims != null) {
             if (claims.get("amr") != null) {
+                final Collection<String> amrClaims = (Collection<String>) claims.get("amr");
                 if (authentication.getAuthenticationMethods() == null) {
-                    authentication.setAuthenticationMethods(new HashSet<>((Collection<String>) claims.get("amr")));
+                    authentication.setAuthenticationMethods(new HashSet<>(amrClaims));
                 } else {
-                    authentication.getAuthenticationMethods().addAll((Collection<String>) claims.get("amr"));
+                    authentication.getAuthenticationMethods().addAll(amrClaims);
                 }
             }
 
             Object acr = claims.get(ClaimConstants.ACR);
             if (acr != null) {
-                if (acr instanceof Map acrMap) {
-                    Object values = acrMap.get("values");
-                    if (values instanceof Collection collection) {
-                        authentication.setAuthContextClassRef(new HashSet<>(collection));
-                    } else if (values instanceof String[] strings) {
-                        authentication.setAuthContextClassRef(new HashSet<>(Arrays.asList(strings)));
-                    } else {
-                        log.debug("Unrecognized ACR claim[{}] for user_id: {}", values, authentication.getPrincipal().getId());
+                switch (acr) {
+                    case Map acrMap -> {
+                        Object values = acrMap.get("values");
+                        switch (values) {
+                            case Collection collection -> authentication.setAuthContextClassRef(new HashSet<>(collection));
+                            case String[] strings -> authentication.setAuthContextClassRef(new HashSet<>(Arrays.asList(strings)));
+                            case null, default -> log.debug("Unrecognized ACR claim[{}] for user_id: {}", values, authentication.getPrincipal().getId());
+                        }
                     }
-                } else if (acr instanceof String string) {
-                    authentication.setAuthContextClassRef(new HashSet(Collections.singletonList(string)));
-                } else {
-                    log.debug("Unrecognized ACR claim[{}] for user_id: {}", acr, authentication.getPrincipal().getId());
+                    case String string -> authentication.setAuthContextClassRef(new HashSet<>(singletonList(string)));
+                    case null, default -> log.debug("Unrecognized ACR claim[{}] for user_id: {}", acr, authentication.getPrincipal().getId());
                 }
             }
+
+            /* determine the user attributes from the IdP token according to the attribute mappings configured in the
+             * IdP (must have the prefix "user.attribute.") */
             MultiValueMap<String, String> userAttributes = new LinkedMultiValueMap<>();
             log.debug("Mapping ExternalOAuth custom attributes");
             for (Map.Entry<String, Object> entry : authenticationData.getAttributeMappings().entrySet()) {
-                if (entry.getKey().startsWith(USER_ATTRIBUTE_PREFIX) && entry.getValue() != null) {
-                    String key = entry.getKey().substring(USER_ATTRIBUTE_PREFIX.length());
+                final String uaaAttribute = entry.getKey();
+                final Object externalIdpClaim = entry.getValue();
+                if (uaaAttribute.startsWith(USER_ATTRIBUTE_PREFIX) && externalIdpClaim != null) {
+                    String key = uaaAttribute.substring(USER_ATTRIBUTE_PREFIX.length());
                     Object values = claims.get(entry.getValue());
                     if (values != null) {
                         log.debug("Mapped ExternalOAuth attribute {} to {}", key, values);
-                        if (values instanceof List list) {
-                            List<String> strings = list.stream()
-                                    .map(object -> Objects.toString(object, null))
-                                    .toList();
-                            userAttributes.put(key, strings);
-                        } else if (values instanceof String string) {
-                            userAttributes.put(key, Collections.singletonList(string));
-                        } else {
-                            userAttributes.put(key, Collections.singletonList(values.toString()));
+                        switch (values) {
+                            case List list -> {
+                                List<String> strings = list.stream()
+                                        .map(object -> Objects.toString(object, null))
+                                        .toList();
+                                userAttributes.put(key, strings);
+                            }
+                            case String string -> userAttributes.put(key, singletonList(string));
+                            case null, default -> userAttributes.put(key, singletonList(values.toString()));
                         }
                     }
                 }
             }
             authentication.setUserAttributes(userAttributes);
+
+            List<SimpleGrantedAuthority> authoritiesForExternalGroups = externalGroupsFromMappedAuthorities
+                    ? authenticationData.getAuthorities()
+                    : authenticationData.getExternalAuthorities();
             authentication.setExternalGroups(
-                    ofNullable(
-                            authenticationData.getAuthorities()
-                    )
+                    Optional.ofNullable(authoritiesForExternalGroups)
                             .orElse(emptyList())
                             .stream()
                             .map(GrantedAuthority::getAuthority)
-                            .collect(Collectors.toSet())
+                            .collect(toSet())
             );
         }
         if (authentication.getAuthenticationMethods() == null) {
@@ -374,12 +449,14 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
         if (externalOAuthCodeToken.getIdToken() != null) {
             authentication.setIdpIdToken(externalOAuthCodeToken.getIdToken());
         }
+
+        // delegate to parent method -> persists user attributes and external groups if configured
         super.populateAuthenticationAttributes(authentication, request, authenticationData);
     }
 
     @Override
-    protected List<String> getExternalUserAuthorities(UserDetails request) {
-        return super.getExternalUserAuthorities(request);
+    protected List<String> getExternalUserAuthorities(UserDetails request, AuthenticationData authenticationData) {
+        return new LinkedList<>();
     }
 
     @Override
@@ -403,7 +480,7 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
             boolean verified = verifiedObj instanceof Boolean b ? b : false;
 
             if (!StringUtils.hasText(email)) {
-                email = generateEmailIfNullOrEmpty(username);
+                email = generateEmailIfNullOrEmpty(username, authenticationData.getOrigin());
             }
 
             log.debug("Returning user data for username:{}, email:{}", username, email);
@@ -419,7 +496,7 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
                             .withPassword("")
                             .withAuthorities(authenticationData.getAuthorities())
                             .withCreated(new Date())
-                            .withOrigin(getOrigin())
+                            .withOrigin(authenticationData.getOrigin())
                             .withExternalId((String) authenticationData.getClaims().get(SUB))
                             .withVerified(verified)
                             .withZoneId(identityZoneManager.getCurrentIdentityZoneId())
@@ -441,7 +518,7 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
             return string;
         }
         if (claimObject instanceof Collection<?> collection) {
-            Set<String> entry = collection.stream().filter(String.class::isInstance).map(String.class::cast).collect(Collectors.toSet());
+            Set<String> entry = collection.stream().filter(String.class::isInstance).map(String.class::cast).collect(toSet());
             if (entry.size() == 1) {
                 return entry.stream().findFirst().orElse(null);
             } else if (entry.isEmpty()) {
@@ -455,7 +532,8 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
         throw new BadCredentialsException("External token attribute " + claimName + " cannot be mapped to user attribute " + internalName);
     }
 
-    private List<? extends GrantedAuthority> extractExternalOAuthUserAuthorities(Map<String, Object> attributeMappings, Map<String, Object> claims) {
+    private List<SimpleGrantedAuthority> extractExternalOAuthUserAuthorities(Map<String, Object> attributeMappings, Map<String, Object> claims) {
+        // determine the claims that are configured to contain the groups in the token obtained from the IdP
         List<String> groupNames = new LinkedList<>();
         if (attributeMappings.get(GROUP_ATTRIBUTE_NAME) instanceof String string) {
             groupNames.add(string);
@@ -464,6 +542,7 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
         }
         log.debug("Extracting ExternalOAuth group names:{}", groupNames);
 
+        // extract the values from the claims
         Set<String> scopes = new HashSet<>();
         for (String g : groupNames) {
             Object roles = claims.get(g);
@@ -474,16 +553,11 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
             }
         }
 
-        List<ExternalOAuthUserAuthority> authorities = new ArrayList<>();
-        for (String scope : scopes) {
-            authorities.add(new ExternalOAuthUserAuthority(scope));
-        }
-
-        return authorities;
+        return scopes.stream().map(SimpleGrantedAuthority::new).toList();
     }
 
     @Override
-    protected UaaUser userAuthenticated(Authentication request, UaaUser userFromRequest, UaaUser userFromDb) {
+    protected UaaUser userAuthenticated(Authentication request, UaaUser userFromRequest, UaaUser userFromDb, AuthenticationData authenticationData) {
         boolean userModified = false;
         boolean isInvitationAcceptance = isAcceptedInvitationAuthentication();
         String email = userFromRequest.getEmail();
@@ -502,20 +576,16 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
 
         boolean isRegisteredIdpAuthentication = isRegisteredIdpAuthentication(request);
 
-        UaaUser userBeforeChanges = null;
-
         //we must check and see if the email address has changed between authentications
         if (haveUserAttributesChanged(userFromDb, userFromRequest) && isRegisteredIdpAuthentication) {
             log.debug("User attributed have changed, updating them.");
-            userBeforeChanges = userFromDb;
             userFromDb = userFromDb.modifyAttributes(email,
                             userFromRequest.getGivenName(),
                             userFromRequest.getFamilyName(),
                             userFromRequest.getPhoneNumber(),
                             userFromRequest.getExternalId(),
                             userFromDb.isVerified() || userFromRequest.isVerified())
-                    .modifyUsername(userFromRequest.getUsername())
-                    .withPreviousUser(userBeforeChanges);
+                    .modifyUsername(userFromRequest.getUsername());
             userModified = true;
         }
 
@@ -523,15 +593,7 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
             ExternalGroupAuthorizationEvent event = new ExternalGroupAuthorizationEvent(userFromDb, userModified, userFromRequest.getAuthorities(), true);
             publish(event);
         }
-        
-        userFromDb = getUserDatabase().retrieveUserById(userFromDb.getId());
-        
-        // Store previousUser in the returned user object so AuthenticationSuccessListener can detect all changes
-        if (userBeforeChanges != null) {
-            userFromDb = userFromDb.withPreviousUser(userBeforeChanges);
-        }
-        
-        return userFromDb;
+        return getUserDatabase().retrieveUserById(userFromDb.getId());
     }
 
     private boolean isRegisteredIdpAuthentication(Authentication request) {
@@ -546,7 +608,7 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
                 // check if the UAA Identity Zone is registered as an external Idp of itself
                 retrieveRegisteredIdentityProviderByIssuer(issuer);
                 return true;
-            } catch (IncorrectResultSizeDataAccessException e) {
+            } catch (IncorrectResultSizeDataAccessException _) {
                 return false;
             }
         } else {
@@ -555,20 +617,19 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
     }
 
     @Override
-    protected boolean isAddNewShadowUser() {
-        if (!super.isAddNewShadowUser()) {
-            return false;
+    protected boolean isAddNewShadowUser(final String origin) {
+        IdentityProvider<?> provider = getProviderProvisioning().retrieveByOrigin(origin, identityZoneManager.getCurrentIdentityZoneId());
+        if (provider.getConfig() instanceof AbstractExternalOAuthIdentityProviderDefinition<?> config) {
+            return config.isAddShadowUserOnLogin();
         }
-        IdentityProvider<AbstractExternalOAuthIdentityProviderDefinition> provider = getProviderProvisioning().retrieveByOrigin(getOrigin(), identityZoneManager.getCurrentIdentityZoneId());
-        return provider.getConfig().isAddShadowUserOnLogin();
+        return false;
     }
 
-    public RestTemplate getRestTemplate(AbstractExternalOAuthIdentityProviderDefinition config) {
-        if (config.isSkipSslValidation()) {
-            return trustingRestTemplate;
-        } else {
-            return nonTrustingRestTemplate;
-        }
+    public RestTemplate getRestTemplate(IdentityProvider<?> identityProvider) {
+        AbstractExternalOAuthIdentityProviderDefinition<?> config =
+                (AbstractExternalOAuthIdentityProviderDefinition<?>) identityProvider.getConfig();
+        return trustCache.resolveRestTemplate(identityProvider.getId(), config.getCaCertificates(), config.isSkipSslValidation(),
+                restTemplateConfig.timeout, restTemplateConfig.timeout, restTemplateConfig, trustingRestTemplate, nonTrustingRestTemplate);
     }
 
     protected String getResponseType(AbstractExternalOAuthIdentityProviderDefinition config) {
@@ -591,14 +652,35 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
             ExternalOAuthCodeToken codeToken,
             final IdentityProvider<T> identityProvider
     ) {
-        String idToken = getTokenFromCode(codeToken, identityProvider);
-        codeToken.setIdToken(idToken);
-        return getClaimsFromToken(idToken, identityProvider);
+        return getClaimsFromToken(codeToken, identityProvider, true);
+    }
+
+    protected <T extends AbstractExternalOAuthIdentityProviderDefinition<T>> Map<String, Object> getClaimsFromToken(
+            ExternalOAuthCodeToken codeToken,
+            final IdentityProvider<T> identityProvider,
+            final boolean enforceRelyingPartyAudience
+    ) {
+        String tokenFieldName = getTokenFieldName(identityProvider.getConfig());
+        String token = getTokenFromCode(codeToken, identityProvider);
+        if ("access_token".equals(tokenFieldName) && token != null && OAUTH20.equals(identityProvider.getType())) {
+            codeToken.setAccessToken(token);
+        } else {
+            codeToken.setIdToken(token);
+        }
+        return getClaimsFromToken(token, identityProvider, enforceRelyingPartyAudience);
     }
 
     protected <T extends AbstractExternalOAuthIdentityProviderDefinition<T>> Map<String, Object> getClaimsFromToken(
             String idToken,
             final IdentityProvider<T> identityProvider
+    ) {
+        return getClaimsFromToken(idToken, identityProvider, true);
+    }
+
+    protected <T extends AbstractExternalOAuthIdentityProviderDefinition<T>> Map<String, Object> getClaimsFromToken(
+            String idToken,
+            final IdentityProvider<T> identityProvider,
+            final boolean enforceRelyingPartyAudience
     ) {
         log.debug("Extracting claims from id_token");
         if (idToken == null) {
@@ -619,18 +701,28 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
             String signature = signedRequests[0];
             //parse data and convert to json object
             String data = signedRequests[1];
-            Map<String, Object> jsonData = null;
+            Map<String, Object> jsonData;
             try {
-                jsonData = JsonUtils.readValue(new String(Base64.decodeBase64(data), StandardCharsets.UTF_8), new TypeReference<Map<String, Object>>() {
+                jsonData = JsonUtils.readValue(new String(Base64.getUrlDecoder().decode(data), StandardCharsets.UTF_8), new TypeReference<>() {
                 });
                 //check signature algorithm
-                if (!jsonData.get("algorithm").equals("HMAC-SHA256")) {
-                    log.debug("Unknown algorithm was used to sign request! No claims returned.");
+                final var algorithm = Optional.ofNullable(jsonData)
+                        .map(it -> it.get("algorithm"))
+                        .orElse(null);
+                if (!"HMAC-SHA256".equals(algorithm)) {
+                    log.debug("Missing or unknown algorithm was used to sign request! No claims returned.");
                     return null;
                 }
-                //check if data is signed correctly
-                if (!hmacSignAndEncode(signedRequests[1], secret).equals(signature)) {
-                    log.debug("Signature is not correct, possibly the data was tampered with! No claims returned.");
+                // check if data is signed correctly using constant-time comparison
+                try {
+                    byte[] expectedMac = Base64.getUrlDecoder().decode(hmacSignAndEncode(signedRequests[1], secret));
+                    byte[] suppliedMac = Base64.getUrlDecoder().decode(signature);
+                    if (!MessageDigest.isEqual(expectedMac, suppliedMac)) {
+                        log.debug("Signature is not correct, possibly the data was tampered with! No claims returned.");
+                        return null;
+                    }
+                } catch (Exception _) {
+                    log.debug("Failed to validate signature due to encoding or computation error! No claims returned.");
                     return null;
                 }
                 return jsonData;
@@ -640,7 +732,7 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
             }
         } else if ("code".equals(config.getResponseType())
                 && RawExternalOAuthIdentityProviderDefinition.class.isAssignableFrom(config.getClass())
-                && ((RawExternalOAuthIdentityProviderDefinition) config).getUserInfoUrl() != null) {
+                && config.getUserInfoUrl() != null) {
             RawExternalOAuthIdentityProviderDefinition narrowedConfig = (RawExternalOAuthIdentityProviderDefinition) config;
 
             HttpHeaders headers = new HttpHeaders();
@@ -658,21 +750,36 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
 
             log.debug("Performing token check with url:{}", requestUri);
             ResponseEntity<Map<String, Object>> responseEntity =
-                    getRestTemplate(config)
+                    getRestTemplate(identityProvider)
                             .exchange(requestUri, GET, requestEntity,
-                                    new ParameterizedTypeReference<Map<String, Object>>() {
+                                    new ParameterizedTypeReference<>() {
                                     }
                             );
             log.debug("Request completed with status:{}", responseEntity.getStatusCode());
             return responseEntity.getBody();
         } else {
-            JwtTokenSignedByThisUAA jwtToken = validateToken(idToken, config);
+            JwtTokenSignedByThisUAA jwtToken = validateToken(idToken, config, enforceRelyingPartyAudience);
             log.debug("Decoding id_token");
             Jwt decodeIdToken = jwtToken.getJwt();
             log.debug("Deserializing id_token claims");
 
-            return JsonUtils.readValue(decodeIdToken.getClaims(), new TypeReference<Map<String, Object>>() {
+            Map<String, Object> claims = JsonUtils.readValue(decodeIdToken.getClaims(), new TypeReference<>() {
             });
+            
+            if (config instanceof OIDCIdentityProviderDefinition) {
+                String nonceKey = SessionUtils.nonceParameterAttributeKeyForIdp(identityProvider.getOriginKey());
+                String expectedNonce = getSessionValue(nonceKey);
+                if (StringUtils.hasText(expectedNonce)) {
+                    Object tokenNonceObj = claims.get("nonce");
+                    String tokenNonce = tokenNonceObj instanceof String ? (String) tokenNonceObj : null;
+                    if (!expectedNonce.equals(tokenNonce)) {
+                        throw new InvalidTokenException("ID token nonce does not match session nonce");
+                    }
+                    clearSessionValue(nonceKey);
+                }
+            }
+            
+            return claims;
         }
     }
 
@@ -685,7 +792,39 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
         }
     }
 
-    private JwtTokenSignedByThisUAA validateToken(String idToken, AbstractExternalOAuthIdentityProviderDefinition config) {
+    /**
+     * Resolves the registered identity provider from the token's {@code iss} claim,
+     * verifies the JWT signature against that provider's keys, and checks expiry.
+     *
+     * <p>Intended for callers (e.g. {@code TokenExchangeGranter}) that need independent
+     * verification of a {@code subject_token} without going through the full authentication
+     * pipeline. Like other machine-to-machine token-exchange flows, this is exempt from the
+     * relying-party audience check (see {@link #getExternalAuthenticationDetails}).
+     *
+     * @param idToken the JWT to verify
+     * @return the verified and expiry-checked {@link JWTClaimsSet}
+     * @throws InsufficientAuthenticationException if the issuer cannot be mapped to a registered provider
+     * @throws InvalidTokenException               if the signature or expiry checks fail
+     */
+    public JWTClaimsSet verifySubjectToken(String idToken) {
+        IdentityProvider provider = resolveOriginProvider(idToken);
+        if (!(provider.getConfig() instanceof AbstractExternalOAuthIdentityProviderDefinition config)) {
+            throw new InsufficientAuthenticationException("Unable to map issuer to a registered OAuth/OIDC provider");
+        }
+        try {
+            return validateToken(idToken, config, false).getJwt().getClaimSet();
+        } catch (InvalidTokenException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new InvalidTokenException("Unable to verify subject_token", e);
+        }
+    }
+
+    private JwtTokenSignedByThisUAA validateToken(
+            String idToken,
+            AbstractExternalOAuthIdentityProviderDefinition config,
+            boolean enforceRelyingPartyAudience
+    ) {
         log.debug("Validating id_token");
 
         JwtTokenSignedByThisUAA jwtToken;
@@ -693,11 +832,29 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
         if (tokenEndpointBuilder.getTokenEndpoint(identityZoneManager.getCurrentIdentityZone()).equals(config.getIssuer())) {
             List<SignatureVerifier> signatureVerifiers = getTokenKeyForUaaOrigin();
             jwtToken = buildIdTokenValidator(idToken, new ChainedSignatureVerifier(signatureVerifiers), keyInfoService);
+            if (enforceRelyingPartyAudience && hasText(config.getRelyingPartyId())) {
+                // an explicitly registered self-referencing OIDC IdP must still bind the id_token
+                // to its own relying party for an interactive login, otherwise any token signed by
+                // this UAA instance (issued to any client, for any purpose) would be accepted as
+                // this IdP's id_token. Machine-to-machine token exchanges (JWT Bearer grant,
+                // password grant with an id_token) are exempt: they already authenticate the
+                // calling client to /oauth/token directly, and deliberately chain tokens minted for
+                // other clients in the same zone/origin.
+                jwtToken.checkAudience(config.getRelyingPartyId());
+            }
         } else {
             JsonWebKeySet<JsonWebKey> tokenKeyFromOAuth = getTokenKeyFromOAuth(config);
             jwtToken = buildIdTokenValidator(idToken, new ChainedSignatureVerifier(tokenKeyFromOAuth), keyInfoService)
-                    .checkIssuer((!hasLength(config.getIssuer()) ? config.getTokenUrl().toString() : config.getIssuer()))
-                    .checkAudience(config.getRelyingPartyId());
+                    .checkIssuer(!hasLength(config.getIssuer()) ? config.getTokenUrl().toString() : config.getIssuer());
+            if (enforceRelyingPartyAudience && hasText(config.getRelyingPartyId())) {
+                // same machine-to-machine exemption as the self-referencing branch above: an
+                // externally-issued token presented to the interactive callback
+                // (/login/callback/{origin}) must still be bound to this IdP's own relying party,
+                // but a JWT Bearer grant, password grant with an id_token, or token exchange
+                // deliberately presents a token minted for another client/purpose and already
+                // authenticates the calling client to /oauth/token directly.
+                jwtToken.checkAudience(config.getRelyingPartyId());
+            }
         }
         return jwtToken.checkExpiry();
     }
@@ -717,6 +874,22 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
         }
         try {
             return oidcMetadataFetcher.fetchWebKeySet(config);
+        } catch (OidcMetadataFetchingException e) {
+            throw new InvalidTokenException(e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Same keys as {@link #getTokenKeyFromOAuth(AbstractExternalOAuthIdentityProviderDefinition)} as a Nimbus
+     * {@link JWKSet}, reusing the instance parsed when the remote key set was cached.
+     */
+    public JWKSet getJwkSetFromOAuth(AbstractExternalOAuthIdentityProviderDefinition config) throws ParseException {
+        String tokenKey = config.getTokenKey();
+        if (StringUtils.hasText(tokenKey)) {
+            return JWKSet.parse(JsonWebKeyHelper.parseConfiguration(tokenKey).getKeySetMap());
+        }
+        try {
+            return oidcMetadataFetcher.fetchJwkSet(config);
         } catch (OidcMetadataFetchingException e) {
             throw new InvalidTokenException(e.getMessage(), e);
         }
@@ -781,7 +954,7 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
             }
         }
         if (ExternalOAuthProviderConfigurator.isPkceNeeded(config)) {
-            // if session is expired or other issues in retrieven code_verifier, then flow fails with 401, which is expected
+            // if session is expired or other issues in retrieving code_verifier, then flow fails with 401, which is expected
             body.add("code_verifier", getSessionValue(SessionUtils.codeVerifierParameterAttributeKeyForIdp(codeToken.getOrigin())));
         }
         headers.add("Accept", "application/json");
@@ -799,15 +972,32 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
         // A configuration that skips SSL/TLS validation requires clobbering the rest template request factory
         // setup by the bean initializer.
         ResponseEntity<Map<String, String>> responseEntity =
-                getRestTemplate(config)
+                getRestTemplate(provider)
                         .exchange(requestUri,
                                 HttpMethod.POST,
                                 requestEntity,
-                                new ParameterizedTypeReference<Map<String, String>>() {
+                                new ParameterizedTypeReference<>() {
                                 }
                         );
         log.debug("Request completed with status:{}", responseEntity.getStatusCode());
-        return ofNullable(responseEntity.getBody()).map(resBody -> resBody.get(getTokenFieldName(config))).orElse(UaaStringUtils.EMPTY_STRING);
+        return Optional.ofNullable(responseEntity.getBody()).map(resBody -> resBody.get(getTokenFieldName(config))).orElse(UaaStringUtils.EMPTY_STRING);
+    }
+
+    /**
+     * Determine the mapped groups according to the group mapping mode configured in the IdP.
+     */
+    private List<SimpleGrantedAuthority> mapExternalGroups(
+            final OAuthGroupMappingMode groupMappingMode,
+            final List<SimpleGrantedAuthority> externalAuthorities,
+            final String originKey
+    ) {
+        if (groupMappingMode == AS_SCOPES) {
+            // propagate the external groups directly as scopes to the UAA token
+            return new LinkedList<>(externalAuthorities);
+        }
+
+        // evaluate the external group mappings configured for the IdP
+        return evaluateExternalGroupMappings(originKey, externalAuthorities);
     }
 
     private String getSessionValue(String value) {
@@ -815,13 +1005,25 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
             ServletRequestAttributes attr = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
             return (String) SessionUtils.getStateParam(attr.getRequest().getSession(false), value);
         } catch (Exception e) {
-            log.warn("Exception", e);
+            log.warn("Failed to get session value for {}", value, e);
             return "";
         }
     }
 
+    private void clearSessionValue(String value) {
+        try {
+            ServletRequestAttributes attr = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
+            HttpSession session = attr.getRequest().getSession(false);
+            if (session != null) {
+                session.removeAttribute(value);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to clear session value for {}", value, e);
+        }
+    }
+
     private String getClientAuthHeader(AbstractExternalOAuthIdentityProviderDefinition config) {
-        String clientAuth = new String(Base64.encodeBase64((config.getRelyingPartyId() + ":" + config.getRelyingPartySecret()).getBytes()));
+        String clientAuth = Base64.getEncoder().encodeToString((config.getRelyingPartyId() + ":" + config.getRelyingPartySecret()).getBytes(StandardCharsets.UTF_8));
         return "Basic " + clientAuth;
     }
 
@@ -831,14 +1033,6 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
             return "access_token"; // Oauth 2.0
         }
         return responseType;
-    }
-
-    public void setTokenEndpointBuilder(TokenEndpointBuilder tokenEndpointBuilder) {
-        this.tokenEndpointBuilder = tokenEndpointBuilder;
-    }
-
-    public KeyInfoService getKeyInfoService() {
-        return keyInfoService;
     }
 
     protected void fetchMetadataAndUpdateDefinition(OIDCIdentityProviderDefinition definition) {
@@ -872,7 +1066,7 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
                         && (allowedProviders == null || allowedProviders.contains(useOrigin))) {
                     return (IdentityProvider<OIDCIdentityProviderDefinition>) retrievedByOrigin;
                 }
-            } catch (EmptyResultDataAccessException e) {
+            } catch (EmptyResultDataAccessException _) {
                 // ignore
             }
         }
@@ -881,7 +1075,7 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
 
     private boolean providerSupportsTokenExchange(IdentityProvider provider) {
         if (OriginKeys.OIDC10.equals(provider.getType()) && provider.getConfig() instanceof OIDCIdentityProviderDefinition oidcProviderDefinition) {
-            return ofNullable(oidcProviderDefinition.isTokenExchangeEnabled()).orElse(false);
+            return Optional.ofNullable(oidcProviderDefinition.isTokenExchangeEnabled()).orElse(false);
         }
         return false;
     }
@@ -917,13 +1111,13 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
         }
         if (tokenUrl == null) {
             fetchMetadataAndUpdateDefinition(config);
-            tokenUrl = ofNullable(config.getTokenUrl()).orElseThrow(() -> new ProviderConfigurationException("External OpenID Connect metadata is missing after discovery update."));
+            tokenUrl = Optional.ofNullable(config.getTokenUrl()).orElseThrow(() -> new ProviderConfigurationException("External OpenID Connect metadata is missing after discovery update."));
         }
         String calcAuthMethod = ClientAuthentication.getCalculatedMethod(config.getAuthMethod(), clientSecret != null, config.getJwtClientAuthentication() != null);
-        RestTemplate rt = config.isSkipSslValidation() ? trustingRestTemplate : nonTrustingRestTemplate;
+        RestTemplate rt = getRestTemplate(identityProvider);
 
         HttpHeaders headers = new HttpHeaders();
-        headers.setAccept(Collections.singletonList(APPLICATION_JSON));
+        headers.setAccept(singletonList(APPLICATION_JSON));
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>(additionalParameters);
 
@@ -935,7 +1129,7 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
                     .getClientAuthenticationParameters(params, config, allowDynamicValueLookupInCustomZone);
         } else if (ClientAuthentication.secretNeeded(calcAuthMethod)) {
             String auth = clientId + ":" + clientSecret;
-            headers.add("Authorization", "Basic " + Base64.encodeBase64String(auth.getBytes(StandardCharsets.UTF_8)));
+            headers.add("Authorization", "Basic " + Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8)));
         } else {
             params.add(AbstractClientParametersAuthenticationFilter.CLIENT_ID, clientId);
         }
@@ -982,43 +1176,26 @@ public class ExternalOAuthAuthenticationManager extends ExternalLoginAuthenticat
         return idToken;
     }
 
-    protected static class AuthenticationData {
-
+    @Data
+    @EqualsAndHashCode(callSuper = true)
+    protected static class AuthenticationData extends ExternalAuthenticationDetails {
         private Map<String, Object> claims;
         private String username;
-        private List<? extends GrantedAuthority> authorities;
+
+        /**
+         * The internal authorities after group mapping has been applied.
+         */
+        private List<SimpleGrantedAuthority> authorities;
+
+        /**
+         * The external authorities as provided in the IdP token, before group mapping and after the group allowlist
+         * is applied.
+         */
+        private List<SimpleGrantedAuthority> externalAuthorities;
+
+        /**
+         * The attribute mappings configured in the IdP that was used for authentication.
+         */
         private Map<String, Object> attributeMappings;
-
-        public Map<String, Object> getAttributeMappings() {
-            return attributeMappings;
-        }
-
-        public void setAttributeMappings(Map<String, Object> attributeMappings) {
-            this.attributeMappings = attributeMappings;
-        }
-
-        public void setClaims(Map<String, Object> claims) {
-            this.claims = claims;
-        }
-
-        public Map<String, Object> getClaims() {
-            return claims;
-        }
-
-        public void setUsername(String username) {
-            this.username = username;
-        }
-
-        public String getUsername() {
-            return username;
-        }
-
-        public List<? extends GrantedAuthority> getAuthorities() {
-            return authorities;
-        }
-
-        public void setAuthorities(List<? extends GrantedAuthority> authorities) {
-            this.authorities = authorities;
-        }
     }
 }

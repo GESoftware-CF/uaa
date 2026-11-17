@@ -1,10 +1,8 @@
 package org.cloudfoundry.identity.uaa.mock.zones;
 
 import org.cloudfoundry.identity.uaa.audit.event.SystemDeletable;
-import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.mock.EndpointDocs;
 import org.cloudfoundry.identity.uaa.util.AlphanumericRandomValueStringGenerator;
-import org.cloudfoundry.identity.uaa.provider.KeyProviderConfig;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.zone.BrandingInformation;
 import org.cloudfoundry.identity.uaa.zone.BrandingInformation.Banner;
@@ -21,16 +19,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.restdocs.headers.HeaderDescriptor;
 import org.springframework.restdocs.payload.FieldDescriptor;
 import org.springframework.restdocs.snippet.Snippet;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.util.StringUtils;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.cloudfoundry.identity.uaa.zone.SamlConfig.SignatureAlgorithm.SHA256;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.restdocs.headers.HeaderDocumentation.headerWithName;
 import static org.springframework.restdocs.headers.HeaderDocumentation.requestHeaders;
@@ -49,6 +43,7 @@ import static org.springframework.restdocs.payload.JsonFieldType.OBJECT;
 import static org.springframework.restdocs.payload.JsonFieldType.STRING;
 import static org.springframework.restdocs.payload.JsonFieldType.VARIES;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.restdocs.payload.PayloadDocumentation.subsectionWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
 import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
@@ -58,15 +53,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class IdentityZoneEndpointDocs extends EndpointDocs {
-    private static final String X_IDENTITY_ZONE_ID_DESC = "May include this header to administer another zone if using `zones.<zone id>.admin`";
     private static final String ID_DESC = "Unique ID of the identity zone";
     private static final String SUBDOMAIN_DESC = "Unique subdomain for the running instance. May only contain legal characters for a subdomain name.";
     private static final String NAME_DESC = "Human-readable zone name";
     private static final String DESCRIPTION_DESC = "Description of the zone";
     private static final String VERSION_DESC = "Reserved for future use of E-Tag versioning";
-    private static final String LOCKOUT_PERIOD_SECONDS_DESC = "Number of seconds to lock out an account when lockoutAfterFailures failures is exceeded (defaults to 300).";
-    private static final String LOCKOUT_AFTER_FAILURES_DESC = "Number of allowed failures before account is locked (defaults to 5).";
-    private static final String LOCKOUT_COUNT_FAILURES_WITHIN_DESC = "Number of seconds in which lockoutAfterFailures failures must occur in order for account to be locked (defaults to 3600).";
     private static final String ACTIVE_DESC = "Indicates whether the identity zone is active. Defaults to true.";
     private static final String TOKEN_POLICY_DESC = "Various fields pertaining to the JWT access and refresh tokens.";
     private static final String ACTIVE_KEY_ID_DESC = "The ID for the key that is being used to sign tokens";
@@ -77,12 +68,14 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
     private static final String ACCESS_TOKEN_VALIDITY_DESC = "Time in seconds between when a access token is issued and when it expires. Defaults to global `accessTokenValidity`";
     private static final String REFRESH_TOKEN_VALIDITY_DESC = "Time in seconds between when a refresh token is issued and when it expires. Defaults to global `refreshTokenValidity`";
     private static final String REFRESH_TOKEN_FORMAT = "The format for the refresh token. Allowed values are `jwt`, `opaque`. Defaults to `opaque`.";
-    private static final String REFRESH_TOKEN_UNIQUE = "If true, uaa will only issue one refresh token per client_id/user_id combination. Defaults to `false`.";
+    private static final String REFRESH_TOKEN_UNIQUE = "Maximum number of concurrent active refresh tokens (sessions) per user/client pair. " +
+            "Accepts a boolean or an integer for backwards compatibility: `true` is equivalent to `1` (one session), " +
+            "`false` or any non-positive value means no limit. A positive integer N allows up to N concurrent sessions. " +
+            "Only enforced when refresh tokens are revocable/stored (opaque refresh tokens are always stored; JWT refresh tokens require `jwtRevocable` to be `true`). Defaults to `false` (no limit).";
     private static final String REFRESH_TOKEN_ROTATE = "If true, uaa will issue a new refresh token value in grant type refresh_token. Defaults to `false`.";
     private static final String JWT_REVOCABLE_DESC = "Set to true if JWT tokens should be stored in the token store, and thus made individually revocable. Opaque tokens are always stored and revocable.";
     private static final String ENTITY_ID_DESC = "Unique ID of the SAML2 entity";
-    private static final String SAML_SIGNATURE_ALGORITHM_DESC = "Exposed SAML metadata property. The signature algorithm that will be used to sign the authentication request and SAML assertion. Defaults to `SHA256`.";
-    private static final String WANT_ASSERTION_SIGNED_DESC = "Exposed SAML metadata property. If `true`, all assertions received by the SAML provider must be signed. Defaults to `true`.";
+    private static final String WANT_ASSERTION_SIGNED_DESC = "**Deprecated** since 78.13.0; scheduled for removal. Only controls the `WantAssertionsSigned` attribute in published SAML SP metadata. No longer affects authentication behavior - encrypted assertions are always decrypted and authentication always requires a verifiable XML signature on the SAML `Response` or on every `Assertion` after decryption. Defaults to `true`.";
     private static final String REQUEST_SIGNED_DESC = "Exposed SAML metadata property. If `true`, the service provider will sign all outgoing authentication requests. Defaults to `true`.";
     private static final String SAML_DISABLE_IN_RESPONSE_TO_DESC = "If `true`, this zone will not validate the `InResponseToField` part of an incoming IDP assertion. Please see https://docs.spring.io/spring-security-saml/docs/current/reference/html/chapter-troubleshooting.html";
     private static final String CERTIFICATE_DESC = "Exposed SAML metadata property. The certificate used to verify the authenticity all communications.";
@@ -93,7 +86,6 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
     private static final String REDIRECT_PARAMETER_NAME_DESC = "Changes the name of the redirect parameter";
     private static final String DISABLE_REDIRECT_PARAMETER_DESC = "Deprecated, no longer affects zone behavior. Whether or not to allow the redirect parameter on logout";
     private static final String WHITELIST_DESC = "List of allowed whitelist redirects";
-    private static final String ENABLE_REDIRECT_URI_CHECK_DESC = "Zone-level flag that will enforce client redirect uri rules as deployed in 4.4.0. If `true`, check will perform at authorization. Defaults to `true`";
     private static final String SELF_SERVICE_LINKS_ENABLED_DESC = "Whether or not users are allowed to sign up or reset their passwords via the UI";
     private static final String SIGNUP_DESC = "Where users are directed upon clicking the account creation link";
     private static final String PASSWD_DESC = "Where users are directed upon clicking the password reset link";
@@ -136,7 +128,6 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
     private static final String USER_CONFIG_USER_LIMIT_CONSTRAINT = "Optional number, default -1, no limit.";
     private static final String USER_CONFIG_CHECK_ORIGIN_ENABLED = "Flag for switching on the check if origin is valid when creating or updating users (defaults to false)";
     private static final String USER_CONFIG_ALLOW_ORIGIN_LOOP = "Flag for switching off the loop over all origins in a zone (defaults to true)";
-    private static final String SECRET_POLICY_EXPIRE_MONTHS = "Number of months after which current secret expires (defaults to 0).";
 
     private static final String SERVICE_PROVIDER_KEY =
             """
@@ -181,10 +172,6 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
 
     private static final HeaderDescriptor IDENTITY_ZONE_ID_HEADER = headerWithName(IdentityZoneSwitchingFilter.HEADER).description("May include this header to administer another zone if using `zones.<zoneId>.admin` or `uaa.admin` scope against the default UAA zone.").optional();
     private static final HeaderDescriptor IDENTITY_ZONE_SUBDOMAIN_HEADER = headerWithName(IdentityZoneSwitchingFilter.SUBDOMAIN_HEADER).optional().description("If using a `zones.<zoneId>.admin` scope/token, indicates what Identity Zone this request goes to by supplying a subdomain.");
-    private static final String KEY_PROVIDER_CONFIG_CLIENT_ID_DESC = "The client id used to authenticate with DCS for the jwt bearer flow.";
-    private static final String KEY_PROVIDER_CONFIG_DCS_TENANT_ID_DESC="The DCS tenant id for the jwt bearer flow.";
-    private static final Object KEY_PROVIDER_CONFIG_ID_DESC = "The unique id of the key provider config.";
-    private static final Object KEY_PROVIDER_CONFIG_IDENTITY_ZONE_DESC = "The identity zone to which the key provider config belongs. It will always be the same as the current zone.";
 
     @BeforeEach
     void setUp() {
@@ -238,13 +225,15 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("version").description(VERSION_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("active").description(ACTIVE_DESC).attributes(key("constraints").value("Optional")),
 
+                fieldWithPath("config.mtls.enabled").optional().type(BOOLEAN).description("Zone mTLS switch, false when omitted. Both this flag and deployment-wide uaa.mtls.enabled must be enabled. Changes apply without restarting; a zone cannot override the deployment off-switch. Disabling does not revoke issued tokens.").attributes(key("constraints").value("Optional")),
+                subsectionWithPath("config.mtls.trustBundles").optional().type(OBJECT).description("Zone-scoped map of named PEM CA bundles for mTLS clients. Names contain 1 to 128 letters, digits, dots, underscores or hyphens and start with a letter or digit. Clients reference these using tls-client-auth-ca-ref or tls-client-auth-trusted-proxy-ca-ref. Updating a bundle rotates trust without client changes; removed references fail authentication at token time. The default zone is configured through uaa.mtls.trust_bundles.").attributes(key("constraints").value("Optional")),
+
                 fieldWithPath("config.clientSecretPolicy.minLength").type(NUMBER).description(SECRET_POLICY_MIN_LENGTH).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("config.clientSecretPolicy.maxLength").type(NUMBER).description(SECRET_POLICY_MAX_LENGTH).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("config.clientSecretPolicy.requireUpperCaseCharacter").type(NUMBER).description(SECRET_POLICY_UPPERCASE).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("config.clientSecretPolicy.requireLowerCaseCharacter").type(NUMBER).description(SECRET_POLICY_LOWERCASE).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("config.clientSecretPolicy.requireDigit").type(NUMBER).description(SECRET_POLICY_DIGIT).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("config.clientSecretPolicy.requireSpecialCharacter").type(NUMBER).description(SECRET_POLICY_SPECIAL_CHAR).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
-                fieldWithPath("config.clientSecretPolicy.expireSecretsInMonths").type(NUMBER).description(SECRET_POLICY_EXPIRE_MONTHS).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
 
                 fieldWithPath("config.tokenPolicy").description(TOKEN_POLICY_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.tokenPolicy.activeKeyId").optional().type(STRING).description(ACTIVE_KEY_ID_DESC).attributes(key("constraints").value("Required if `config.tokenPolicy.keys` are set")),
@@ -254,14 +243,13 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("config.tokenPolicy.accessTokenValidity").description(ACCESS_TOKEN_VALIDITY_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.tokenPolicy.refreshTokenValidity").description(REFRESH_TOKEN_VALIDITY_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.tokenPolicy.jwtRevocable").type(BOOLEAN).description(JWT_REVOCABLE_DESC).attributes(key("constraints").value("Optional")),
-                fieldWithPath("config.tokenPolicy.refreshTokenUnique").type(BOOLEAN).description(REFRESH_TOKEN_UNIQUE).attributes(key("constraints").value("Optional")),
+                fieldWithPath("config.tokenPolicy.refreshTokenUnique").type(VARIES).description(REFRESH_TOKEN_UNIQUE).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.tokenPolicy.refreshTokenRotate").type(BOOLEAN).description(REFRESH_TOKEN_ROTATE).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.tokenPolicy.refreshTokenFormat").type(STRING).description(REFRESH_TOKEN_FORMAT).attributes(key("constraints").value("Optional")),
 
                 fieldWithPath("config.samlConfig.disableInResponseToCheck").description(SAML_DISABLE_IN_RESPONSE_TO_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.samlConfig.wantAssertionSigned").description(WANT_ASSERTION_SIGNED_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.samlConfig.requestSigned").description(REQUEST_SIGNED_DESC).attributes(key("constraints").value("Optional")),
-                fieldWithPath("config.samlConfig.signatureAlgorithm").description(SAML_SIGNATURE_ALGORITHM_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.samlConfig.entityID").type(STRING).description(ENTITY_ID_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.samlConfig.certificate").type(STRING).description(CERTIFICATE_DESC).attributes(key("constraints").value("Deprecated")),
                 fieldWithPath("config.samlConfig.privateKey").type(STRING).description(PRIVATE_KEY_DESC).attributes(key("constraints").value("Deprecated")),
@@ -331,8 +319,7 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("config.userConfig.allowOriginLoop").description(USER_CONFIG_ALLOW_ORIGIN_LOOP).attributes(key("constraints").value("Optional")).optional().type(BOOLEAN),
 
                 fieldWithPath("created").ignored(),
-                fieldWithPath("last_modified").ignored(),
-                fieldWithPath("enable_redirect_uri_check").type(BOOLEAN).description(ENABLE_REDIRECT_URI_CHECK_DESC).attributes(key("constraints").value("Optional"))
+                fieldWithPath("last_modified").ignored()
         };
 
         mockMvc.perform(
@@ -405,9 +392,12 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("[].config.tokenPolicy.accessTokenValidity").description(ACCESS_TOKEN_VALIDITY_DESC),
                 fieldWithPath("[].config.tokenPolicy.refreshTokenValidity").description(REFRESH_TOKEN_VALIDITY_DESC),
                 fieldWithPath("[].config.tokenPolicy.jwtRevocable").type(BOOLEAN).description(JWT_REVOCABLE_DESC),
-                fieldWithPath("[].config.tokenPolicy.refreshTokenUnique").type(BOOLEAN).description(REFRESH_TOKEN_UNIQUE).attributes(key("constraints").value("Optional")),
+                fieldWithPath("[].config.tokenPolicy.refreshTokenUnique").type(VARIES).description(REFRESH_TOKEN_UNIQUE).attributes(key("constraints").value("Optional")),
                 fieldWithPath("[].config.tokenPolicy.refreshTokenRotate").type(BOOLEAN).description(REFRESH_TOKEN_ROTATE).attributes(key("constraints").value("Optional")),
                 fieldWithPath("[].config.tokenPolicy.refreshTokenFormat").type(STRING).description(REFRESH_TOKEN_FORMAT).attributes(key("constraints").value("Optional")),
+
+                fieldWithPath("[].config.mtls.enabled").optional().type(BOOLEAN).description("Zone mTLS switch, false when omitted. Both this flag and deployment-wide uaa.mtls.enabled must be enabled. Changes apply without restarting; a zone cannot override the deployment off-switch. Disabling does not revoke issued tokens.").attributes(key("constraints").value("Optional")),
+                subsectionWithPath("[].config.mtls.trustBundles").optional().type(OBJECT).description("Zone-scoped map of named PEM CA bundles for mTLS clients. Names contain 1 to 128 letters, digits, dots, underscores or hyphens and start with a letter or digit. Clients reference these using tls-client-auth-ca-ref or tls-client-auth-trusted-proxy-ca-ref. Updating a bundle rotates trust without client changes; removed references fail authentication at token time. The default zone is configured through uaa.mtls.trust_bundles.").attributes(key("constraints").value("Optional")),
 
                 fieldWithPath("[].config.clientSecretPolicy.minLength").type(NUMBER).description(SECRET_POLICY_MIN_LENGTH).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("[].config.clientSecretPolicy.maxLength").type(NUMBER).description(SECRET_POLICY_MAX_LENGTH).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
@@ -415,12 +405,10 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("[].config.clientSecretPolicy.requireLowerCaseCharacter").type(NUMBER).description(SECRET_POLICY_LOWERCASE).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("[].config.clientSecretPolicy.requireDigit").type(NUMBER).description(SECRET_POLICY_DIGIT).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("[].config.clientSecretPolicy.requireSpecialCharacter").type(NUMBER).description(SECRET_POLICY_SPECIAL_CHAR).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
-                fieldWithPath("[].config.clientSecretPolicy.expireSecretInMonths").type(NUMBER).description(SECRET_POLICY_EXPIRE_MONTHS).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
 
                 fieldWithPath("[].config.samlConfig.disableInResponseToCheck").description(SAML_DISABLE_IN_RESPONSE_TO_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("[].config.samlConfig.wantAssertionSigned").description(WANT_ASSERTION_SIGNED_DESC),
                 fieldWithPath("[].config.samlConfig.requestSigned").description(REQUEST_SIGNED_DESC),
-                fieldWithPath("[].config.samlConfig.signatureAlgorithm").description(SAML_SIGNATURE_ALGORITHM_DESC),
                 fieldWithPath("[].config.samlConfig.entityID").optional().type(STRING).description(ENTITY_ID_DESC),
                 fieldWithPath("[].config.samlConfig.certificate").optional().type(STRING).description(CERTIFICATE_DESC).attributes(key("constraints").value("Deprecated")),
 
@@ -493,8 +481,7 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("[].config.userConfig.allowOriginLoop").description(USER_CONFIG_ALLOW_ORIGIN_LOOP).attributes(key("constraints").value("Optional")).optional().type(BOOLEAN),
 
                 fieldWithPath("[].created").ignored(),
-                fieldWithPath("[].last_modified").ignored(),
-                fieldWithPath("[].enable_redirect_uri_check").type(BOOLEAN).description(ENABLE_REDIRECT_URI_CHECK_DESC).attributes(key("constraints").value("Optional"))
+                fieldWithPath("[].last_modified").ignored()
         );
 
         mockMvc.perform(
@@ -556,9 +543,12 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("config.tokenPolicy.accessTokenValidity").description(ACCESS_TOKEN_VALIDITY_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.tokenPolicy.refreshTokenValidity").description(REFRESH_TOKEN_VALIDITY_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.tokenPolicy.jwtRevocable").type(BOOLEAN).description(JWT_REVOCABLE_DESC).attributes(key("constraints").value("Optional")),
-                fieldWithPath("config.tokenPolicy.refreshTokenUnique").type(BOOLEAN).description(REFRESH_TOKEN_UNIQUE).attributes(key("constraints").value("Optional")),
+                fieldWithPath("config.tokenPolicy.refreshTokenUnique").type(VARIES).description(REFRESH_TOKEN_UNIQUE).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.tokenPolicy.refreshTokenRotate").type(BOOLEAN).description(REFRESH_TOKEN_ROTATE).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.tokenPolicy.refreshTokenFormat").type(STRING).description(REFRESH_TOKEN_FORMAT).attributes(key("constraints").value("Optional")),
+
+                fieldWithPath("config.mtls.enabled").optional().type(BOOLEAN).description("Zone mTLS switch, false when omitted. Both this flag and deployment-wide uaa.mtls.enabled must be enabled. Changes apply without restarting; a zone cannot override the deployment off-switch. Disabling does not revoke issued tokens.").attributes(key("constraints").value("Optional")),
+                subsectionWithPath("config.mtls.trustBundles").optional().type(OBJECT).description("Zone-scoped map of named PEM CA bundles for mTLS clients. Names contain 1 to 128 letters, digits, dots, underscores or hyphens and start with a letter or digit. Clients reference these using tls-client-auth-ca-ref or tls-client-auth-trusted-proxy-ca-ref. Updating a bundle rotates trust without client changes; removed references fail authentication at token time. The default zone is configured through uaa.mtls.trust_bundles.").attributes(key("constraints").value("Optional")),
 
                 fieldWithPath("config.clientSecretPolicy.minLength").type(NUMBER).description(SECRET_POLICY_MIN_LENGTH).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("config.clientSecretPolicy.maxLength").type(NUMBER).description(SECRET_POLICY_MAX_LENGTH).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
@@ -566,12 +556,10 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("config.clientSecretPolicy.requireLowerCaseCharacter").type(NUMBER).description(SECRET_POLICY_LOWERCASE).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("config.clientSecretPolicy.requireDigit").type(NUMBER).description(SECRET_POLICY_DIGIT).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("config.clientSecretPolicy.requireSpecialCharacter").type(NUMBER).description(SECRET_POLICY_SPECIAL_CHAR).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
-                fieldWithPath("config.clientSecretPolicy.expireSecretInMonths").type(NUMBER).description(SECRET_POLICY_EXPIRE_MONTHS).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
 
                 fieldWithPath("config.samlConfig.disableInResponseToCheck").description(SAML_DISABLE_IN_RESPONSE_TO_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.samlConfig.wantAssertionSigned").description(WANT_ASSERTION_SIGNED_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.samlConfig.requestSigned").description(REQUEST_SIGNED_DESC).attributes(key("constraints").value("Optional")),
-                fieldWithPath("config.samlConfig.signatureAlgorithm").description(SAML_SIGNATURE_ALGORITHM_DESC).attributes(key("constraints").value("Optional")),
 
                 fieldWithPath("config.samlConfig.entityID").description(ENTITY_ID_DESC).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.samlConfig.certificate").type(STRING).description(CERTIFICATE_DESC).attributes(key("constraints").value("Deprecated")),
@@ -640,8 +628,7 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("config.userConfig.allowOriginLoop").description(USER_CONFIG_ALLOW_ORIGIN_LOOP).attributes(key("constraints").value("Optional")).optional().type(BOOLEAN),
 
                 fieldWithPath("created").ignored(),
-                fieldWithPath("last_modified").ignored(),
-                fieldWithPath("enable_redirect_uri_check").type(BOOLEAN).description(ENABLE_REDIRECT_URI_CHECK_DESC).attributes(key("constraints").value("Optional"))
+                fieldWithPath("last_modified").ignored()
         );
 
         mockMvc.perform(
@@ -695,230 +682,6 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 ));
     }
 
-    @Test
-    public void createKeyProviderConfig() throws Exception {
-        String identityZoneId = "keyproviderzone";
-        createIdentityZoneHelper(identityZoneId);
-        updateAdminWithZoneAdminPrivileges(identityZoneId);
-        createClientHelper(identityZoneId, "dcs-client-id", "dcs-client-secret", Collections.singleton(new SimpleGrantedAuthority("dcs.read")));
-
-        KeyProviderConfig keyProviderConfig = new KeyProviderConfig();
-        keyProviderConfig.setClientId("dcs-client-id");
-        keyProviderConfig.setDcsTenantId("dcs-tenant-id");
-
-        FieldDescriptor[] fieldDescriptors = {
-                fieldWithPath("id").optional().ignored(),
-                fieldWithPath("identityZoneId").optional().ignored(),
-                fieldWithPath("clientId").description(KEY_PROVIDER_CONFIG_CLIENT_ID_DESC).type(STRING).attributes(key("constraints").value("Optional")),
-                fieldWithPath("dcsTenantId").description(KEY_PROVIDER_CONFIG_DCS_TENANT_ID_DESC).type(STRING).attributes(key("constraints").value("Optional"))
-        };
-
-        String adminToken = testClient.getClientCredentialsOAuthAccessToken(
-                "admin",
-                "adminsecret",
-                "zones." + identityZoneId + ".admin");
-
-        mockMvc.perform(
-                post("/identity-zones/{identityZoneId}/key-provider-config", identityZoneId)
-                        .header("Authorization", "Bearer " + adminToken)
-                        .header("X-Identity-Zone-Id", identityZoneId)
-                        .contentType(APPLICATION_JSON)
-                        .accept(APPLICATION_JSON)
-                        .content(JsonUtils.writeValueAsString(keyProviderConfig)))
-                .andExpect(status().is(HttpStatus.CREATED.value()))
-                .andDo(document("{ClassName}/{methodName}",
-                        preprocessRequest(prettyPrint()),
-                        preprocessResponse(prettyPrint()),
-                        pathParameters(
-                                parameterWithName("identityZoneId").description("Unique ID of the identity zone where the key provider config is being added.")
-                            ),
-                        requestHeaders(
-                                headerWithName("Authorization").description("Bearer token containing `zones.write` or `zones.<zone id>.admin`"),
-                                headerWithName("X-Identity-Zone-Id").description(X_IDENTITY_ZONE_ID_DESC).optional()
-                                ),
-                        requestFields(fieldDescriptors),
-                        getKeyProviderResponseFields()
-                ));
-
-    }
-
-    @Test
-    public void retrieveKeyProviderConfig() throws Exception {
-        String identityZoneId = "retrievekeyproviderzone";
-        createIdentityZoneHelper(identityZoneId);
-        updateAdminWithZoneAdminPrivileges(identityZoneId);
-        createClientHelper(identityZoneId, "dcs-client-id", "dcs-client-secret", Collections.singleton(new SimpleGrantedAuthority("dcs.read")));
-
-        KeyProviderConfig keyProviderConfig = new KeyProviderConfig();
-        keyProviderConfig.setClientId("dcs-client-id");
-        keyProviderConfig.setDcsTenantId("dcs-tenant-id");
-
-        String adminToken = testClient.getClientCredentialsOAuthAccessToken(
-                "admin",
-                "adminsecret",
-                "zones." + identityZoneId + ".admin");
-        KeyProviderConfig createdKeyProviderConfig = createKeyProviderConfig(identityZoneId, adminToken, keyProviderConfig);
-
-        mockMvc.perform(
-                get("/identity-zones/{identityZoneId}/key-provider-config/{keyProviderId}", identityZoneId, createdKeyProviderConfig.getId())
-                        .header("Authorization", "Bearer " + adminToken)
-                        .header("X-Identity-Zone-Id", identityZoneId)
-                        .contentType(APPLICATION_JSON)
-                        .accept(APPLICATION_JSON))
-                .andExpect(status().is(HttpStatus.OK.value()))
-                .andDo(document("{ClassName}/{methodName}",
-                        preprocessRequest(prettyPrint()),
-                        preprocessResponse(prettyPrint()),
-                        pathParameters(
-                                parameterWithName("identityZoneId").description("Unique ID of the identity zone where the key provider config is being added."),
-                                parameterWithName("keyProviderId").description("Unique ID of the key provider config.")
-                            ),
-                        requestHeaders(
-                                headerWithName("Authorization").description("Bearer token containing `zones.write` or `zones.<zone id>.admin`"),
-                                headerWithName("X-Identity-Zone-Id").description(X_IDENTITY_ZONE_ID_DESC).optional()
-                                ),
-                        getKeyProviderResponseFields()
-                ));
-
-    }
-
-    @Test
-    public void findAllKeyProviderConfigs() throws Exception {
-        String identityZoneId = "findallkeyproviderszone";
-        createIdentityZoneHelper(identityZoneId);
-        updateAdminWithZoneAdminPrivileges(identityZoneId);
-        createClientHelper(identityZoneId, "dcs-client-id", "dcs-client-secret", Collections.singleton(new SimpleGrantedAuthority("dcs.read")));
-
-        KeyProviderConfig keyProviderConfig = new KeyProviderConfig();
-        keyProviderConfig.setClientId("dcs-client-id");
-        keyProviderConfig.setDcsTenantId("dcs-tenant-id");
-
-        String adminToken = testClient.getClientCredentialsOAuthAccessToken(
-                "admin",
-                "adminsecret",
-                "zones." + identityZoneId + ".admin");
-        createKeyProviderConfig(identityZoneId, adminToken, keyProviderConfig);
-
-        mockMvc.perform(
-                get("/identity-zones/{identityZoneId}/key-provider-config", identityZoneId)
-                        .header("Authorization", "Bearer " + adminToken)
-                        .header("X-Identity-Zone-Id", identityZoneId)
-                        .contentType(APPLICATION_JSON)
-                        .accept(APPLICATION_JSON))
-                .andExpect(status().is(HttpStatus.OK.value()))
-                .andDo(document("{ClassName}/{methodName}",
-                        preprocessRequest(prettyPrint()),
-                        preprocessResponse(prettyPrint()),
-                        pathParameters(
-                                parameterWithName("identityZoneId").description("Unique ID of the identity zone where the key provider config is being added.")
-                            ),
-                        requestHeaders(
-                                headerWithName("Authorization").description("Bearer token containing `zones.write` or `zones.<zone id>.admin`"),
-                                headerWithName("X-Identity-Zone-Id").description(X_IDENTITY_ZONE_ID_DESC).optional()
-                                ),
-                        getKeyProviderResponseFields()
-                ));
-    }
-
-    @Test
-    public void deleteKeyProviderConfig() throws Exception {
-        String identityZoneId = "deletekeyproviderzone";
-        createIdentityZoneHelper(identityZoneId);
-        updateAdminWithZoneAdminPrivileges(identityZoneId);
-        createClientHelper(identityZoneId, "dcs-client-id", "dcs-client-secret", Collections.singleton(new SimpleGrantedAuthority("dcs.read")));
-
-        KeyProviderConfig keyProviderConfig = new KeyProviderConfig();
-        keyProviderConfig.setClientId("dcs-client-id");
-        keyProviderConfig.setDcsTenantId("dcs-tenant-id");
-
-        String adminToken = testClient.getClientCredentialsOAuthAccessToken(
-                "admin",
-                "adminsecret",
-                "zones." + identityZoneId + ".admin");
-        KeyProviderConfig createdKeyProviderConfig = createKeyProviderConfig(identityZoneId, adminToken, keyProviderConfig);
-
-        mockMvc.perform(
-                delete("/identity-zones/{identityZoneId}/key-provider-config/{keyProviderId}", identityZoneId, createdKeyProviderConfig.getId())
-                        .header("Authorization", "Bearer " + adminToken)
-                        .header("X-Identity-Zone-Id", identityZoneId)
-                        .contentType(APPLICATION_JSON)
-                        .accept(APPLICATION_JSON))
-                .andExpect(status().is(HttpStatus.NO_CONTENT.value()))
-                .andDo(document("{ClassName}/{methodName}",
-                        preprocessRequest(prettyPrint()),
-                        preprocessResponse(prettyPrint()),
-                        pathParameters(
-                                parameterWithName("identityZoneId").description("Unique ID of the identity zone where the key provider config is being added."),
-                                parameterWithName("keyProviderId").description("Unique ID of the key provider config.")
-                            ),
-                        requestHeaders(
-                                headerWithName("Authorization").description("Bearer token containing `zones.write` or `zones.<zone id>.admin`"),
-                                headerWithName("X-Identity-Zone-Id").description(X_IDENTITY_ZONE_ID_DESC).optional()
-                                )
-                ));
-
-    }
-
-    private void updateAdminWithZoneAdminPrivileges(String identityZone) throws Exception{
-        String adminClientToken = testClient.getClientCredentialsOAuthAccessToken(
-                "admin",
-                "adminsecret",
-                "uaa.admin");
-        String response = mockMvc.perform(
-                get("/oauth/clients/admin")
-                        .header("Authorization", "Bearer " + adminClientToken)
-                        .contentType(APPLICATION_JSON))
-                .andExpect(status().is(HttpStatus.OK.value()))
-                .andReturn().getResponse().getContentAsString();
-        UaaClientDetails adminClient = JsonUtils.readValue(response, UaaClientDetails.class);
-        Collection<GrantedAuthority> authorities = adminClient.getAuthorities();
-        String zoneScope = "zones." + identityZone + ".admin";
-        authorities.add(new SimpleGrantedAuthority(zoneScope));
-        adminClient.setAuthorities(authorities);
-        mockMvc.perform(
-                put("/oauth/clients/admin")
-                        .header("Authorization", "Bearer " + adminClientToken)
-                        .contentType(APPLICATION_JSON)
-                        .content(JsonUtils.writeValueAsString(adminClient)))
-                .andExpect(status().is(HttpStatus.OK.value()));
-
-
-    }
-
-    private void createClientHelper(String identityZoneId, String clientId, String clientSecret,
-                                             Collection<? extends GrantedAuthority> authorities) throws Exception {
-        String adminClientToken = testClient.getClientCredentialsOAuthAccessToken(
-                "admin",
-                "adminsecret",
-                "uaa.admin");
-
-        UaaClientDetails client = new UaaClientDetails();
-        client.setClientId(clientId);
-        client.setClientSecret(clientSecret);
-        client.setAuthorizedGrantTypes(Collections.singleton("client_credentials"));
-        client.setAuthorities(authorities);
-        mockMvc.perform(
-                post("/oauth/clients")
-                        .header("Authorization", "Bearer " + adminClientToken)
-                        .header("X-Identity-Zone-Id", identityZoneId)
-                        .contentType(APPLICATION_JSON)
-                        .content(JsonUtils.writeValueAsString(client)))
-                .andExpect(status().is(HttpStatus.CREATED.value()));
-    }
-
-    private KeyProviderConfig createKeyProviderConfig(String identityZoneId, String adminToken,
-            KeyProviderConfig keyProviderConfig) throws Exception {
-        String response = mockMvc.perform(
-                post("/identity-zones/{identityZoneId}/key-provider-config", identityZoneId)
-                        .header("Authorization", "Bearer " + adminToken)
-                        .header("X-Identity-Zone-Id", identityZoneId)
-                        .contentType(APPLICATION_JSON)
-                        .accept(APPLICATION_JSON)
-                        .content(JsonUtils.writeValueAsString(keyProviderConfig)))
-                .andExpect(status().is(HttpStatus.CREATED.value())).andReturn().getResponse().getContentAsString();
-        return JsonUtils.readValue(response, KeyProviderConfig.class);
-    }
-
     private void createIdentityZoneHelper(String id) throws Exception {
         String identityClientWriteToken = testClient.getClientCredentialsOAuthAccessToken(
                 "identity",
@@ -954,14 +717,6 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 .andExpect(status().is(HttpStatus.CREATED.value()));
     }
 
-    private Snippet getKeyProviderResponseFields() {
-        return responseFields(fieldWithPath("id").description(KEY_PROVIDER_CONFIG_ID_DESC),
-            fieldWithPath("identityZoneId").description(KEY_PROVIDER_CONFIG_IDENTITY_ZONE_DESC),
-            fieldWithPath("clientId").description(KEY_PROVIDER_CONFIG_CLIENT_ID_DESC),
-            fieldWithPath("dcsTenantId").description(KEY_PROVIDER_CONFIG_DCS_TENANT_ID_DESC)
-        );
-    }
-
     private Snippet getResponseFields() {
         return responseFields(
                 fieldWithPath("id").description(ID_DESC),
@@ -975,9 +730,12 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("config.tokenPolicy.accessTokenValidity").description(ACCESS_TOKEN_VALIDITY_DESC),
                 fieldWithPath("config.tokenPolicy.refreshTokenValidity").description(REFRESH_TOKEN_VALIDITY_DESC),
                 fieldWithPath("config.tokenPolicy.jwtRevocable").type(BOOLEAN).description(JWT_REVOCABLE_DESC).attributes(key("constraints").value("Optional")),
-                fieldWithPath("config.tokenPolicy.refreshTokenUnique").type(BOOLEAN).description(REFRESH_TOKEN_UNIQUE).attributes(key("constraints").value("Optional")),
+                fieldWithPath("config.tokenPolicy.refreshTokenUnique").type(VARIES).description(REFRESH_TOKEN_UNIQUE).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.tokenPolicy.refreshTokenRotate").type(BOOLEAN).description(REFRESH_TOKEN_ROTATE).attributes(key("constraints").value("Optional")),
                 fieldWithPath("config.tokenPolicy.refreshTokenFormat").type(STRING).description(REFRESH_TOKEN_FORMAT).attributes(key("constraints").value("Optional")),
+
+                fieldWithPath("config.mtls.enabled").optional().type(BOOLEAN).description("Zone mTLS switch, false when omitted. Both this flag and deployment-wide uaa.mtls.enabled must be enabled. Changes apply without restarting; a zone cannot override the deployment off-switch. Disabling does not revoke issued tokens.").attributes(key("constraints").value("Optional")),
+                subsectionWithPath("config.mtls.trustBundles").optional().type(OBJECT).description("Zone-scoped map of named PEM CA bundles for mTLS clients. Names contain 1 to 128 letters, digits, dots, underscores or hyphens and start with a letter or digit. Clients reference these using tls-client-auth-ca-ref or tls-client-auth-trusted-proxy-ca-ref. Updating a bundle rotates trust without client changes; removed references fail authentication at token time. The default zone is configured through uaa.mtls.trust_bundles.").attributes(key("constraints").value("Optional")),
 
                 fieldWithPath("config.clientSecretPolicy.minLength").type(NUMBER).description(SECRET_POLICY_MIN_LENGTH).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("config.clientSecretPolicy.maxLength").type(NUMBER).description(SECRET_POLICY_MAX_LENGTH).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
@@ -985,12 +743,10 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("config.clientSecretPolicy.requireLowerCaseCharacter").type(NUMBER).description(SECRET_POLICY_LOWERCASE).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("config.clientSecretPolicy.requireDigit").type(NUMBER).description(SECRET_POLICY_DIGIT).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
                 fieldWithPath("config.clientSecretPolicy.requireSpecialCharacter").type(NUMBER).description(SECRET_POLICY_SPECIAL_CHAR).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
-                fieldWithPath("config.clientSecretPolicy.expireSecretInMonths").type(NUMBER).description(SECRET_POLICY_EXPIRE_MONTHS).attributes(key("constraints").value("Required when `clientSecretPolicy` in the config is not null")),
 
                 fieldWithPath("config.samlConfig.disableInResponseToCheck").description(SAML_DISABLE_IN_RESPONSE_TO_DESC),
                 fieldWithPath("config.samlConfig.wantAssertionSigned").description(WANT_ASSERTION_SIGNED_DESC),
                 fieldWithPath("config.samlConfig.requestSigned").description(REQUEST_SIGNED_DESC),
-                fieldWithPath("config.samlConfig.signatureAlgorithm").description(SAML_SIGNATURE_ALGORITHM_DESC),
 
                 fieldWithPath("config.samlConfig.entityID").type(STRING).description(ENTITY_ID_DESC),
                 fieldWithPath("config.samlConfig.certificate").type(STRING).description(CERTIFICATE_DESC).attributes(key("constraints").value("Deprecated")),
@@ -1055,8 +811,7 @@ class IdentityZoneEndpointDocs extends EndpointDocs {
                 fieldWithPath("config.userConfig.allowOriginLoop").description(USER_CONFIG_ALLOW_ORIGIN_LOOP).attributes(key("constraints").value("Optional")).optional().type(BOOLEAN),
 
                 fieldWithPath("created").ignored(),
-                fieldWithPath("last_modified").ignored(),
-                fieldWithPath("enable_redirect_uri_check").type(BOOLEAN).description(ENABLE_REDIRECT_URI_CHECK_DESC).attributes(key("constraints").value("Optional"))
+                fieldWithPath("last_modified").ignored()
         );
     }
 

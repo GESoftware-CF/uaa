@@ -1,5 +1,6 @@
 package org.cloudfoundry.identity.uaa.login;
 
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.cloudfoundry.identity.uaa.account.ConflictException;
 import org.cloudfoundry.identity.uaa.account.ForgotPasswordInfo;
 import org.cloudfoundry.identity.uaa.account.NotFoundException;
@@ -10,6 +11,7 @@ import org.cloudfoundry.identity.uaa.authentication.InvalidCodeException;
 import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.codestore.ExpiringCode;
 import org.cloudfoundry.identity.uaa.codestore.ExpiringCodeStore;
+import org.cloudfoundry.identity.uaa.codestore.ExpiringCodeType;
 import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
 import org.cloudfoundry.identity.uaa.provider.NoSuchClientException;
 import org.cloudfoundry.identity.uaa.scim.ScimMeta;
@@ -34,10 +36,7 @@ import java.sql.Timestamp;
 import java.util.Collections;
 import java.util.Date;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.fail;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doThrow;
@@ -173,7 +172,7 @@ class UaaResetPasswordServiceTests {
 
     @Test
     void forgotPassword_ThrowsNotFoundException_ScimUserNotFoundInUaa() {
-        assertThatExceptionOfType(NotFoundException.class).isThrownBy(() -> uaaResetPasswordService.forgotPassword("exampleUser", "", ""));
+        assertThatThrownBy(() -> uaaResetPasswordService.forgotPassword("exampleUser", "", "")).asInstanceOf(InstanceOfAssertFactories.throwable(NotFoundException.class));
     }
 
     @Test
@@ -196,7 +195,7 @@ class UaaResetPasswordServiceTests {
         doThrow(new InvalidPasswordException("foo")).when(passwordValidator).validate("new_secret");
         ExpiringCode code1 = new ExpiringCode("secret_code", new Timestamp(System.currentTimeMillis() + 1000 * 60 * 10), "{}", null);
 
-        assertThatExceptionOfType(InvalidPasswordException.class).isThrownBy(() -> uaaResetPasswordService.resetPassword(code1, "new_secret"));
+        assertThatThrownBy(() -> uaaResetPasswordService.resetPassword(code1, "new_secret")).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidPasswordException.class));
     }
 
     @Test
@@ -205,7 +204,8 @@ class UaaResetPasswordServiceTests {
         user.setMeta(new ScimMeta(new Date(), new Date(), 0));
         user.setPrimaryEmail("foo@example.com");
         ExpiringCode expiringCode = new ExpiringCode("good_code",
-                new Timestamp(System.currentTimeMillis() + UaaResetPasswordService.PASSWORD_RESET_LIFETIME), "{\"user_id\":\"user-id\",\"username\":\"username\",\"passwordModifiedTime\":null,\"client_id\":\"\",\"redirect_uri\":\"\"}", null);
+                new Timestamp(System.currentTimeMillis() + UaaResetPasswordService.PASSWORD_RESET_LIFETIME), "{\"user_id\":\"user-id\",\"username\":\"username\",\"passwordModifiedTime\":null,\"client_id\":\"\",\"redirect_uri\":\"\"}",
+                UaaResetPasswordService.FORGOT_PASSWORD_INTENT_PREFIX + "user-id");
         when(codeStore.retrieveCode("good_code", currentZoneId)).thenReturn(expiringCode);
         when(scimUserProvisioning.retrieve("user-id", currentZoneId)).thenReturn(user);
         when(scimUserProvisioning.checkPasswordMatches("user-id", "Passwo3dAsOld", currentZoneId))
@@ -236,6 +236,18 @@ class UaaResetPasswordServiceTests {
         } catch (InvalidCodeException e) {
             assertThat(e.getMessage()).isEqualTo("Sorry, your reset password link is no longer valid. Please request a new one");
         }
+    }
+
+    @Test
+    void resetPassword_rejectsNonForgotPasswordIntent() {
+        ExpiringCode inviteCode = new ExpiringCode("good_code",
+                new Timestamp(System.currentTimeMillis() + UaaResetPasswordService.PASSWORD_RESET_LIFETIME),
+                "{\"user_id\":\"user-id\",\"client_id\":\"invite-client\",\"created_new_user\":\"false\"}", ExpiringCodeType.INVITATION.name());
+
+        assertThatThrownBy(() -> uaaResetPasswordService.resetPassword(inviteCode, "new_secret"))
+                .isInstanceOf(InvalidCodeException.class)
+                .hasMessage("Sorry, your reset password link is no longer valid. Please request a new one");
+        verify(scimUserProvisioning, times(0)).changePassword(anyString(), any(), anyString(), anyString());
     }
 
     @Test
@@ -298,7 +310,7 @@ class UaaResetPasswordServiceTests {
         when(scimUserProvisioning.checkPasswordMatches("user-id", "password", currentZoneId))
                 .thenThrow(new InvalidPasswordException("Your new password cannot be the same as the old password.", UNPROCESSABLE_ENTITY));
 
-        assertThatExceptionOfType(InvalidPasswordException.class).isThrownBy(() -> uaaResetPasswordService.resetUserPassword(userId, "password"));
+        assertThatThrownBy(() -> uaaResetPasswordService.resetUserPassword(userId, "password")).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidPasswordException.class));
     }
 
     @Test
@@ -322,7 +334,8 @@ class UaaResetPasswordServiceTests {
         String zoneId = currentZoneId;
         when(scimUserProvisioning.retrieve(eq("usermans-id"), eq(zoneId))).thenReturn(user);
         ExpiringCode code = new ExpiringCode("code", new Timestamp(System.currentTimeMillis()),
-                "{\"user_id\":\"usermans-id\",\"username\":\"userman\",\"passwordModifiedTime\":null,\"client_id\":\"" + clientId + "\",\"redirect_uri\":\"" + redirectUri + "\"}", null);
+                "{\"user_id\":\"usermans-id\",\"username\":\"userman\",\"passwordModifiedTime\":null,\"client_id\":\"" + clientId + "\",\"redirect_uri\":\"" + redirectUri + "\"}",
+                UaaResetPasswordService.FORGOT_PASSWORD_INTENT_PREFIX + "usermans-id");
         when(codeStore.retrieveCode(eq("secret_code"), anyString())).thenReturn(code);
         SecurityContext securityContext = mock(SecurityContext.class);
         when(securityContext.getAuthentication()).thenReturn(new MockAuthentication());

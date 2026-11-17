@@ -1,18 +1,30 @@
 package org.cloudfoundry.identity.uaa.mock.token;
 
 import org.cloudfoundry.identity.uaa.DefaultTestContext;
+import org.cloudfoundry.identity.uaa.client.ClientJwtConfiguration;
 import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils;
+import org.cloudfoundry.identity.uaa.oauth.KeyInfo;
+import org.cloudfoundry.identity.uaa.oauth.KeyInfoBuilder;
+import org.cloudfoundry.identity.uaa.oauth.KeyInfoService;
+import org.cloudfoundry.identity.uaa.oauth.jwk.JsonWebKey;
+import org.cloudfoundry.identity.uaa.oauth.jwk.JsonWebKeySet;
+import com.nimbusds.jose.jwk.JWK;
+import org.cloudfoundry.identity.uaa.oauth.jwt.JwtHelper;
+import org.cloudfoundry.identity.uaa.oauth.token.Claims;
 import org.cloudfoundry.identity.uaa.oauth.UaaTokenServices;
 import org.cloudfoundry.identity.uaa.oauth.client.ClientConstants;
 import org.cloudfoundry.identity.uaa.oauth.token.JdbcRevocableTokenProvisioning;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
+import org.cloudfoundry.identity.uaa.provider.JdbcIdentityProviderProvisioning;
 import org.cloudfoundry.identity.uaa.provider.NoSuchClientException;
+import org.cloudfoundry.identity.uaa.provider.OIDCIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.scim.ScimGroup;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupMember;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
+import org.cloudfoundry.identity.uaa.scim.ScimUserProvisioning;
 import org.cloudfoundry.identity.uaa.scim.exception.MemberAlreadyExistsException;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimGroupMembershipManager;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimGroupProvisioning;
@@ -20,10 +32,12 @@ import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimUserProvisioning;
 import org.cloudfoundry.identity.uaa.test.TestClient;
 import org.cloudfoundry.identity.uaa.user.UaaUserDatabase;
 import org.cloudfoundry.identity.uaa.util.AlphanumericRandomValueStringGenerator;
+import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneProvisioning;
+import org.cloudfoundry.identity.uaa.zone.MultitenancyFixture;
 import org.cloudfoundry.identity.uaa.zone.MultitenantClientServices;
 import org.cloudfoundry.identity.uaa.zone.UserConfig;
 import org.junit.jupiter.api.AfterEach;
@@ -35,7 +49,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.util.StringUtils;
 import org.springframework.web.context.WebApplicationContext;
 
-import java.util.Collection;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.text.ParseException;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -47,6 +64,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.cloudfoundry.identity.uaa.oauth.jwk.RsaJsonWebKeyTestUtils.SAMPLE_RSA_PRIVATE_KEY;
 import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.getClientCredentialsOAuthAccessToken;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_IMPLICIT;
 import static org.springframework.util.StringUtils.hasText;
@@ -71,6 +89,8 @@ public abstract class AbstractTokenMockMvcTests {
     protected JdbcScimGroupMembershipManager jdbcScimGroupMembershipManager;
     @Autowired
     protected UaaTokenServices tokenServices;
+    @Autowired
+    protected KeyInfoService keyInfoService;
     @Autowired
     protected IdentityZoneProvisioning identityZoneProvisioning;
     @Autowired
@@ -139,6 +159,22 @@ public abstract class AbstractTokenMockMvcTests {
         return username;
     }
 
+    ScimUser createUser(IdentityZone zone) {
+        String userName = generator.generate().toLowerCase();
+        ScimUser user = new ScimUser(null, userName, "first", "last");
+        user.setPrimaryEmail(userName + "@test.org");
+        return createUser(user, zone);
+    }
+
+    ScimUser createUser(ScimUser user, IdentityZone zone) {
+        IdentityZoneHolder.set(zone);
+        try {
+            return webApplicationContext.getBean(ScimUserProvisioning.class).createUser(user, SECRET, IdentityZoneHolder.get().getId());
+        } finally {
+            IdentityZoneHolder.clear();
+        }
+    }
+
     IdentityZone setupIdentityZone(String subdomain) {
         return setupIdentityZone(subdomain, UserConfig.DEFAULT_ZONE_GROUPS);
     }
@@ -172,47 +208,85 @@ public abstract class AbstractTokenMockMvcTests {
         return identityProviderProvisioning.create(defaultIdp, defaultIdp.getIdentityZoneId());
     }
 
-    protected UaaClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Boolean autoapprove) {
-        return setUpClients(id, authorities, scopes, grantTypes, Collections.singleton(autoapprove.toString()));
+
+    IdentityProvider<OIDCIdentityProviderDefinition> createOIDCProvider(IdentityZone zone, String tokenKey, String issuer, String relyingPartyId) throws Exception {
+        return createOIDCProvider(
+                generator.generate(),
+                zone,
+                tokenKey,
+                issuer,
+                relyingPartyId
+        );
     }
 
-    protected UaaClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Collection<String> autoapproveCollection) {
-        return setUpClients(id, authorities, scopes, grantTypes, autoapproveCollection, null);
+    IdentityProvider<OIDCIdentityProviderDefinition> createOIDCProvider(String originKey, IdentityZone zone, String tokenKey, String issuer, String relyingPartyId) throws Exception {
+        OIDCIdentityProviderDefinition definition = new OIDCIdentityProviderDefinition();
+        definition.setIssuer(issuer);
+        definition.setAuthUrl(URI.create("http://myauthurl.com").toURL());
+        definition.setTokenKey(tokenKey);
+        definition.setTokenUrl(null);
+        definition.setRelyingPartyId(relyingPartyId);
+        definition.setRelyingPartySecret("secret");
+        definition.setLinkText("my oidc provider");
+        definition.setResponseType("id_token");
+        definition.addAttributeMapping("user_name", "email");
+        IdentityProvider<OIDCIdentityProviderDefinition> identityProvider = MultitenancyFixture.identityProvider(originKey, zone.getId());
+        identityProvider.setType(OriginKeys.OIDC10);
+        identityProvider.setConfig(definition);
+        return createOIDCProvider(zone, identityProvider);
+    }
+
+    IdentityProvider<OIDCIdentityProviderDefinition> createOIDCProvider(IdentityZone zone, IdentityProvider<OIDCIdentityProviderDefinition> identityProvider) throws Exception {
+        IdentityZoneHolder.set(zone);
+        try {
+            return webApplicationContext.getBean(JdbcIdentityProviderProvisioning.class).create(identityProvider, zone.getId());
+        } finally {
+            IdentityZoneHolder.clear();
+        }
+    }
+
+    String getTokenVerificationKey(IdentityZone zone) {
+        IdentityZoneHolder.set(zone);
+        try {
+            return new KeyInfoService("https://someurl").getActiveKey().verifierKey();
+        } finally {
+            IdentityZoneHolder.clear();
+        }
+    }
+
+    protected UaaClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Boolean autoapprove) {
+        return setUpClients(id, authorities, scopes, grantTypes, autoapprove, null);
     }
 
     protected UaaClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Boolean autoapprove, String redirectUri) {
-        return setUpClients(id, authorities, scopes, grantTypes, Collections.singleton(autoapprove.toString()), redirectUri);
-    }
-
-    protected UaaClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Collection<String> autoapproveCollection, String redirectUri) {
-        return setUpClients(id, authorities, scopes, grantTypes, autoapproveCollection, redirectUri, null);
+        return setUpClients(id, authorities, scopes, grantTypes, autoapprove, redirectUri, null);
     }
 
     protected UaaClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Boolean autoapprove, String redirectUri, List<String> allowedIdps) {
-        return setUpClients(id, authorities, scopes, grantTypes, Collections.singleton(autoapprove.toString()), redirectUri, allowedIdps);
-    }
-
-    protected UaaClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Collection<String> autoapproveCollection, String redirectUri, List<String> allowedIdps) {
-        return setUpClients(id, authorities, scopes, grantTypes, autoapproveCollection, redirectUri, allowedIdps, -1);
+        return setUpClients(id, authorities, scopes, grantTypes, autoapprove, redirectUri, allowedIdps, -1);
     }
 
     protected UaaClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Boolean autoapprove, String redirectUri, List<String> allowedIdps, int accessTokenValidity) {
-        return setUpClients(id, authorities, scopes, grantTypes, Collections.singleton(autoapprove.toString()), redirectUri, allowedIdps, accessTokenValidity);
-    }
-
-    protected UaaClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Collection<String> autoapproveCollection, String redirectUri, List<String> allowedIdps, int accessTokenValidity) {
-        return setUpClients(id, authorities, scopes, grantTypes, autoapproveCollection, redirectUri, allowedIdps, accessTokenValidity, null);
+        return setUpClients(id, authorities, scopes, grantTypes, autoapprove, redirectUri, allowedIdps, accessTokenValidity, null);
     }
 
     protected UaaClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Boolean autoapprove, String redirectUri, List<String> allowedIdps, int accessTokenValidity, IdentityZone zone) {
-        return setUpClients(id, authorities, scopes, grantTypes, Collections.singleton(autoapprove.toString()), redirectUri, allowedIdps, accessTokenValidity, zone);
+        return setUpClients(id, authorities, scopes, grantTypes, autoapprove, redirectUri, allowedIdps, accessTokenValidity, zone, Collections.emptyMap());
     }
 
-    protected UaaClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Collection<String> autoapproveCollection, String redirectUri, List<String> allowedIdps, int accessTokenValidity, IdentityZone zone) {
-        return setUpClients(id, authorities, scopes, grantTypes, autoapproveCollection, redirectUri, allowedIdps, accessTokenValidity, zone, Collections.emptyMap());
+    protected UaaClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Boolean autoapprove, String redirectUri, List<String> allowedIdps, int accessTokenValidity, IdentityZone zone, Map<String, Object> additionalInfo) {
+        return setUpClients(
+                id, authorities, scopes, grantTypes,
+                Collections.singletonList(autoapprove.toString()),
+                redirectUri,
+                allowedIdps,
+                accessTokenValidity,
+                zone,
+                additionalInfo
+        );
     }
 
-    protected UaaClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, Collection<String> autoapproveCollection, String redirectUri, List<String> allowedIdps, int accessTokenValidity, IdentityZone zone, Map<String,Object> additionalInfo) {
+    protected UaaClientDetails setUpClients(String id, String authorities, String scopes, String grantTypes, List<String> autoapprove, String redirectUri, List<String> allowedIdps, int accessTokenValidity, IdentityZone zone, Map<String, Object> additionalInfo) {
         IdentityZone original = IdentityZoneHolder.get();
         if (zone != null) {
             IdentityZoneHolder.set(zone);
@@ -222,7 +296,7 @@ public abstract class AbstractTokenMockMvcTests {
             c.setClientSecret(SECRET);
         }
         c.setRegisteredRedirectUri(new HashSet<>(Collections.singletonList(TEST_REDIRECT_URI)));
-        c.setAutoApproveScopes(autoapproveCollection);
+        c.setAutoApproveScopes(autoapprove);
         Map<String, Object> additional = new HashMap<>();
         if (allowedIdps != null && !allowedIdps.isEmpty()) {
             additional.put(ClientConstants.ALLOWED_PROVIDERS, allowedIdps);
@@ -230,10 +304,9 @@ public abstract class AbstractTokenMockMvcTests {
         additional.putAll(additionalInfo);
         c.setAdditionalInformation(additional);
         if (hasText(redirectUri)) {
-            c.setRegisteredRedirectUri(StringUtils.commaDelimitedListToSet(redirectUri));
+            c.setRegisteredRedirectUri(new HashSet<>(Collections.singletonList(redirectUri)));
         }
-
-        if (accessTokenValidity>0) {
+        if (accessTokenValidity > 0) {
             c.setAccessTokenValiditySeconds(accessTokenValidity);
         }
         try {
@@ -309,7 +382,7 @@ public abstract class AbstractTokenMockMvcTests {
         ScimGroupMember gm = new ScimGroupMember(user.getId());
         try {
             groupMembershipManager.addMember(group.getId(), gm, zoneId);
-        } catch (MemberAlreadyExistsException ignored) {
+        } catch (MemberAlreadyExistsException _) {
 
         }
     }
@@ -332,9 +405,83 @@ public abstract class AbstractTokenMockMvcTests {
             try {
                 clientDetailsService.loadClientByClientId(clientId);
                 break;
-            } catch (NoSuchClientException e) {
+            } catch (NoSuchClientException _) {
                 Thread.sleep(500);
             }
         }
     }
+
+    protected String resolveTokenEndpointUrl(IdentityZone zone) {
+        IdentityZone previous = IdentityZoneHolder.get();
+        IdentityZoneHolder.set(zone);
+        try {
+            return keyInfoService.getTokenEndpointUrl();
+        } catch (URISyntaxException e) {
+            throw new IllegalStateException(e);
+        } finally {
+            IdentityZoneHolder.set(previous);
+        }
+    }
+
+    protected KeyInfo privateKeyInfoForJwtClientAssertion(String issuerUri) {
+        return KeyInfoBuilder.build("id", SAMPLE_RSA_PRIVATE_KEY, issuerUri);
+    }
+
+    protected JsonWebKey jsonWebKeyForClientJwtConfig(IdentityZone zone) {
+        String issuerUri = resolveTokenEndpointUrl(zone);
+        try {
+            // Round-trip through Nimbus so stored JWKS matches what JwtClientAuthentication verifies (see JwtClientAuthenticationTest).
+            JWK jwk = JWK.parse(privateKeyInfoForJwtClientAssertion(issuerUri).getJwkMap());
+            return JsonUtils.readValue(jwk.toJSONString(), JsonWebKey.class).setKid("id");
+        } catch (ParseException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
+     * Stores a JWT trust configuration on the client so private_key_jwt client authentication can be used in MockMvc tests.
+     */
+    protected void mergeSampleJwtClientConfiguration(IdentityZone zone, UaaClientDetails client) throws Exception {
+        IdentityZone resolvedZone = identityZoneProvisioning.retrieve(zone.getId());
+        IdentityZone previous = IdentityZoneHolder.get();
+        IdentityZoneHolder.set(resolvedZone);
+        try {
+            JsonWebKeySet<JsonWebKey> jwkKeySet = new JsonWebKeySet<>(List.of(jsonWebKeyForClientJwtConfig(resolvedZone)));
+            ClientJwtConfiguration jwtConfiguration = new ClientJwtConfiguration(null, jwkKeySet);
+            String jwtConfigJson = JsonUtils.writeValueAsString(jwtConfiguration);
+            client.setClientJwtConfig(jwtConfigJson);
+            // Persist the column for DB-backed client loads (dedicated method; updateClientDetails also sets client_jwt_config now).
+            clientDetailsService.updateClientJwtConfig(client.getClientId(), jwtConfigJson, resolvedZone.getId());
+        } finally {
+            IdentityZoneHolder.set(previous);
+        }
+    }
+
+    /**
+     * RFC 7523 private_key_jwt client assertion for the given client (must have {@link ClientJwtConfiguration} set).
+     */
+    protected String getClientAssertionJwt(IdentityZone zone, UaaClientDetails client) {
+        IdentityZone resolvedZone = identityZoneProvisioning.retrieve(zone.getId());
+        IdentityZone previous = IdentityZoneHolder.get();
+        IdentityZoneHolder.set(resolvedZone);
+        try {
+            String issuerUri = keyInfoService.getTokenEndpointUrl();
+            KeyInfo signingKeyInfo = privateKeyInfoForJwtClientAssertion(issuerUri);
+            Claims claims = new Claims();
+            claims.setAud(Collections.singletonList(issuerUri));
+            claims.setSub(client.getClientId());
+            claims.setIss(client.getClientId());
+            claims.setJti(UUID.randomUUID().toString().replace("-", ""));
+            claims.setIat((int) Instant.now().minusSeconds(120).getEpochSecond());
+            claims.setExp(Instant.now().plusSeconds(300).getEpochSecond());
+            return signingKeyInfo.verifierCertificate().isPresent() ?
+                    JwtHelper.encodePlusX5t(claims.getClaimMap(), signingKeyInfo, signingKeyInfo.verifierCertificate().orElseThrow()).getEncoded() :
+                    JwtHelper.encode(claims.getClaimMap(), signingKeyInfo).getEncoded();
+        } catch (URISyntaxException e) {
+            throw new IllegalStateException(e);
+        } finally {
+            IdentityZoneHolder.set(previous);
+        }
+    }
+
 }

@@ -1,15 +1,11 @@
 package org.cloudfoundry.identity.uaa.test;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
+
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
-
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.HamcrestCondition.matching;
-import static org.cloudfoundry.identity.uaa.test.JsonMatcher.isJsonFile;
-import static org.cloudfoundry.identity.uaa.test.JsonMatcher.isJsonString;
 import static org.cloudfoundry.identity.uaa.test.JsonTranslation.WithAllNullFields.EXPECT_EMPTY_JSON;
 import static org.cloudfoundry.identity.uaa.test.JsonTranslation.WithAllNullFields.EXPECT_NULLS_IN_JSON;
 import static org.cloudfoundry.identity.uaa.test.ModelTestUtils.getResourceAsString;
@@ -45,7 +41,9 @@ public abstract class JsonTranslation<T> {
         this.withAllNullFields = withAllNullFields;
 
         this.jsonFileName = subjectClass.getSimpleName() + ".json";
-        this.objectMapper = new ObjectMapper();
+        this.objectMapper = JsonMapper.builder()
+                .enable(tools.jackson.databind.cfg.DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)
+                .build();
     }
 
     protected ObjectMapper getObjectMapper() {
@@ -58,17 +56,17 @@ public abstract class JsonTranslation<T> {
     }
 
     @Test
-    void toJson() throws JsonProcessingException {
+    void toJson() throws Exception {
         validate();
         assertThat(subjectClass.getResourceAsStream(jsonFileName)).as("file <%s/%s> must exist on classpath".formatted(subjectClass.getPackage().getName().replace(".", "/"), jsonFileName)).isNotNull();
 
         String actual = objectMapper.writeValueAsString(subject);
 
-        assertThat(actual).is(matching(isJsonFile(subjectClass, jsonFileName)));
+        assertJsonEquals(actual, getResourceAsString(subjectClass, jsonFileName));
     }
 
     @Test
-    void fromJson() throws IOException {
+    void fromJson() throws Exception {
         validate();
         assertThat(subjectClass.getResourceAsStream(jsonFileName)).as("file <%s/%s> must exist on classpath".formatted(subjectClass.getPackage().getName().replace(".", "/"), jsonFileName)).isNotNull();
 
@@ -80,17 +78,17 @@ public abstract class JsonTranslation<T> {
     }
 
     @Test
-    void withNullFields_checkIsEmptyJson() throws IllegalAccessException, InstantiationException, JsonProcessingException {
+    void withNullFields_checkIsEmptyJson() throws Exception {
         assumeTrue(EXPECT_EMPTY_JSON.equals(withAllNullFields),
                 "To configure this test, use %s instead of %s".formatted(EXPECT_EMPTY_JSON, withAllNullFields));
         validate();
 
         String actual = objectMapper.writeValueAsString(subjectClass.newInstance());
-        assertThat(actual).is(matching(isJsonString("{}")));
+        assertJsonEquals(actual, "{}");
     }
 
     @Test
-    void withNullFields_compareToFile() throws JsonProcessingException, IllegalAccessException, InstantiationException {
+    void withNullFields_compareToFile() throws Exception {
         assumeTrue(EXPECT_NULLS_IN_JSON.equals(withAllNullFields),
                 "To configure this test, use %s instead of %s".formatted(EXPECT_NULLS_IN_JSON, withAllNullFields));
         validate();
@@ -100,6 +98,12 @@ public abstract class JsonTranslation<T> {
         assertThat(subjectClass.getResourceAsStream(fileName)).as("file <%s/%s> must exist on classpath, or choose a different %s".formatted(subjectClass.getPackage().getName().replace(".", "/"), fileName, WithAllNullFields.class.getSimpleName())).isNotNull();
 
         String actual = objectMapper.writeValueAsString(subjectClass.newInstance());
-        assertThat(actual).is(matching(isJsonFile(this.getClass(), fileName)));
+        assertJsonEquals(actual, getResourceAsString(this.getClass(), fileName));
+    }
+
+    /** Compares two JSON documents structurally (field order and formatting insensitive). */
+    private void assertJsonEquals(String actualJson, String expectedJson) {
+        assertThat(objectMapper.readTree(actualJson))
+                .isEqualTo(objectMapper.readTree(expectedJson));
     }
 }

@@ -50,15 +50,13 @@ import java.util.Arrays;
 import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
-import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
+
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
@@ -133,11 +131,11 @@ public class InvitationsServiceMockMvcTests {
                                 .accept(MediaType.TEXT_HTML)
                 )
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Email: " + email)))
                 .andReturn();
+        assertThat(result.getResponse().getContentAsString()).contains("Email: " + email);
         MockHttpSession inviteSession = (MockHttpSession) result.getRequest().getSession(false);
         assertThat(inviteSession).isNotNull();
-        assertThat(inviteSession.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY)).isNotNull();
+        assertThat(MockMvcUtils.getZoneSession(inviteSession).getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY)).isNotNull();
         String redirectUri = "https://example.com/dashboard/?appGuid=app-guid";
         String clientId = "authclient-" + new AlphanumericRandomValueStringGenerator().generate();
         UaaClientDetails client = new UaaClientDetails(clientId, "", "openid", GRANT_TYPE_AUTHORIZATION_CODE, "", redirectUri);
@@ -175,8 +173,8 @@ public class InvitationsServiceMockMvcTests {
                         .accept(MediaType.TEXT_HTML)
                 )
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Email: " + email)))
                 .andReturn();
+        assertThat(result.getResponse().getContentAsString()).contains("Email: " + email);
 
         MockHttpSession session = (MockHttpSession) result.getRequest().getSession(false);
         mockMvc.perform(
@@ -185,7 +183,7 @@ public class InvitationsServiceMockMvcTests {
                                 .accept(MediaType.TEXT_HTML)
                 )
                 .andExpect(status().isFound())
-                .andExpect(redirectedUrlPattern("**/login"));
+                .andExpect(redirectedUrl("/login"));
     }
 
     @Test
@@ -243,16 +241,17 @@ public class InvitationsServiceMockMvcTests {
                         .accept(MediaType.TEXT_HTML)
                 )
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Email: " + email)))
                 .andReturn();
+        assertThat(result.getResponse().getContentAsString()).contains("Email: " + email);
 
         MockHttpSession session = (MockHttpSession) result.getRequest().getSession(false);
         result = mockMvc.perform(
                         post("/invitations/accept.do")
+                                .session(session)
                                 .param("password", "s3cret")
                                 .param("password_confirmation", "s3cret")
                                 .param("code", invalidCode)
-                                .with(csrf(session))
+                                .with(cookieCsrf())
                 )
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(model().attribute("error_message_code", "code_expired"))
@@ -260,7 +259,7 @@ public class InvitationsServiceMockMvcTests {
                 .andReturn();
 
         assertThat(queryUserForField(jdbcTemplate, email, "verified", Boolean.class)).as("User should be not yet be verified").isFalse();
-        assertThat(session.getAttribute("SPRING_SECURITY_CONTEXT")).isNull();
+        assertThat(MockMvcUtils.getZoneSession(session).getAttribute("SPRING_SECURITY_CONTEXT")).isNull();
 
         session = (MockHttpSession) result.getRequest().getSession(false);
         //not logged in anymore
@@ -270,7 +269,54 @@ public class InvitationsServiceMockMvcTests {
                                 .accept(MediaType.TEXT_HTML)
                 )
                 .andExpect(status().isFound())
-                .andExpect(redirectedUrl("http://localhost/login"));
+                .andExpect(redirectedUrl("/login"));
+    }
+
+    @Test
+    void inviteExistingUnverifiedUser_acceptWithPassword_doesNotResetPassword() throws Exception {
+        String email = new AlphanumericRandomValueStringGenerator().generate().toLowerCase() + "@test.org";
+
+        // First invite creates the user as unverified with a randomly generated password
+        inviteUser(webApplicationContext, mockMvc, email, userInviteToken, null, clientId, OriginKeys.UAA);
+        assertThat(queryUserForField(jdbcTemplate, email, "verified", Boolean.class)).isFalse();
+        String originalPasswordHash = queryUserForField(jdbcTemplate, email, "password", String.class);
+
+        // Clear the code store so only the second invite's code is present
+        jdbcTemplate.update("DELETE FROM expiring_code_store");
+
+        // Second invite for the same pre-existing unverified user
+        URL attackerInviteLink = inviteUser(webApplicationContext, mockMvc, email, userInviteToken, null, clientId, OriginKeys.UAA);
+        String inviteCode = extractInvitationCode(attackerInviteLink.toString());
+
+        // Accept page — sets up the UaaPrincipal in security context (peekCode, does not consume)
+        MvcResult result = mockMvc.perform(get("/invitations/accept")
+                        .param("code", inviteCode)
+                        .accept(MediaType.TEXT_HTML))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        MockHttpSession session = (MockHttpSession) result.getRequest().getSession(false);
+        MockHttpServletRequestBuilder acceptPost = post("/invitations/accept.do")
+                .param("password", "s3cret")
+                .param("password_confirmation", "s3cret")
+                .param("code", inviteCode)
+                .with(cookieCsrf());
+        if (session != null) {
+            acceptPost = acceptPost.session(session);
+        }
+        mockMvc.perform(acceptPost)
+                .andExpect(status().isFound());
+
+        // The password hash must be unchanged
+        String currentPasswordHash = queryUserForField(jdbcTemplate, email, "password", String.class);
+        assertThat(currentPasswordHash)
+                .as("Invite accept for a pre-existing unverified user must not reset the password")
+                .isEqualTo(originalPasswordHash);
+
+        // The account should still be marked verified (legitimate invite side-effect)
+        assertThat(queryUserForField(jdbcTemplate, email, "verified", Boolean.class))
+                .as("Account should be marked verified after accepting invitation")
+                .isTrue();
     }
 
     @Test
@@ -287,8 +333,8 @@ public class InvitationsServiceMockMvcTests {
                         .accept(MediaType.TEXT_HTML)
                 )
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Email: " + email)))
                 .andReturn();
+        assertThat(result.getResponse().getContentAsString()).contains("Email: " + email);
 
         code = jdbcTemplate.queryForObject("SELECT code FROM expiring_code_store", String.class);
         MockHttpSession session = (MockHttpSession) result.getRequest().getSession(false);
@@ -296,7 +342,7 @@ public class InvitationsServiceMockMvcTests {
                 .param("password", "s3cret")
                 .param("password_confirmation", "s3cret")
                 .param("code", code)
-                .with(csrf(session));
+                .with(cookieCsrf());
         if (session!=null) {
             post = post.session(session);
         }
@@ -316,7 +362,7 @@ public class InvitationsServiceMockMvcTests {
                                 .accept(MediaType.TEXT_HTML)
                 )
                 .andExpect(status().isFound())
-                .andExpect(redirectedUrlPattern("**/login"));
+                .andExpect(redirectedUrl("/login"));
     }
 
     @Test
@@ -339,9 +385,10 @@ public class InvitationsServiceMockMvcTests {
                 .accept(MediaType.TEXT_HTML)
                 .header("Host", zone.getZone().getIdentityZone().getSubdomain() + ".localhost")
         );
-        actions
+        MvcResult result = actions
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Email: " + email)));
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).contains("Email: " + email);
 
         assertThat(queryUserForField(jdbcTemplate, email, "verified", Boolean.class)).as("LDAP user should not be verified after accepting invite until logging in").isFalse();
     }

@@ -3,7 +3,6 @@ package org.cloudfoundry.identity.uaa.provider.saml;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthentication;
 import org.cloudfoundry.identity.uaa.authentication.UaaPrincipal;
 import org.cloudfoundry.identity.uaa.authentication.UaaSamlPrincipal;
@@ -43,6 +42,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import static org.cloudfoundry.identity.uaa.constants.OriginKeys.NotANumber;
@@ -120,9 +120,10 @@ public class SamlUaaAuthenticationUserManager implements ApplicationEventPublish
         if (haveUserAttributesChanged(user, userWithSamlAttributes)) {
             userBeforeChanges = user;
             context.setUserModified(true);
+        String samlEmail = userWithSamlAttributes.getEmail();
+        String email = samlEmail != null && samlEmail.endsWith("@" + UaaUser.DEFAULT_EMAIL_DOMAIN)
+            ? user.getEmail() : samlEmail;
             user = user.modifyAttributes(
-                    StringUtils.endsWith(userWithSamlAttributes.getEmail(), '@' + UaaUser.DEFAULT_EMAIL_DOMAIN)
-                            ? user.getEmail() : userWithSamlAttributes.getEmail(),
                     userWithSamlAttributes.getGivenName(),
                     userWithSamlAttributes.getFamilyName(),
                     userWithSamlAttributes.getPhoneNumber(),
@@ -134,12 +135,10 @@ public class SamlUaaAuthenticationUserManager implements ApplicationEventPublish
         publish(new ExternalGroupAuthorizationEvent(user, context.isUserModified(), authorities, true));
 
         user = userDatabase.retrieveUserById(user.getId());
-        
         // Store previousUser in the returned user object so AuthenticationSuccessListener can detect all changes
         if (userBeforeChanges != null) {
             user = user.withPreviousUser(userBeforeChanges);
         }
-        
         return user;
     }
 
@@ -199,11 +198,11 @@ public class SamlUaaAuthenticationUserManager implements ApplicationEventPublish
 
     protected static boolean haveUserAttributesChanged(UaaUser existingUser, UaaUser user) {
         return existingUser.isVerified() != user.isVerified() ||
-                !StringUtils.equals(existingUser.getGivenName(), user.getGivenName()) ||
-                !StringUtils.equals(existingUser.getFamilyName(), user.getFamilyName()) ||
-                !StringUtils.equals(existingUser.getPhoneNumber(), user.getPhoneNumber()) ||
-                !StringUtils.equals(existingUser.getEmail(), user.getEmail()) ||
-                !StringUtils.equals(existingUser.getExternalId(), user.getExternalId());
+                !Objects.equals(existingUser.getGivenName(), user.getGivenName()) ||
+                !Objects.equals(existingUser.getFamilyName(), user.getFamilyName()) ||
+                !Objects.equals(existingUser.getPhoneNumber(), user.getPhoneNumber()) ||
+                !Objects.equals(existingUser.getEmail(), user.getEmail()) ||
+                !Objects.equals(existingUser.getExternalId(), user.getExternalId());
     }
 
     protected UaaAuthentication getUaaAuthentication(String subjectName, Saml2AuthenticationToken authenticationToken, String alias, List<Assertion> assertions, List<String> sessionIndexess) {
@@ -223,7 +222,7 @@ public class SamlUaaAuthenticationUserManager implements ApplicationEventPublish
             samlConfig = (SamlIdentityProviderDefinition) idpConfig.getConfig();
             idp = (IdentityProvider<SamlIdentityProviderDefinition>) idpConfig;
             addNew = samlConfig.isAddShadowUserOnLogin();
-        } catch (EmptyResultDataAccessException x) {
+        } catch (EmptyResultDataAccessException _) {
             throw new ProviderNotFoundException("No SAML identity provider found in zone for alias:" + alias);
         }
 

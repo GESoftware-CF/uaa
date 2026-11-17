@@ -8,7 +8,6 @@ import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.scim.ScimUserProvisioning;
 import org.cloudfoundry.identity.uaa.scim.endpoints.PasswordChange;
 import org.cloudfoundry.identity.uaa.scim.exception.InvalidPasswordException;
-import org.cloudfoundry.identity.uaa.scim.test.JsonObjectMatcherUtils;
 import org.cloudfoundry.identity.uaa.scim.validate.PasswordValidator;
 import org.cloudfoundry.identity.uaa.extensions.PollutionPreventionExtension;
 import org.cloudfoundry.identity.uaa.test.MockAuthentication;
@@ -20,10 +19,13 @@ import org.json.JSONObject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 import org.springframework.core.io.support.ResourcePropertySource;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -33,8 +35,10 @@ import java.time.ZoneId;
 import java.util.Collections;
 import java.util.Date;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.cloudfoundry.identity.uaa.account.UaaResetPasswordService.FORGOT_PASSWORD_INTENT_PREFIX;
 import static org.cloudfoundry.identity.uaa.codestore.ExpiringCodeType.AUTOLOGIN;
-import static org.hamcrest.Matchers.containsString;
+import static org.cloudfoundry.identity.uaa.codestore.ExpiringCodeType.INVITATION;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -44,7 +48,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -98,8 +101,9 @@ class PasswordResetEndpointTest {
                 .thenReturn(new ExpiringCode("secret_code", new Timestamp(System.currentTimeMillis() + UaaResetPasswordService.PASSWORD_RESET_LIFETIME), JsonUtils.writeValueAsString(change), null));
     }
 
-    @Test
-    void passwordResetWithClientIdAndRedirectUri() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"/password_resets", "/password_resets/"})
+    void passwordResetWithClientIdAndRedirectUri(String url) throws Exception {
         String email = "user@example.com";
         String clientId = "test-client";
         String redirectUri = "redirect.example.com";
@@ -116,7 +120,7 @@ class PasswordResetEndpointTest {
         when(mockExpiringCodeStore.generateCode(anyString(), any(Timestamp.class), anyString(), anyString()))
                 .thenReturn(new ExpiringCode("secret_code", new Timestamp(System.currentTimeMillis() + UaaResetPasswordService.PASSWORD_RESET_LIFETIME), JsonUtils.writeValueAsString(change), null));
 
-        MockHttpServletRequestBuilder post = post("/password_resets")
+        MockHttpServletRequestBuilder post = post(url)
                 .contentType(APPLICATION_JSON)
                 .param("client_id", clientId)
                 .param("redirect_uri", redirectUri)
@@ -174,10 +178,11 @@ class PasswordResetEndpointTest {
                 .content("user@example.com")
                 .accept(APPLICATION_JSON);
 
-        mockMvc.perform(post)
+        MvcResult result = mockMvc.perform(post)
                 .andExpect(status().isCreated())
-                .andExpect(content().string(containsString("\"code\":\"secret_code\"")))
-                .andExpect(content().string(containsString("\"user_id\":\"id001\"")));
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString())
+                .contains("\"code\":\"secret_code\"", "\"user_id\":\"id001\"");
     }
 
     @Test
@@ -214,9 +219,11 @@ class PasswordResetEndpointTest {
                 .content("user@example.com")
                 .accept(APPLICATION_JSON);
 
-        mockMvc.perform(post)
+        MvcResult result = mockMvc.perform(post)
                 .andExpect(status().isConflict())
-                .andExpect(content().string(containsString("\"user_id\":\"id001\"")));
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString())
+                .contains("\"user_id\":\"id001\"");
     }
 
     @Test
@@ -240,10 +247,11 @@ class PasswordResetEndpointTest {
                 .content("user\"'@example.com")
                 .accept(APPLICATION_JSON);
 
-        mockMvc.perform(post)
+        MvcResult result = mockMvc.perform(post)
                 .andExpect(status().isCreated())
-                .andExpect(content().string(containsString("\"code\":\"secret_code\"")))
-                .andExpect(content().string(containsString("\"user_id\":\"id001\"")));
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString())
+                .contains("\"code\":\"secret_code\"", "\"user_id\":\"id001\"");
 
         when(mockScimUserProvisioning.retrieveByUsernameAndOriginAndZone(
                 eq("user\"'@example.com"),
@@ -265,10 +273,12 @@ class PasswordResetEndpointTest {
                 .andExpect(status().isConflict());
     }
 
-    @Test
-    void changingAPasswordWithAValidCode() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"/password_change", "/password_change/"})
+    void changingAPasswordWithAValidCode(String url) throws Exception {
         ExpiringCode code = new ExpiringCode("secret_code", new Timestamp(System.currentTimeMillis() + UaaResetPasswordService.PASSWORD_RESET_LIFETIME),
-                "{\"user_id\":\"eyedee\",\"username\":\"user@example.com\",\"passwordModifiedTime\":null,\"client_id\":\"\",\"redirect_uri\":\"\"}", null);
+                "{\"user_id\":\"eyedee\",\"username\":\"user@example.com\",\"passwordModifiedTime\":null,\"client_id\":\"\",\"redirect_uri\":\"\"}",
+                FORGOT_PASSWORD_INTENT_PREFIX + "eyedee");
         when(mockExpiringCodeStore.retrieveCode("secret_code", currentZoneId)).thenReturn(code);
 
         ScimUser scimUser = new ScimUser("eyedee", "user@example.com", "User", "Man");
@@ -278,7 +288,7 @@ class PasswordResetEndpointTest {
         ExpiringCode autologinCode = new ExpiringCode("autologin-code", new Timestamp(System.currentTimeMillis() + 5 * 60 * 1000), "data", AUTOLOGIN.name());
         when(mockExpiringCodeStore.generateCode(anyString(), any(Timestamp.class), eq(AUTOLOGIN.name()), anyString())).thenReturn(autologinCode);
 
-        MockHttpServletRequestBuilder post = post("/password_change")
+        MockHttpServletRequestBuilder post = post(url)
                 .contentType(APPLICATION_JSON)
                 .content("{\"code\":\"secret_code\",\"new_password\":\"new_secret\"}")
                 .accept(APPLICATION_JSON);
@@ -302,18 +312,22 @@ class PasswordResetEndpointTest {
                 .contentType(APPLICATION_JSON)
                 .content("{\"code\":\"secret_code\",\"new_password\":\"new_secret\"}");
 
-        mockMvc.perform(post)
+        MvcResult result = mockMvc.perform(post)
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(content().string(JsonObjectMatcherUtils.matchesJsonObject(new JSONObject()
+                .andReturn();
+        assertThat(JsonUtils.readTree(result.getResponse().getContentAsString()))
+                .isEqualTo(JsonUtils.readTree(new JSONObject()
                         .put("error_description", "Sorry, your reset password link is no longer valid. Please request a new one")
                         .put("message", "Sorry, your reset password link is no longer valid. Please request a new one")
-                        .put("error", "invalid_code"))));
+                        .put("error", "invalid_code")
+                        .toString()));
     }
 
     @Test
     void changingAPasswordForUnverifiedUser() throws Exception {
         ExpiringCode code = new ExpiringCode("secret_code", new Timestamp(System.currentTimeMillis() + UaaResetPasswordService.PASSWORD_RESET_LIFETIME),
-                "{\"user_id\":\"eyedee\",\"username\":\"user@example.com\",\"passwordModifiedTime\":null,\"client_id\":\"\",\"redirect_uri\":\"\"}", null);
+                "{\"user_id\":\"eyedee\",\"username\":\"user@example.com\",\"passwordModifiedTime\":null,\"client_id\":\"\",\"redirect_uri\":\"\"}",
+                FORGOT_PASSWORD_INTENT_PREFIX + "eyedee");
         when(mockExpiringCodeStore.retrieveCode("secret_code", currentZoneId)).thenReturn(code);
 
         ScimUser scimUser = new ScimUser("eyedee", "user@example.com", "User", "Man");
@@ -359,16 +373,18 @@ class PasswordResetEndpointTest {
         when(mockExpiringCodeStore.retrieveCode("emailed_code", currentZoneId))
                 .thenReturn(new ExpiringCode("emailed_code", new Timestamp(System.currentTimeMillis() + UaaResetPasswordService.PASSWORD_RESET_LIFETIME),
                         "{\"user_id\":\"eyedee\",\"username\":\"user@example.com\",\"passwordModifiedTime\":null,\"client_id\":\"\",\"redirect_uri\":\"\"}",
-                        null));
+                        FORGOT_PASSWORD_INTENT_PREFIX + "eyedee"));
 
         MockHttpServletRequestBuilder post = post("/password_change")
                 .contentType(APPLICATION_JSON)
                 .content("{\"code\":\"emailed_code\",\"new_password\":\"new_secret\"}")
                 .accept(APPLICATION_JSON);
 
-        mockMvc.perform(post)
+        MvcResult result = mockMvc.perform(post)
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(content().string(JsonObjectMatcherUtils.matchesJsonObject(new JSONObject().put("error_description", "Password flunks policy").put("message", "Password flunks policy").put("error", "invalid_password"))));
+                .andReturn();
+        assertThat(JsonUtils.readTree(result.getResponse().getContentAsString()))
+                .isEqualTo(JsonUtils.readTree(new JSONObject().put("error_description", "Password flunks policy").put("message", "Password flunks policy").put("error", "invalid_password").toString()));
     }
 
     @Test
@@ -379,7 +395,7 @@ class PasswordResetEndpointTest {
         when(mockExpiringCodeStore.retrieveCode("emailed_code", currentZoneId))
                 .thenReturn(new ExpiringCode("emailed_code", new Timestamp(System.currentTimeMillis() + UaaResetPasswordService.PASSWORD_RESET_LIFETIME),
                         "{\"user_id\":\"eyedee\",\"username\":\"user@example.com\",\"passwordModifiedTime\":null,\"client_id\":\"\",\"redirect_uri\":\"\"}",
-                        null));
+                        FORGOT_PASSWORD_INTENT_PREFIX + "eyedee"));
 
         ScimUser scimUser = new ScimUser("eyedee", "user@example.com", "User", "Man");
         scimUser.setMeta(new ScimMeta(new Date(System.currentTimeMillis() - (1000 * 60 * 60 * 24)), new Date(System.currentTimeMillis() - (1000 * 60 * 60 * 24)), 0));
@@ -396,8 +412,55 @@ class PasswordResetEndpointTest {
 
         SecurityContextHolder.getContext().setAuthentication(new MockAuthentication());
 
-        mockMvc.perform(post)
+        MvcResult result = mockMvc.perform(post)
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(content().string(JsonObjectMatcherUtils.matchesJsonObject(new JSONObject().put("error_description", "Your new password cannot be the same as the old password.").put("message", "Your new password cannot be the same as the old password.").put("error", "invalid_password"))));
+                .andReturn();
+        assertThat(JsonUtils.readTree(result.getResponse().getContentAsString()))
+                .isEqualTo(JsonUtils.readTree(new JSONObject().put("error_description", "Your new password cannot be the same as the old password.").put("message", "Your new password cannot be the same as the old password.").put("error", "invalid_password").toString()));
+    }
+
+    @Test
+    void changingPasswordWithInvitationCodeReturns422() throws Exception {
+        String inviteData = "{\"user_id\":\"eyedee\",\"client_id\":\"invite-client\",\"created_new_user\":\"false\"}";
+        ExpiringCode inviteCode = new ExpiringCode("invite_code", new Timestamp(System.currentTimeMillis() + UaaResetPasswordService.PASSWORD_RESET_LIFETIME),
+                inviteData, INVITATION.name());
+        when(mockExpiringCodeStore.retrieveCode("invite_code", currentZoneId)).thenReturn(inviteCode);
+
+        MockHttpServletRequestBuilder post = post("/password_change")
+                .contentType(APPLICATION_JSON)
+                .content("{\"code\":\"invite_code\",\"new_password\":\"new_secret\"}")
+                .accept(APPLICATION_JSON);
+
+        MvcResult result = mockMvc.perform(post)
+                .andExpect(status().isUnprocessableEntity())
+                .andReturn();
+        assertThat(JsonUtils.readTree(result.getResponse().getContentAsString()))
+                .isEqualTo(JsonUtils.readTree(new JSONObject()
+                        .put("error_description", "Sorry, your reset password link is no longer valid. Please request a new one")
+                        .put("message", "Sorry, your reset password link is no longer valid. Please request a new one")
+                        .put("error", "invalid_code")
+                        .toString()));
+    }
+
+    @Test
+    void changingPasswordWithNullIntentCodeReturns422() throws Exception {
+        ExpiringCode nullIntentCode = new ExpiringCode("null_intent_code", new Timestamp(System.currentTimeMillis() + UaaResetPasswordService.PASSWORD_RESET_LIFETIME),
+                "{\"user_id\":\"eyedee\",\"username\":\"user@example.com\",\"passwordModifiedTime\":null,\"client_id\":\"\",\"redirect_uri\":\"\"}", null);
+        when(mockExpiringCodeStore.retrieveCode("null_intent_code", currentZoneId)).thenReturn(nullIntentCode);
+
+        MockHttpServletRequestBuilder post = post("/password_change")
+                .contentType(APPLICATION_JSON)
+                .content("{\"code\":\"null_intent_code\",\"new_password\":\"new_secret\"}")
+                .accept(APPLICATION_JSON);
+
+        MvcResult result = mockMvc.perform(post)
+                .andExpect(status().isUnprocessableEntity())
+                .andReturn();
+        assertThat(JsonUtils.readTree(result.getResponse().getContentAsString()))
+                .isEqualTo(JsonUtils.readTree(new JSONObject()
+                        .put("error_description", "Sorry, your reset password link is no longer valid. Please request a new one")
+                        .put("message", "Sorry, your reset password link is no longer valid. Please request a new one")
+                        .put("error", "invalid_code")
+                        .toString()));
     }
 }

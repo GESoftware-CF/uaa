@@ -20,6 +20,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
 import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetails;
 import org.springframework.stereotype.Controller;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -51,6 +52,7 @@ public class InvitationsEndpoint {
     private static final int INVITATION_EXPIRY_DAYS = 7;
     public static final String USER_ID = "user_id";
     public static final String EMAIL = "email";
+    public static final String CREATED_NEW_USER = "created_new_user";
 
     private final ScimUserProvisioning scimUserProvisioning;
     private final IdentityProviderProvisioning identityProviderProvisioning;
@@ -58,7 +60,7 @@ public class InvitationsEndpoint {
     private final ExpiringCodeStore expiringCodeStore;
 
     public InvitationsEndpoint(final ScimUserProvisioning scimUserProvisioning,
-            final IdentityProviderProvisioning identityProviderProvisioning,
+            final @Qualifier("identityProviderProvisioning") IdentityProviderProvisioning identityProviderProvisioning,
             final MultitenantClientServices multitenantClientServices,
             final ExpiringCodeStore expiringCodeStore) {
         this.scimUserProvisioning = scimUserProvisioning;
@@ -67,7 +69,7 @@ public class InvitationsEndpoint {
         this.expiringCodeStore = expiringCodeStore;
     }
 
-    @PostMapping(value = "/invite_users", consumes = "application/json")
+    @PostMapping(value = {"/invite_users", "/invite_users/"}, consumes = "application/json")
     public ResponseEntity<InvitationsResponse> inviteUsers(@RequestBody InvitationsRequest invitations,
             @RequestParam(value = "client_id", required = false) String clientId,
             @RequestParam(value = "redirect_uri") String redirectUri) {
@@ -99,7 +101,8 @@ public class InvitationsEndpoint {
                 if (email != null && validateEmail(email)) {
                     List<IdentityProvider> providers = filter(activeProviders, client, email);
                     if (providers.size() == 1) {
-                        ScimUser user = findOrCreateUser(email, providers.getFirst().getOriginKey());
+                        FindResult findResult = findOrCreateUser(email, providers.getFirst().getOriginKey());
+                        ScimUser user = findResult.user();
                         String accountsUrl = UaaUrlUtils.getUaaUrl("/invitations/accept", !IdentityZoneHolder.isUaa(), IdentityZoneHolder.get());
 
                         Map<String, String> data = new HashMap<>();
@@ -108,6 +111,7 @@ public class InvitationsEndpoint {
                         data.put(CLIENT_ID, clientId);
                         data.put(REDIRECT_URI, redirectUri);
                         data.put(ORIGIN, user.getOrigin());
+                        data.put(CREATED_NEW_USER, String.valueOf(findResult.newUser()));
                         Timestamp expiry = new Timestamp(System.currentTimeMillis() + (INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000));
                         ExpiringCode code = expiringCodeStore.generateCode(JsonUtils.writeValueAsString(data), expiry, INVITATION.name(), IdentityZoneHolder.get().getId());
 
@@ -115,7 +119,7 @@ public class InvitationsEndpoint {
                         try {
                             URL inviteLink = new URL(invitationLink);
                             invitationsResponse.getNewInvites().add(InvitationsResponse.success(user.getPrimaryEmail(), user.getId(), user.getOrigin(), inviteLink));
-                        } catch (MalformedURLException mue) {
+                        } catch (MalformedURLException _) {
                             invitationsResponse.getFailedInvites().add(InvitationsResponse.failure(email, "invitation.exception.url", "Malformed url: %s".formatted(invitationLink)));
                         }
                     } else if (providers.isEmpty()) {
@@ -127,7 +131,7 @@ public class InvitationsEndpoint {
                     invitationsResponse.getFailedInvites().add(InvitationsResponse.failure(email, "email.invalid",
                             email + " is invalid email."));
                 }
-            } catch (ScimResourceConflictException x) {
+            } catch (ScimResourceConflictException _) {
                 invitationsResponse.getFailedInvites().add(InvitationsResponse.failure(email, "user.ambiguous", "Multiple users with the same origin matched to the email address."));
             } catch (UaaException uaae) {
                 invitationsResponse.getFailedInvites().add(InvitationsResponse.failure(email, "invitation.exception", uaae.getMessage()));
@@ -136,7 +140,7 @@ public class InvitationsEndpoint {
         return new ResponseEntity<>(invitationsResponse, HttpStatus.OK);
     }
 
-    private ScimUser findOrCreateUser(String email, String origin) {
+    private FindResult findOrCreateUser(String email, String origin) {
         email = email.trim().toLowerCase();
         List<ScimUser> results = scimUserProvisioning.retrieveByEmailAndZone(email, origin, IdentityZoneHolder.get().getId());
         if (results == null || results.isEmpty()) {
@@ -145,20 +149,22 @@ public class InvitationsEndpoint {
             user.setOrigin(origin);
             user.setVerified(false);
             user.setActive(true);
-            return scimUserProvisioning.createUser(user, new RandomValueStringGenerator(12).generate(), IdentityZoneHolder.get().getId());
+            return new FindResult(scimUserProvisioning.createUser(user, new RandomValueStringGenerator(12).generate(), IdentityZoneHolder.get().getId()), true);
         } else if (results.size() == 1) {
-            return results.getFirst();
+            return new FindResult(results.getFirst(), false);
         } else {
             throw new ScimResourceConflictException("Ambiguous users found for email:%s with origin:%s".formatted(email, origin));
         }
     }
+
+    record FindResult(ScimUser user, boolean newUser) {}
 
     private boolean validateEmail(String email) {
         boolean valid = true;
         try {
             InternetAddress emailAddr = new InternetAddress(email);
             emailAddr.validate();
-        } catch (AddressException e) {
+        } catch (AddressException _) {
             valid = false;
         }
         return valid;

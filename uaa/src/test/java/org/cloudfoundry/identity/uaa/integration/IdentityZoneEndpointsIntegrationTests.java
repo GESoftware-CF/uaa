@@ -5,7 +5,6 @@ import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
 import org.cloudfoundry.identity.uaa.oauth.client.ClientConstants;
-import org.cloudfoundry.identity.uaa.oauth.client.DefaultOAuth2ClientContext;
 import org.cloudfoundry.identity.uaa.oauth.client.OAuth2RestTemplate;
 import org.cloudfoundry.identity.uaa.oauth.client.http.OAuth2ErrorHandler;
 import org.cloudfoundry.identity.uaa.oauth.client.resource.ClientCredentialsResourceDetails;
@@ -18,14 +17,9 @@ import org.cloudfoundry.identity.uaa.scim.ScimGroup;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.test.TestAccountExtension;
 import org.cloudfoundry.identity.uaa.test.UaaTestAccounts;
-import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.util.ObjectUtils;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter;
-import org.cloudfoundry.identity.uaa.zone.OrchestratorState;
-import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZone;
-import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneRequest;
-import org.cloudfoundry.identity.uaa.zone.model.OrchestratorZoneResponse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,6 +34,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -47,10 +42,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
-import static org.cloudfoundry.identity.uaa.zone.OrchestratorZoneService.ZONE_CREATED_MESSAGE;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @OAuth2ContextConfiguration(IdentityZoneEndpointsIntegrationTests.IdentityClient.class)
 class IdentityZoneEndpointsIntegrationTests {
@@ -79,7 +70,7 @@ class IdentityZoneEndpointsIntegrationTests {
             }
 
             @Override
-            public void handleError(ClientHttpResponse response) {
+            public void handleError(URI url, HttpMethod method, ClientHttpResponse response) {
                 // pass through
             }
         });
@@ -146,7 +137,6 @@ class IdentityZoneEndpointsIntegrationTests {
         IdentityProvider identityProvider = idpList.getBody().getFirst();
         assertThat(identityProvider.getIdentityZoneId()).isEqualTo(zoneId);
         assertThat(identityProvider.getOriginKey()).isEqualTo(OriginKeys.UAA);
-        assertThat(idpList.getHeaders().getContentType().includes(MediaType.APPLICATION_JSON_UTF8)).isTrue();
 
         //the default created zone does have a definition, but no policy
         assertThat(identityProvider.getConfig()).isNotNull();
@@ -190,7 +180,7 @@ class IdentityZoneEndpointsIntegrationTests {
                 new ParameterizedTypeReference<>() {
                 },
                 id);
-        assertThat(response.getStatusCode()).as(response.getBody()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(response.getStatusCode()).as(response.getBody()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
     }
 
     @Test
@@ -264,87 +254,6 @@ class IdentityZoneEndpointsIntegrationTests {
                 id2);
         assertThat(response2.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(response2.getBody().get("error_description").toLowerCase()).contains("subdomain");
-    }
-
-    @Test
-    public void testUpdateZoneWithDisableClientRedirectUri() throws Exception {
-        String zoneId = UUID.randomUUID().toString();
-        String requestBody = "{\"id\":\""+zoneId+"\", \"subdomain\":\""+zoneId+"\", \"name\":\"testCreateZone() "+zoneId+"\",\"enable_redirect_uri_check\":false}";
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("Accept", MediaType.APPLICATION_JSON_VALUE);
-        headers.add("Content-Type", MediaType.APPLICATION_JSON_VALUE);
-
-        ResponseEntity<IdentityZone> response = client.exchange(
-                serverRunning.getUrl("/identity-zones"),
-                HttpMethod.POST,
-                new HttpEntity<>(requestBody, headers), IdentityZone.class);
-
-        assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        assertFalse(response.getBody().isEnableRedirectUriCheck());
-
-        requestBody = "{\"id\":\""+zoneId+"\", \"subdomain\":\""+zoneId+"\", \"name\":\"testCreateZone() "+zoneId+"\" }";
-        ResponseEntity<IdentityZone> updateResponse = client.exchange(
-                serverRunning.getUrl("/identity-zones/" + zoneId),
-                HttpMethod.PUT,
-                new HttpEntity<>(requestBody, headers),
-                IdentityZone.class);
-
-        assertEquals(HttpStatus.OK, updateResponse.getStatusCode());
-        assertTrue(updateResponse.getBody().isEnableRedirectUriCheck());
-    }
-
-    @Test
-    public void testDeletePortedZone() {
-        //Create Identity Zone
-        IdentityZone idZone = new IdentityZone();
-        String id = UUID.randomUUID().toString();
-        idZone.setId(id);
-        idZone.setSubdomain(id);
-        idZone.setName("testCreateZone() " + id);
-        ResponseEntity<Void> response = client.exchange(serverRunning.getUrl("/identity-zones"), HttpMethod.POST, new HttpEntity<>(idZone), new ParameterizedTypeReference<Void>() {
-        }, id);
-        assertEquals(HttpStatus.CREATED, response.getStatusCode());
-
-        //Port Zone and Validate
-        ResponseEntity<Void> importResponse = portZone(id);
-        OrchestratorZoneResponse expectedResponse = new OrchestratorZoneResponse();
-        expectedResponse.setName(zoneId);
-        expectedResponse.setMessage(ZONE_CREATED_MESSAGE);
-        expectedResponse.setState(OrchestratorState.CREATE_IN_PROGRESS.toString());
-
-        assertEquals(HttpStatus.ACCEPTED, importResponse.getStatusCode());
-
-        ResponseEntity<Void> deleteResponse = client.exchange(serverRunning.getUrl("/identity-zones/" + id), HttpMethod.DELETE, null, new ParameterizedTypeReference<Void>() {
-        });
-
-        assertEquals(deleteResponse.getStatusCode(), HttpStatus.UNPROCESSABLE_ENTITY);
-    }
-
-    private ResponseEntity<Void> portZone(String zoneId) {
-        ClientCredentialsResourceDetails orchestratorZoneClientCredentials = new ClientCredentialsResourceDetails();
-        orchestratorZoneClientCredentials.setClientId("orchestrator-zone-provisioner");
-        orchestratorZoneClientCredentials.setClientSecret("orchestratorsecret");
-        orchestratorZoneClientCredentials.setId("orchestrator-zone-provisioner");
-        orchestratorZoneClientCredentials.setAccessTokenUri("http://localhost:8080/uaa/oauth/token");
-        OAuth2RestTemplate restTemplate = new OAuth2RestTemplate(orchestratorZoneClientCredentials, new DefaultOAuth2ClientContext());
-        String requestBody = JsonUtils.writeValueAsString(getOrchestratorImportZoneRequest("TestZone", "admin-secret", "TestZone", zoneId));
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("Accept", MediaType.APPLICATION_JSON_VALUE);
-        headers.add("Content-Type", MediaType.APPLICATION_JSON_VALUE);
-
-        ResponseEntity<Void> response = restTemplate.exchange(serverRunning.getUrl("/orchestrator/zones"), HttpMethod.POST, new HttpEntity<>(requestBody, headers), new ParameterizedTypeReference<Void>() {
-        });
-
-        return response;
-    }
-
-    private OrchestratorZoneRequest getOrchestratorImportZoneRequest(String name, String adminClientSecret, String subdomain, String importServiceInstanceGuid) {
-        OrchestratorZone orchestratorZone = new OrchestratorZone(adminClientSecret, subdomain, importServiceInstanceGuid);
-        OrchestratorZoneRequest orchestratorZoneRequest = new OrchestratorZoneRequest();
-        orchestratorZoneRequest.setName(name);
-        orchestratorZoneRequest.setParameters(orchestratorZone);
-        return orchestratorZoneRequest;
     }
 
     static class IdentityClient extends ClientCredentialsResourceDetails {

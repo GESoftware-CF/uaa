@@ -1,6 +1,6 @@
 package org.cloudfoundry.identity.uaa.account;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import org.cloudfoundry.identity.uaa.codestore.ExpiringCode;
 import org.cloudfoundry.identity.uaa.codestore.ExpiringCodeStore;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
@@ -128,7 +128,8 @@ public class EmailChangeEmailService implements ChangeEmailService {
                         clientDetails.getRegisteredRedirectUri();
                 String changeEmailRedirectUrl = (String) clientDetails.getAdditionalInformation().get(CHANGE_EMAIL_REDIRECT_URL);
                 redirectLocation = findMatchingRedirectUri(redirectUris, redirectUri, changeEmailRedirectUrl);
-            } catch (NoSuchClientException ignored) {
+            } catch (NoSuchClientException _) {
+                // ignore
             }
         }
 

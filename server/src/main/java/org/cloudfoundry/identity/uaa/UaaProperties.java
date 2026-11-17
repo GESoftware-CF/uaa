@@ -39,6 +39,9 @@ public class UaaProperties {
     }
 
 
+    /**
+     * @param wantAssertionSigned Deprecated since 78.13.0; see {@link org.cloudfoundry.identity.uaa.zone.SamlConfig}.
+     */
     public record Saml(
             String activeKeyId,
             @DefaultValue("false") boolean disableInResponseToCheck,
@@ -51,8 +54,7 @@ public class UaaProperties {
     @ConfigurationProperties(prefix = "login")
     public record Login(
             @DefaultValue(UaaStringUtils.DEFAULT_UAA_URL) String url,
-            @DefaultValue("true") boolean selfServiceResetPasswordEnabled,
-            @DefaultValue("true") boolean  selfServiceCreateAccountEnabled,
+            @DefaultValue("true") boolean selfServiceLinksEnabled,
             String homeRedirect,
             @DefaultValue("false") boolean idpDiscoveryEnabled,
             @DefaultValue("false") boolean accountChooserEnabled,
@@ -98,7 +100,7 @@ public class UaaProperties {
             SessionCookie sessionCookie,
             @DefaultValue("1800")
             int idleTimeout,
-            @DefaultValue({"X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto", "X-Forwarded-Prefix", "Forwarded"})
+            @DefaultValue({"X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto", "X-Forwarded-Prefix", "Forwarded", "X-Client-IP", "X-Real-IP"})
             List<String> filteredHeaders
     ) {
         public Servlet {

@@ -31,8 +31,10 @@ import java.util.regex.Pattern;
 
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_CLIENT_CREDENTIALS;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_JWT_BEARER;
+import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_TOKEN_EXCHANGE;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_USER_TOKEN;
 import static org.cloudfoundry.identity.uaa.oauth.common.util.OAuth2Utils.CLIENT_ID;
+import static org.cloudfoundry.identity.uaa.util.UaaStringUtils.hasText;
 
 public class UaaOauth2RequestValidator implements OAuth2RequestValidator {
 
@@ -56,6 +58,12 @@ public class UaaOauth2RequestValidator implements OAuth2RequestValidator {
             validateScope(tokenRequest.getScope(), getAuthorities(client.getAuthorities()), false);
         } else if (GRANT_TYPE_USER_TOKEN.equalsIgnoreCase(tokenRequest.getGrantType())) {
             client = clientDetailsService.loadClientByClientId(tokenRequest.getRequestParameters().get(CLIENT_ID), IdentityZoneHolder.get().getId());
+            validateScope(tokenRequest.getScope(), client.getScope(), true);
+        } else if (GRANT_TYPE_TOKEN_EXCHANGE.equalsIgnoreCase(tokenRequest.getGrantType())) {
+            String audience = tokenRequest.getRequestParameters().get("audience");
+            if (hasText(audience)) {
+                client = clientDetailsService.loadClientByClientId(audience, IdentityZoneHolder.get().getId());
+            }
             validateScope(tokenRequest.getScope(), client.getScope(), true);
         } else {
             validateScope(tokenRequest.getScope(), client.getScope(), true);

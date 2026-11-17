@@ -14,18 +14,21 @@
 
 package org.cloudfoundry.identity.uaa.oauth.token;
 
+import com.fasterxml.jackson.annotation.JsonAnyGetter;
+import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
-@JsonIgnoreProperties(ignoreUnknown = true)
+@JsonIgnoreProperties(ignoreUnknown = false)
 public class Claims {
 
     @JsonProperty(ClaimConstants.USER_ID)
@@ -96,6 +99,9 @@ public class Claims {
     private String[] amr;
     @JsonProperty(ClaimConstants.CLIENT_AUTH_METHOD)
     private String clientAuth;
+    @JsonProperty(ClaimConstants.ACT)
+    private Map<String, Object> actorClaims;
+    private final Map<String, Object> additionalClaims = new HashMap<>();
 
     public String getUserId() {
         return userId;
@@ -369,8 +375,22 @@ public class Claims {
         this.clientAuth = clientAuth;
     }
 
+    public Map<String, Object> getActorClaims() {
+        return this.actorClaims;
+    }
+
     @JsonIgnore
     public Map<String, Object> getClaimMap() {
         return JsonUtils.convertValue(this, HashMap.class);
+    }
+
+    @JsonAnyGetter
+    public Map<String, Object> getAdditionalClaims() {
+        return Collections.unmodifiableMap(additionalClaims);
+    }
+
+    @JsonAnySetter
+    public void setAdditionalClaim(String name, Object value) {
+        additionalClaims.put(name, value);
     }
 }

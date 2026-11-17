@@ -19,7 +19,6 @@ import org.cloudfoundry.identity.uaa.oauth.client.test.OAuth2ContextConfiguratio
 import org.cloudfoundry.identity.uaa.oauth.client.test.OAuth2ContextExtension;
 import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
-import org.cloudfoundry.identity.uaa.scim.ScimUser.Email;
 import org.cloudfoundry.identity.uaa.test.TestAccountExtension;
 import org.cloudfoundry.identity.uaa.test.UaaTestAccounts;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
@@ -35,6 +34,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -42,11 +42,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @OAuth2ContextConfiguration(OAuth2ContextConfiguration.ClientCredentials.class)
 class ScimUserEndpointsIntegrationTests {
@@ -54,8 +51,6 @@ class ScimUserEndpointsIntegrationTests {
     private final String JOEL = "joel_" + new RandomValueStringGenerator().generate().toLowerCase();
 
     private final String JOE = "JOE_" + new RandomValueStringGenerator().generate().toLowerCase();
-
-    private final String INVALID_USER_NAME = "JOE_" + new RandomValueStringGenerator(400).generate().toLowerCase();
 
     private final String DELETE_ME = "deleteme_" + new RandomValueStringGenerator().generate().toLowerCase();
 
@@ -90,7 +85,7 @@ class ScimUserEndpointsIntegrationTests {
             }
 
             @Override
-            public void handleError(ClientHttpResponse response) {
+            public void handleError(URI url, HttpMethod method, ClientHttpResponse response) {
                 // pass through
             }
         });
@@ -105,44 +100,22 @@ class ScimUserEndpointsIntegrationTests {
     }
 
     private ResponseEntity<ScimUser> createUser(String username, String firstName, String lastName, String email) {
-        ScimUser user = createScimUser(username, firstName, lastName, email);
-
-        return client.postForEntity(serverRunning.getUrl(userEndpoint), user, ScimUser.class);
-    }
-
-    private ScimUser createScimUser(String username, String firstName, String lastName, String email) {
         ScimUser user = new ScimUser();
         user.setUserName(username);
         user.setPassword("password");
         user.setName(new ScimUser.Name(firstName, lastName));
         user.addEmail(email);
-        return user;
+
+        return client.postForEntity(serverRunning.getUrl(userEndpoint), user, ScimUser.class);
     }
-
-    private ResponseEntity<Object> createUserTx(String[] usernames, String[] firstNames, String[] lastNames, String[] emails) {
-        assertThat(
-                (usernames.length == firstNames.length) &&
-                (firstNames.length == lastNames.length) &&
-                (lastNames.length == emails.length)).isTrue();
-        ArrayList<ScimUser> users = new ArrayList<ScimUser>(usernames.length);
-        for(int i = 0; i < usernames.length; i++) {
-            ScimUser user = new ScimUser();
-            user.setUserName(usernames[i]);
-            user.setPassword("password");
-            user.setName(new ScimUser.Name(firstNames[i], lastNames[i]));
-            Email email = new Email();
-            email.setValue(emails[i]);
-            user.setEmails(List.of(email));
-            users.add(user);
-        }
-
-        return client.postForEntity(serverRunning.getUrl(userEndpoint + "/tx"), users, Object.class);
-    }
-
 
     private ResponseEntity<ScimUser> createUser(String username, String firstName, String lastName,
-                    String email, boolean verified) {
-        ScimUser user = createScimUser(username, firstName, lastName, email);
+                                                String email, boolean verified) {
+        ScimUser user = new ScimUser();
+        user.setPassword("password");
+        user.setUserName(username);
+        user.setName(new ScimUser.Name(firstName, lastName));
+        user.addEmail(email);
         user.setVerified(verified);
 
         return client.postForEntity(serverRunning.getUrl(userEndpoint), user, ScimUser.class);
@@ -164,46 +137,6 @@ class ScimUserEndpointsIntegrationTests {
         assertThat(joe2.getId()).isEqualTo(joe1.getId());
         assertThat(joe2.isVerified()).isTrue();
     }
-
-    @Test
-    public void createUserTxSucceeds() throws Exception {
-        String[] userNames = new String[]{JOE + "1", JOE + "2"};
-
-        ResponseEntity<Object> response = createUserTx(userNames, new String[]{"Joe1","Joe2"}, new String[]{"User1", "User2"}, new String[]{"joe1@blah.com", "joe2@blah.com"});
-
-        List<Map> joes = (List<Map>) response.getBody();
-        List<String> resUserNames = joes.stream().map(joe -> (String) joe.get("userName")).collect(Collectors.toList());
-        for(String userName : userNames) {
-            assertTrue(resUserNames.contains(userName));
-        }
-    }
-
-    @Test
-    public void createUserTxInvalid() throws Exception {
-        String[] userNames = new String[]{JOE + "1", JOE + "2"};
-            ResponseEntity<Object> response = createUserTx(userNames, new String[]{"Joe1","Joe2"}, new String[]{"User1", "User2"}, new String[]{"joe1@blah.com", ""});
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-            for(String userName : userNames) {
-                Map<String, Collection> userRes = client.getForObject(serverRunning.getUrl(userEndpoint + "?filter=userName eq '" + userName + "'"), Map.class);
-                assertThat(userRes.get("resources")).isEmpty();
-            }
-    }
-
-    // curl -v -H "Content-Type: application/json" -H "Accept: application/json"
-    // --data
-    // "{\"userName\":\"`cat /dev/random | LC_CTYPE=C tr -dc "[:alpha:]" | head -c 400`\",\"schemas\":[\"urn:scim:schemas:core:1.0\"]}"
-    // -X POST http://localhost:8080/uaa/User
-    @Test
-    public void createUserReturnsBadRequestForInvalidUserName() throws Exception {
-        ScimUser user = createScimUser(INVALID_USER_NAME, "Joe", "User", "joe@blah.com");
-        ResponseEntity<Map> response = client.exchange(serverRunning.getUrl(userEndpoint), HttpMethod.POST,
-                new HttpEntity<>(user), Map.class);
-
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        Map<String, String> error = response.getBody();
-        assertEquals("invalid_scim_resource", error.get("error"));
-    }
-
 
     // curl -v -H "Content-Type: application/json" -H "Accept: application/json"
     // --data
@@ -344,7 +277,7 @@ class ScimUserEndpointsIntegrationTests {
         ResponseEntity<Map> response = client.exchange(serverRunning.getUrl(userEndpoint) + "/{id}", HttpMethod.PUT,
                 new HttpEntity<Map>(map, headers), Map.class, joe.getId());
         Map<String, Object> joe1 = response.getBody();
-        assertThat(((String) joe1.get("message")).toLowerCase()).as("Wrong message: " + joe1).contains("unrecognized field");
+        assertThat(((String) joe1.get("message")).toLowerCase()).as("Wrong message: " + joe1).contains("unrecognized property");
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})

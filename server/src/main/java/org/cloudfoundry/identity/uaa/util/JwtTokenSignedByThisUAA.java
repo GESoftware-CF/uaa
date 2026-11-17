@@ -147,7 +147,7 @@ public abstract class JwtTokenSignedByThisUAA {
         }
 
         if (!equals(issuer, jwtClaimsSet.getIssuer())) {
-            throw new InvalidTokenException("Invalid issuer: " + jwtClaimsSet.getIssuer() + " is not in the configured list of trusted issuers", null);
+            throw new InvalidTokenException("Invalid issuer (" + jwtClaimsSet.getIssuer() + ") for token did not match expected: " + issuer, null);
         }
         return this;
     }
@@ -278,20 +278,15 @@ public abstract class JwtTokenSignedByThisUAA {
     }
 
     protected JwtTokenSignedByThisUAA checkClient(Function<String, ClientDetails> getClient) {
-        if (!claims.containsKey(CID)) {
+        String cid = (String) claims.get(CID);
+        String clientIdClaim = (String) claims.get(CLIENT_ID);
+        if (cid == null && clientIdClaim == null) {
             throw new InvalidTokenException("Token bears no client ID.", null);
         }
-
-        if (claims.containsKey(CLIENT_ID) && !equals(claims.get(CID), claims.get(CLIENT_ID))) {
+        if (cid != null && clientIdClaim != null && !equals(cid, clientIdClaim)) {
             throw new InvalidTokenException("Token bears conflicting client ID claims.", null);
         }
-
-        String clientId;
-        try {
-            clientId = (String) claims.get(CID);
-        } catch (ClassCastException ex) {
-            throw new InvalidTokenException("Token bears an invalid or unparseable CID claim.", ex);
-        }
+        String clientId = cid != null ? cid : clientIdClaim;
 
         try {
             ClientDetails client = getClient.apply(clientId);
@@ -353,17 +348,17 @@ public abstract class JwtTokenSignedByThisUAA {
 
         Object audClaim = claims.get(AUD);
         List<String> audience;
-        if (audClaim instanceof String string) {
-            audience = Collections.singletonList(string);
-        } else if (audClaim == null) {
-            audience = Collections.emptyList();
-        } else {
-            try {
-                audience = ((List<?>) audClaim).stream()
-                        .map(String.class::cast)
-                        .toList();
-            } catch (ClassCastException ex) {
-                throw new InvalidTokenException("The token's audience claim is invalid or unparseable.", ex);
+        switch (audClaim) {
+            case null -> audience = Collections.emptyList();
+            case String string -> audience = Collections.singletonList(string);
+            default -> {
+                try {
+                    audience = ((List<?>) audClaim).stream()
+                            .map(String.class::cast)
+                            .toList();
+                } catch (ClassCastException ex) {
+                    throw new InvalidTokenException("The token's audience claim is invalid or unparseable.", ex);
+                }
             }
         }
 
@@ -396,7 +391,7 @@ public abstract class JwtTokenSignedByThisUAA {
         RevocableToken revocableToken = null;
         try {
             revocableToken = revocableTokenProvisioning.retrieve(tokenId, IdentityZoneHolder.get().getId());
-        } catch (EmptyResultDataAccessException ignored) {
+        } catch (EmptyResultDataAccessException _) {
             // ignore exception until null check below
         }
         if (revocableToken == null) {
@@ -467,9 +462,12 @@ public abstract class JwtTokenSignedByThisUAA {
 
     public ClientDetails getClientDetails(MultitenantClientServices clientDetailsService) {
         String clientId = (String) claims.get(CID);
+        if (clientId == null) {
+            clientId = (String) claims.get(CLIENT_ID);
+        }
         try {
             return clientDetailsService.loadClientByClientId(clientId, IdentityZoneHolder.get().getId());
-        } catch (NoSuchClientException x) {
+        } catch (NoSuchClientException _) {
             //happens if the client is deleted and token exist
             throw new InvalidTokenException("Invalid client ID " + clientId);
         }
@@ -480,7 +478,7 @@ public abstract class JwtTokenSignedByThisUAA {
         if (UaaTokenUtils.isUserToken(claims)) {
             try {
                 return userDatabase.retrieveUserById(userId);
-            } catch (UsernameNotFoundException e) {
+            } catch (UsernameNotFoundException _) {
                 throw new InvalidTokenException("Token bears a non-existent user ID: " + userId);
             }
         }

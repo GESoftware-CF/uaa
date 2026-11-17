@@ -44,8 +44,8 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.cloudfoundry.identity.uaa.integration.feature.OIDCLoginIT.doesSupportZoneDNS;
 import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.createSimplePHPSamlIDP;
+import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.doesSupportZoneDNS;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
 
@@ -113,7 +113,7 @@ class ZoneValidationCookieHijackIT {
             try {
                 IntegrationTestUtils.deleteZone(baseUrl, zoneId, token);
                 IntegrationTestUtils.deleteProvider(token, baseUrl, "uaa", zoneId + ".cloudfoundry-saml-login");
-            } catch (Exception ignored) {
+            } catch (Exception _) {
                 // ignored
             }
         }

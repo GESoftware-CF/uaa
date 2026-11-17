@@ -63,7 +63,7 @@ public class PasswordResetEndpoint {
         this.identityZoneManager = identityZoneManager;
     }
 
-    @PostMapping("/password_resets")
+    @PostMapping({"/password_resets", "/password_resets/"})
     public ResponseEntity<PasswordResetResponse> resetPassword(@RequestBody String email,
             @RequestParam(required = false, value = "client_id") String clientId,
             @RequestParam(required = false, value = "redirect_uri") String redirectUri) {
@@ -82,7 +82,7 @@ public class PasswordResetEndpoint {
         } catch (ConflictException e) {
             response.setUserId(e.getUserId());
             return new ResponseEntity<>(response, CONFLICT);
-        } catch (NotFoundException e) {
+        } catch (NotFoundException _) {
             return new ResponseEntity<>(NOT_FOUND);
         }
     }
@@ -95,7 +95,7 @@ public class PasswordResetEndpoint {
         return expiringCode;
     }
 
-    @PostMapping("/password_change")
+    @PostMapping({"/password_change", "/password_change/"})
     public ResponseEntity<LostPasswordChangeResponse> changePassword(@RequestBody LostPasswordChangeRequest passwordChangeRequest) {
         ResponseEntity<LostPasswordChangeResponse> responseEntity;
         if (passwordChangeRequest.getChangeCode() != null) {
@@ -110,13 +110,13 @@ public class PasswordResetEndpoint {
                 response.setEmail(user.getPrimaryEmail());
                 response.setLoginCode(loginCode.getCode());
                 return new ResponseEntity<>(response, OK);
-            } catch (BadCredentialsException e) {
+            } catch (BadCredentialsException _) {
                 return new ResponseEntity<>(UNAUTHORIZED);
-            } catch (ScimResourceNotFoundException e) {
+            } catch (ScimResourceNotFoundException _) {
                 return new ResponseEntity<>(NOT_FOUND);
             } catch (InvalidPasswordException | InvalidCodeException e) {
                 throw e;
-            } catch (Exception e) {
+            } catch (Exception _) {
                 return new ResponseEntity<>(INTERNAL_SERVER_ERROR);
             }
         } else {

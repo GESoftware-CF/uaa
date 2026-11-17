@@ -75,7 +75,7 @@ class SessionLossDuringOauthFlowIT {
 
         try {
             webDriver.get(baseUrl + "/logout.do");
-        } catch (org.openqa.selenium.TimeoutException x) {
+        } catch (org.openqa.selenium.TimeoutException _) {
             //try again - this should not be happening - 20 second timeouts
             webDriver.get(baseUrl + "/logout.do");
         }
@@ -106,6 +106,9 @@ class SessionLossDuringOauthFlowIT {
         // Sign in to login server
         webDriver.findElement(By.name("username")).sendKeys(user.getUserName());
         webDriver.findElement(By.name("password")).sendKeys(user.getPassword());
+
+        //Session Expires (we simulate through deleting the cookie)
+        webDriver.manage().deleteCookieNamed("JSESSIONID");
         webDriver.clickAndWait(By.xpath("//input[@value='Sign in']"));
 
         // Authorize the app for some scopes

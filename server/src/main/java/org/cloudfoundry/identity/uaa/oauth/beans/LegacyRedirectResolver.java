@@ -6,7 +6,6 @@ import org.cloudfoundry.identity.uaa.oauth.common.exceptions.OAuth2Exception;
 import org.cloudfoundry.identity.uaa.oauth.common.exceptions.RedirectMismatchException;
 import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetails;
 import org.cloudfoundry.identity.uaa.util.UaaUrlUtils;
-import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.AntPathMatcher;
@@ -42,15 +41,6 @@ public class LegacyRedirectResolver extends org.cloudfoundry.identity.uaa.oauth.
 
     private final SpecCompliantRedirectMatcher specCompliantRedirectMatcher = new SpecCompliantRedirectMatcher();
 
-    public LegacyRedirectResolver() {
-        super.setMatchSubdomains(false);
-    }
-
-    @Override
-    public void setMatchSubdomains(boolean matchSubdomains) {
-        throw new UnsupportedOperationException("to prevent partial open redirect, subdomains must not be matched");
-    }
-
     @Override
     protected boolean redirectMatches(String requestedRedirect, String clientRedirect) {
         try {
@@ -84,32 +74,28 @@ public class LegacyRedirectResolver extends org.cloudfoundry.identity.uaa.oauth.
 
     @Override
     public String resolveRedirect(String requestedRedirect, ClientDetails client) throws OAuth2Exception {
-        if(IdentityZoneHolder.get().isEnableRedirectUriCheck()) {
-            Set<String> registeredRedirectUris = ofNullable(client.getRegisteredRedirectUri()).orElse(emptySet());
+        Set<String> registeredRedirectUris = ofNullable(client.getRegisteredRedirectUri()).orElse(emptySet());
 
-            if (registeredRedirectUris.isEmpty()) {
-                throw new RedirectMismatchException("Client registration is missing redirect_uri");
-            }
+        if (registeredRedirectUris.isEmpty()) {
+            throw new RedirectMismatchException("Client registration is missing redirect_uri");
+        }
 
         List<String> invalidUrls = registeredRedirectUris.stream()
                 .filter(url -> !UaaUrlUtils.isValidRegisteredRedirectUrl(url))
                 .toList();
 
-            if (!invalidUrls.isEmpty()) {
-                throw new RedirectMismatchException("Client registration contains invalid redirect_uri: " + invalidUrls);
-            }
-
-            String resolveRedirect = super.resolveRedirect(requestedRedirect, client);
-
-            // This legacy resolver decided that the requested redirect URI was a match for one
-            // of the configured redirect uris (i.e. super.resolveRedirect() did not throw), so
-            // check to see if we need to log some warnings before returning.
-            logConfiguredRedirectUrisWhichOnlyMatchFuzzily(client.getClientId(), registeredRedirectUris, requestedRedirect);
-
-            return resolveRedirect;
-        } else {
-            return super.resolveRedirect(requestedRedirect, client);
+        if (!invalidUrls.isEmpty()) {
+            throw new RedirectMismatchException("Client registration contains invalid redirect_uri: " + invalidUrls);
         }
+
+        String resolveRedirect = super.resolveRedirect(requestedRedirect, client);
+
+        // This legacy resolver decided that the requested redirect URI was a match for one
+        // of the configured redirect uris (i.e. super.resolveRedirect() did not throw), so
+        // check to see if we need to log some warnings before returning.
+        logConfiguredRedirectUrisWhichOnlyMatchFuzzily(client.getClientId(), registeredRedirectUris, requestedRedirect);
+
+        return resolveRedirect;
     }
 
     private void logConfiguredRedirectUrisWhichOnlyMatchFuzzily(String clientId, Set<String> registeredRedirectUris, String requestedRedirect) {
@@ -145,7 +131,7 @@ public class LegacyRedirectResolver extends org.cloudfoundry.identity.uaa.oauth.
             if (hasWildcarPort) {
                 uriComponentsBuilder.port(99999);
             }
-        } catch (NullPointerException e) {
+        } catch (NullPointerException _) {
             throw new IllegalArgumentException("URI host and scheme must not be null");
         }
 
@@ -164,7 +150,7 @@ public class LegacyRedirectResolver extends org.cloudfoundry.identity.uaa.oauth.
         MultiValueMap<String, String> originalParams = builder.build().getQueryParams();
         Map<String, List<String>> redactedParams = originalParams.entrySet()
                 .stream()
-                .map(e -> new SimpleEntry<>(e.getKey(), e.getValue().stream().map(v -> "REDACTED").toList()))
+                .map(e -> new SimpleEntry<>(e.getKey(), e.getValue().stream().map(_ -> "REDACTED").toList()))
                 .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         builder.replaceQueryParams(new LinkedMultiValueMap<>(redactedParams));

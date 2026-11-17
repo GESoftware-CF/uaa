@@ -2,44 +2,27 @@ package org.cloudfoundry.identity.uaa.audit;
 
 import org.cloudfoundry.identity.uaa.logging.LogSanitizerUtil;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
-import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.slf4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
-import org.springframework.test.util.ReflectionTestUtils;
-
-import static org.cloudfoundry.identity.uaa.audit.AuditEventType.ClientAuthenticationFailure;
-import static org.cloudfoundry.identity.uaa.audit.AuditEventType.ClientAuthenticationSuccess;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.audit.AuditEventType.PasswordChangeFailure;
+import static org.cloudfoundry.identity.uaa.audit.AuditEventType.PasswordChangeSuccess;
 import static org.cloudfoundry.identity.uaa.audit.AuditEventType.UserAuthenticationSuccess;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-@ExtendWith(SpringExtension.class)
-@ContextConfiguration(classes = { LoggingAuditServiceTest.ContextConfiguration.class, LoggingAuditService.class })
-@TestPropertySource(properties = { "AUDIT_EVENT_TYPES_DEBUG=ClientAuthenticationSuccess,ClientAuthenticationFailure" })
 class LoggingAuditServiceTest {
 
-    @Autowired
     private LoggingAuditService loggingAuditService;
     private Logger mockLogger;
 
     @BeforeEach
     void setup() {
+        loggingAuditService = new LoggingAuditService();
         mockLogger = mock(Logger.class);
-        ReflectionTestUtils.setField(loggingAuditService, "logger", mockLogger);
+        loggingAuditService.setLogger(mockLogger);
     }
 
     @Test
@@ -67,8 +50,46 @@ class LoggingAuditServiceTest {
     }
 
     @Test
+    void log_format_whenPrincipalNameIsPresent() {
+        AuditEvent auditEvent = new AuditEvent(PasswordChangeSuccess, "thePrincipalId", "theOrigin", "theData", 42L, "theZoneId", null, null, "thePrincipalName");
+
+        loggingAuditService.log(auditEvent, "not-used");
+
+        ArgumentCaptor<String> stringCaptor = ArgumentCaptor.forClass(String.class);
+        verify(mockLogger).info(stringCaptor.capture());
+        String logMessage = stringCaptor.getValue();
+        assertThat(logMessage).isEqualTo("PasswordChangeSuccess ('theData'): principal=thePrincipalId, origin=[theOrigin], identityZoneId=[theZoneId], principalName=[thePrincipalName]");
+    }
+
+    @Test
+    void log_format_whenPrincipalNameAndAuthTypeArePresent() {
+        AuditEvent auditEvent = new AuditEvent(PasswordChangeFailure, "thePrincipalId", "theOrigin", "theData", 42L, "theZoneId", "theAuthType", "theDescription", "thePrincipalName");
+
+        loggingAuditService.log(auditEvent, "not-used");
+
+        ArgumentCaptor<String> stringCaptor = ArgumentCaptor.forClass(String.class);
+        verify(mockLogger).info(stringCaptor.capture());
+        String logMessage = stringCaptor.getValue();
+        assertThat(logMessage).isEqualTo("PasswordChangeFailure ('theData'): principal=thePrincipalId, origin=[theOrigin], identityZoneId=[theZoneId], principalName=[thePrincipalName], authenticationType=[theAuthType], detailedDescription=[theDescription]");
+    }
+
+    @Test
     void log_sanitizesMaliciousInput() {
         AuditEvent auditEvent = new AuditEvent(UserAuthenticationSuccess, "principalId", "origin", "data", 100L, "malicious-zone\r\n\t", null, null);
+
+        loggingAuditService.log(auditEvent, "not-used");
+
+        ArgumentCaptor<String> stringCaptor = ArgumentCaptor.forClass(String.class);
+        verify(mockLogger).info(stringCaptor.capture());
+        assertThat(stringCaptor.getValue()).doesNotContain("\r")
+                .doesNotContain("\n")
+                .doesNotContain("\t")
+                .contains(LogSanitizerUtil.SANITIZED_FLAG);
+    }
+
+    @Test
+    void log_sanitizesMaliciousPrincipalName() {
+        AuditEvent auditEvent = new AuditEvent(PasswordChangeSuccess, "principalId", "origin", "data", 100L, "safe-zone", null, null, "malicious\r\n\tname");
 
         loggingAuditService.log(auditEvent, "not-used");
 
@@ -89,36 +110,5 @@ class LoggingAuditServiceTest {
         ArgumentCaptor<String> stringCaptor = ArgumentCaptor.forClass(String.class);
         verify(mockLogger).info(stringCaptor.capture());
         assertThat(stringCaptor.getValue()).doesNotContain(LogSanitizerUtil.SANITIZED_FLAG);
-    }
-
-    @Test
-    public void log_outputsClientAuthenticationSuccessEventTypeAtDebugLevel() {
-        AuditEvent auditEvent = new AuditEvent(ClientAuthenticationSuccess, "principalId", "origin", "data", 100L, "not-used", null, null);
-
-        loggingAuditService.log(auditEvent, "not-used");
-
-        ArgumentCaptor<String> stringCaptor = ArgumentCaptor.forClass(String.class);
-        verify(mockLogger).debug(stringCaptor.capture());
-        assertFalse(stringCaptor.getValue().contains(LogSanitizerUtil.SANITIZED_FLAG));
-    }
-
-    @Test
-    public void log_outputsClientAuthenticationFailureEventTypeAtDebugLevel() {
-        AuditEvent auditEvent = new AuditEvent(ClientAuthenticationFailure, "principalId", "origin", "data", 100L, "not-used", null, null);
-
-        loggingAuditService.log(auditEvent, "not-used");
-
-        ArgumentCaptor<String> stringCaptor = ArgumentCaptor.forClass(String.class);
-        verify(mockLogger).debug(stringCaptor.capture());
-        assertFalse(stringCaptor.getValue().contains(LogSanitizerUtil.SANITIZED_FLAG));
-    }
-
-    @Configuration
-    static class ContextConfiguration {
-
-        @Bean
-        public static PropertySourcesPlaceholderConfigurer propertySourcesPlaceholderConfigurer() {
-            return new PropertySourcesPlaceholderConfigurer();
-        }
     }
 }

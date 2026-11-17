@@ -35,8 +35,8 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.getHeaders;
 import static org.cloudfoundry.identity.uaa.oauth.common.util.OAuth2Utils.USER_OAUTH_APPROVAL;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.CSRF_PARAMETER_NAME;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
+import static org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository.DEFAULT_CSRF_COOKIE_NAME;
 
 @SpringJUnitConfig(classes = DefaultIntegrationTestConfig.class)
 class IntrospectEndpointIntegrationTests {
@@ -71,12 +71,12 @@ class IntrospectEndpointIntegrationTests {
         assertThat(response.getBody()).contains("/login.do")
                 .contains("username")
                 .contains("password");
-        String csrf = IntegrationTestUtils.extracCsrfToken(response.getBody());
+        String csrf = IntegrationTestUtils.extractCookieCsrf(response.getBody());
 
         MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
         formData.add("username", testAccounts.getUserName());
         formData.add("password", testAccounts.getPassword());
-        formData.add(CSRF_PARAMETER_NAME, csrf);
+        formData.add(DEFAULT_CSRF_COOKIE_NAME, csrf);
 
         // Should be redirected to the original URL, but now authenticated
         result = serverRunning.postForResponse("/login.do", getHeaders(cookies), formData);
@@ -91,7 +91,7 @@ class IntrospectEndpointIntegrationTests {
             assertThat(response.getBody()).contains("<h1>Application Authorization</h1>");
 
             formData.clear();
-            formData.add(CSRF_PARAMETER_NAME, IntegrationTestUtils.extracCsrfToken(response.getBody()));
+            formData.add(DEFAULT_CSRF_COOKIE_NAME, IntegrationTestUtils.extractCookieCsrf(response.getBody()));
             formData.add(USER_OAUTH_APPROVAL, "true");
             result = serverRunning.postForResponse("/oauth/authorize", getHeaders(cookies), formData);
             assertThat(result.getStatusCode()).isEqualTo(HttpStatus.FOUND);
@@ -201,7 +201,7 @@ class IntrospectEndpointIntegrationTests {
         ResponseEntity<Map> introspectResponse = serverRunning.postForMap("/introspect", formData, tokenHeaders);
         assertThat(introspectResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(introspectResponse.getBody()).isNotNull();
-        System.out.println(introspectResponse.getBody());
+        IO.println(introspectResponse.getBody());
 
         @SuppressWarnings("unchecked")
         Map<String, Object> map = introspectResponse.getBody();
@@ -224,7 +224,7 @@ class IntrospectEndpointIntegrationTests {
         ResponseEntity<Map> introspectResponse = serverRunning.postForMap("/introspect", formData, tokenHeaders);
         assertThat(introspectResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(introspectResponse.getBody()).isNotNull();
-        System.out.println(introspectResponse.getBody());
+        IO.println(introspectResponse.getBody());
 
         @SuppressWarnings("unchecked")
         Map<String, Object> map = introspectResponse.getBody();
@@ -248,7 +248,7 @@ class IntrospectEndpointIntegrationTests {
         ResponseEntity<Map> introspectResponse = serverRunning.postForMap("/introspect", formData, tokenHeaders);
         assertThat(introspectResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(introspectResponse.getBody()).isNotNull();
-        System.out.println(introspectResponse.getBody());
+        IO.println(introspectResponse.getBody());
 
         @SuppressWarnings("unchecked")
         Map<String, Object> map = introspectResponse.getBody();
@@ -272,7 +272,7 @@ class IntrospectEndpointIntegrationTests {
         ResponseEntity<Map> introspectResponse = serverRunning.postForMap("/introspect", formData, tokenHeaders);
         assertThat(introspectResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(introspectResponse.getBody()).isNotNull();
-        System.out.println(introspectResponse.getBody());
+        IO.println(introspectResponse.getBody());
 
         @SuppressWarnings("unchecked")
         Map<String, Object> map = introspectResponse.getBody();
@@ -297,7 +297,7 @@ class IntrospectEndpointIntegrationTests {
         ResponseEntity<Map> introspectResponse = serverRunning.postForMap("/introspect", formData, tokenHeaders);
         assertThat(introspectResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(introspectResponse.getBody()).isNotNull();
-        System.out.println(introspectResponse.getBody());
+        IO.println(introspectResponse.getBody());
 
         @SuppressWarnings("unchecked")
         Map<String, Object> map = introspectResponse.getBody();
@@ -401,7 +401,7 @@ class IntrospectEndpointIntegrationTests {
         ResponseEntity<Map> introspectResponse = serverRunning.postForMap("/introspect", formData, tokenHeaders);
         assertThat(introspectResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(introspectResponse.getBody()).isNotNull();
-        System.out.println(introspectResponse.getBody());
+        IO.println(introspectResponse.getBody());
 
         @SuppressWarnings("unchecked")
         Map<String, Object> map = introspectResponse.getBody();

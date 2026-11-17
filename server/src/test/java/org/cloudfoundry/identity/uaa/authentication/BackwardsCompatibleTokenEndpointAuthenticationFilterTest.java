@@ -15,26 +15,30 @@
 
 package org.cloudfoundry.identity.uaa.authentication;
 
+import jakarta.servlet.FilterChain;
 import org.cloudfoundry.identity.uaa.oauth.TokenTestSupport;
 import org.cloudfoundry.identity.uaa.oauth.provider.AuthorizationRequest;
 import org.cloudfoundry.identity.uaa.oauth.provider.OAuth2Authentication;
 import org.cloudfoundry.identity.uaa.oauth.provider.OAuth2Request;
 import org.cloudfoundry.identity.uaa.oauth.provider.OAuth2RequestFactory;
 import org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants;
+import org.cloudfoundry.identity.uaa.oauth.token.RevocableToken;
+import org.cloudfoundry.identity.uaa.oauth.token.RevocableTokenProvisioning;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.oauth.ExternalOAuthAuthenticationManager;
 import org.cloudfoundry.identity.uaa.provider.oauth.ExternalOAuthCodeToken;
+import org.cloudfoundry.identity.uaa.provider.oauth.TokenExchangeData;
 import org.cloudfoundry.identity.uaa.provider.saml.Saml2BearerGrantAuthenticationConverter;
 import org.cloudfoundry.identity.uaa.util.SessionUtils;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
@@ -44,7 +48,6 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 
-import jakarta.servlet.FilterChain;
 import java.util.Collections;
 import java.util.Map;
 
@@ -55,8 +58,13 @@ import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.GRANT_TYP
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.CLIENT_AUTH_NONE;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_JWT_BEARER;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_SAML2_BEARER;
+import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_TOKEN_EXCHANGE;
+import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.TOKEN_TYPE_ACCESS;
+import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.TOKEN_TYPE_ID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doReturn;
@@ -67,6 +75,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class BackwardsCompatibleTokenEndpointAuthenticationFilterTest {
@@ -79,6 +88,12 @@ class BackwardsCompatibleTokenEndpointAuthenticationFilterTest {
     private Saml2BearerGrantAuthenticationConverter saml2BearerGrantAuthenticationConverter;
     @Mock
     private ExternalOAuthAuthenticationManager externalOAuthAuthenticationManager;
+
+    @Mock
+    private AuthenticationManager tokenExchangeAuthenticationManager;
+
+    @Mock
+    private RevocableTokenProvisioning revocableTokenProvisioning;
 
     @Mock
     private FilterChain chain;
@@ -97,7 +112,8 @@ class BackwardsCompatibleTokenEndpointAuthenticationFilterTest {
                         passwordAuthManager,
                         requestFactory,
                         saml2BearerGrantAuthenticationConverter,
-                        externalOAuthAuthenticationManager
+                        externalOAuthAuthenticationManager,
+                        tokenExchangeAuthenticationManager
                 )
         );
 
@@ -173,6 +189,29 @@ class BackwardsCompatibleTokenEndpointAuthenticationFilterTest {
     }
 
     @Test
+    void attemptPasswordAuthenticationDoesNotCreateSessionIfItDoesNotExist() throws Exception {
+        request.addParameter(GRANT_TYPE, "password");
+        request.addParameter("username", "marissa");
+        request.addParameter("password", "koala");
+        UaaAuthentication uaaAuthentication = mock(UaaAuthentication.class);
+        when(uaaAuthentication.isAuthenticated()).thenReturn(true);
+        when(passwordAuthManager.authenticate(any())).thenReturn(uaaAuthentication);
+        AuthorizationRequest authorizationRequest = mock(AuthorizationRequest.class);
+        UaaAuthentication clientAuthentication = mock(UaaAuthentication.class);
+        UaaAuthenticationDetails uaaAuthenticationDetails = mock(UaaAuthenticationDetails.class);
+        when(clientAuthentication.getDetails()).thenReturn(uaaAuthenticationDetails);
+        when(clientAuthentication.isAuthenticated()).thenReturn(true);
+        when((uaaAuthenticationDetails.getAuthenticationMethod())).thenReturn(CLIENT_AUTH_NONE);
+        when(requestFactory.createAuthorizationRequest(anyMap())).thenReturn(authorizationRequest);
+        SecurityContextHolder.getContext().setAuthentication(clientAuthentication);
+        assertThat(request.getSession(false)).isNull();
+        filter.doFilter(request, response, chain);
+        verify(filter, times(1)).attemptTokenAuthentication(same(request), same(response));
+        verify(passwordAuthManager, times(1)).authenticate(any());
+        assertThat(request.getSession(false)).isNull();
+    }
+
+    @Test
     void attemptSamlAssertionAuthentication() throws Exception {
         request.addParameter(GRANT_TYPE, GRANT_TYPE_SAML2_BEARER);
         request.addParameter("assertion", "saml-assertion-value-here");
@@ -204,7 +243,6 @@ class BackwardsCompatibleTokenEndpointAuthenticationFilterTest {
     }
 
     @Test
-    @Disabled("GE Fork has its own JWT-bearer implementation")
     void attemptJwtTokenAuthentication() throws Exception {
         support = new TokenTestSupport(null, null);
         String idToken = support.getIdTokenAsString(Collections.singletonList(OPENID));
@@ -222,7 +260,6 @@ class BackwardsCompatibleTokenEndpointAuthenticationFilterTest {
     }
 
     @Test
-    @Disabled("GE Fork has its own JWT-bearer implementation")
     void attemptJwtTokenProxiedAuthentication() throws Exception {
         support = new TokenTestSupport(null, null);
         String idToken = support.getIdTokenAsString(Collections.singletonList(OPENID));
@@ -247,7 +284,6 @@ class BackwardsCompatibleTokenEndpointAuthenticationFilterTest {
     }
 
     @Test
-    @Disabled("GE Fork has its own JWT-bearer implementation")
     void jwtAssertionMissing() throws Exception {
         request.addParameter(GRANT_TYPE, GRANT_TYPE_JWT_BEARER);
         filter.doFilter(request, response, chain);
@@ -259,5 +295,123 @@ class BackwardsCompatibleTokenEndpointAuthenticationFilterTest {
         verify(entryPoint, times(1)).commence(same(request), same(response), exceptionArgumentCaptor.capture());
         assertThat(exceptionArgumentCaptor.getValue()).isInstanceOf(InsufficientAuthenticationException.class);
         assertThat(exceptionArgumentCaptor.getValue().getMessage()).isEqualTo("Assertion is missing");
+    }
+
+    @Test
+    void attemptTokenExchangeAuthenticationWithIdToken() throws Exception {
+        support = new TokenTestSupport(null, null);
+        String idToken = support.getIdTokenAsString(Collections.singletonList(OPENID));
+        request.addParameter(GRANT_TYPE, GRANT_TYPE_TOKEN_EXCHANGE);
+        request.addParameter("subject_token", idToken);
+        request.addParameter("subject_token_type", TOKEN_TYPE_ID);
+        filter.doFilter(request, response, chain);
+        verify(filter, times(1)).attemptTokenAuthentication(same(request), same(response));
+        ArgumentCaptor<TokenExchangeData> authenticateData = ArgumentCaptor.forClass(TokenExchangeData.class);
+        verify(tokenExchangeAuthenticationManager, times(1)).authenticate(authenticateData.capture());
+        verifyNoInteractions(externalOAuthAuthenticationManager);
+        verifyNoInteractions(passwordAuthManager);
+        verifyNoMoreInteractions(tokenExchangeAuthenticationManager);
+        assertThat(authenticateData.getValue().getIdToken()).isEqualTo(idToken);
+        assertThat(authenticateData.getValue().getAccessToken()).isNull();
+        assertThat(authenticateData.getValue().getOrigin()).isNull();
+    }
+
+    @Test
+    void attemptTokenExchangeAuthenticationWithAccessToken() throws Exception {
+        support = new TokenTestSupport(null, null);
+        String idToken = support.getIdTokenAsString(Collections.singletonList(OPENID));
+        request.addParameter(GRANT_TYPE, GRANT_TYPE_TOKEN_EXCHANGE);
+        request.addParameter("subject_token", idToken);
+        request.addParameter("subject_token_type", TOKEN_TYPE_ACCESS);
+        filter.doFilter(request, response, chain);
+        verify(filter, times(1)).attemptTokenAuthentication(same(request), same(response));
+        ArgumentCaptor<TokenExchangeData> authenticateData = ArgumentCaptor.forClass(TokenExchangeData.class);
+        verify(tokenExchangeAuthenticationManager, times(1)).authenticate(authenticateData.capture());
+        verifyNoInteractions(externalOAuthAuthenticationManager);
+        verifyNoInteractions(passwordAuthManager);
+        verifyNoMoreInteractions(tokenExchangeAuthenticationManager);
+        assertThat(authenticateData.getValue().getAccessToken()).isEqualTo(idToken);
+        assertThat(authenticateData.getValue().getIdToken()).isNull();
+        assertThat(authenticateData.getValue().getOrigin()).isNull();
+    }
+
+    @Test
+    void tokenExchangeSubjectTokenMissing() throws Exception {
+        request.addParameter(GRANT_TYPE, GRANT_TYPE_TOKEN_EXCHANGE);
+        filter.doFilter(request, response, chain);
+        verify(filter, times(1)).attemptTokenAuthentication(same(request), same(response));
+        verifyNoInteractions(externalOAuthAuthenticationManager);
+        verifyNoInteractions(passwordAuthManager);
+        verifyNoInteractions(tokenExchangeAuthenticationManager);
+        ArgumentCaptor<AuthenticationException> exceptionArgumentCaptor = ArgumentCaptor.forClass(AuthenticationException.class);
+        verify(entryPoint, times(1)).commence(same(request), same(response), exceptionArgumentCaptor.capture());
+        assertThat(exceptionArgumentCaptor.getValue()).isInstanceOf(InsufficientAuthenticationException.class);
+        assertThat(exceptionArgumentCaptor.getValue().getMessage()).isEqualTo("Invalid or missing subject_token");
+    }
+
+    private BackwardsCompatibleTokenEndpointAuthenticationFilter filterWithRevocableProvisioning(
+            RevocableTokenProvisioning revocableTokenProvisioning) {
+        return new BackwardsCompatibleTokenEndpointAuthenticationFilter(
+                BackwardsCompatibleTokenEndpointAuthenticationFilter.DEFAULT_FILTER_PROCESSES_URI,
+                passwordAuthManager,
+                requestFactory,
+                saml2BearerGrantAuthenticationConverter,
+                externalOAuthAuthenticationManager,
+                tokenExchangeAuthenticationManager,
+                revocableTokenProvisioning
+        );
+    }
+
+    @Test
+    void getSubjectToken_resolves_opaque_access_token_via_revocable_store() {
+        BackwardsCompatibleTokenEndpointAuthenticationFilter filterWithRevocable =
+                filterWithRevocableProvisioning(revocableTokenProvisioning);
+        String opaqueId = "opaque-access-token-handle";
+        String backingJwt =
+                "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c2VyMTIzIiwiaXNzIjoiaHR0cHM6Ly91YWEuZXhhbXBsZS5jb20iLCJ1c2VyX25hbWUiOiJqb2huIiwidXNlcl9pZCI6InVzZXIxMjMiLCJvcmlnaW4iOiJ1YWEifQ.c2lnbmF0dXJl";
+        RevocableToken revocableToken = mock(RevocableToken.class);
+        when(revocableToken.getValue()).thenReturn(backingJwt);
+        when(revocableTokenProvisioning.retrieve(eq(opaqueId), anyString())).thenReturn(revocableToken);
+
+        request.addParameter("subject_token", opaqueId);
+        request.addParameter("subject_token_type", TOKEN_TYPE_ACCESS);
+
+        TokenExchangeData data = filterWithRevocable.getSubjectToken(request);
+
+        assertThat(data.getAccessToken()).isEqualTo(backingJwt);
+        assertThat(data.getIdToken()).isNull();
+        verify(revocableTokenProvisioning, times(1)).retrieve(eq(opaqueId), anyString());
+    }
+
+    @Test
+    void getSubjectToken_leaves_opaque_unchanged_when_not_in_revocable_store() {
+        BackwardsCompatibleTokenEndpointAuthenticationFilter filterWithRevocable =
+                filterWithRevocableProvisioning(revocableTokenProvisioning);
+        String opaqueId = "missing-opaque-token";
+        when(revocableTokenProvisioning.retrieve(eq(opaqueId), anyString()))
+                .thenThrow(new EmptyResultDataAccessException(1));
+
+        request.addParameter("subject_token", opaqueId);
+        request.addParameter("subject_token_type", TOKEN_TYPE_ACCESS);
+
+        TokenExchangeData data = filterWithRevocable.getSubjectToken(request);
+
+        assertThat(data.getAccessToken()).isEqualTo(opaqueId);
+        verify(revocableTokenProvisioning, times(1)).retrieve(eq(opaqueId), anyString());
+    }
+
+    @Test
+    void getSubjectToken_jwt_access_token_skips_revocable_lookup() throws Exception {
+        BackwardsCompatibleTokenEndpointAuthenticationFilter filterWithRevocable =
+                filterWithRevocableProvisioning(revocableTokenProvisioning);
+        support = new TokenTestSupport(null, null);
+        String jwt = support.getIdTokenAsString(Collections.singletonList(OPENID));
+        request.addParameter("subject_token", jwt);
+        request.addParameter("subject_token_type", TOKEN_TYPE_ACCESS);
+
+        TokenExchangeData data = filterWithRevocable.getSubjectToken(request);
+
+        assertThat(data.getAccessToken()).isEqualTo(jwt);
+        verify(revocableTokenProvisioning, never()).retrieve(anyString(), anyString());
     }
 }

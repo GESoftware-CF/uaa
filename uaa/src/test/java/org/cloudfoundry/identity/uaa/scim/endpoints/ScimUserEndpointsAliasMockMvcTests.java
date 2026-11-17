@@ -1,6 +1,6 @@
 package org.cloudfoundry.identity.uaa.scim.endpoints;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import org.cloudfoundry.identity.uaa.DefaultTestContext;
 import org.cloudfoundry.identity.uaa.HttpMethodEnum;
 import org.cloudfoundry.identity.uaa.alias.AliasMockMvcTestBase;
@@ -1510,7 +1510,7 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
 
         private void assertUserDoesNotExist(final String id, final String zoneId) throws Exception {
             final Optional<ScimUser> user = readUserFromZoneIfExists(id, zoneId);
-            assertThat(user).isNotPresent();
+            assertThat(user).isEmpty();
         }
     }
 
@@ -1580,7 +1580,7 @@ class ScimUserEndpointsAliasMockMvcTests extends AliasMockMvcTestBase {
                 .map(UserConfig::getDefaultGroups);
         assertThat(defaultGroupNamesAliasZoneOpt).isPresent();
         final List<String> defaultGroupNamesAliasZone = defaultGroupNamesAliasZoneOpt.get();
-        assertThat(aliasUser.getGroups()).hasSize(defaultGroupNamesAliasZone.size());
+        assertThat(aliasUser.getGroups()).hasSameSizeAs(defaultGroupNamesAliasZone);
         final List<String> directGroupNamesAliasUser = aliasUser.getGroups().stream()
                 .filter(group -> group.getType() == DIRECT)
                 .map(ScimUser.Group::getDisplay)

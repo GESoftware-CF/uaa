@@ -1,6 +1,6 @@
 package org.cloudfoundry.identity.uaa.invitations;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import org.cloudfoundry.identity.uaa.DefaultTestContext;
 import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.codestore.ExpiringCode;
@@ -28,6 +28,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.test.context.TestPropertySource;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -51,12 +54,9 @@ import static org.cloudfoundry.identity.uaa.util.JsonUtils.readValue;
 import static org.cloudfoundry.identity.uaa.util.JsonUtils.writeValueAsString;
 import static org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter.HEADER;
 import static org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter.SUBDOMAIN_HEADER;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.not;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @DefaultTestContext
@@ -137,8 +137,14 @@ class InvitationsEndpointMockMvcTests {
 
     @Nested
     @DefaultTestContext
+    @TestPropertySource(
+            properties = "uaa.oauth.redirect_uri.allow_unsafe_matching=true"
+    )
     @ExtendWith(ZoneSeederExtension.class)
     class WithOtherIdentityZone {
+
+        @Autowired // New mockMvc tied to the new web app context created by @TestPropertySource
+        protected MockMvc mockMvc;
 
         private ZoneSeeder zoneSeeder;
 
@@ -147,8 +153,9 @@ class InvitationsEndpointMockMvcTests {
             this.zoneSeeder = zoneSeeder.withDefaults().withAdminClientWithClientCredentialsGrant();
         }
 
-        @Test
-        void inviteUserInZoneWithDefaultZoneZoneAdmin() throws Exception {
+        @ParameterizedTest
+        @ValueSource(strings = {"/invite_users", "/invite_users/"})
+        void inviteUserInZoneWithDefaultZoneZoneAdmin(String url) throws Exception {
             String zonifiedAdminClientId = generator.generate().toLowerCase();
             String zonifiedAdminClientSecret = generator.generate().toLowerCase();
 
@@ -175,7 +182,7 @@ class InvitationsEndpointMockMvcTests {
 
             String requestBody = writeValueAsString(invitations);
 
-            MockHttpServletRequestBuilder post = post("/invite_users")
+            MockHttpServletRequestBuilder post = post(url)
                     .param(OAuth2Utils.REDIRECT_URI, redirectUrl)
                     .header("Authorization", "Bearer " + zonifiedScimInviteToken)
                     .header(SUBDOMAIN_HEADER, zoneSeeder.getIdentityZoneSubdomain())
@@ -190,8 +197,9 @@ class InvitationsEndpointMockMvcTests {
             assertResponseAndCodeCorrect(expiringCodeStore, new String[]{email}, redirectUrl, zoneSeeder.getIdentityZone(), invitationsResponse, zonifiedScimInviteClientDetails);
         }
 
-        @Test
-        void inviteUserInZoneWithDefaultZoneScimInvite() throws Exception {
+        @ParameterizedTest
+        @ValueSource(strings = {"/invite_users", "/invite_users/"})
+        void inviteUserInZoneWithDefaultZoneScimInvite(String url) throws Exception {
             String zonifiedScimInviteClientId = generator.generate().toLowerCase();
             String zonifiedScimInviteClientSecret = generator.generate().toLowerCase();
 
@@ -218,7 +226,7 @@ class InvitationsEndpointMockMvcTests {
 
             String requestBody = writeValueAsString(invitations);
 
-            MockHttpServletRequestBuilder post = post("/invite_users")
+            MockHttpServletRequestBuilder post = post(url)
                     .param(OAuth2Utils.REDIRECT_URI, redirectUrl)
                     .header("Authorization", "Bearer " + zonifiedScimInviteToken)
                     .header(HEADER, zoneSeeder.getIdentityZoneId())
@@ -234,8 +242,9 @@ class InvitationsEndpointMockMvcTests {
 
         }
 
-        @Test
-        void inviteUserInZoneWithDefaultZoneUaaAdmin() throws Exception {
+        @ParameterizedTest
+        @ValueSource(strings = {"/invite_users", "/invite_users/"})
+        void inviteUserInZoneWithDefaultZoneUaaAdmin(String url) throws Exception {
             String email = "user1@example.com";
             String redirectUrl = "example.com";
 
@@ -243,7 +252,7 @@ class InvitationsEndpointMockMvcTests {
 
             String requestBody = writeValueAsString(invitations);
 
-            MockHttpServletRequestBuilder post = post("/invite_users")
+            MockHttpServletRequestBuilder post = post(url)
                     .param(OAuth2Utils.REDIRECT_URI, redirectUrl)
                     .header("Authorization", "Bearer " + adminToken)
                     .header(SUBDOMAIN_HEADER, zoneSeeder.getIdentityZoneSubdomain())
@@ -332,11 +341,12 @@ class InvitationsEndpointMockMvcTests {
                     zoneSeeder.getAdminClientWithClientCredentialsGrant().getClientId(),
                     zoneSeeder.getPlainTextClientSecret(zoneSeeder.getAdminClientWithClientCredentialsGrant()));
 
-            mockMvc.perform(get(acceptInvitationLink)
+            MvcResult mvcResult = mockMvc.perform(get(acceptInvitationLink)
                             .header("Host", (zoneSeeder.getIdentityZoneSubdomain() + ".localhost")))
-                    .andExpect(content().string(containsString("Create your account")))
-                    .andExpect(content().string(containsString("Best Company")))
-                    .andExpect(content().string(containsString("Create account")));
+                    .andReturn();
+
+            assertThat(mvcResult.getResponse().getContentAsString())
+                    .contains("Create your account", "Best Company", "Create account");
         }
 
     }
@@ -384,10 +394,51 @@ class InvitationsEndpointMockMvcTests {
     }
 
     @Test
+    void inviteNewUser_codeContainsCreatedNewUserTrue() throws Exception {
+        String email = "brand-new-" + generator.generate().toLowerCase() + "@" + emailDomain;
+        String redirectUrl = "example.com";
+
+        InvitationsResponse response = sendRequestWithTokenAndReturnResponse(
+                webApplicationContext, mockMvc, scimInviteToken, null, clientId, redirectUrl, email);
+        assertThat(response.getNewInvites()).hasSize(1);
+
+        String code = response.getNewInvites().getFirst().getInviteLink().getQuery().split("=")[1];
+        ExpiringCode expiringCode = expiringCodeStore.retrieveCode(code, IdentityZoneHolder.get().getId());
+        Map<String, String> data = readValue(expiringCode.getData(), new TypeReference<>() {});
+
+        assertThat(data).containsEntry(InvitationsEndpoint.CREATED_NEW_USER, "true");
+    }
+
+    @Test
+    void inviteExistingUnverifiedUaaUser_codeContainsCreatedNewUserFalse(@Autowired JdbcTemplate jdbcTemplate) throws Exception {
+        String email = "pre-existing-" + generator.generate().toLowerCase() + "@" + emailDomain;
+        String redirectUrl = "example.com";
+
+        // First invite creates the user
+        sendRequestWithTokenAndReturnResponse(
+                webApplicationContext, mockMvc, scimInviteToken, null, clientId, redirectUrl, email);
+
+        // Second invite targets the now-existing unverified user
+        InvitationsResponse response = sendRequestWithTokenAndReturnResponse(
+                webApplicationContext, mockMvc, scimInviteToken, null, clientId, redirectUrl, email);
+        assertThat(response.getNewInvites()).hasSize(1);
+
+        String code = response.getNewInvites().getFirst().getInviteLink().getQuery().split("=")[1];
+        ExpiringCode expiringCode = expiringCodeStore.retrieveCode(code, IdentityZoneHolder.get().getId());
+        Map<String, String> data = readValue(expiringCode.getData(), new TypeReference<>() {});
+
+        assertThat(data).containsEntry(InvitationsEndpoint.CREATED_NEW_USER, "false");
+
+        jdbcTemplate.update("DELETE FROM users WHERE username = ?", email);
+    }
+
+    @Test
     void acceptInvitationEmailWithDefaultCompanyName() throws Exception {
-        mockMvc.perform(get(getAcceptInvitationLink(webApplicationContext, mockMvc, clientId, clientSecret, generator, emailDomain, null, "admin", "adminsecret")))
-                .andExpect(content().string(containsString("Create your Predix account")))
-                .andExpect(content().string(containsString("Create Predix account")));
+        MvcResult mvcResult = mockMvc.perform(get(getAcceptInvitationLink(webApplicationContext, mockMvc, clientId, clientSecret, generator, emailDomain, null, "admin", "adminsecret")))
+                .andReturn();
+
+        assertThat(mvcResult.getResponse().getContentAsString())
+                .contains("Create your account", "Create account");
     }
 
     @Test
@@ -402,10 +453,12 @@ class InvitationsEndpointMockMvcTests {
         defaultZone.setConfig(config);
         identityZoneProvisioning.update(defaultZone);
         try {
-            mockMvc.perform(get(getAcceptInvitationLink(webApplicationContext, mockMvc, clientId, clientSecret, generator, emailDomain, null, "admin", "adminsecret")))
-                    .andExpect(content().string(containsString("Create your Best Company account")))
-                    .andExpect(content().string(containsString("Create Best Company account")))
-                    .andExpect(content().string(not(containsString("Create account"))));
+            MvcResult mvcResult = mockMvc.perform(get(getAcceptInvitationLink(webApplicationContext, mockMvc, clientId, clientSecret, generator, emailDomain, null, "admin", "adminsecret")))
+                    .andReturn();
+
+            assertThat(mvcResult.getResponse().getContentAsString())
+                    .contains("Create your Best Company account", "Create Best Company account")
+                    .doesNotContain("Create account");
         } finally {
             defaultZone.setConfig(defaultConfig);
             identityZoneProvisioning.update(defaultZone);
@@ -425,9 +478,12 @@ class InvitationsEndpointMockMvcTests {
         MockHttpServletRequestBuilder accept = get("/invitations/accept")
                 .param("code", code);
 
-        mockMvc.perform(accept)
+        MvcResult mvcResult = mockMvc.perform(accept)
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("<form action=\"/invitations/accept.do\" method=\"post\" novalidate=\"novalidate\">")));
+                .andReturn();
+
+        assertThat(mvcResult.getResponse().getContentAsString())
+                .contains("<form action=\"/invitations/accept.do\" method=\"post\" novalidate=\"novalidate\">");
     }
 
     private static InvitationsResponse sendRequestWithTokenAndReturnResponse(WebApplicationContext webApplicationContext,
@@ -475,7 +531,7 @@ class InvitationsEndpointMockMvcTests {
             assertThat(expiringCode.getIntent()).isEqualTo(ExpiringCodeType.INVITATION.name());
             Map<String, String> data = readValue(expiringCode.getData(), new TypeReference<Map<String, String>>() {
             });
-            assertThat(data).isNotNull()
+            assertThat(data)
                     .containsKey(USER_ID)
                     .containsEntry(EMAIL, emails[i])
                     .containsEntry(ORIGIN, UAA)

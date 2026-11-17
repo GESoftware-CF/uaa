@@ -48,8 +48,8 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.getHeaders;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.CSRF_PARAMETER_NAME;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
+import static org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository.DEFAULT_CSRF_COOKIE_NAME;
 
 @SpringJUnitConfig(classes = DefaultIntegrationTestConfig.class)
 class AutologinIT {
@@ -81,7 +81,7 @@ class AutologinIT {
         map.add("password", testAccounts.getPassword());
         try {
             webDriver.get(baseUrl + "/logout.do");
-        } catch (org.openqa.selenium.TimeoutException x) {
+        } catch (org.openqa.selenium.TimeoutException _) {
             //try again - this should not be happening - 20 second timeouts
             webDriver.get(baseUrl + "/logout.do");
         }
@@ -123,8 +123,7 @@ class AutologinIT {
 
         webDriver.get(baseUrl);
 
-        //Predix branded UAA does not have the header and nav div blocks...
-        //Assert.assertEquals(testAccounts.getUserName(), webDriver.findElement(By.cssSelector(".header .nav")).getText());
+        assertThat(webDriver.findElement(By.cssSelector(".header .nav")).getText()).isEqualTo(testAccounts.getUserName());
         IntegrationTestUtils.validateAccountChooserCookie(baseUrl, webDriver, IdentityZoneHolder.get());
     }
 
@@ -167,12 +166,13 @@ class AutologinIT {
 
         //we are now logged in. check that we have the correct cookies set
         List<String> cookies = authorizeResponse.getHeaders().get("Set-Cookie");
-        assertThat(cookies).as("Expected JSESSIONID cookie to be set")
-                .anySatisfy(s -> assertThat(s).startsWith("JSESSIONID="));
+        assertThat(cookies).as("Expected both JSESSIONID and X-Uaa-Csrf cookies to be set")
+                .anySatisfy(s -> assertThat(s).startsWith("JSESSIONID="))
+                .anySatisfy(s -> assertThat(s).startsWith("X-Uaa-Csrf="));
 
         headers = getAppBasicAuthHttpHeaders();
         for (String cookie : cookies) {
-            if (cookie.startsWith("JSESSIONID=")) {
+            if (cookie.startsWith("X-Uaa-Csrf=") || cookie.startsWith("JSESSIONID=")) {
                 headers.add("Cookie", cookie);
             }
         }
@@ -182,7 +182,7 @@ class AutologinIT {
             authorizeUrl = UriComponentsBuilder.fromUriString(baseUrl)
                     .path("/oauth/authorize")
                     .queryParam("user_oauth_approval", "true")
-                    .queryParam(CSRF_PARAMETER_NAME, IntegrationTestUtils.extracCsrfToken(authorizeResponse.getBody()))
+                    .queryParam(DEFAULT_CSRF_COOKIE_NAME, IntegrationTestUtils.extractCookieCsrf(authorizeResponse.getBody()))
                     .build().toUriString();
             authorizeResponse = template.exchange(authorizeUrl,
                     HttpMethod.POST,
@@ -228,8 +228,8 @@ class AutologinIT {
                 String.class);
 
         IntegrationTestUtils.extractCookies(loginResponse, cookieStore);
-        String csrf = IntegrationTestUtils.extracCsrfToken(loginResponse.getBody());
-        requestBody.add(CSRF_PARAMETER_NAME, csrf);
+        String csrf = IntegrationTestUtils.extractCookieCsrf(loginResponse.getBody());
+        requestBody.add(DEFAULT_CSRF_COOKIE_NAME, csrf);
 
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         loginResponse = restOperations.exchange(baseUrl + "/login.do",
@@ -237,7 +237,8 @@ class AutologinIT {
                 new HttpEntity<>(requestBody, getHeaders(cookieStore)),
                 String.class);
         cookies = loginResponse.getHeaders().get("Set-Cookie");
-        assertThat(cookies).anySatisfy(s -> assertThat(s).startsWith("JSESSIONID"));
+        assertThat(cookies).anySatisfy(s -> assertThat(s).startsWith("JSESSIONID"))
+                .anySatisfy(s -> assertThat(s).startsWith("X-Uaa-Csrf"));
         if (IdentityZoneHolder.get().getConfig().isAccountChooserEnabled()) {
             assertThat(cookies).anySatisfy(s -> assertThat(s).startsWith("Saved-Account-"));
         }
@@ -257,7 +258,7 @@ class AutologinIT {
         requestBody.clear();
         requestBody.add("clientId", "app");
         requestBody.add("delete", "");
-        requestBody.add(CSRF_PARAMETER_NAME, IntegrationTestUtils.extracCsrfToken(profilePage.getBody()));
+        requestBody.add(DEFAULT_CSRF_COOKIE_NAME, IntegrationTestUtils.extractCookieCsrf(profilePage.getBody()));
         ResponseEntity<Void> revokeResponse = template.exchange(revokeApprovalsUrl,
                 HttpMethod.POST,
                 new HttpEntity<>(requestBody, getHeaders(cookieStore)),

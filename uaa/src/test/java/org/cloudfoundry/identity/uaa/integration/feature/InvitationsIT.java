@@ -29,7 +29,6 @@ import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.test.UaaWebDriver;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -42,7 +41,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
-import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 
@@ -55,9 +53,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.getZoneAdminToken;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
-import static org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS;
 
-@Disabled("GE Fork does not use invitations flow")
 @SpringJUnitConfig(classes = DefaultIntegrationTestConfig.class)
 @ExtendWith(PollutionPreventionExtension.class)
 @ExtendWith(ScreenshotOnFailExtension.class)
@@ -102,7 +98,7 @@ public class InvitationsIT {
         try {
             userId = IntegrationTestUtils.getUserIdByField(scimToken, baseUrl, origin, "email", userEmail);
             scimUser = IntegrationTestUtils.getUser(scimToken, baseUrl, userId);
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException _) {
             // ignored
         }
         if (userId == null) {
@@ -159,7 +155,7 @@ public class InvitationsIT {
     void logout_and_clear_cookies() {
         try {
             webDriver.get(baseUrl + "/logout.do");
-        } catch (org.openqa.selenium.TimeoutException x) {
+        } catch (org.openqa.selenium.TimeoutException _) {
             //try again - this should not be happening - 20 second timeouts
             webDriver.get(baseUrl + "/logout.do");
         }
@@ -205,7 +201,7 @@ public class InvitationsIT {
         String currentUserId = null;
         try {
             currentUserId = IntegrationTestUtils.getUserId(scimToken, baseUrl, OriginKeys.UAA, email);
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException _) {
             // ignored
         }
         assertThat(currentUserId).isEqualTo(invitedUserId);
@@ -315,6 +311,8 @@ public class InvitationsIT {
         webDriver.findElement(By.name("username")).sendKeys("marissa");
         webDriver.findElement(By.name("password")).sendKeys("koala");
         webDriver.clickAndWait(By.xpath("//input[@value='Sign in']"));
+        // redirected to /app, which is not there
+        assertThat(webDriver.getPageSource()).contains("Not Found");
 
         ScimUser user = IntegrationTestUtils.getUser(scimToken, baseUrl, userId);
         assertThat(user.isVerified()).isTrue();

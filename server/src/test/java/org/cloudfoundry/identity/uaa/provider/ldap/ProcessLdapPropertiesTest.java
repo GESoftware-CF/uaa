@@ -14,16 +14,22 @@
 
 package org.cloudfoundry.identity.uaa.provider.ldap;
 
+import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.cloudfoundry.identity.uaa.provider.ldap.extension.DefaultTlsDirContextAuthenticationStrategy;
 import org.cloudfoundry.identity.uaa.provider.ldap.extension.ExternalTlsDirContextAuthenticationStrategy;
 import org.junit.jupiter.api.Test;
+import org.springframework.ldap.core.support.AbstractTlsDirContextAuthenticationStrategy;
 import org.springframework.ldap.core.support.SimpleDirContextAuthenticationStrategy;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.cloudfoundry.identity.uaa.provider.LdapIdentityProviderDefinition.LDAP_TLS_EXTERNAL;
 import static org.cloudfoundry.identity.uaa.provider.LdapIdentityProviderDefinition.LDAP_TLS_NONE;
 import static org.cloudfoundry.identity.uaa.provider.LdapIdentityProviderDefinition.LDAP_TLS_SIMPLE;
@@ -65,20 +71,92 @@ class ProcessLdapPropertiesTest {
     }
 
     @Test
-    void authentication_strategy() throws Exception {
-        ProcessLdapProperties process = new ProcessLdapProperties("ldap://localhost:389", false, null);
-        assertThat(process.getAuthenticationStrategy().getClass()).isEqualTo(SimpleDirContextAuthenticationStrategy.class);
-        process = new ProcessLdapProperties("ldap://localhost:389", false, LDAP_TLS_NONE);
-        assertThat(process.getAuthenticationStrategy().getClass()).isEqualTo(SimpleDirContextAuthenticationStrategy.class);
-        process = new ProcessLdapProperties("ldap://localhost:389", false, LDAP_TLS_SIMPLE);
-        assertThat(process.getAuthenticationStrategy().getClass()).isEqualTo(DefaultTlsDirContextAuthenticationStrategy.class);
-        process = new ProcessLdapProperties("ldap://localhost:389", false, LDAP_TLS_EXTERNAL);
-        assertThat(process.getAuthenticationStrategy().getClass()).isEqualTo(ExternalTlsDirContextAuthenticationStrategy.class);
+    void process_withCaCertificates_selectsCaCertAwareSocketFactory() throws Exception {
+        Map<String, String> properties = new HashMap<>();
+        ProcessLdapProperties process = new ProcessLdapProperties("ldaps://localhost:636", false, LDAP_TLS_NONE, true);
+        assertThat(process.process(properties))
+                .containsEntry(LDAP_SSL_SOCKET_FACTORY, ProcessLdapProperties.CA_CERT_AWARE_SOCKET_FACTORY)
+                .containsEntry(LDAP_SOCKET_FACTORY, ProcessLdapProperties.CA_CERT_AWARE_SOCKET_FACTORY);
+        assertThat(process.getSSLSocketFactory().getClass().getName()).isEqualTo(ProcessLdapProperties.CA_CERT_AWARE_SOCKET_FACTORY);
     }
 
     @Test
-    void invalid_authentication_strategy() {
+    void process_withCaCertificatesAndSkipSslValidation_skipStillWins() {
+        Map<String, String> properties = new HashMap<>();
+        ProcessLdapProperties process = new ProcessLdapProperties("ldaps://localhost:636", true, LDAP_TLS_NONE, true);
+        assertThat(process.process(properties))
+                .containsEntry(LDAP_SSL_SOCKET_FACTORY, ProcessLdapProperties.SKIP_SSL_VERIFICATION_SOCKET_FACTORY);
+    }
+
+    @Test
+    void authenticationStrategy() throws Exception {
+        ProcessLdapProperties process = new ProcessLdapProperties("ldap://localhost:389", false, null);
+        assertThat(process.getAuthenticationStrategy()).isExactlyInstanceOf(SimpleDirContextAuthenticationStrategy.class);
+    }
+
+    @Test
+    void invalid_authenticationStrategy() {
         ProcessLdapProperties process = new ProcessLdapProperties("ldap://localhost:389", false, "asdadasda");
-        assertThatExceptionOfType(IllegalArgumentException.class).isThrownBy(process::getAuthenticationStrategy);
+        assertThatThrownBy(process::getAuthenticationStrategy).asInstanceOf(InstanceOfAssertFactories.throwable(IllegalArgumentException.class));
+    }
+
+    @Test
+    void authenticationStrategy_forTlsNone() throws Exception {
+        // Case 1: LDAP_TLS_NONE - No TLS, returns SimpleDirContextAuthenticationStrategy (no hostname verification)
+        ProcessLdapProperties tlsNone = new ProcessLdapProperties("ldap://localhost:389", false, LDAP_TLS_NONE);
+        assertThat(tlsNone.getAuthenticationStrategy()).isInstanceOf(SimpleDirContextAuthenticationStrategy.class);
+
+        ProcessLdapProperties tlsNoneSkipSsl = new ProcessLdapProperties("ldap://localhost:389", true, LDAP_TLS_NONE);
+        assertThat(tlsNoneSkipSsl.getAuthenticationStrategy()).isInstanceOf(SimpleDirContextAuthenticationStrategy.class);
+    }
+
+    @Test
+    void authenticationStrategy_forTlsSimple() throws Exception {
+        // Case 2: LDAP_TLS_SIMPLE with SSL verification enabled (default) 
+        // Expected: Uses JDK default hostname verification (secure)
+        ProcessLdapProperties tlsSimpleSecure = new ProcessLdapProperties("ldap://localhost:389", false, LDAP_TLS_SIMPLE);
+        var simpleSecureStrategy = (AbstractTlsDirContextAuthenticationStrategy) tlsSimpleSecure.getAuthenticationStrategy();
+        assertThat(simpleSecureStrategy).isInstanceOf(DefaultTlsDirContextAuthenticationStrategy.class);
+        assertThat(tlsSimpleSecure.isDisableSslVerification()).isFalse();
+        HostnameVerifier actualVerifier = getHostnameVerifierFromStrategy(simpleSecureStrategy);
+        assertThat(actualVerifier).isNotInstanceOf(NoopHostnameVerifier.class)
+                .isSameAs(HttpsURLConnection.getDefaultHostnameVerifier());
+
+        // Case 3: LDAP_TLS_SIMPLE with SSL verification disabled
+        // Expected: Uses NoopHostnameVerifier
+        ProcessLdapProperties tlsSimpleInsecure = new ProcessLdapProperties("ldap://localhost:389", true, LDAP_TLS_SIMPLE);
+        var simpleInsecureStrategy = (AbstractTlsDirContextAuthenticationStrategy) tlsSimpleInsecure.getAuthenticationStrategy();
+        assertThat(simpleInsecureStrategy).isInstanceOf(DefaultTlsDirContextAuthenticationStrategy.class);
+        assertThat(tlsSimpleInsecure.isDisableSslVerification()).isTrue();
+        assertThat(getHostnameVerifierFromStrategy(simpleInsecureStrategy)).isInstanceOf(NoopHostnameVerifier.class);
+    }
+
+    @Test
+    void authenticationStrategy_forTlsExternal() throws Exception {
+        // Case 4: LDAP_TLS_EXTERNAL with SSL verification enabled (default)
+        // Expected: Uses JDK default hostname verification (secure)
+        ProcessLdapProperties tlsExternalSecure = new ProcessLdapProperties("ldap://localhost:389", false, LDAP_TLS_EXTERNAL);
+        var externalSecureStrategy = (AbstractTlsDirContextAuthenticationStrategy) tlsExternalSecure.getAuthenticationStrategy();
+        assertThat(externalSecureStrategy).isInstanceOf(ExternalTlsDirContextAuthenticationStrategy.class);
+        assertThat(tlsExternalSecure.isDisableSslVerification()).isFalse();
+        HostnameVerifier actualVerifier = getHostnameVerifierFromStrategy(externalSecureStrategy);
+        assertThat(actualVerifier).isNotInstanceOf(NoopHostnameVerifier.class)
+                .isSameAs(HttpsURLConnection.getDefaultHostnameVerifier());
+
+        // Case 5: LDAP_TLS_EXTERNAL with SSL verification disabled
+        // Expected: Uses NoopHostnameVerifier
+        ProcessLdapProperties tlsExternalInsecure = new ProcessLdapProperties("ldap://localhost:389", true, LDAP_TLS_EXTERNAL);
+        var externalInsecureStrategy = (AbstractTlsDirContextAuthenticationStrategy) tlsExternalInsecure.getAuthenticationStrategy();
+        assertThat(externalInsecureStrategy).isInstanceOf(ExternalTlsDirContextAuthenticationStrategy.class);
+        assertThat(tlsExternalInsecure.isDisableSslVerification()).isTrue();
+        assertThat(getHostnameVerifierFromStrategy(externalInsecureStrategy)).isInstanceOf(NoopHostnameVerifier.class);
+    }
+    
+    /**
+     * Helper method to extract the hostname verifier from an AbstractTlsDirContextAuthenticationStrategy
+     * using ReflectionTestUtils since there's no public getter method.
+     */
+    private HostnameVerifier getHostnameVerifierFromStrategy(AbstractTlsDirContextAuthenticationStrategy strategy) {
+        return (HostnameVerifier) ReflectionTestUtils.getField(strategy, "hostnameVerifier");
     }
 }

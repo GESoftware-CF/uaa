@@ -38,7 +38,7 @@ public class SignatureVerifier implements Verifier {
             JWK webKey;
             if (verificationKey.getKty() == JsonWebKey.KeyType.RSA) {
                 algorithm = Optional.ofNullable(verificationKey.getAlgorithm()).orElse(JWSAlgorithm.RS256.getName());
-                webKey = verificationKey.getValue() != null ?
+                webKey = verificationKey.hasValue() ?
                         JsonWebKeyHelper.getJsonWebKey(verificationKey.getValue()) :
                         JWK.parse(verificationKey.getKeyProperties());
             } else if (verificationKey.getKty() == JsonWebKey.KeyType.EC) {
@@ -90,7 +90,7 @@ public class SignatureVerifier implements Verifier {
             Map<String, Object> keyMap = new HashMap<>(delegate.getKeyProperties());
             keyMap.put(HeaderParameterNames.KEY_ID, keyId);
             return new JWKSet(JWK.parse(keyMap));
-        } catch (ParseException e) {
+        } catch (ParseException _) {
             // ignore
         }
         return new JWKSet();

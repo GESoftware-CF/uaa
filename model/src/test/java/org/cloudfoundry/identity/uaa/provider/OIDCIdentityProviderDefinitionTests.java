@@ -19,7 +19,6 @@ import org.cloudfoundry.identity.uaa.login.Prompt;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.junit.jupiter.api.Test;
 
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -34,7 +33,7 @@ class OIDCIdentityProviderDefinitionTests {
     String url = "https://accounts.google.com/.well-known/openid-configuration";
 
     @Test
-    void serialize_discovery_url() throws MalformedURLException {
+    void serialize_discovery_url() throws Exception {
         OIDCIdentityProviderDefinition def = JsonUtils.readValue(defaultJson, OIDCIdentityProviderDefinition.class);
         assertThat(def.getDiscoveryUrl()).isNull();
         def.setDiscoveryUrl(URI.create(url).toURL());
@@ -46,7 +45,7 @@ class OIDCIdentityProviderDefinitionTests {
     }
 
     @Test
-    void serializableObjectCalls() throws CloneNotSupportedException {
+    void serializableObjectCalls() throws Exception {
         OIDCIdentityProviderDefinition def = JsonUtils.readValue(defaultJson, OIDCIdentityProviderDefinition.class);
         OIDCIdentityProviderDefinition def2 = (OIDCIdentityProviderDefinition) def.clone();
         assertThat(def2).isEqualTo(def)
@@ -65,15 +64,39 @@ class OIDCIdentityProviderDefinitionTests {
         def.setPrompts(prompts);
         String json = JsonUtils.writeValueAsString(def);
         def = JsonUtils.readValue(json, OIDCIdentityProviderDefinition.class);
-        assertThat(def.getPrompts()).isEqualTo(prompts);
+        assertThat(def.getPrompts()).containsExactlyElementsOf(prompts);
     }
 
     @Test
-    void equalsTests() throws CloneNotSupportedException {
+    void equalsTests() throws Exception {
         OIDCIdentityProviderDefinition original = JsonUtils.readValue(defaultJson, OIDCIdentityProviderDefinition.class);
         OIDCIdentityProviderDefinition compare = (OIDCIdentityProviderDefinition) original.clone();
         compare.setTokenExchangeEnabled(false);
+        compare.setOmitIdTokenHintOnLogout(false);
         assertThat(original).isNotEqualTo(compare);
+    }
+
+    @Test
+    void serialize_caCertificates() {
+        OIDCIdentityProviderDefinition def = JsonUtils.readValue(defaultJson, OIDCIdentityProviderDefinition.class);
+        assertThat(def.getCaCertificates()).isNull();
+        List<String> caCertificates = List.of("-----BEGIN CERTIFICATE-----\nfake\n-----END CERTIFICATE-----");
+        def.setCaCertificates(caCertificates);
+        String json = JsonUtils.writeValueAsString(def);
+        def = JsonUtils.readValue(json, OIDCIdentityProviderDefinition.class);
+        assertThat(def.getCaCertificates()).containsExactlyElementsOf(caCertificates);
+    }
+
+    @Test
+    void caCertificates_areIncludedInEqualsAndHashCode() throws Exception {
+        OIDCIdentityProviderDefinition original = JsonUtils.readValue(defaultJson, OIDCIdentityProviderDefinition.class);
+        original.setCaCertificates(List.of("cert-a"));
+        OIDCIdentityProviderDefinition same = (OIDCIdentityProviderDefinition) original.clone();
+        assertThat(original).isEqualTo(same).hasSameHashCodeAs(same);
+
+        OIDCIdentityProviderDefinition different = (OIDCIdentityProviderDefinition) original.clone();
+        different.setCaCertificates(List.of("cert-b"));
+        assertThat(original).isNotEqualTo(different);
     }
 
     @Test
@@ -87,5 +110,61 @@ class OIDCIdentityProviderDefinitionTests {
         def = JsonUtils.readValue(json, OIDCIdentityProviderDefinition.class);
         assertThat(def.getJwtClientAuthentication()).isEqualTo(settings);
         assertThat(def.getAuthMethod()).isNull();
+    }
+
+    @Test
+    void testToString() throws Exception {
+        OIDCIdentityProviderDefinition def = new OIDCIdentityProviderDefinition();
+        def.setDiscoveryUrl(URI.create(url).toURL());
+        def.setPasswordGrantEnabled(true);
+        def.setSetForwardHeader(true);
+        def.setTokenExchangeEnabled(true);
+        def.setOmitIdTokenHintOnLogout(true);
+
+        List<Prompt> prompts = Arrays.asList(
+            new Prompt("username", "text", "Email"),
+            new Prompt("password", "password", "Password")
+        );
+        def.setPrompts(prompts);
+
+        Map<String, String> jwtSettings = new HashMap<>();
+        jwtSettings.put("iss", "issuer");
+        def.setJwtClientAuthentication(jwtSettings);
+
+        Map<String, String> authzParams = new HashMap<>();
+        authzParams.put("token_format", "jwt");
+        def.setAdditionalAuthzParameters(authzParams);
+
+        String result = def.toString();
+
+        // Verify all attributes are present in toString output
+        assertThat(result).contains("OIDCIdentityProviderDefinition{")
+        .contains("discoveryUrl=" + def.getDiscoveryUrl())
+        .contains("passwordGrantEnabled=true")
+        .contains("setForwardHeader=true")
+        .contains("tokenExchangeEnabled=true")
+        .contains("omitIdTokenHintOnLogout=true")
+        .contains("prompts=")
+        .contains("jwtClientAuthentication=")
+        .contains("additionalAuthzParameters=")
+        .contains("parent=");
+    }
+
+    @Test
+    void toStringWithNullValues() {
+        OIDCIdentityProviderDefinition def = new OIDCIdentityProviderDefinition();
+
+        String result = def.toString();
+
+        // Verify toString works with null values
+        assertThat(result).contains("OIDCIdentityProviderDefinition{")
+        .contains("discoveryUrl=null")
+        .contains("passwordGrantEnabled=false")
+        .contains("setForwardHeader=false")
+        .contains("tokenExchangeEnabled=null")
+        .contains("omitIdTokenHintOnLogout=null")
+        .contains("prompts=null")
+        .contains("jwtClientAuthentication=null")
+        .contains("additionalAuthzParameters=null");
     }
 }

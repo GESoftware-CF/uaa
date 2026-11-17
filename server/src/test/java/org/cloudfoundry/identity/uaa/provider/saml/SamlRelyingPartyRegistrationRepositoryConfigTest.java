@@ -3,14 +3,17 @@ package org.cloudfoundry.identity.uaa.provider.saml;
 import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 import org.cloudfoundry.identity.uaa.provider.SamlIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.saml.SamlKey;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.saml2.provider.service.registration.AssertingPartyMetadata;
 import org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistration;
 import org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository;
 import org.springframework.security.saml2.provider.service.web.RelyingPartyRegistrationResolver;
+import org.springframework.web.client.ResourceAccessException;
 
 import java.security.Security;
 import java.util.List;
@@ -36,6 +39,10 @@ class SamlRelyingPartyRegistrationRepositoryConfigTest {
     static void beforeAll() {
         Security.addProvider(new BouncyCastleFipsProvider());
         samlConfigProps = Saml2TestUtils.createTestSamlProperties();
+        // DefaultRelyingPartyRegistrationRepository.findByRegistrationId() calls retrieveKeyManager(),
+        // which reads this zone-scoped static state -- needed for any test that resolves a
+        // registration id that falls through to the default/fallback repository.
+        new IdentityZoneHolder.Initializer(null, new SamlKeyManagerFactory(samlConfigProps));
     }
 
     @Test
@@ -66,9 +73,36 @@ class SamlRelyingPartyRegistrationRepositoryConfigTest {
         SamlRelyingPartyRegistrationRepositoryConfig config = new SamlRelyingPartyRegistrationRepositoryConfig(ENTITY_ID,
                 localSamlConfigProps, bootstrapSamlIdentityProviderData, NAME_ID, List.of());
         RelyingPartyRegistrationRepository repository = config.relyingPartyRegistrationRepository(samlIdentityProviderConfigurator);
-        RelyingPartyRegistrationResolver resolver = config.relyingPartyRegistrationResolver(repository, ENTITY_ID);
+        RelyingPartyRegistrationResolver resolver = config.relyingPartyRegistrationResolver(repository, ENTITY_ID, "http://localhost:8080/uaa");
 
         assertThat(resolver).isNotNull();
+    }
+
+    @Test
+    void relyingPartyRegistrationRepositoryToleratesUnreachableBootstrapIdpMetadata() {
+        SamlIdentityProviderDefinition unreachableIdp = new SamlIdentityProviderDefinition()
+                .setMetaDataLocation("http://simplesamlphp.invalid/saml2/idp/metadata.php")
+                .setIdpEntityAlias("unreachable-idp");
+        when(bootstrapSamlIdentityProviderData.getIdentityProviderDefinitions()).thenReturn(List.of(unreachableIdp));
+        when(samlIdentityProviderConfigurator.resolveMetadataXml(unreachableIdp))
+                .thenThrow(new ResourceAccessException("I/O error on GET request for metadata URL"));
+
+        SamlRelyingPartyRegistrationRepositoryConfig config = new SamlRelyingPartyRegistrationRepositoryConfig(ENTITY_ID,
+                samlConfigProps, bootstrapSamlIdentityProviderData, NAME_ID, List.of());
+
+        // A single unreachable bootstrap IDP must not prevent the bean (and therefore UAA startup)
+        // from succeeding -- it should be logged and skipped, leaving the default registration intact.
+        RelyingPartyRegistrationRepository repository = config.relyingPartyRegistrationRepository(samlIdentityProviderConfigurator);
+
+        assertThat(repository).isNotNull();
+        assertThat(repository.findByRegistrationId(SamlMetadataEndpoint.DEFAULT_REGISTRATION_ID)).isNotNull();
+
+        // The unreachable IDP itself must not have been registered: DefaultRelyingPartyRegistrationRepository
+        // is a catch-all fallback that returns a stub registration (entityId == the SP's own ENTITY_ID) for
+        // *any* unknown id, so asserting that confirms "unreachable-idp" was skipped rather than partially
+        // registered with broken/incomplete metadata.
+        assertThat(repository.findByRegistrationId("unreachable-idp").getAssertingPartyMetadata().getEntityId())
+                .isEqualTo(ENTITY_ID);
     }
 
     @Test
@@ -85,7 +119,7 @@ class SamlRelyingPartyRegistrationRepositoryConfigTest {
                 .returns("{baseUrl}/saml/SSO/alias/entityId", RelyingPartyRegistration::getAssertionConsumerServiceLocation)
                 .returns("{baseUrl}/saml/SingleLogout/alias/entityId", RelyingPartyRegistration::getSingleLogoutServiceResponseLocation)
                 // from xml
-                .extracting(RelyingPartyRegistration::getAssertingPartyDetails)
-                .returns("entityId", RelyingPartyRegistration.AssertingPartyDetails::getEntityId);
+                .extracting(RelyingPartyRegistration::getAssertingPartyMetadata)
+                .returns("entityId", AssertingPartyMetadata::getEntityId);
     }
 }

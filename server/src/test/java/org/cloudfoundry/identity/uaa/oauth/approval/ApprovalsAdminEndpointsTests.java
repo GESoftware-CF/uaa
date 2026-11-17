@@ -1,8 +1,7 @@
 package org.cloudfoundry.identity.uaa.oauth.approval;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.unboundid.scim.sdk.AttributePath;
-import com.unboundid.scim.sdk.SCIMFilter;
+import tools.jackson.core.type.TypeReference;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.cloudfoundry.identity.uaa.annotations.WithDatabaseContext;
 import org.cloudfoundry.identity.uaa.approval.Approval;
 import org.cloudfoundry.identity.uaa.approval.Approval.ApprovalStatus;
@@ -40,9 +39,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.approval.Approval.ApprovalStatus.APPROVED;
 import static org.cloudfoundry.identity.uaa.approval.Approval.ApprovalStatus.DENIED;
 import static org.mockito.Mockito.mock;
@@ -158,9 +156,9 @@ class ApprovalsAdminEndpointsTests {
                 .setScope("scope")
                 .setExpiresAt(new Date())
                 .setStatus(ApprovalStatus.APPROVED));
-        Set<Approval> deserializedApprovals = JsonUtils.readValue("[{\"userid\":\"test-user-id\",\"clientid\":\"testclientid\",\"scope\":\"scope\",\"status\":\"APPROVED\",\"expiresat\":\"2015-08-25T14:35:42.512Z\",\"lastupdatedat\":\"2015-08-25T14:35:42.512Z\"}]", new TypeReference<Set<Approval>>() {
+        Set<Approval> deserializedApprovals = JsonUtils.readValue("[{\"userid\":\"test-user-id\",\"clientid\":\"testclientid\",\"scope\":\"scope\",\"status\":\"APPROVED\",\"expiresat\":\"2015-08-25T14:35:42.512Z\",\"lastupdatedat\":\"2015-08-25T14:35:42.512Z\"}]", new TypeReference<>() {
         });
-        assertThat(deserializedApprovals).isEqualTo(approvals);
+        assertThat(deserializedApprovals).hasSameElementsAs(approvals);
     }
 
     @Test
@@ -343,7 +341,8 @@ class ApprovalsAdminEndpointsTests {
                 .setExpiresAt(Approval.timeFromNow(2000))
                 .setStatus(APPROVED)};
 
-        assertThatExceptionOfType(UaaException.class).isThrownBy(() -> endpoints.updateApprovals(approvals));
+        assertThatThrownBy(() -> endpoints.updateApprovals(approvals))
+                .isInstanceOf(UaaException.class);
     }
 
     @Test
@@ -358,6 +357,7 @@ class ApprovalsAdminEndpointsTests {
     }
 
     private static String userIdFilter(String userId) {
-        return SCIMFilter.createEqualityFilter(AttributePath.parse("user_id"), userId).getFilterValue();
+        // getApprovals ignores the filter param; return userId as a passthrough value
+        return userId;
     }
 }

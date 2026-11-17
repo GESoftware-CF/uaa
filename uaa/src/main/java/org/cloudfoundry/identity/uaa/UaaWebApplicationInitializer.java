@@ -1,10 +1,16 @@
 package org.cloudfoundry.identity.uaa;
 
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.FilterRegistration;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletRegistration;
 import org.apache.catalina.core.ApplicationContext;
 import org.apache.catalina.core.ApplicationContextFacade;
 import org.apache.catalina.core.StandardContext;
 import org.apache.tomcat.util.descriptor.web.ErrorPage;
 import org.cloudfoundry.identity.uaa.impl.config.YamlServletProfileInitializer;
+import org.cloudfoundry.identity.uaa.zone.ZoneContextPathSessionFilter;
+import org.cloudfoundry.identity.uaa.zone.ZonePathContextRewritingFilter;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.web.WebApplicationInitializer;
 import org.springframework.web.context.ContextLoaderListener;
@@ -12,11 +18,7 @@ import org.springframework.web.context.support.AnnotationConfigWebApplicationCon
 import org.springframework.web.filter.DelegatingFilterProxy;
 import org.springframework.web.servlet.DispatcherServlet;
 
-import jakarta.servlet.DispatcherType;
-import jakarta.servlet.FilterRegistration;
-import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.ServletRegistration;
 import java.lang.reflect.Field;
 import java.util.EnumSet;
 
@@ -36,6 +38,13 @@ public class UaaWebApplicationInitializer implements WebApplicationInitializer {
         contextLoaderListener.setContextInitializers(new YamlServletProfileInitializer());
         servletContext.addListener(contextLoaderListener);
 
+        // Filter registration order matters: first registered = outermost in the chain.
+        // Order: rewriting → Spring Session → zone session → Spring Security
+
+        DelegatingFilterProxy zonePathContextRewritingFilter = new DelegatingFilterProxy(ZonePathContextRewritingFilter.BEAN_NAME, context);
+        FilterRegistration.Dynamic zonePathRegistration = servletContext.addFilter(ZonePathContextRewritingFilter.BEAN_NAME, zonePathContextRewritingFilter);
+        zonePathRegistration.addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST, DispatcherType.ERROR), false, "/*");
+
         //<filter-name>springSessionRepositoryFilter</filter-name>
         DelegatingFilterProxy springSessionRepositoryFilter = new DelegatingFilterProxy("springSessionRepositoryFilter", context);
         FilterRegistration.Dynamic springSessionRepositoryFilterRegistration = servletContext.addFilter(
@@ -49,6 +58,14 @@ public class UaaWebApplicationInitializer implements WebApplicationInitializer {
         DelegatingFilterProxy springSecurityFilterChain = new DelegatingFilterProxy("springSecurityFilterChain", context);
         FilterRegistration.Dynamic springSecurityFilterChainRegistration = servletContext.addFilter(
                 "springSecurityFilterChain",  springSecurityFilterChain
+        DelegatingFilterProxy zoneContextPathSessionFilter = new DelegatingFilterProxy(ZoneContextPathSessionFilter.BEAN_NAME, context);
+        FilterRegistration.Dynamic zoneSessionRegistration = servletContext.addFilter(ZoneContextPathSessionFilter.BEAN_NAME, zoneContextPathSessionFilter);
+        zoneSessionRegistration.addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST, DispatcherType.ERROR), false, "/*");
+
+        //<filter-name>aggregateSpringSecurityFilterChain</filter-name>
+        DelegatingFilterProxy springSecurityFilterChain = new DelegatingFilterProxy("springSecurityFilterChain", context);
+        FilterRegistration.Dynamic springSecurityFilterChainRegistration = servletContext.addFilter(
+                "springSecurityFilterChain", springSecurityFilterChain
         );
         springSecurityFilterChainRegistration.setInitParameter(
                 "contextAttribute", "org.springframework.web.servlet.FrameworkServlet.CONTEXT.spring"

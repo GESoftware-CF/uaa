@@ -231,8 +231,6 @@ public class JdbcIdentityZoneProvisioning implements IdentityZoneProvisioning, S
             }
             identityZone.setActive(rs.getBoolean(9));
             identityZone.setEnableRedirectUriCheck(rs.getBoolean(10));
-
-
             return identityZone;
         }
     }

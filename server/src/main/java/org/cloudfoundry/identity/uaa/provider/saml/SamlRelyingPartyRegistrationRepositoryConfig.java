@@ -3,6 +3,7 @@ package org.cloudfoundry.identity.uaa.provider.saml;
 import lombok.extern.slf4j.Slf4j;
 import org.cloudfoundry.identity.uaa.provider.SamlIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.util.KeyWithCert;
+import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -12,6 +13,7 @@ import org.springframework.security.saml2.Saml2Exception;
 import org.springframework.security.saml2.provider.service.registration.InMemoryRelyingPartyRegistrationRepository;
 import org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistration;
 import org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository;
+import org.springframework.web.client.RestClientException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,7 +21,9 @@ import java.util.Optional;
 
 import static org.cloudfoundry.identity.uaa.provider.saml.SamlMetadataEndpoint.DEFAULT_REGISTRATION_ID;
 
+@DependsOn({"setUpBouncyCastle", "setupOpenSaml"})
 @Configuration
+@DependsOn({"setUpBouncyCastle", "setupOpenSaml"})
 @Slf4j
 public class SamlRelyingPartyRegistrationRepositoryConfig {
 
@@ -42,14 +46,14 @@ public class SamlRelyingPartyRegistrationRepositoryConfig {
         this.signatureAlgorithms = signatureAlgorithms;
     }
 
-    @DependsOn({"setUpBouncyCastle"})
     @Bean
     RelyingPartyRegistrationRepository relyingPartyRegistrationRepository(SamlIdentityProviderConfigurator samlIdentityProviderConfigurator) {
         SamlKeyManagerFactory.SamlConfigPropsSamlKeyManagerImpl samlKeyManager = new SamlKeyManagerFactory.SamlConfigPropsSamlKeyManagerImpl(samlConfigProps);
         List<KeyWithCert> defaultKeysWithCerts = samlKeyManager.getAvailableCredentials();
 
         List<RelyingPartyRegistration> relyingPartyRegistrations = new ArrayList<>();
-        String uaaWideSamlEntityIDAlias = samlConfigProps.getEntityIDAlias() != null ? samlConfigProps.getEntityIDAlias() : samlEntityID;
+        String uaaWideSamlEntityIDAlias = samlConfigProps.getEntityIDAlias() != null ? samlConfigProps.getEntityIDAlias() :
+                UaaStringUtils.getHostIfArgIsURL(samlEntityID);
 
         @SuppressWarnings("java:S125")
         // Spring Security requires at least one relyingPartyRegistration before SAML SP metadata generation;
@@ -76,19 +80,23 @@ public class SamlRelyingPartyRegistrationRepositoryConfig {
         relyingPartyRegistrations.add(exampleRelyingPartyRegistration);
 
         for (SamlIdentityProviderDefinition samlIdentityProviderDefinition : bootstrapSamlIdentityProviderData.getIdentityProviderDefinitions()) {
-            RelyingPartyRegistrationBuilder.Params params = RelyingPartyRegistrationBuilder.Params.builder()
-                    .samlEntityID(samlEntityID)
-                    .samlSpNameId(samlSpNameID)
-                    .keys(defaultKeysWithCerts)
-                    .metadataLocation(samlIdentityProviderDefinition.getMetaDataLocation())
-                    .rpRegistrationId(samlIdentityProviderDefinition.getIdpEntityAlias())
-                    .samlSpAlias(uaaWideSamlEntityIDAlias)
-                    .requestSigned(samlConfigProps.getSignRequest())
-                    .signatureAlgorithms(signatureAlgorithms)
-                    .build();
             try {
+                RelyingPartyRegistrationBuilder.Params params = RelyingPartyRegistrationBuilder.Params.builder()
+                        .samlEntityID(samlEntityID)
+                        .samlSpNameId(samlSpNameID)
+                        .keys(defaultKeysWithCerts)
+                        .metadataLocation(samlIdentityProviderConfigurator.resolveMetadataXml(samlIdentityProviderDefinition))
+                        .rpRegistrationId(samlIdentityProviderDefinition.getIdpEntityAlias())
+                        .samlSpAlias(uaaWideSamlEntityIDAlias)
+                        .requestSigned(samlConfigProps.getSignRequest())
+                        .signatureAlgorithms(signatureAlgorithms)
+                        .build();
                 relyingPartyRegistrations.add(RelyingPartyRegistrationBuilder.buildRelyingPartyRegistration(params));
-            } catch (Saml2Exception e) {
+            } catch (Saml2Exception | RestClientException | IllegalStateException e) {
+                // A single unreachable/misconfigured bootstrap IDP must not prevent UAA from starting.
+                // resolveMetadataXml() now performs a live fetch here: RestClientException covers
+                // DNS/connect/HTTP failures, IllegalStateException covers a malformed metadata URI,
+                // and Saml2Exception covers buildRelyingPartyRegistration()'s own parsing failures.
                 log.error("Error building relying party", e);
             }
         }
@@ -105,7 +113,9 @@ public class SamlRelyingPartyRegistrationRepositoryConfig {
 
     @Bean
     UaaRelyingPartyRegistrationResolver relyingPartyRegistrationResolver(RelyingPartyRegistrationRepository relyingPartyRegistrationRepository,
-            @Qualifier("samlEntityID") String samlEntityID) {
-        return new UaaRelyingPartyRegistrationResolver(relyingPartyRegistrationRepository, Optional.ofNullable(samlConfigProps.getEntityIDAlias()).orElse(samlEntityID));
+            @Qualifier("samlEntityID") String samlEntityID,
+            @Value("${login.entityBaseURL:#{null}}") String entityBaseURL) {
+        return new UaaRelyingPartyRegistrationResolver(relyingPartyRegistrationRepository,
+                Optional.ofNullable(samlConfigProps.getEntityIDAlias()).orElse(UaaStringUtils.getHostIfArgIsURL(samlEntityID)), entityBaseURL);
     }
 }

@@ -1,10 +1,12 @@
 package org.cloudfoundry.identity.uaa.scim.bootstrap;
 
 import org.apache.commons.lang3.tuple.Triple;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.cloudfoundry.identity.uaa.annotations.WithDatabaseContext;
 import org.cloudfoundry.identity.uaa.audit.event.EntityDeletedEvent;
 import org.cloudfoundry.identity.uaa.authentication.manager.ExternalGroupAuthorizationEvent;
 import org.cloudfoundry.identity.uaa.authentication.manager.InvitedUserAuthenticatedEvent;
+import org.cloudfoundry.identity.uaa.authentication.manager.NewUserAuthenticatedEvent;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
 import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
@@ -16,9 +18,11 @@ import org.cloudfoundry.identity.uaa.scim.ScimGroup;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupMember;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.scim.ScimUserAliasHandler;
+import org.cloudfoundry.identity.uaa.scim.ScimUserProvisioning;
 import org.cloudfoundry.identity.uaa.scim.endpoints.ScimUserEndpoints;
 import org.cloudfoundry.identity.uaa.scim.exception.InvalidPasswordException;
 import org.cloudfoundry.identity.uaa.scim.exception.MemberNotFoundException;
+import org.cloudfoundry.identity.uaa.scim.exception.ScimResourceAlreadyExistsException;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimGroupMembershipManager;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimGroupProvisioning;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimUserProvisioning;
@@ -39,6 +43,9 @@ import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManagerImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -68,14 +75,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
 import static java.util.Optional.ofNullable;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -193,7 +204,6 @@ class ScimUserBootstrapTests {
         verify(publisher, times(2)).publishEvent(captor.capture());
         List<EntityDeletedEvent<ScimUser>> deleted = new LinkedList(ofNullable(captor.getAllValues()).orElse(emptyList()));
         assertThat(deleted)
-                .isNotNull()
                 .hasSize(2);
         deleted.forEach(event -> assertThat(event.getDeleted().getOrigin()).isEqualTo(OriginKeys.UAA));
         assertThat(jdbcScimUserProvisioning.retrieveAll(IdentityZone.getUaaZoneId())).hasSize(2);
@@ -253,7 +263,18 @@ class ScimUserBootstrapTests {
         UaaUser joe = new UaaUser("joe", "", "joe@test.org", "Joe", "User", OriginKeys.UAA, null);
         joe = joe.authorities(AuthorityUtils.commaSeparatedStringToAuthorityList("openid,read"));
         ScimUserBootstrap bootstrap = new ScimUserBootstrap(jdbcScimUserProvisioning, scimUserService, jdbcScimGroupProvisioning, jdbcScimGroupMembershipManager, identityZoneManager, Collections.singletonList(joe), false, Collections.emptyList(), false);
-        assertThatExceptionOfType(InvalidPasswordException.class).isThrownBy(bootstrap::afterPropertiesSet);
+        assertThatThrownBy(bootstrap::afterPropertiesSet).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidPasswordException.class));
+    }
+
+    @Test
+    void cannotAddUserWithNoPasswordAndNullOrigin() {
+        // 5-arg constructor leaves origin null; a null origin must be treated as uaa, so empty
+        // password validation still applies (and must not throw a NullPointerException).
+        UaaUser joe = new UaaUser("joe", "", "joe@test.org", "Joe", "User");
+        assertThat(joe.getOrigin()).isNull();
+        joe = joe.authorities(AuthorityUtils.commaSeparatedStringToAuthorityList("openid,read"));
+        ScimUserBootstrap bootstrap = new ScimUserBootstrap(jdbcScimUserProvisioning, scimUserService, jdbcScimGroupProvisioning, jdbcScimGroupMembershipManager, identityZoneManager, Collections.singletonList(joe), false, Collections.emptyList(), false);
+        assertThatThrownBy(bootstrap::afterPropertiesSet).isInstanceOf(InvalidPasswordException.class);
     }
 
     @Test
@@ -479,7 +500,12 @@ class ScimUserBootstrapTests {
         assertThat(aliasUserAfterEvent.getAliasId()).isEqualTo(originalUserId);
         assertThat(aliasUserAfterEvent.getAliasZid()).isEqualTo(IdentityZone.getUaaZoneId());
         assertThat(aliasUserAfterEvent.getExternalId()).isEqualTo(originalUser.getExternalId()); // should be left unchanged
-        assertThat(aliasUserAfterEvent.getPhoneNumbers()).isEqualTo(originalUser.getPhoneNumbers()); // should be left unchanged
+        // Handle null phone numbers case for AssertJ compatibility
+        if (originalUser.getPhoneNumbers() != null) {
+            assertThat(aliasUserAfterEvent.getPhoneNumbers()).containsExactlyElementsOf(originalUser.getPhoneNumbers()); // should be left unchanged
+        } else {
+            assertThat(aliasUserAfterEvent.getPhoneNumbers()).isNull(); // should be left unchanged
+        }
     }
 
     private void createCustomZone(final String customZoneId) {
@@ -691,7 +717,7 @@ class ScimUserBootstrapTests {
         String externalId = null;
         String userId = new RandomValueStringGenerator().generate();
         String username = new RandomValueStringGenerator().generate();
-        UaaUser user = getUaaUser(new String[] {}, origin, email, firstName, lastName, password, externalId, userId, username);
+        UaaUser user = getUaaUser(new String[]{}, origin, email, firstName, lastName, password, externalId, userId, username);
         ScimUserBootstrap bootstrap = new ScimUserBootstrap(
                 jdbcScimUserProvisioning,
                 scimUserService,
@@ -1065,4 +1091,193 @@ class ScimUserBootstrapTests {
         return result;
     }
 
+    static Stream<Arguments> provideGroupNames() {
+        return List.of("group-with-dashes",
+                        "group.with.dots",
+                        "group_with_underscores",
+                        "group with spaces",
+                        "group\twith\ttabs",
+                        "group\nwith\nnewlines",
+                        "group\"with\"quotes",
+                        "group'with'apostrophes",
+                        "group\\with\\backslashes",
+                        "group|with|pipes",
+                        "group&with&ampersands",
+                        "group=with=equals")
+                .stream()
+                .map(Arguments::of);
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideGroupNames")
+    void addToGroup_withSpecialCharactersInGroupName_addsUserToExactGroup(String groupNameWithSpecialChars) {
+        // Given
+        UaaUser testUser = new UaaUser("specialcharuser", "password", "test@test.org", "Test", "User");
+        ScimUserBootstrap bootstrap = new ScimUserBootstrap(jdbcScimUserProvisioning, scimUserService,
+                jdbcScimGroupProvisioning, jdbcScimGroupMembershipManager, identityZoneManager,
+                Collections.singletonList(testUser), false, Collections.emptyList(), false);
+        bootstrap.afterPropertiesSet();
+
+        List<ScimUser> users = jdbcScimUserProvisioning.query("userName eq \"specialcharuser\"", IdentityZone.getUaaZoneId());
+        ScimUser user = users.getFirst();
+
+        // Create group with special characters
+        ScimGroup specialGroup = new ScimGroup(null, groupNameWithSpecialChars, IdentityZone.getUaaZoneId());
+        jdbcScimGroupProvisioning.create(specialGroup, IdentityZone.getUaaZoneId());
+
+        // When
+        UaaUser userWithGroup = testUser.authorities(AuthorityUtils.commaSeparatedStringToAuthorityList(groupNameWithSpecialChars));
+        ScimUserBootstrap groupBootstrap = new ScimUserBootstrap(jdbcScimUserProvisioning, scimUserService,
+                jdbcScimGroupProvisioning, jdbcScimGroupMembershipManager, identityZoneManager,
+                Collections.singletonList(userWithGroup), true, Collections.emptyList(), false);
+        groupBootstrap.afterPropertiesSet();
+
+        // Then
+        Set<ScimGroup> userGroups = jdbcScimGroupMembershipManager.getGroupsWithMember(user.getId(), true, IdentityZone.getUaaZoneId());
+        Set<String> groupNames = userGroups.stream().map(ScimGroup::getDisplayName).collect(Collectors.toSet());
+
+        assertThat(groupNames).containsExactlyInAnyOrder(groupNameWithSpecialChars, "uaa.user");
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideGroupNames")
+    void removeFromGroup_withSpecialCharactersInGroupName_removesUserFromExactGroupOnly(String groupNameWithSpecialChars) {
+        // Given
+        String userName = "removecharuser" + Math.abs(groupNameWithSpecialChars.hashCode());
+        UaaUser testUser = new UaaUser(userName, "password", "test@test.org", "Test", "User");
+
+        // Create user with the problematic group
+        UaaUser userWithGroup = testUser.authorities(AuthorityUtils.commaSeparatedStringToAuthorityList(groupNameWithSpecialChars));
+        ScimUserBootstrap bootstrap = new ScimUserBootstrap(jdbcScimUserProvisioning, scimUserService,
+                jdbcScimGroupProvisioning, jdbcScimGroupMembershipManager, identityZoneManager,
+                Collections.singletonList(userWithGroup), false, emptyList(), false);
+        bootstrap.afterPropertiesSet();
+
+        List<ScimUser> users = jdbcScimUserProvisioning.query("userName eq \"" + userName + "\"", IdentityZone.getUaaZoneId());
+        ScimUser user = users.getFirst();
+
+        // Verify user was initially added to the group
+        Set<ScimGroup> initialGroups = jdbcScimGroupMembershipManager.getGroupsWithMember(user.getId(), true, IdentityZone.getUaaZoneId());
+        Set<String> initialGroupNames = initialGroups.stream().map(ScimGroup::getDisplayName).collect(Collectors.toSet());
+        assertThat(initialGroupNames).contains(groupNameWithSpecialChars);
+
+        // When - update user to different groups (this triggers removeFromGroup for the special char group)
+        UaaUser updatedUser = testUser.authorities(AuthorityUtils.commaSeparatedStringToAuthorityList("openid"));
+        ScimUserBootstrap updateBootstrap = new ScimUserBootstrap(jdbcScimUserProvisioning, scimUserService,
+                jdbcScimGroupProvisioning, jdbcScimGroupMembershipManager, identityZoneManager,
+                Collections.singletonList(updatedUser), true, emptyList(), false);
+        updateBootstrap.afterPropertiesSet();
+
+        // Then
+        Set<ScimGroup> finalGroups = jdbcScimGroupMembershipManager.getGroupsWithMember(user.getId(), true, IdentityZone.getUaaZoneId());
+        Set<String> finalGroupNames = finalGroups.stream().map(ScimGroup::getDisplayName).collect(Collectors.toSet());
+
+        assertThat(finalGroupNames)
+                .doesNotContain(groupNameWithSpecialChars)
+                .containsExactlyInAnyOrder("openid", "uaa.user");
+    }
+
+    @Test
+    void bootstrapDoesNotCreateDuplicateMembershipForDefaultGroups() {
+        // Set up "uaa.user" as a default group (simulating the real UAA config)
+        IdentityZoneHolder.get().getConfig().getUserConfig().setDefaultGroups(List.of("uaa.user"));
+        jdbcScimGroupProvisioning.createOrGet(
+                new ScimGroup(null, "uaa.user", IdentityZone.getUaaZoneId()), IdentityZone.getUaaZoneId());
+
+        // Bootstrap a user whose manifest lists "uaa.user" (default) AND "custom.group" (non-default)
+        UaaUser userWithDefaultGroup = new UaaUser("dupuser", "password", "dup@test.org", "Dup", "User")
+                .authorities(AuthorityUtils.commaSeparatedStringToAuthorityList("uaa.user,custom.group"));
+        ScimUserBootstrap bootstrap = new ScimUserBootstrap(jdbcScimUserProvisioning, scimUserService,
+                jdbcScimGroupProvisioning, jdbcScimGroupMembershipManager, identityZoneManager,
+                Collections.singletonList(userWithDefaultGroup), false, emptyList(), false);
+        bootstrap.afterPropertiesSet();
+
+        List<ScimUser> users = jdbcScimUserProvisioning.query("userName eq \"dupuser\"", IdentityZone.getUaaZoneId());
+        ScimUser user = users.getFirst();
+
+        // User should see the default group via virtual membership
+        Set<ScimGroup> groups = jdbcScimGroupMembershipManager.getGroupsWithMember(user.getId(), false, IdentityZone.getUaaZoneId());
+        assertThat(groups).extracting(ScimGroup::getDisplayName).contains("uaa.user", "custom.group");
+
+        // No explicit DB row for the default group
+        ScimGroup uaaUserGroup = jdbcScimGroupProvisioning.getByName("uaa.user", IdentityZone.getUaaZoneId());
+        int defaultGroupRows = jdbcTemplate.queryForObject(
+                "select count(*) from group_membership where member_id=? and group_id=? and identity_zone_id=?",
+                Integer.class, user.getId(), uaaUserGroup.getId(), IdentityZone.getUaaZoneId());
+        assertThat(defaultGroupRows).isZero();
+
+        // Explicit DB row DOES exist for the non-default group (proves selective skip)
+        ScimGroup customGroup = jdbcScimGroupProvisioning.getByName("custom.group", IdentityZone.getUaaZoneId());
+        int customGroupRows = jdbcTemplate.queryForObject(
+                "select count(*) from group_membership where member_id=? and group_id=? and identity_zone_id=?",
+                Integer.class, user.getId(), customGroup.getId(), IdentityZone.getUaaZoneId());
+        assertThat(customGroupRows).isOne();
+
+        // Deletion should succeed without 422
+        assertThatCode(() -> jdbcScimGroupMembershipManager.removeMembersByMemberId(user.getId(), IdentityZone.getUaaZoneId()))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void newUserAuthenticatedEventWhenConcurrentInsertAndOverrideTrueThenUpdatesExistingUser() {
+        UaaUser user = new UaaUser("concurrent-user", "password", "concurrent@test.org", "Updated", "User");
+        ScimUser concurrentUser = new ScimUser("existing-id", user.getUsername(), "Original", user.getFamilyName());
+        concurrentUser.setOrigin(OriginKeys.UAA);
+        concurrentUser.setZoneId(IdentityZone.getUaaZoneId());
+
+        // Simulate the create path losing a race to another request.
+        ScimUserProvisioning provisioning = mock(ScimUserProvisioning.class);
+        when(provisioning.createUser(any(), any(), anyString())).thenThrow(new ScimResourceAlreadyExistsException("duplicate"));
+
+        ScimUserBootstrap bootstrap = spy(new ScimUserBootstrap(
+                provisioning,
+                scimUserService,
+                jdbcScimGroupProvisioning,
+                jdbcScimGroupMembershipManager,
+                identityZoneManager,
+                Collections.emptyList(),
+                true,
+                Collections.emptyList(),
+                false
+        ));
+
+        doReturn(null, concurrentUser).when(bootstrap).getScimUser(user);
+        doNothing().when(bootstrap).updateUser(concurrentUser, user);
+
+        bootstrap.onApplicationEvent(new NewUserAuthenticatedEvent(user));
+
+        verify(provisioning).createUser(any(), eq(user.getPassword()), eq(IdentityZone.getUaaZoneId()));
+        verify(bootstrap).updateUser(concurrentUser, user);
+    }
+
+    @Test
+    void newUserAuthenticatedEventWhenConcurrentInsertAndOverrideFalseThenDoesNotUpdateExistingUser() {
+        UaaUser user = new UaaUser("concurrent-user-no-override", "password", "concurrent@test.org", "Updated", "User");
+        ScimUser concurrentUser = new ScimUser("existing-id", user.getUsername(), "Original", user.getFamilyName());
+        concurrentUser.setOrigin(OriginKeys.UAA);
+        concurrentUser.setZoneId(IdentityZone.getUaaZoneId());
+
+        // Simulate the create path losing a race to another request.
+        ScimUserProvisioning provisioning = mock(ScimUserProvisioning.class);
+        when(provisioning.createUser(any(), any(), anyString())).thenThrow(new ScimResourceAlreadyExistsException("duplicate"));
+
+        ScimUserBootstrap bootstrap = spy(new ScimUserBootstrap(
+                provisioning,
+                scimUserService,
+                jdbcScimGroupProvisioning,
+                jdbcScimGroupMembershipManager,
+                identityZoneManager,
+                Collections.emptyList(),
+                false,
+                Collections.emptyList(),
+                false
+        ));
+
+        doReturn(null, concurrentUser).when(bootstrap).getScimUser(user);
+
+        bootstrap.onApplicationEvent(new NewUserAuthenticatedEvent(user));
+
+        verify(provisioning).createUser(any(), eq(user.getPassword()), eq(IdentityZone.getUaaZoneId()));
+        verify(bootstrap, never()).updateUser(any(), eq(user));
+    }
 }

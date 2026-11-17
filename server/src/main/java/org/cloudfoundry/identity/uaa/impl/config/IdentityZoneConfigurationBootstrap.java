@@ -41,11 +41,14 @@ import static org.springframework.util.StringUtils.hasText;
 public class IdentityZoneConfigurationBootstrap implements InitializingBean {
 
     private ClientSecretPolicy clientSecretPolicy;
+    private Map<String, String> mtlsTrustBundles = Map.of();
+    private boolean mtlsEnabled = false;
     private TokenPolicy tokenPolicy;
 
     private final IdentityZoneProvisioning provisioning;
     private boolean selfServiceCreateAccountEnabled = true;
     private boolean selfServiceResetPasswordEnabled = true;
+    private boolean selfServiceLinksEnabled = true;
     private String homeRedirect;
     private Map<String, Object> selfServiceLinks;
     private List<String> logoutRedirectWhitelist;
@@ -55,11 +58,19 @@ public class IdentityZoneConfigurationBootstrap implements InitializingBean {
     private boolean logoutDisableRedirectParameter = true;
     private List<Prompt> prompts;
     private String defaultIdentityProvider;
+    private String issuer;
 
     private String samlSpPrivateKey;
     private String samlSpPrivateKeyPassphrase;
     private String samlSpCertificate;
+    private String samlEntityID;
     private boolean disableSamlInResponseToCheck;
+
+    /**
+     * @deprecated Since 78.13.0. Maps to {@link org.cloudfoundry.identity.uaa.zone.SamlConfig#wantAssertionSigned};
+     * see that field. Scheduled for removal in a future release.
+     */
+    @Deprecated(since = "78.13.0", forRemoval = true)
     private boolean samlWantAssertionSigned = true;
     private boolean samlRequestSigned = true;
 
@@ -71,7 +82,7 @@ public class IdentityZoneConfigurationBootstrap implements InitializingBean {
 
     private UserConfig defaultUserConfig;
 
-    private IdentityZoneValidator validator = (config, mode) -> config;
+    private IdentityZoneValidator validator = (config, _) -> config;
     private Map<String, Object> branding;
 
     public IdentityZoneConfigurationBootstrap(IdentityZoneProvisioning provisioning) {
@@ -79,10 +90,14 @@ public class IdentityZoneConfigurationBootstrap implements InitializingBean {
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public void afterPropertiesSet() throws InvalidIdentityZoneDetailsException {
         IdentityZone identityZone = provisioning.retrieve(IdentityZone.getUaaZoneId());
         IdentityZoneConfiguration definition = new IdentityZoneConfiguration(tokenPolicy);
+        definition.getMtls().setTrustBundles(mtlsTrustBundles);
+        definition.getMtls().setEnabled(mtlsEnabled);
         definition.setClientSecretPolicy(clientSecretPolicy);
+        definition.getLinks().getSelfService().setSelfServiceLinksEnabled(selfServiceLinksEnabled);
         definition.getLinks().getSelfService().setSelfServiceCreateAccountEnabled(selfServiceCreateAccountEnabled);
         definition.getLinks().getSelfService().setSelfServiceResetPasswordEnabled(selfServiceResetPasswordEnabled);
         definition.getLinks().setHomeRedirect(homeRedirect);
@@ -92,10 +107,16 @@ public class IdentityZoneConfigurationBootstrap implements InitializingBean {
         definition.getSamlConfig().setDisableInResponseToCheck(disableSamlInResponseToCheck);
         definition.getSamlConfig().setWantAssertionSigned(samlWantAssertionSigned);
         definition.getSamlConfig().setRequestSigned(samlRequestSigned);
+        if (hasText(samlEntityID)) {
+            definition.getSamlConfig().setEntityID(samlEntityID);
+        }
         definition.setIdpDiscoveryEnabled(idpDiscoveryEnabled);
         definition.setAccountChooserEnabled(accountChooserEnabled);
         definition.setDefaultIdentityProvider(defaultIdentityProvider);
         definition.setUserConfig(defaultUserConfig);
+        if (hasText(issuer)) {
+            definition.setIssuer(issuer);
+        }
 
         samlKeys = ofNullable(samlKeys).orElse(Map.of());
         for (Map.Entry<String, Map<String, String>> entry : samlKeys.entrySet()) {
@@ -157,5 +178,10 @@ public class IdentityZoneConfigurationBootstrap implements InitializingBean {
 
     public void setSamlSignatureAlgorithm(SignatureAlgorithm signatureAlgorithm) {
         this.samlSignatureAlgorithm = signatureAlgorithm;
+    }
+
+    public IdentityZoneConfigurationBootstrap setIssuer(String issuer) {
+        this.issuer = issuer;
+        return this;
     }
 }

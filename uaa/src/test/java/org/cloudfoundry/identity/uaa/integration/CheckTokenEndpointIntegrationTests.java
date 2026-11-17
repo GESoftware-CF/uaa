@@ -29,20 +29,20 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.crypto.codec.Base64;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
 import java.net.URI;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.Map;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.getHeaders;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.CSRF_PARAMETER_NAME;
 import static org.cloudfoundry.identity.uaa.oauth.common.util.OAuth2Utils.USER_OAUTH_APPROVAL;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
+import static org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository.DEFAULT_CSRF_COOKIE_NAME;
 
 /**
  * @author Dave Syer
@@ -77,12 +77,12 @@ class CheckTokenEndpointIntegrationTests {
         assertThat(response.getBody()).contains("/login.do")
                 .contains("username")
                 .contains("password");
-        String csrf = IntegrationTestUtils.extracCsrfToken(response.getBody());
+        String csrf = IntegrationTestUtils.extractCookieCsrf(response.getBody());
 
         MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
         formData.add("username", testAccounts.getUserName());
         formData.add("password", testAccounts.getPassword());
-        formData.add(CSRF_PARAMETER_NAME, csrf);
+        formData.add(DEFAULT_CSRF_COOKIE_NAME, csrf);
 
         // Should be redirected to the original URL, but now authenticated
         result = serverRunning.postForResponse("/login.do", getHeaders(cookies), formData);
@@ -97,7 +97,7 @@ class CheckTokenEndpointIntegrationTests {
             assertThat(response.getBody()).contains("<h1>Application Authorization</h1>");
 
             formData.clear();
-            formData.add(CSRF_PARAMETER_NAME, IntegrationTestUtils.extracCsrfToken(response.getBody()));
+            formData.add(DEFAULT_CSRF_COOKIE_NAME, IntegrationTestUtils.extractCookieCsrf(response.getBody()));
             formData.add(USER_OAUTH_APPROVAL, "true");
             result = serverRunning.postForResponse("/oauth/authorize", getHeaders(cookies), formData);
             assertThat(result.getStatusCode()).isEqualTo(HttpStatus.FOUND);
@@ -164,7 +164,7 @@ class CheckTokenEndpointIntegrationTests {
         MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
         formData.add("token", "FOO");
         HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", "Basic " + new String(Base64.encode("cf:".getBytes(UTF_8))));
+        headers.set("Authorization", "Basic " + Base64.getEncoder().encodeToString("cf:".getBytes(UTF_8)));
         headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
 
         @SuppressWarnings("rawtypes")
@@ -189,7 +189,7 @@ class CheckTokenEndpointIntegrationTests {
 
         @SuppressWarnings("rawtypes")
         ResponseEntity<Map> response = serverRunning.postForMap("/check_token", requestBody, headers);
-        System.out.println(response.getBody());
+        IO.println(response.getBody());
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 
         @SuppressWarnings("unchecked")
@@ -214,7 +214,7 @@ class CheckTokenEndpointIntegrationTests {
         ResponseEntity<Map> tokenResponse = serverRunning.postForMap("/check_token", formData, tokenHeaders);
         assertThat(tokenResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(tokenResponse.getBody()).isNotNull();
-        System.out.println(tokenResponse.getBody());
+        IO.println(tokenResponse.getBody());
 
         @SuppressWarnings("unchecked")
         Map<String, String> map = tokenResponse.getBody();
@@ -238,7 +238,7 @@ class CheckTokenEndpointIntegrationTests {
         ResponseEntity<Map> tokenResponse = serverRunning.postForMap("/check_token", formData, tokenHeaders);
         assertThat(tokenResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(tokenResponse.getBody()).isNotNull();
-        System.out.println(tokenResponse.getBody());
+        IO.println(tokenResponse.getBody());
 
         @SuppressWarnings("unchecked")
         Map<String, String> map = tokenResponse.getBody();

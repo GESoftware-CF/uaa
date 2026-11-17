@@ -10,10 +10,12 @@ import java.util.function.Supplier;
 import org.cloudfoundry.identity.uaa.oauth.common.exceptions.InsufficientScopeException;
 import org.cloudfoundry.identity.uaa.oauth.provider.expression.OAuth2ExpressionUtils;
 import org.cloudfoundry.identity.uaa.security.ContextSensitiveOAuth2SecurityExpressionMethods;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authorization.AuthenticatedAuthorizationManager;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
+import org.springframework.security.authorization.AuthorizationResult;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 
@@ -21,6 +23,9 @@ import org.springframework.security.web.access.intercept.RequestAuthorizationCon
  * Utility class for creating {@link AuthorizationManager} instances.
  */
 public class AuthorizationManagersUtils {
+
+    private AuthorizationManagersUtils() {
+    }
 
     /**
      * Grants access if any of the registered authorization managers grants access.
@@ -44,13 +49,13 @@ public class AuthorizationManagersUtils {
         private Set<String> missingScopes = new LinkedHashSet<>();
 
         @Override
-        public AuthorizationDecision check(Supplier<Authentication> authentication, RequestAuthorizationContext object) {
+        public AuthorizationResult authorize(Supplier<? extends @Nullable Authentication> authentication, RequestAuthorizationContext object) {
             for (var authorizationManager : this.delegateAuthorizationManagers) {
-                AuthorizationDecision decision = authorizationManager.check(authentication, object);
-                if (decision != null) {
-                    if (decision.isGranted()) {
-                        return decision;
-                    } else if (decision instanceof ScopeTrackingAuthorizationDecision scopeDecision) {
+                AuthorizationResult result = authorizationManager.authorize(authentication, object);
+                if (result != null) {
+                    if (result.isGranted()) {
+                        return result;
+                    } else if (result instanceof ScopeTrackingAuthorizationDecision scopeDecision) {
                         missingScopes.addAll(scopeDecision.getScopes());
                     }
                 }
@@ -113,17 +118,18 @@ public class AuthorizationManagersUtils {
          */
         public AnyOfAuthorizationManager hasScope(String... scope) {
             delegateAuthorizationManagers.add(
-                    (auth, ctx) -> new ScopeTrackingAuthorizationDecision(OAuth2ExpressionUtils.hasAnyScope(auth.get(), scope), scope)
+                    (auth, _) -> new ScopeTrackingAuthorizationDecision(OAuth2ExpressionUtils.hasAnyScope(auth.get(), scope), scope)
             );
             return this;
         }
 
         /**
-         * Grants access for the given scope, swapping {@code {zone.id}} for the current Zone ID.
+         * Grants access for the given scope, swapping {@code {zone.id}} for the current Zone ID
+         * or match the name exactly if it is in the default zone.
          */
         public AnyOfAuthorizationManager hasScopeWithZoneId(String scope) {
             delegateAuthorizationManagers.add(
-                    (auth, ctx) -> {
+                    (auth, _) -> {
                         var securityMethods = new ContextSensitiveOAuth2SecurityExpressionMethods(auth.get());
                         return new ScopeTrackingAuthorizationDecision(securityMethods.hasScopeInAuthZone(scope), scope);
                     }

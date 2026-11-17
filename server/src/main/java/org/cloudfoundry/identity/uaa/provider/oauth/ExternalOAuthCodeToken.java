@@ -91,6 +91,10 @@ public class ExternalOAuthCodeToken implements Authentication {
         return details;
     }
 
+    public UaaAuthenticationDetails getUaaAuthenticationDetails() {
+        return details;
+    }
+
     @Override
     public Object getPrincipal() {
         return getCode();

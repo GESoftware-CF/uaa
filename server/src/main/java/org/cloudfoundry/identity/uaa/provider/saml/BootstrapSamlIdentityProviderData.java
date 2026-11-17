@@ -67,7 +67,7 @@ public class BootstrapSamlIdentityProviderData implements InitializingBean {
         provider.setActive(true);
         try {
             provider.setConfig(def);
-        } catch (JsonUtils.JsonUtilException x) {
+        } catch (JsonUtils.JsonUtilException _) {
             throw new RuntimeException("Non serializable SAML config");
         }
         return provider;
@@ -139,6 +139,7 @@ public class BootstrapSamlIdentityProviderData implements InitializingBean {
             Boolean storeCustomAttributes = (Boolean) ((Map) entry.getValue()).get(STORE_CUSTOM_ATTRIBUTES_NAME);
             Boolean override = (Boolean) ((Map) entry.getValue()).get("override");
             List<String> authnContext = (List<String>) saml.get("authnContext");
+            List<String> caCertificates = (List<String>) saml.get("caCertificates");
 
             if (storeCustomAttributes == null) {
                 storeCustomAttributes = true; //default value
@@ -181,11 +182,26 @@ public class BootstrapSamlIdentityProviderData implements InitializingBean {
             def.setAddShadowUserOnLogin(addShadowUserOnLogin == null || addShadowUserOnLogin);
             def.setSkipSslValidation(skipSslValidation);
             def.setAuthnContext(authnContext);
+            def.setCaCertificates(caCertificates);
 
             IdentityProvider<SamlIdentityProviderDefinition> provider = parseSamlProvider(def);
             if (def.getType() == SamlIdentityProviderDefinition.MetadataLocation.DATA) {
+                // Inline XML: parse is synchronous; let exceptions propagate to fail fast on bad config.
                 RelyingPartyRegistration metadataDelegate = samlConfigurator.getExtendedMetadataDelegate(def);
-                def.setIdpEntityId(metadataDelegate.getAssertingPartyDetails().getEntityId());
+                def.setIdpEntityId(metadataDelegate.getAssertingPartyMetadata().getEntityId());
+            } else {
+                // URL-type: remote fetch may fail transiently at startup (IdP unreachable, DNS not
+                // ready, etc.). Log an error so operators know the entity ID could not be stored in
+                // external_key, but continue so the server does not refuse to start.
+                try {
+                    RelyingPartyRegistration metadataDelegate = samlConfigurator.getExtendedMetadataDelegate(def);
+                    def.setIdpEntityId(metadataDelegate.getAssertingPartyMetadata().getEntityId());
+                } catch (Exception e) {
+                    log.error("Could not resolve entity ID for SAML IDP '{}' at startup from '{}'; " +
+                                    "external_key will be null. SAML logins via SP-alias ACS URL may fail " +
+                                    "until the metadata URL becomes reachable: {}",
+                            alias, metaDataLocation, e.getMessage());
+                }
             }
             IdentityProviderWrapper<SamlIdentityProviderDefinition> wrapper = new IdentityProviderWrapper<>(provider);
             wrapper.setOverride(override == null || override);

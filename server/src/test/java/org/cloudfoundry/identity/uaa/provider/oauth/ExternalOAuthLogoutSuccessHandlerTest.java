@@ -111,6 +111,15 @@ class ExternalOAuthLogoutSuccessHandlerTest {
     }
 
     @Test
+    void determineTargetUrlWithOmitIdTokenHint() {
+        request.setQueryString("parameter=value");
+        when(uaaAuthentication.getIdpIdToken()).thenReturn("token");
+        oAuthIdentityProviderDefinition.setOmitIdTokenHintOnLogout(true);
+        assertThat(oAuthLogoutHandler.determineTargetUrl(request, response, uaaAuthentication))
+                .isEqualTo("http://localhost:8080/uaa/logout.do?post_logout_redirect_uri=http%3A%2F%2Flocalhost%3Fparameter%3Dvalue&client_id=id");
+    }
+
+    @Test
     void determineDefaultTargetUrl() {
         oAuthIdentityProviderDefinition.setLogoutUrl(null);
         IdentityZoneHolder.get().setConfig(null);
@@ -124,20 +133,20 @@ class ExternalOAuthLogoutSuccessHandlerTest {
     }
 
     @Test
-    void getLogoutUrl() throws OidcMetadataFetchingException {
+    void getLogoutUrl() throws Exception {
         assertThat(oAuthLogoutHandler.getLogoutUrl(oAuthIdentityProviderDefinition)).isEqualTo(UAA_ENDSESSION_URL);
         verify(oidcMetadataFetcher, times(0)).fetchMetadataAndUpdateDefinition(oAuthIdentityProviderDefinition);
     }
 
     @Test
-    void getNewFetchedLogoutUrl() throws OidcMetadataFetchingException {
+    void getNewFetchedLogoutUrl() throws Exception {
         oAuthIdentityProviderDefinition.setLogoutUrl(null);
         assertThat(oAuthLogoutHandler.getLogoutUrl(oAuthIdentityProviderDefinition)).isNull();
         verify(oidcMetadataFetcher, times(1)).fetchMetadataAndUpdateDefinition(oAuthIdentityProviderDefinition);
     }
 
     @Test
-    void getNewInvalidFetchedLogoutUrl() throws OidcMetadataFetchingException {
+    void getNewInvalidFetchedLogoutUrl() throws Exception {
         oAuthIdentityProviderDefinition.setLogoutUrl(null);
         doThrow(new OidcMetadataFetchingException("")).when(oidcMetadataFetcher).fetchMetadataAndUpdateDefinition(oAuthIdentityProviderDefinition);
         assertThat(oAuthLogoutHandler.getLogoutUrl(oAuthIdentityProviderDefinition)).isNull();

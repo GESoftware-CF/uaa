@@ -236,11 +236,11 @@ public class IdentityProviderEndpoints implements ApplicationEventPublisherAware
             IdentityProvider existing, HttpStatus status) {
         final IdentityProvider<?> updatedIdp;
         try {
-            updatedIdp = transactionTemplate.execute(txStatus -> {
+            updatedIdp = transactionTemplate.execute(_ -> {
                 final IdentityProvider<?> updatedOriginalIdp = status == CREATED ? identityProviderProvisioning.create(body, zoneId) : identityProviderProvisioning.update(body, zoneId);
                 return idpAliasHandler.ensureConsistencyOfAliasEntity(updatedOriginalIdp, existing);
             });
-        } catch (final IdpAlreadyExistsException e) {
+        } catch (final IdpAlreadyExistsException _) {
             return new ResponseEntity<>(body, CONFLICT);
         } catch (final EntityAliasFailedException e) {
             logger.warn("Could not create alias for %s".formatted(e.getMessage()));
@@ -274,7 +274,6 @@ public class IdentityProviderEndpoints implements ApplicationEventPublisherAware
         if (existing == null) {
             return new ResponseEntity<>(UNPROCESSABLE_ENTITY);
         }
-
         if (body.getRequirePasswordChange() == null || !body.getRequirePasswordChange()) {
             logger.debug("Invalid payload. The property requirePasswordChangeRequired needs to be set");
             return new ResponseEntity<>(body, UNPROCESSABLE_ENTITY);
@@ -349,7 +348,7 @@ public class IdentityProviderEndpoints implements ApplicationEventPublisherAware
             if ((result == null) || (!result.isAuthenticated())) {
                 status = EXPECTATION_FAILED;
             }
-        } catch (BadCredentialsException x) {
+        } catch (BadCredentialsException _) {
             status = EXPECTATION_FAILED;
             exception = "bad credentials";
         } catch (InternalAuthenticationServiceException x) {
@@ -406,25 +405,52 @@ public class IdentityProviderEndpoints implements ApplicationEventPublisherAware
         }
         switch (provider.getType()) {
             case LDAP: {
-                if (provider.getConfig() instanceof LdapIdentityProviderDefinition definition && definition.getBindPassword() == null) {
-                    IdentityProvider existing = identityProviderProvisioning.retrieve(id, zoneId);
-                    if (existing != null &&
-                            existing.getConfig() != null &&
-                            existing.getConfig() instanceof LdapIdentityProviderDefinition existingDefinition) {
-                        definition.setBindPassword(existingDefinition.getBindPassword());
+                if (provider.getConfig() instanceof LdapIdentityProviderDefinition definition) {
+                    boolean needsBindPassword = definition.getBindPassword() == null;
+                    boolean needsCaCertificates = definition.getCaCertificates() == null;
+                    if (needsBindPassword || needsCaCertificates) {
+                        IdentityProvider existing = identityProviderProvisioning.retrieve(id, zoneId);
+                        if (existing != null &&
+                                existing.getConfig() != null &&
+                                existing.getConfig() instanceof LdapIdentityProviderDefinition existingDefinition) {
+                            if (needsBindPassword) {
+                                definition.setBindPassword(existingDefinition.getBindPassword());
+                            }
+                            if (needsCaCertificates) {
+                                definition.setCaCertificates(existingDefinition.getCaCertificates());
+                            }
+                        }
                     }
                 }
                 break;
             }
             case OAUTH20, OIDC10: {
-                if (provider.getConfig() instanceof AbstractExternalOAuthIdentityProviderDefinition definition &&
-                        definition.getRelyingPartySecret() == null &&
-                        secretNeeded(definition)) {
+                if (provider.getConfig() instanceof AbstractExternalOAuthIdentityProviderDefinition definition) {
+                    boolean needsSecret = definition.getRelyingPartySecret() == null && secretNeeded(definition);
+                    boolean needsCaCertificates = definition.getCaCertificates() == null;
+                    if (needsSecret || needsCaCertificates) {
+                        IdentityProvider existing = identityProviderProvisioning.retrieve(id, zoneId);
+                        if (existing != null &&
+                                existing.getConfig() != null &&
+                                existing.getConfig() instanceof AbstractExternalOAuthIdentityProviderDefinition existingDefinition) {
+                            if (needsSecret) {
+                                definition.setRelyingPartySecret(existingDefinition.getRelyingPartySecret());
+                            }
+                            if (needsCaCertificates) {
+                                definition.setCaCertificates(existingDefinition.getCaCertificates());
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+            case SAML: {
+                if (provider.getConfig() instanceof SamlIdentityProviderDefinition definition && definition.getCaCertificates() == null) {
                     IdentityProvider existing = identityProviderProvisioning.retrieve(id, zoneId);
                     if (existing != null &&
                             existing.getConfig() != null &&
-                            existing.getConfig() instanceof AbstractExternalOAuthIdentityProviderDefinition existingDefinition) {
-                        definition.setRelyingPartySecret(existingDefinition.getRelyingPartySecret());
+                            existing.getConfig() instanceof SamlIdentityProviderDefinition existingDefinition) {
+                        definition.setCaCertificates(existingDefinition.getCaCertificates());
                     }
                 }
                 break;

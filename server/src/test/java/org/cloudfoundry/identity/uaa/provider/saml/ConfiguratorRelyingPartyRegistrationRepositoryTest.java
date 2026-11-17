@@ -1,10 +1,18 @@
 package org.cloudfoundry.identity.uaa.provider.saml;
 
+import com.sun.net.httpserver.HttpsServer;
+import org.cloudfoundry.identity.uaa.impl.config.RestTemplateConfig;
+import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
+import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
 import org.cloudfoundry.identity.uaa.provider.SamlIdentityProviderDefinition;
+import org.cloudfoundry.identity.uaa.security.IdpOutboundTrustCache;
+import org.cloudfoundry.identity.uaa.test.network.NetworkTestUtils;
+import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.cloudfoundry.identity.uaa.zone.SamlConfig;
+import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManagerImpl;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,21 +22,27 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.security.saml2.Saml2Exception;
 import org.springframework.security.saml2.core.Saml2X509Credential;
+import org.springframework.security.saml2.provider.service.registration.AssertingPartyMetadata;
 import org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistration;
 import org.springframework.util.FileCopyUtils;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.cloudfoundry.identity.uaa.provider.saml.TestCredentialObjects.keyName1;
 import static org.cloudfoundry.identity.uaa.provider.saml.TestCredentialObjects.keyName2;
@@ -36,6 +50,8 @@ import static org.cloudfoundry.identity.uaa.provider.saml.TestCredentialObjects.
 import static org.cloudfoundry.identity.uaa.provider.saml.TestCredentialObjects.samlKey2;
 import static org.cloudfoundry.identity.uaa.provider.saml.TestCredentialObjects.x509Certificate1;
 import static org.cloudfoundry.identity.uaa.provider.saml.TestCredentialObjects.x509Certificate2;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -81,6 +97,10 @@ class ConfiguratorRelyingPartyRegistrationRepositoryTest {
     @BeforeEach
     void beforeEach() {
         repository = spy(new ConfiguratorRelyingPartyRegistrationRepository(ENTITY_ID, ENTITY_ID_ALIAS, configurator, List.of(), DEFAULT_NAME_ID));
+        // resolveMetadataXml() is a no-op passthrough for non-URL (already-inline) metadata,
+        // which is what every test using the mocked `configurator` exercises.
+        lenient().when(configurator.resolveMetadataXml(any(SamlIdentityProviderDefinition.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0, SamlIdentityProviderDefinition.class).getMetaDataLocation());
     }
 
     @Test
@@ -119,8 +139,8 @@ class ConfiguratorRelyingPartyRegistrationRepositoryTest {
                 .returns("{baseUrl}/saml/SSO/alias/entityIdAlias", RelyingPartyRegistration::getAssertionConsumerServiceLocation)
                 .returns("{baseUrl}/saml/SingleLogout/alias/entityIdAlias", RelyingPartyRegistration::getSingleLogoutServiceResponseLocation)
                 // from xml
-                .extracting(RelyingPartyRegistration::getAssertingPartyDetails)
-                .returns("https://idp-saml.ua3.int/simplesaml/saml2/idp/metadata.php", RelyingPartyRegistration.AssertingPartyDetails::getEntityId);
+                .extracting(RelyingPartyRegistration::getAssertingPartyMetadata)
+                .returns("https://idp-saml.ua3.int/simplesaml/saml2/idp/metadata.php", AssertingPartyMetadata::getEntityId);
     }
 
     @Test
@@ -167,8 +187,40 @@ class ConfiguratorRelyingPartyRegistrationRepositoryTest {
                 .returns("{baseUrl}/saml/SSO/alias/entityIdAlias", RelyingPartyRegistration::getAssertionConsumerServiceLocation)
                 .returns("{baseUrl}/saml/SingleLogout/alias/entityIdAlias", RelyingPartyRegistration::getSingleLogoutServiceResponseLocation)
                 // from xml
-                .extracting(RelyingPartyRegistration::getAssertingPartyDetails)
-                .returns("https://idp-saml.ua3.int/simplesaml/saml2/idp/metadata.php", RelyingPartyRegistration.AssertingPartyDetails::getEntityId);
+                .extracting(RelyingPartyRegistration::getAssertingPartyMetadata)
+                .returns("https://idp-saml.ua3.int/simplesaml/saml2/idp/metadata.php", AssertingPartyMetadata::getEntityId);
+    }
+
+    @Test
+    void buildsCorrectRegistrationWhenFetchedUrlMetadataHasLeadingByteOrderMarker() {
+        // Some IdPs prepend a UTF-8 byte order marker to their federation metadata response.
+        // SamlIdentityProviderConfigurator.resolveMetadataXml() fetches and decodes that response
+        // *before* handing it to RelyingPartyRegistrationBuilder.buildRelyingPartyRegistration(),
+        // so this simulates exactly what that decode produces for a URL-type IDP, one call
+        // further down the real login path than a plain getType() unit test reaches. Without the
+        // fix, the BOM defeats the DATA/URL sniffing in buildRelyingPartyRegistration() and the
+        // fetched XML is mistaken for a classpath resource location (Saml2Exception wrapping a
+        // FileNotFoundException).
+        String metadata = loadResouceAsString("saml-sample-metadata.xml");
+        when(repository.retrieveZone()).thenReturn(identityZone);
+        when(identityZone.isUaa()).thenReturn(true);
+        when(identityZone.getConfig()).thenReturn(identityZoneConfiguration);
+        when(identityZoneConfiguration.getSamlConfig()).thenReturn(samlConfig);
+        when(definition.getIdpEntityAlias()).thenReturn(REGISTRATION_ID);
+        when(definition.getNameID()).thenReturn(NAME_ID);
+        when(definition.getMetaDataLocation())
+                .thenReturn("https://login.microsoftonline.com/tenant-id/federationmetadata/2007-06/federationmetadata.xml");
+        when(configurator.resolveMetadataXml(definition))
+                .thenReturn(UaaStringUtils.BYTE_ORDER_MARKER + metadata);
+        when(configurator.getIdentityProviderDefinitionsForZone(identityZone)).thenReturn(List.of(definition));
+
+        RelyingPartyRegistration registration = repository.findByRegistrationId(REGISTRATION_ID);
+        assertThat(registration)
+                .returns(REGISTRATION_ID, RelyingPartyRegistration::getRegistrationId)
+                .returns(ENTITY_ID, RelyingPartyRegistration::getEntityId)
+                .returns(NAME_ID, RelyingPartyRegistration::getNameIdFormat)
+                .extracting(RelyingPartyRegistration::getAssertingPartyMetadata)
+                .returns("https://idp-saml.ua3.int/simplesaml/saml2/idp/metadata.php", AssertingPartyMetadata::getEntityId);
     }
 
     @Test
@@ -222,8 +274,8 @@ class ConfiguratorRelyingPartyRegistrationRepositoryTest {
                 .returns("{baseUrl}/saml/SSO/alias/entityIdAlias", RelyingPartyRegistration::getAssertionConsumerServiceLocation)
                 .returns("{baseUrl}/saml/SingleLogout/alias/entityIdAlias", RelyingPartyRegistration::getSingleLogoutServiceResponseLocation)
                 // from xml
-                .extracting(RelyingPartyRegistration::getAssertingPartyDetails)
-                .returns("https://idp-saml.ua3.int/simplesaml/saml2/idp/metadata.php", RelyingPartyRegistration.AssertingPartyDetails::getEntityId);
+                .extracting(RelyingPartyRegistration::getAssertingPartyMetadata)
+                .returns("https://idp-saml.ua3.int/simplesaml/saml2/idp/metadata.php", AssertingPartyMetadata::getEntityId);
     }
 
     @Test
@@ -271,10 +323,10 @@ class ConfiguratorRelyingPartyRegistrationRepositoryTest {
                 .returns("{baseUrl}/saml/SSO/alias/zoneDomain.entityIdAlias", RelyingPartyRegistration::getAssertionConsumerServiceLocation)
                 .returns("{baseUrl}/saml/SingleLogout/alias/zoneDomain.entityIdAlias", RelyingPartyRegistration::getSingleLogoutServiceResponseLocation)
                 // from xml
-                .extracting(RelyingPartyRegistration::getAssertingPartyDetails)
-                .returns("https://idp-saml.ua3.int/simplesaml/saml2/idp/metadata.php", RelyingPartyRegistration.AssertingPartyDetails::getEntityId)
+                .extracting(RelyingPartyRegistration::getAssertingPartyMetadata)
+                .returns("https://idp-saml.ua3.int/simplesaml/saml2/idp/metadata.php", AssertingPartyMetadata::getEntityId)
                 // signature algorithm defaults to SHA256
-                .extracting(RelyingPartyRegistration.AssertingPartyDetails::getSigningAlgorithms)
+                .extracting(AssertingPartyMetadata::getSigningAlgorithms)
                 .isEqualTo(List.of(ALGO_ID_SIGNATURE_RSA_SHA256));
     }
 
@@ -305,7 +357,7 @@ class ConfiguratorRelyingPartyRegistrationRepositoryTest {
     }
 
     @Test
-    void failsWhenInvalidMetadataLocationIsStored() {
+    void throwsWhenInvalidMetadataLocationIsStored() {
         when(repository.retrieveZone()).thenReturn(identityZone);
         when(identityZone.isUaa()).thenReturn(true);
         when(identityZone.getConfig()).thenReturn(identityZoneConfiguration);
@@ -315,11 +367,13 @@ class ConfiguratorRelyingPartyRegistrationRepositoryTest {
         when(definition.getMetaDataLocation()).thenReturn("not_found_metadata.xml");
         when(configurator.getIdentityProviderDefinitionsForZone(identityZone)).thenReturn(List.of(definition));
 
-        assertThatNoException().isThrownBy(() -> repository.findByRegistrationId(REGISTRATION_ID));
+        assertThatThrownBy(() -> repository.findByRegistrationId(REGISTRATION_ID))
+                .isInstanceOf(Saml2Exception.class)
+                .hasMessageContaining(REGISTRATION_ID);
     }
 
     @Test
-    void failsWhenInvalidMetadataXmlIsStored() {
+    void throwsWhenInvalidMetadataXmlIsStored() {
         when(repository.retrieveZone()).thenReturn(identityZone);
         when(identityZone.isUaa()).thenReturn(true);
         when(identityZone.getConfig()).thenReturn(identityZoneConfiguration);
@@ -329,7 +383,125 @@ class ConfiguratorRelyingPartyRegistrationRepositoryTest {
         when(definition.getMetaDataLocation()).thenReturn("<?xml version=\"1.0\"?>\n<xml>invalid xml</xml>");
         when(configurator.getIdentityProviderDefinitionsForZone(identityZone)).thenReturn(List.of(definition));
 
-        assertThatNoException().isThrownBy(() -> repository.findByRegistrationId(REGISTRATION_ID));
+        assertThatThrownBy(() -> repository.findByRegistrationId(REGISTRATION_ID))
+                .isInstanceOf(Saml2Exception.class)
+                .hasMessageContaining(REGISTRATION_ID);
+    }
+
+    @Test
+    void findByRegistrationIdHonorsSkipSslValidationForUrlMetadata() throws Exception {
+        SamlConfiguration.setupOpenSaml();
+
+        File keystore = NetworkTestUtils.getKeystore(new Date(), 10);
+        String metadataXml = loadResouceAsString("saml-sample-metadata.xml");
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_XML);
+        NetworkTestUtils.SimpleHttpResponseHandler handler = new NetworkTestUtils.SimpleHttpResponseHandler(headers, metadataXml);
+        HttpsServer httpsServer = NetworkTestUtils.startHttpsServer(keystore, NetworkTestUtils.keyPass, handler);
+        try {
+            String metadataUrl = "https://localhost:" + httpsServer.getAddress().getPort() + "/metadata";
+
+            // Real (non-mocked) configurator/metadata-provider so the SAML IDP's untrusted,
+            // self-signed certificate is genuinely exercised over the wire, the same way it
+            // would be for the admin validate path (SamlIdentityProviderConfigurator.configureURLMetadata).
+            SamlConfiguration samlConfiguration = new SamlConfiguration();
+            FixedHttpMetaDataProvider realFixedHttpMetaDataProvider = samlConfiguration.fixedHttpMetaDataProvider(
+                    RestTemplateConfig.createDefaults(), samlConfiguration.urlContentCache(samlConfiguration.timeService()), new IdpOutboundTrustCache());
+            IdentityProviderProvisioning provisioning = mock(IdentityProviderProvisioning.class);
+            SamlIdentityProviderConfigurator realConfigurator =
+                    new SamlIdentityProviderConfigurator(provisioning, new IdentityZoneManagerImpl(), realFixedHttpMetaDataProvider);
+
+            SamlIdentityProviderDefinition untrustedCertDefinition = new SamlIdentityProviderDefinition()
+                    .setIdpEntityAlias(REGISTRATION_ID)
+                    .setMetaDataLocation(metadataUrl);
+            untrustedCertDefinition.setSkipSslValidation(true);
+
+            IdentityProvider<SamlIdentityProviderDefinition> idp = mock(IdentityProvider.class);
+            when(idp.getConfig()).thenReturn(untrustedCertDefinition);
+            when(provisioning.retrieveByOrigin(REGISTRATION_ID, "uaa")).thenReturn(idp);
+
+            repository = spy(new ConfiguratorRelyingPartyRegistrationRepository(ENTITY_ID, ENTITY_ID_ALIAS, realConfigurator, List.of(), DEFAULT_NAME_ID));
+            when(repository.retrieveZone()).thenReturn(identityZone);
+            when(identityZone.getId()).thenReturn("uaa");
+            when(identityZone.isUaa()).thenReturn(true);
+            when(identityZone.getConfig()).thenReturn(identityZoneConfiguration);
+            when(identityZoneConfiguration.getSamlConfig()).thenReturn(samlConfig);
+
+            // The metadata endpoint presents a self-signed cert the JVM does not trust.
+            // skipSslValidation=true makes UAA trust it here too, on the live login path,
+            // the same way it already did on the admin validate path.
+            RelyingPartyRegistration registration = repository.findByRegistrationId(REGISTRATION_ID);
+            assertThat(registration.getRegistrationId()).isEqualTo(REGISTRATION_ID);
+        } finally {
+            httpsServer.stop(0);
+            Files.deleteIfExists(keystore.toPath());
+        }
+    }
+
+    @Test
+    void findByRegistrationIdHonorsCaCertificatesForUrlMetadata() throws Exception {
+        SamlConfiguration.setupOpenSaml();
+
+        File keystore = NetworkTestUtils.getKeystore(new Date(), 10);
+        String metadataXml = loadResouceAsString("saml-sample-metadata.xml");
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_XML);
+        NetworkTestUtils.SimpleHttpResponseHandler handler = new NetworkTestUtils.SimpleHttpResponseHandler(headers, metadataXml);
+        HttpsServer httpsServer = NetworkTestUtils.startHttpsServer(keystore, NetworkTestUtils.keyPass, handler);
+        try {
+            String metadataUrl = "https://localhost:" + httpsServer.getAddress().getPort() + "/metadata";
+
+            SamlConfiguration samlConfiguration = new SamlConfiguration();
+            FixedHttpMetaDataProvider realFixedHttpMetaDataProvider = samlConfiguration.fixedHttpMetaDataProvider(
+                    RestTemplateConfig.createDefaults(), samlConfiguration.urlContentCache(samlConfiguration.timeService()), new IdpOutboundTrustCache());
+            IdentityProviderProvisioning provisioning = mock(IdentityProviderProvisioning.class);
+            SamlIdentityProviderConfigurator realConfigurator =
+                    new SamlIdentityProviderConfigurator(provisioning, new IdentityZoneManagerImpl(), realFixedHttpMetaDataProvider);
+
+            SamlIdentityProviderDefinition definitionWithoutCaCertificates = new SamlIdentityProviderDefinition()
+                    .setIdpEntityAlias(REGISTRATION_ID)
+                    .setMetaDataLocation(metadataUrl);
+
+            IdentityProvider<SamlIdentityProviderDefinition> idp = mock(IdentityProvider.class);
+            when(idp.getConfig()).thenReturn(definitionWithoutCaCertificates);
+            when(provisioning.retrieveByOrigin(REGISTRATION_ID, "uaa")).thenReturn(idp);
+
+            repository = spy(new ConfiguratorRelyingPartyRegistrationRepository(ENTITY_ID, ENTITY_ID_ALIAS, realConfigurator, List.of(), DEFAULT_NAME_ID));
+            when(repository.retrieveZone()).thenReturn(identityZone);
+            when(identityZone.getId()).thenReturn("uaa");
+            when(identityZone.isUaa()).thenReturn(true);
+            when(identityZone.getConfig()).thenReturn(identityZoneConfiguration);
+            when(identityZoneConfiguration.getSamlConfig()).thenReturn(samlConfig);
+
+            // No caCertificates, no skipSslValidation -- the self-signed cert is genuinely untrusted.
+            assertThatThrownBy(() -> repository.findByRegistrationId(REGISTRATION_ID))
+                    .isInstanceOf(Saml2Exception.class);
+
+            // Now trust the server's own cert via caCertificates -- no skipSslValidation anywhere.
+            String certPem = certificatePem(keystore, NetworkTestUtils.keyPass);
+            SamlIdentityProviderDefinition definitionWithCaCertificates = new SamlIdentityProviderDefinition()
+                    .setIdpEntityAlias(REGISTRATION_ID)
+                    .setMetaDataLocation(metadataUrl);
+            definitionWithCaCertificates.setCaCertificates(List.of(certPem));
+            when(idp.getConfig()).thenReturn(definitionWithCaCertificates);
+
+            RelyingPartyRegistration registration = repository.findByRegistrationId(REGISTRATION_ID);
+            assertThat(registration.getRegistrationId()).isEqualTo(REGISTRATION_ID);
+        } finally {
+            httpsServer.stop(0);
+            Files.deleteIfExists(keystore.toPath());
+        }
+    }
+
+    private static String certificatePem(File keystore, String password) throws Exception {
+        java.security.KeyStore ks = java.security.KeyStore.getInstance("JKS");
+        try (var in = new java.io.FileInputStream(keystore)) {
+            ks.load(in, password.toCharArray());
+        }
+        String alias = ks.aliases().nextElement();
+        byte[] encoded = ks.getCertificate(alias).getEncoded();
+        String base64 = java.util.Base64.getMimeEncoder(64, "\n".getBytes()).encodeToString(encoded);
+        return "-----BEGIN CERTIFICATE-----\n" + base64 + "\n-----END CERTIFICATE-----\n";
     }
 
     @Test
@@ -343,7 +515,7 @@ class ConfiguratorRelyingPartyRegistrationRepositoryTest {
         when(configurator.getIdentityProviderDefinitionsForZone(identityZone)).thenReturn(List.of(definition));
 
         RelyingPartyRegistration registration = repository.findByRegistrationId(REGISTRATION_ID);
-        assertThat(registration.getAssertingPartyDetails().getSigningAlgorithms())
+        assertThat(registration.getAssertingPartyMetadata().getSigningAlgorithms())
                 .hasSize(1)
                 .first()
                 .isEqualTo(ALGO_ID_SIGNATURE_RSA_SHA512);

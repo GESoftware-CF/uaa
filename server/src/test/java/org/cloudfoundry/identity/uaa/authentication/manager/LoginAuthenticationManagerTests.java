@@ -1,5 +1,6 @@
 package org.cloudfoundry.identity.uaa.authentication.manager;
 
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.cloudfoundry.identity.uaa.authentication.AuthzAuthenticationRequest;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthenticationTestFactory;
 import org.cloudfoundry.identity.uaa.authentication.UaaPrincipal;
@@ -14,7 +15,6 @@ import org.cloudfoundry.identity.uaa.user.UaaUser;
 import org.cloudfoundry.identity.uaa.user.UaaUserDatabase;
 import org.cloudfoundry.identity.uaa.user.UaaUserTestFactory;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -32,11 +32,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
-import static org.assertj.core.api.HamcrestCondition.matching;
-import static org.cloudfoundry.identity.uaa.user.UaaUserMatcher.aUaaUser;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 @ExtendWith(PollutionPreventionExtension.class)
@@ -103,7 +100,7 @@ class LoginAuthenticationManagerTests {
     @Test
     void userNotFoundNoAutoAdd() {
         Mockito.when(userDatabase.retrieveUserByName("foo", OriginKeys.LOGIN_SERVER)).thenThrow(new UsernameNotFoundException("planned"));
-        assertThatExceptionOfType(BadCredentialsException.class).isThrownBy(() -> manager.authenticate(UaaAuthenticationTestFactory.getAuthenticationRequest("foo")));
+        assertThatThrownBy(() -> manager.authenticate(UaaAuthenticationTestFactory.getAuthenticationRequest("foo"))).asInstanceOf(InstanceOfAssertFactories.throwable(BadCredentialsException.class));
     }
 
     @Test
@@ -119,7 +116,7 @@ class LoginAuthenticationManagerTests {
     @Test
     void unsuccessfulAutoAddButWithNewUser() {
         Mockito.when(userDatabase.retrieveUserByName("foo", OriginKeys.LOGIN_SERVER)).thenThrow(new UsernameNotFoundException("planned"));
-        assertThatExceptionOfType(BadCredentialsException.class).isThrownBy(() -> manager.authenticate(UaaAuthenticationTestFactory.getAuthenticationRequest("foo", true)));
+        assertThatThrownBy(() -> manager.authenticate(UaaAuthenticationTestFactory.getAuthenticationRequest("foo", true))).asInstanceOf(InstanceOfAssertFactories.throwable(BadCredentialsException.class));
     }
 
     @Test
@@ -154,16 +151,15 @@ class LoginAuthenticationManagerTests {
             info.put(OriginKeys.ORIGIN, "test-origin");
             UaaUser user = manager.getUser(req1, info);
 
-            assertThat(user).is(matching(aUaaUser()
-                    .withUsername("user")
-                    .withEmail("user@example.com")
-                    .withGivenName("Jane")
-                    .withFamilyName("Doe")
-                    .withPassword("")
-                    .withAuthorities(Matchers.equalTo(UaaAuthority.USER_AUTHORITIES))
-                    .withOrigin("test-origin")
-                    .withExternalId("user")
-                    .withZoneId(mockIdentityZoneManager.getCurrentIdentityZoneId())));
+            assertThat(user.getUsername()).isEqualTo("user");
+            assertThat(user.getEmail()).isEqualTo("user@example.com");
+            assertThat(user.getGivenName()).isEqualTo("Jane");
+            assertThat(user.getFamilyName()).isEqualTo("Doe");
+            assertThat(user.getPassword()).isEqualTo("");
+            assertThat(user.getAuthorities()).isEqualTo(UaaAuthority.USER_AUTHORITIES);
+            assertThat(user.getOrigin()).isEqualTo("test-origin");
+            assertThat(user.getExternalId()).isEqualTo("user");
+            assertThat(user.getZoneId()).isEqualTo(mockIdentityZoneManager.getCurrentIdentityZoneId());
         }
 
         @Test
@@ -172,14 +168,13 @@ class LoginAuthenticationManagerTests {
             Map<String, String> info = Map.of("email", "user@example.com");
             UaaUser user = manager.getUser(req1, info);
 
-            assertThat(user).is(matching(aUaaUser()
-                    .withUsername("user")
-                    .withEmail("user@example.com")
-                    .withPassword("")
-                    .withAuthorities(Matchers.equalTo(UaaAuthority.USER_AUTHORITIES))
-                    .withOrigin(OriginKeys.LOGIN_SERVER)
-                    .withExternalId("user")
-                    .withZoneId(mockIdentityZoneManager.getCurrentIdentityZoneId())));
+            assertThat(user.getUsername()).isEqualTo("user");
+            assertThat(user.getEmail()).isEqualTo("user@example.com");
+            assertThat(user.getPassword()).isEqualTo("");
+            assertThat(user.getAuthorities()).isEqualTo(UaaAuthority.USER_AUTHORITIES);
+            assertThat(user.getOrigin()).isEqualTo(OriginKeys.LOGIN_SERVER);
+            assertThat(user.getExternalId()).isEqualTo("user");
+            assertThat(user.getZoneId()).isEqualTo(mockIdentityZoneManager.getCurrentIdentityZoneId());
         }
     }
 }

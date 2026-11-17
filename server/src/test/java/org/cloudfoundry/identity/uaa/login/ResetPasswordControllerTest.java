@@ -1,6 +1,5 @@
 package org.cloudfoundry.identity.uaa.login;
 
-import jakarta.annotation.PostConstruct;
 import org.cloudfoundry.identity.uaa.TestClassNullifier;
 import org.cloudfoundry.identity.uaa.account.ConflictException;
 import org.cloudfoundry.identity.uaa.account.ForgotPasswordInfo;
@@ -40,19 +39,20 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.servlet.config.annotation.DefaultServletHandlerConfigurer;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter;
 import org.thymeleaf.TemplateEngine;
 
 import java.sql.Timestamp;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.containsString;
+import static org.cloudfoundry.identity.uaa.account.UaaResetPasswordService.FORGOT_PASSWORD_INTENT_PREFIX;
+import static org.cloudfoundry.identity.uaa.codestore.ExpiringCodeType.INVITATION;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.contains;
 import static org.mockito.Mockito.eq;
@@ -64,7 +64,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
@@ -127,7 +126,7 @@ class ResetPasswordControllerTest extends TestClassNullifier {
     @Test
     void forgotPasswordWithSelfServiceDisabled() throws Exception {
         IdentityZone zone = MultitenancyFixture.identityZone("test-zone-id", "testsubdomain");
-        zone.getConfig().getLinks().getSelfService().setSelfServiceResetPasswordEnabled(false);
+        zone.getConfig().getLinks().getSelfService().setSelfServiceLinksEnabled(false);
         IdentityZoneHolder.set(zone);
 
         mockMvc.perform(get("/forgot_password")
@@ -135,7 +134,7 @@ class ResetPasswordControllerTest extends TestClassNullifier {
                         .param("redirect_uri", "http://example.com"))
                 .andExpect(status().isNotFound())
                 .andExpect(view().name("error"))
-                .andExpect(model().attribute("error_message_code", "self_service_reset_password_disabled"));
+                .andExpect(model().attribute("error_message_code", "self_service_disabled"));
     }
 
     @Test
@@ -183,10 +182,10 @@ class ResetPasswordControllerTest extends TestClassNullifier {
             );
 
             String emailContent = captor.getValue();
-            assertThat(emailContent).contains("A request has been made to reset your %s account password for %s".formatted(companyName, "user@example.com"));
-            assertThat(emailContent).contains("Your account credentials for " + domain + " are managed by an external service. Please contact your administrator for password recovery requests.");
-            assertThat(emailContent).contains("Thank you");
-            assertThat(emailContent).contains(companyName);
+            assertThat(emailContent)
+                    .contains("A request has been made to reset your %s account password for %s".formatted(companyName, "user@example.com"))
+                    .contains("Your account credentials for " + domain + " are managed by an external service. Please contact your administrator for password recovery requests.")
+                    .containsIgnoringWhitespaces("Thank you,<br /> " + companyName);
         } finally {
             IdentityZoneHolder.get().setConfig(defaultConfig);
         }
@@ -230,7 +229,7 @@ class ResetPasswordControllerTest extends TestClassNullifier {
     @Test
     void forgotPasswordPostWithSelfServiceDisabled() throws Exception {
         IdentityZone zone = MultitenancyFixture.identityZone("test-zone-id", "testsubdomain");
-        zone.getConfig().getLinks().getSelfService().setSelfServiceResetPasswordEnabled(false);
+        zone.getConfig().getLinks().getSelfService().setSelfServiceLinksEnabled(false);
         IdentityZoneHolder.set(zone);
 
         mockMvc.perform(post("/forgot_password.do")
@@ -240,7 +239,7 @@ class ResetPasswordControllerTest extends TestClassNullifier {
                         .param("redirect_uri", "redirect.example.com"))
                 .andExpect(status().isNotFound())
                 .andExpect(view().name("error"))
-                .andExpect(model().attribute("error_message_code", "self_service_reset_password_disabled"));
+                .andExpect(model().attribute("error_message_code", "self_service_disabled"));
     }
 
     private void forgotPasswordSuccessful(String url) throws Exception {
@@ -293,35 +292,39 @@ class ResetPasswordControllerTest extends TestClassNullifier {
 
     @Test
     void resetPasswordPage() throws Exception {
-        ExpiringCode code = codeStore.generateCode("{\"user_id\" : \"some-user-id\"}", new Timestamp(System.currentTimeMillis() + 1000000), null, IdentityZoneHolder.get().getId());
-        mockMvc.perform(get("/reset_password").param("email", "user@example.com").param("code", code.getCode()))
+        ExpiringCode code = codeStore.generateCode("{\"user_id\" : \"some-user-id\"}", new Timestamp(System.currentTimeMillis() + 1000000), FORGOT_PASSWORD_INTENT_PREFIX + "some-user-id", IdentityZoneHolder.get().getId());
+        MvcResult result = mockMvc.perform(get("/reset_password").param("email", "user@example.com").param("code", code.getCode()))
                 .andExpect(status().isOk())
                 .andDo(print())
                 .andExpect(view().name("reset_password"))
                 .andExpect(model().attribute("email", "email"))
                 .andExpect(model().attribute("username", "username"))
-                .andExpect(content().string(containsString("<div class=\"email-display\">Username: username</div>")))
-                .andExpect(content().string(containsString("<input type=\"hidden\" name=\"username\" value=\"username\"/>")));
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString())
+                .contains("<div class=\"email-display\">Username: username</div>",
+                        "<input type=\"hidden\" name=\"username\" value=\"username\"/>");
     }
 
     @Test
     void resetPasswordPageWithPriorHeadRequest() throws Exception {
-        ExpiringCode code = codeStore.generateCode("{\"user_id\" : \"some-user-id\"}", new Timestamp(System.currentTimeMillis() + 1000000), null, IdentityZoneHolder.get().getId());
+        ExpiringCode code = codeStore.generateCode("{\"user_id\" : \"some-user-id\"}", new Timestamp(System.currentTimeMillis() + 1000000), FORGOT_PASSWORD_INTENT_PREFIX + "some-user-id", IdentityZoneHolder.get().getId());
         mockMvc.perform(head("/reset_password").param("email", "user@example.com").param("code", code.getCode()))
                 .andExpect(status().isOk());
-        mockMvc.perform(get("/reset_password").param("email", "user@example.com").param("code", code.getCode()))
+        MvcResult result = mockMvc.perform(get("/reset_password").param("email", "user@example.com").param("code", code.getCode()))
                 .andExpect(status().isOk())
                 .andDo(print())
                 .andExpect(view().name("reset_password"))
                 .andExpect(model().attribute("email", "email"))
                 .andExpect(model().attribute("username", "username"))
-                .andExpect(content().string(containsString("<div class=\"email-display\">Username: username</div>")))
-                .andExpect(content().string(containsString("<input type=\"hidden\" name=\"username\" value=\"username\"/>")));
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString())
+                .contains("<div class=\"email-display\">Username: username</div>",
+                        "<input type=\"hidden\" name=\"username\" value=\"username\"/>");
     }
 
     @Test
     void resetPasswordPageDuplicate() throws Exception {
-        ExpiringCode code = codeStore.generateCode("{\"user_id\" : \"some-user-id\"}", new Timestamp(System.currentTimeMillis() + 1000000), null, IdentityZoneHolder.get().getId());
+        ExpiringCode code = codeStore.generateCode("{\"user_id\" : \"some-user-id\"}", new Timestamp(System.currentTimeMillis() + 1000000), FORGOT_PASSWORD_INTENT_PREFIX + "some-user-id", IdentityZoneHolder.get().getId());
         mockMvc.perform(get("/reset_password").param("email", "user@example.com").param("code", code.getCode()))
                 .andExpect(status().isOk())
                 .andExpect(view().name("reset_password"));
@@ -339,27 +342,22 @@ class ResetPasswordControllerTest extends TestClassNullifier {
     }
 
     @Test
-    void testResetPasswordHead() throws Exception {
-        ExpiringCode code = codeStore.generateCode("{\"user_id\" : \"some-user-id\"}", new Timestamp(System.currentTimeMillis() + 1000000), null, IdentityZoneHolder.get().getId());
-        mockMvc.perform(get("/reset_password").param("code", code.getCode()).with(request -> {
-                   request.setMethod("HEAD");
-                   return request;
-               }))
-               .andExpect(status().isOk())
-               .andExpect(view().name("reset_password"));
+    void resetPasswordPageWithInvitationCodeReturns422() throws Exception {
+        ExpiringCode inviteCode = codeStore.generateCode(
+                "{\"user_id\":\"some-user-id\",\"client_id\":\"invite-client\",\"created_new_user\":\"false\"}",
+                new Timestamp(System.currentTimeMillis() + 1000000),
+                INVITATION.name(),
+                IdentityZoneHolder.get().getId());
+
+        mockMvc.perform(get("/reset_password").param("code", inviteCode.getCode()))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(view().name("forgot_password"))
+                .andExpect(model().attribute("message_code", "bad_code"));
     }
 
     @EnableWebMvc
     @Import(ThymeleafConfig.class)
     static class ContextConfiguration implements WebMvcConfigurer {
-
-        @Autowired
-        private RequestMappingHandlerAdapter requestMappingHandlerAdapter;
-
-        @PostConstruct
-        public void init() {
-            requestMappingHandlerAdapter.setIgnoreDefaultModelOnRedirect(false);
-        }
 
         @Override
         public void configureDefaultServletHandling(DefaultServletHandlerConfigurer configurer) {

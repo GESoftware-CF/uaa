@@ -1,6 +1,7 @@
 package org.cloudfoundry.identity.uaa.oauth.provider;
 
 import org.cloudfoundry.identity.uaa.oauth.common.util.OAuth2Utils;
+import org.cloudfoundry.identity.uaa.provider.oauth.TokenActor;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -18,6 +19,7 @@ import java.util.Objects;
 public class TokenRequest extends BaseRequest {
 
     private String grantType;
+    private TokenActor tokenActor;
 
     /**
      * Default constructor
@@ -27,7 +29,7 @@ public class TokenRequest extends BaseRequest {
 
     /**
      * Full constructor. Sets this TokenRequest's requestParameters map to an unmodifiable version of the one provided.
-     * 
+     *
      * @param requestParameters
      * @param clientId
      * @param scope
@@ -57,9 +59,8 @@ public class TokenRequest extends BaseRequest {
     /**
      * Set the scope value. If the collection contains only a single scope value, this method will parse that value into
      * a collection using {@link OAuth2Utils#parseParameterList}.
-     * 
      * @see AuthorizationRequest#setScope
-     * 
+     *
      * @param scope
      */
     @Override
@@ -70,9 +71,8 @@ public class TokenRequest extends BaseRequest {
     /**
      * Set the Request Parameters on this authorization request, which represent the original request parameters and
      * should never be changed during processing. The map passed in is wrapped in an unmodifiable map instance.
-     * 
      * @see AuthorizationRequest#setRequestParameters
-     * 
+     *
      * @param requestParameters
      */
     @Override
@@ -89,7 +89,7 @@ public class TokenRequest extends BaseRequest {
         // Add grant type so it can be retrieved from OAuth2Request
         modifiable.put(OAuth2Utils.GRANT_TYPE, grantType);
         return new OAuth2Request(modifiable, client.getClientId(), client.getAuthorities(), true, this.getScope(),
-                client.getResourceIds(), null, null, null);
+                client.getResourceIds(), null, null, null, getTokenActor());
     }
 
     @Override
@@ -112,5 +112,13 @@ public class TokenRequest extends BaseRequest {
         int result = super.hashCode();
         result = 31 * result + (grantType != null ? grantType.hashCode() : 0);
         return result;
+    }
+
+    public TokenActor getTokenActor() {
+        return tokenActor;
+    }
+
+    public void setTokenActor(TokenActor tokenActor) {
+        this.tokenActor = tokenActor;
     }
 }

@@ -55,6 +55,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -80,8 +81,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -230,7 +229,7 @@ public class ScimUserEndpoints implements InitializingBean, ApplicationEventPubl
         return scimUser;
     }
 
-    @PostMapping("/Users")
+    @PostMapping({"/Users", "/Users/"})
     @ResponseStatus(HttpStatus.CREATED)
     @ResponseBody
     public ScimUser createUser(@RequestBody ScimUser user, HttpServletRequest request, HttpServletResponse response) {
@@ -284,7 +283,6 @@ public class ScimUserEndpoints implements InitializingBean, ApplicationEventPubl
             }
         }
         final ScimUser scimUserWithApprovalsAndGroups = syncApprovals(syncGroups(scimUser));
-        // TODO: verify this change, it is not there previously
         addETagHeader(response, scimUserWithApprovalsAndGroups);
         return scimUserWithApprovalsAndGroups;
     }
@@ -292,7 +290,7 @@ public class ScimUserEndpoints implements InitializingBean, ApplicationEventPubl
     private ScimUser createScimUserWithAliasHandling(final ScimUser user) {
         final ScimUser scimUser;
         try {
-            scimUser = transactionTemplate.execute(txStatus -> {
+            scimUser = transactionTemplate.execute(_ -> {
                 final ScimUser originalScimUser = scimUserProvisioning.createUser(
                         user,
                         user.getPassword(),
@@ -333,12 +331,13 @@ public class ScimUserEndpoints implements InitializingBean, ApplicationEventPubl
         int version = getVersion(userId, etag);
         user.setVersion(version);
 
+        ScimUtils.validate(user);
         user.setZoneId(identityZoneManager.getCurrentIdentityZoneId());
 
         final ScimUser scimUser;
         try {
             scimUser = scimUserService.updateUser(userId, user);
-        } catch (final AliasPropertiesInvalidException e) {
+        } catch (final AliasPropertiesInvalidException _) {
             throw new ScimException("The fields 'aliasId' and/or 'aliasZid' are invalid.", HttpStatus.BAD_REQUEST);
         } catch (final OptimisticLockingFailureException e) {
             throw new ScimResourceConflictException(e.getMessage());
@@ -493,13 +492,13 @@ public class ScimUserEndpoints implements InitializingBean, ApplicationEventPubl
         }
         try {
             return Integer.parseInt(value);
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             throw new ScimException("Invalid version match header (should be a version number): " + etag,
                     HttpStatus.BAD_REQUEST);
         }
     }
 
-    @GetMapping("/Users")
+    @GetMapping({"/Users", "/Users/"})
     @ResponseBody
     public SearchResults<?> findUsers(
             @RequestParam(value = "attributes", required = false) String attributesCommaSeparated,
@@ -531,7 +530,7 @@ public class ScimUserEndpoints implements InitializingBean, ApplicationEventPubl
                 }
                 input.add(user);
             }
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException _) {
             String msg = "Invalid filter expression: [" + filter + "]";
             if (hasText(sortBy)) {
                 msg += " [" + sortBy + "]";
@@ -559,12 +558,13 @@ public class ScimUserEndpoints implements InitializingBean, ApplicationEventPubl
                     mapper,
                     Arrays.asList(ScimCore.SCHEMAS)
             );
-        } catch (JsonPathException e) {
+        } catch (JsonPathException _) {
             throw new ScimException("Invalid attributes: [" + attributesCommaSeparated + "]", HttpStatus.BAD_REQUEST);
         }
     }
 
     @PatchMapping("/Users/{userId}/status")
+    @ResponseBody
     public UserAccountStatus updateAccountStatus(@RequestBody UserAccountStatus status, @PathVariable String userId) {
         ScimUser user = scimUserProvisioning.retrieve(userId, identityZoneManager.getCurrentIdentityZoneId());
 
@@ -590,7 +590,7 @@ public class ScimUserEndpoints implements InitializingBean, ApplicationEventPubl
     }
 
     @Nullable
-    @RequestMapping(value = "/Users/tx", method = RequestMethod.POST)
+    @PostMapping("/Users/tx")
     @ResponseStatus(HttpStatus.CREATED)
     @ResponseBody
     @Transactional
@@ -602,7 +602,6 @@ public class ScimUserEndpoints implements InitializingBean, ApplicationEventPubl
         }
         return res;
     }
-
     private ScimUser syncGroups(@Nullable ScimUser user) {
         if (user == null) {
             return null;
@@ -653,6 +652,7 @@ public class ScimUserEndpoints implements InitializingBean, ApplicationEventPubl
     @ExceptionHandler
     public View handleException(Exception t, HttpServletRequest request) throws ScimException, InternalUserManagementDisabledException {
         logger.error("Unhandled exception in SCIM user endpoints. {}", t.getMessage());
+        logger.debug("Exception details:", t);
 
         ScimException e = new ScimException("Unexpected error", t, HttpStatus.INTERNAL_SERVER_ERROR);
         if (t instanceof ScimException exception) {
@@ -672,6 +672,12 @@ public class ScimUserEndpoints implements InitializingBean, ApplicationEventPubl
                 }
             }
         }
+
+        // redact database internals if applicable
+        if (t instanceof DataAccessException) {
+            e = new ScimException("A database error occurred.", e.getStatus());
+        }
+
         incrementErrorCounts(e);
         // User can supply trace=true or just trace (unspecified) to get stack
         // traces
@@ -687,7 +693,7 @@ public class ScimUserEndpoints implements InitializingBean, ApplicationEventPubl
             synchronized (errorCounts) {
                 value = errorCounts.get(series);
                 if (value == null) {
-                    errorCounts.computeIfAbsent(series, k -> new AtomicInteger(1));
+                    errorCounts.computeIfAbsent(series, _ -> new AtomicInteger(1));
                     return;
                 }
             }

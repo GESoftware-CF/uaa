@@ -44,7 +44,7 @@ public class RemoteAuthenticationEndpoint {
         this.loginAuthenticationManager = loginAuthenticationManager;
     }
 
-    @PostMapping({"/authenticate"})
+    @PostMapping({"/authenticate", "/authenticate/"})
     @ResponseBody
     public HttpEntity<AuthenticationResponse> authenticate(HttpServletRequest request,
             @RequestParam String username,
@@ -63,10 +63,10 @@ public class RemoteAuthenticationEndpoint {
             }
             processAdditionalInformation(response, a);
             status = HttpStatus.OK;
-        } catch (AccountNotVerifiedException e) {
+        } catch (AccountNotVerifiedException _) {
             response.setError("account not verified");
             status = HttpStatus.FORBIDDEN;
-        } catch (AuthenticationException e) {
+        } catch (AuthenticationException _) {
             response.setError("authentication failed");
         } catch (Exception e) {
             logger.debug("Failed to authenticate user ", e);
@@ -77,7 +77,7 @@ public class RemoteAuthenticationEndpoint {
         return new ResponseEntity<>(response, status);
     }
 
-    @PostMapping(value = {"/authenticate"}, params = {"source", "origin", UaaAuthenticationDetails.ADD_NEW})
+    @PostMapping(value = {"/authenticate", "/authenticate/"}, params = {"source", "origin", UaaAuthenticationDetails.ADD_NEW})
     @ResponseBody
     public HttpEntity<AuthenticationResponse> authenticate(HttpServletRequest request,
             @RequestParam String username,
@@ -104,7 +104,7 @@ public class RemoteAuthenticationEndpoint {
             response.setUsername(a.getName());
             processAdditionalInformation(response, a);
             status = HttpStatus.OK;
-        } catch (AuthenticationException e) {
+        } catch (AuthenticationException _) {
             response.setError("authentication failed");
         } catch (Exception e) {
             logger.debug("Failed to authenticate user ", e);

@@ -18,6 +18,7 @@ import org.cloudfoundry.identity.uaa.saml.SamlKey;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -200,6 +201,18 @@ class GeneralIdentityZoneConfigurationValidatorTests {
     GeneralIdentityZoneConfigurationValidator validator;
     IdentityZone zone;
 
+    @Test
+    void malformedNamedTrustBundleIsRejected() {
+        Map<String, Object> config = new HashMap<>(org.cloudfoundry.identity.uaa.util.JsonUtils.convertValue(
+                zone.getConfig(), Map.class));
+        config.put("mtls", Map.of("enabled", true, "trustBundles", Map.of("broken", "not a PEM certificate")));
+        zone.setConfig(org.cloudfoundry.identity.uaa.util.JsonUtils.convertValue(config, IdentityZoneConfiguration.class));
+
+        assertThatThrownBy(() -> validator.validate(zone, IdentityZoneValidator.Mode.MODIFY))
+                .isInstanceOf(InvalidIdentityZoneConfigurationException.class)
+                .hasMessageContaining("broken");
+    }
+
     @BeforeEach
     void setUp() {
         IdentityZoneHolder.clear();
@@ -227,7 +240,7 @@ class GeneralIdentityZoneConfigurationValidatorTests {
 
     @MethodSource("parameters")
     @ParameterizedTest
-    void validate_with_legacy_key_active(IdentityZoneValidator.Mode mode) throws InvalidIdentityZoneConfigurationException {
+    void validate_with_legacy_key_active(IdentityZoneValidator.Mode mode) throws Exception {
         validator.validate(zone, mode);
     }
 
@@ -252,7 +265,7 @@ class GeneralIdentityZoneConfigurationValidatorTests {
 
     @MethodSource("parameters")
     @ParameterizedTest
-    void validateConsent_withNotNullTextAndNullLink(IdentityZoneValidator.Mode mode) throws InvalidIdentityZoneConfigurationException {
+    void validateConsent_withNotNullTextAndNullLink(IdentityZoneValidator.Mode mode) throws Exception {
         zone.getConfig().getBranding().setConsent(new Consent("Terms and Conditions", null));
         validator.validate(zone, mode);
     }
@@ -277,7 +290,7 @@ class GeneralIdentityZoneConfigurationValidatorTests {
 
     @MethodSource("parameters")
     @ParameterizedTest
-    void validate_without_legacy_key(IdentityZoneValidator.Mode mode) throws InvalidIdentityZoneConfigurationException {
+    void validate_without_legacy_key(IdentityZoneValidator.Mode mode) throws Exception {
         samlConfig.setKeys(emptyMap());
         assertThat(samlConfig.getActiveKeyId()).isNull();
         samlConfig.addKey("key-1", new SamlKey(KEY_1, PASSPHRASE_1, CERTIFICATE_1));
@@ -297,6 +310,36 @@ class GeneralIdentityZoneConfigurationValidatorTests {
                 .hasMessageContaining("Invalid SAML active key ID: 'null'. Couldn't find any matching keys.");
     }
 
+    @ParameterizedTest
+    @MethodSource("parameters")
+    void validate_refreshTokenRotate_with_jwt_and_not_revocable(IdentityZoneValidator.Mode mode) throws Exception {
+        IdentityZone testZone = new IdentityZone();
+        testZone.setId(IdentityZone.getUaaZoneId());
+        TokenPolicy tokenPolicy = new TokenPolicy();
+        tokenPolicy.setRefreshTokenRotate(true);
+        tokenPolicy.setRefreshTokenFormat("jwt");
+        tokenPolicy.setJwtRevocable(false);
+        testZone.getConfig().setTokenPolicy(tokenPolicy);
+
+        IdentityZoneConfiguration validatedZone = validator.validate(testZone, mode);
+        
+        assertThat(validatedZone.getTokenPolicy().isJwtRevocable()).isTrue();
+    }
+
+    @ParameterizedTest
+    @MethodSource("parameters")
+    void validate_refreshTokenRotate_with_jwt_and_revocable(IdentityZoneValidator.Mode mode) throws Exception {
+        IdentityZone testZone = new IdentityZone();
+        testZone.setId(IdentityZone.getUaaZoneId());
+        TokenPolicy tokenPolicy = new TokenPolicy();
+        tokenPolicy.setRefreshTokenRotate(true);
+        tokenPolicy.setRefreshTokenFormat("jwt");
+        tokenPolicy.setJwtRevocable(true);
+        testZone.getConfig().setTokenPolicy(tokenPolicy);
+
+        validator.validate(testZone, mode);
+    }
+
     @MethodSource("parameters")
     @ParameterizedTest
     void validate_no_keys(IdentityZoneValidator.Mode mode) throws Exception {
@@ -314,6 +357,43 @@ class GeneralIdentityZoneConfigurationValidatorTests {
         assertThatThrownBy(() -> validator.validate(zone, mode))
                 .isInstanceOf(InvalidIdentityZoneConfigurationException.class)
                 .hasMessageContaining("You cannot set issuer value unless you have set your own signing key for this identity zone.");
+    }
+
+    // Tests for: if (!zone.isUaa() && isNotEmpty(issuer) && (tokenPolicy == null || isNullOrEmpty(activeKeyId)))
+    @MethodSource("parameters")
+    @ParameterizedTest
+    void validate_nonUaaZone_withIssuer_andNoTokenPolicy_throwsException(IdentityZoneValidator.Mode mode) {
+        // non-UAA zone with issuer set but no token policy -> should fail
+        zone.setId("custom-zone");
+        zone.getConfig().setIssuer("http://custom.example.com/issuer");
+        zone.getConfig().setTokenPolicy(null);
+        assertThatThrownBy(() -> validator.validate(zone, mode))
+                .isInstanceOf(InvalidIdentityZoneConfigurationException.class)
+                .hasMessageContaining("You cannot set issuer value unless you have set your own signing key for this identity zone.");
+    }
+
+    @MethodSource("parameters")
+    @ParameterizedTest
+    void validate_nonUaaZone_withoutIssuer_andNoActiveKey_succeeds(IdentityZoneValidator.Mode mode) throws Exception {
+        // non-UAA zone without issuer -> condition not triggered, should pass
+        zone.setId("custom-zone");
+        zone.getConfig().setIssuer("http://localhost:8080/uaa");
+        zone.getConfig().setTokenPolicy(null);
+        // validate should not throw
+        assertThatThrownBy(() -> validator.validate(zone, mode))
+            .isInstanceOf(InvalidIdentityZoneConfigurationException.class)
+            .hasMessageContaining("You cannot set issuer value unless you have set your own signing key for this identity zone.");
+    }
+
+    @MethodSource("parameters")
+    @ParameterizedTest
+    void validate_uaaZone_withIssuer_andNoActiveKey_succeeds(IdentityZoneValidator.Mode mode) throws Exception {
+        // UAA zone is exempt from the issuer check -> should pass even without an active key
+        zone.setId(IdentityZone.getUaaZoneId());
+        zone.getConfig().setIssuer("http://uaa.example.com/issuer");
+        zone.getConfig().setTokenPolicy(null);
+        // validate should not throw
+        validator.validate(zone, mode);
     }
 
     @MethodSource("parameters")
@@ -358,7 +438,7 @@ class GeneralIdentityZoneConfigurationValidatorTests {
 
     @MethodSource("parameters")
     @ParameterizedTest
-    void validate_with_token_key_and_certificate(IdentityZoneValidator.Mode mode) throws InvalidIdentityZoneConfigurationException {
+    void validate_with_token_key_and_certificate(IdentityZoneValidator.Mode mode) throws Exception {
         setupTokenPolicyWithCertificate(LEGACY_KEY, LEGACY_CERTIFICATE, "RS256");
 
         IdentityZoneConfiguration identityZoneConfiguration = validator.validate(zone, mode);
@@ -370,7 +450,7 @@ class GeneralIdentityZoneConfigurationValidatorTests {
 
     @MethodSource("parameters")
     @ParameterizedTest
-    void validate_with_token_key_without_certificate(IdentityZoneValidator.Mode mode) throws InvalidIdentityZoneConfigurationException {
+    void validate_with_token_key_without_certificate(IdentityZoneValidator.Mode mode) throws Exception {
         setupTokenPolicyWithCertificate("secretkey", null, "HS512");
 
         IdentityZoneConfiguration identityZoneConfiguration = validator.validate(zone, mode);

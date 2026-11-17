@@ -8,6 +8,7 @@ import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
 import org.cloudfoundry.identity.uaa.provider.OIDCIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.provider.RawExternalOAuthIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.util.AlphanumericRandomValueStringGenerator;
+import org.cloudfoundry.identity.uaa.util.SessionUtils;
 import org.cloudfoundry.identity.uaa.util.UaaRandomStringUtil;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneProvisioning;
@@ -191,7 +192,7 @@ class ExternalOAuthProviderConfiguratorTests {
 
     @ParameterizedTest
     @MethodSource
-    void retrieveActiveByTypes(final String[] types) throws OidcMetadataFetchingException {
+    void retrieveActiveByTypes(final String[] types) throws Exception {
         final String zoneId = RandomStringUtils.randomAlphanumeric(8);
 
         // eliminate duplicates
@@ -357,8 +358,7 @@ class ExternalOAuthProviderConfiguratorTests {
         when(identityZoneManager.getCurrentIdentityZoneId()).thenReturn(IdentityZone.getUaaZoneId());
         when(identityZoneManager.getCurrentIdentityZone()).thenReturn(IdentityZone.getUaa());
         assertThatThrownBy(() -> configurator.retrieveByIssuer(issuer, IdentityZone.getUaaZoneId()))
-                .isInstanceOf(IncorrectResultSizeDataAccessException.class)
-                .hasMessage("Active provider with issuer[%s] not found".formatted(issuer));
+                .isInstanceOf(IncorrectResultSizeDataAccessException.class).hasMessage("Active provider with issuer[%s] not found", issuer);
     }
 
     @Test
@@ -375,8 +375,7 @@ class ExternalOAuthProviderConfiguratorTests {
                 .fetchMetadataAndUpdateDefinition(any(OIDCIdentityProviderDefinition.class));
 
         assertThatThrownBy(() -> configurator.retrieveByIssuer(issuer, IdentityZone.getUaaZoneId()))
-                .isInstanceOf(IncorrectResultSizeDataAccessException.class)
-                .hasMessage("Duplicate providers with issuer[%s] not found".formatted(issuer));
+                .isInstanceOf(IncorrectResultSizeDataAccessException.class).hasMessage("Duplicate providers with issuer[%s] not found", issuer);
     }
 
     @Test
@@ -419,6 +418,10 @@ class ExternalOAuthProviderConfiguratorTests {
         Map<String, String> queryParams =
                 UriComponentsBuilder.fromUriString(authzUri).build().getQueryParams().toSingleValueMap();
         assertThat(queryParams).containsKey("nonce");
+        
+        String nonce = queryParams.get("nonce");
+        String sessionNonce = (String) mockHttpServletRequest.getSession().getAttribute(SessionUtils.nonceParameterAttributeKeyForIdp("alias"));
+        assertThat(sessionNonce).isEqualTo(nonce);
     }
 
     @Test
@@ -458,27 +461,27 @@ class ExternalOAuthProviderConfiguratorTests {
     }
 
     @Test
-    void oidcIdPPkceEqual() throws CloneNotSupportedException {
+    void oidcIdPPkceEqual() throws Exception {
         OIDCIdentityProviderDefinition oidc1 = (OIDCIdentityProviderDefinition) oidc.clone();
         assertThat(oidc1).isEqualTo(oidc);
     }
 
     @Test
-    void oidcIdPPkceNotEqual() throws CloneNotSupportedException {
+    void oidcIdPPkceNotEqual() throws Exception {
         OIDCIdentityProviderDefinition oidc1 = (OIDCIdentityProviderDefinition) oidc.clone();
         oidc.setPkce(false);
         assertThat(oidc1).isNotEqualTo(oidc);
     }
 
     @Test
-    void oidcIdPPkceHashCodeNotEqual() throws CloneNotSupportedException {
+    void oidcIdPPkceHashCodeNotEqual() throws Exception {
         OIDCIdentityProviderDefinition oidc1 = (OIDCIdentityProviderDefinition) oidc.clone();
         oidc.setPkce(false);
         assertThat(oidc1).doesNotHaveSameHashCodeAs(oidc);
     }
 
     @Test
-    void oidcIdPPkceHashCodeEqual() throws CloneNotSupportedException {
+    void oidcIdPPkceHashCodeEqual() throws Exception {
         OIDCIdentityProviderDefinition oidc1 = (OIDCIdentityProviderDefinition) oidc.clone();
         assertThat(oidc1).hasSameHashCodeAs(oidc);
     }
@@ -496,7 +499,7 @@ class ExternalOAuthProviderConfiguratorTests {
     }
 
     @Test
-    void getIdpAuthenticationUrl_withOnlyDiscoveryUrlForOIDCProvider() throws MalformedURLException, OidcMetadataFetchingException {
+    void getIdpAuthenticationUrl_withOnlyDiscoveryUrlForOIDCProvider() throws Exception {
         String discoveryUrl = "https://accounts.google.com/.well-known/openid-configuration";
         oidc.setDiscoveryUrl(URI.create(discoveryUrl).toURL());
         oidc.setAuthUrl(null);
@@ -531,6 +534,10 @@ class ExternalOAuthProviderConfiguratorTests {
                 .containsEntry("state", "01234567890123456789012345678901234567890123456789")
                 .containsKey("nonce");
         assertThat(queryParams.get("redirect_uri")).contains("login%2Fcallback%2Falias");
+        
+        String nonce = queryParams.get("nonce");
+        String sessionNonce = (String) mockHttpServletRequest.getSession().getAttribute(SessionUtils.nonceParameterAttributeKeyForIdp("alias"));
+        assertThat(sessionNonce).isEqualTo(nonce);
     }
 
     @Test
@@ -556,7 +563,7 @@ class ExternalOAuthProviderConfiguratorTests {
     }
 
     @Test
-    void excludeUnreachableOidcProvider() throws OidcMetadataFetchingException {
+    void excludeUnreachableOidcProvider() throws Exception {
         when(mockIdentityProviderProvisioning.retrieveAll(eq(true), anyString())).thenReturn(Arrays.asList(oidcProvider, oauthProvider, new IdentityProvider<>().setType(LDAP)));
 
         doThrow(new NullPointerException("")).when(mockOidcMetadataFetcher)
@@ -579,28 +586,40 @@ class ExternalOAuthProviderConfiguratorTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = { "select_account", "none", "login" })
-    void shouldOverrideStaticPromptOnlyForExplicitReauthentication(String staticPrompt) {
-        when(mockUaaRandomStringUtil.getSecureRandom(anyInt())).thenReturn("random-state");
-        oidc.setAdditionalAuthzParameters(Map.of("prompt", staticPrompt, "token_format", "jwt"));
-
-        String forcedUrl = configurator.getIdpAuthenticationUrl(
-                oidc, OIDC10, mockHttpServletRequest, true);
-        var forcedParameters = UriComponentsBuilder.fromUriString(forcedUrl).build().getQueryParams();
-        assertThat(forcedParameters.get("prompt")).containsExactly("login");
-        assertThat(forcedParameters.get("token_format")).containsExactly("jwt");
-
-        String ordinaryUrl = configurator.getIdpAuthenticationUrl(oidc, OIDC10, mockHttpServletRequest);
-        var ordinaryParameters = UriComponentsBuilder.fromUriString(ordinaryUrl).build().getQueryParams();
-        assertThat(ordinaryParameters.get("prompt")).containsExactly(staticPrompt);
-        assertThat(oidc.getAdditionalAuthzParameters()).containsEntry("prompt", staticPrompt);
-    }
-
-    @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void idpWithAliasExistsInZone(final boolean resultFromDelegate) {
         final String zoneId = RANDOM_STRING_GENERATOR.generate();
         when(mockIdentityProviderProvisioning.idpWithAliasExistsInZone(zoneId)).thenReturn(resultFromDelegate);
         assertThat(configurator.idpWithAliasExistsInZone(zoneId)).isEqualTo(resultFromDelegate);
+    }
+
+    @Test
+    void getIdpAuthenticationUrl_verifyNonceAndStateLength() {
+        // Mock state generation (22 characters)
+        String stateValue = "a".repeat(22); // exactly 22 characters
+        when(mockUaaRandomStringUtil.getSecureRandom(22)).thenReturn(stateValue);
+        
+        // Mock code verifier generation (128 characters) - needed for PKCE
+        String codeVerifierValue = "b".repeat(128);
+        when(mockUaaRandomStringUtil.getSecureRandom(128)).thenReturn(codeVerifierValue);
+        
+        String authzUri = configurator.getIdpAuthenticationUrl(oidc, "alias", mockHttpServletRequest);
+        Map<String, String> queryParams =
+                UriComponentsBuilder.fromUriString(authzUri).build().getQueryParams().toSingleValueMap();
+        
+        // Verify state is at least 22 characters
+        assertThat(queryParams.get("state"))
+                .as("State parameter should be at least 22 characters")
+                .hasSizeGreaterThanOrEqualTo(22);
+        
+        // Verify nonce exists and has expected length (RandomValueStringGenerator(22) generates 22 chars)
+        assertThat(queryParams.get("nonce"))
+                .as("Nonce parameter should be at least 22 characters")
+                .isNotNull()
+                .hasSizeGreaterThanOrEqualTo(22);
+                
+        String nonce = queryParams.get("nonce");
+        String sessionNonce = (String) mockHttpServletRequest.getSession().getAttribute(SessionUtils.nonceParameterAttributeKeyForIdp("alias"));
+        assertThat(sessionNonce).isEqualTo(nonce);
     }
 }

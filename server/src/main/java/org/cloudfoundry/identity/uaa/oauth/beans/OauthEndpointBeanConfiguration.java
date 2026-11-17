@@ -1,5 +1,6 @@
 package org.cloudfoundry.identity.uaa.oauth.beans;
 
+import jakarta.servlet.http.HttpSession;
 import org.apache.tomcat.jdbc.pool.DataSource;
 import org.cloudfoundry.identity.uaa.approval.ApprovalService;
 import org.cloudfoundry.identity.uaa.approval.JdbcApprovalStore;
@@ -27,6 +28,7 @@ import org.cloudfoundry.identity.uaa.codestore.ExpiringCodeStore;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.db.beans.DatabaseProperties;
 import org.cloudfoundry.identity.uaa.impl.config.LegacyTokenKey;
+import org.cloudfoundry.identity.uaa.impl.config.RestTemplateConfig;
 import org.cloudfoundry.identity.uaa.login.AccountSavingAuthenticationSuccessHandler;
 import org.cloudfoundry.identity.uaa.login.CurrentUserCookieFactory;
 import org.cloudfoundry.identity.uaa.oauth.ClientAccessTokenValidity;
@@ -43,7 +45,10 @@ import org.cloudfoundry.identity.uaa.oauth.UaaOauth2RequestValidator;
 import org.cloudfoundry.identity.uaa.oauth.UaaTokenServices;
 import org.cloudfoundry.identity.uaa.oauth.UaaTokenStore;
 import org.cloudfoundry.identity.uaa.oauth.jwt.JwtClientAuthentication;
+import org.cloudfoundry.identity.uaa.oauth.openid.IdTokenClaimEnhancer;
+import org.cloudfoundry.identity.uaa.oauth.tls.TlsClientAuthentication;
 import org.cloudfoundry.identity.uaa.oauth.openid.IdTokenCreator;
+import org.cloudfoundry.identity.uaa.oauth.openid.IdTokenEnhancer;
 import org.cloudfoundry.identity.uaa.oauth.openid.IdTokenGranter;
 import org.cloudfoundry.identity.uaa.oauth.provider.OAuth2RequestFactory;
 import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationManager;
@@ -54,15 +59,20 @@ import org.cloudfoundry.identity.uaa.oauth.provider.token.AuthorizationServerTok
 import org.cloudfoundry.identity.uaa.oauth.refresh.RefreshTokenCreator;
 import org.cloudfoundry.identity.uaa.oauth.token.JdbcRevocableTokenProvisioning;
 import org.cloudfoundry.identity.uaa.oauth.token.RevocableTokenProvisioning;
+import org.cloudfoundry.identity.uaa.oauth.token.TokenConstants;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
 import org.cloudfoundry.identity.uaa.provider.LockoutPolicy;
 import org.cloudfoundry.identity.uaa.provider.oauth.ExternalOAuthAuthenticationFilter;
 import org.cloudfoundry.identity.uaa.provider.oauth.ExternalOAuthAuthenticationManager;
 import org.cloudfoundry.identity.uaa.provider.oauth.OidcMetadataFetcher;
+import org.cloudfoundry.identity.uaa.provider.oauth.TokenExchangeWrapperForExternalOauth;
 import org.cloudfoundry.identity.uaa.resources.jdbc.LimitSqlAdapter;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupExternalMembershipManager;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupProvisioning;
 import org.cloudfoundry.identity.uaa.security.CsrfAwareEntryPointAndDeniedHandler;
+import org.cloudfoundry.identity.uaa.security.IdpOutboundTrustCache;
 import org.cloudfoundry.identity.uaa.security.beans.SecurityContextAccessor;
 import org.cloudfoundry.identity.uaa.security.web.TokenEndpointPostProcessor;
 import org.cloudfoundry.identity.uaa.security.web.UaaRequestMatcher;
@@ -79,8 +89,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.SetFactoryBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.sql.init.dependency.DependsOnDatabaseInitialization;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
@@ -89,16 +101,14 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.AuthenticationDetailsSource;
 import org.springframework.security.authentication.AuthenticationEventPublisher;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.DefaultAuthenticationEventPublisher;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.web.client.RestTemplate;
 
-import jakarta.servlet.http.HttpSession;
 import java.security.NoSuchAlgorithmException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -113,7 +123,7 @@ import static java.util.Map.entry;
 @Configuration
 public class OauthEndpointBeanConfiguration {
 
-    private static final Logger log = LoggerFactory.getLogger(OauthEndpointBeanConfiguration.class);
+    private static final Logger logger = LoggerFactory.getLogger(OauthEndpointBeanConfiguration.class);
 
     @Autowired
     @Qualifier("jdbcClientDetailsService")
@@ -400,7 +410,8 @@ public class OauthEndpointBeanConfiguration {
                 entry("Authorization", asList("bearer "))
         ));
         bean.setParameters(Map.ofEntries(
-                entry("client_id", "")
+                entry("client_id", ""),
+                entry("grant_type", "user_token")
         ));
         return bean;
     }
@@ -451,15 +462,19 @@ public class OauthEndpointBeanConfiguration {
             @Qualifier("clientDetailsUserService") UserDetailsService clientDetailsUserService,
             @Qualifier("cachingPasswordEncoder") PasswordEncoder cachingPasswordEncoder,
             @Qualifier("jwtClientAuthentication") JwtClientAuthentication jwtClientAuthentication,
-            @Value("${UAA_LEGACY_NOSECRET_ALLOWED_ZONE_CLIENT_IDS:}") String legacyNoSecretAllowedZoneClientIds
+            TlsClientAuthentication tlsClientAuthentication
     ) {
-        Map<String, Set<String>> mapping = ClientDetailsAuthenticationProvider.parseZoneClientIdMapping(legacyNoSecretAllowedZoneClientIds);
         return new ClientDetailsAuthenticationProvider(
                 clientDetailsUserService,
                 cachingPasswordEncoder,
                 jwtClientAuthentication,
-                mapping
+                tlsClientAuthentication
         );
+    }
+
+    @Bean
+    AuthenticationEventPublisher defaultAuthenticationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
+        return new DefaultAuthenticationEventPublisher(applicationEventPublisher);
     }
 
     @Bean("clientAuthenticationManager")
@@ -560,7 +575,10 @@ public class OauthEndpointBeanConfiguration {
         @Qualifier("keyInfoService") KeyInfoService keyInfoService,
         @Qualifier("oidcMetadataFetcher") OidcMetadataFetcher oidcMetadataFetcher,
         @Qualifier("userDatabase") UaaUserDatabase userDatabase,
-        @Qualifier("externalGroupMembershipManager") ScimGroupExternalMembershipManager externalMembershipManager
+        @Qualifier("externalGroupMembershipManager") ScimGroupExternalMembershipManager externalMembershipManager,
+        @Value("${login.oauth.externalGroupsFromMappedAuthorities:false}") boolean externalGroupsFromMappedAuthorities,
+        IdpOutboundTrustCache idpOutboundTrustCache,
+        RestTemplateConfig restTemplateConfig
     ) {
         ExternalOAuthAuthenticationManager bean = new ExternalOAuthAuthenticationManager(
                 providerProvisioning,
@@ -569,11 +587,23 @@ public class OauthEndpointBeanConfiguration {
                 nonTrustingRestTemplate,
                 tokenEndpointBuilder,
                 keyInfoService,
-                oidcMetadataFetcher
+                oidcMetadataFetcher,
+                externalGroupsFromMappedAuthorities,
+                idpOutboundTrustCache,
+                restTemplateConfig
         );
         bean.setUserDatabase(userDatabase);
         bean.setExternalMembershipManager(externalMembershipManager);
         return bean;
+    }
+
+    @Bean("tokenExchangeAuthenticationManager")
+    @ConditionalOnMissingBean(name = {"tokenExchangeAuthenticationManager"})
+    @SuppressWarnings("unchecked")
+    AuthenticationManager tokenExchangeAuthenticationManager(
+            @Qualifier("externalOAuthAuthenticationManager") final ExternalOAuthAuthenticationManager authenticationManager
+    ) {
+        return new TokenExchangeWrapperForExternalOauth(authenticationManager);
     }
 
     @Bean("externalOAuthCallbackAuthenticationFilter")
@@ -670,7 +700,7 @@ public class OauthEndpointBeanConfiguration {
             @Value("${jwt.token.policy.activeKeyId:#{null}}") String activeKeyId,
             @Value("${jwt.token.revocable:false}") boolean jwtRevocable,
             @Value("${jwt.token.refresh.format:#{T(org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.TokenFormat).OPAQUE.getStringValue()}}") String refreshTokenFormat,
-            @Value("${jwt.token.refresh.unique:false}") boolean refreshTokenUnique,
+            @Value("${jwt.token.refresh.unique:false}") String refreshTokenUniqueStr,
             @Value("${jwt.token.refresh.rotate:false}") boolean refreshTokenRotate
     ) {
         TokenPolicy bean = new TokenPolicy(
@@ -681,8 +711,17 @@ public class OauthEndpointBeanConfiguration {
         bean.setActiveKeyId(activeKeyId);
         bean.setJwtRevocable(jwtRevocable);
         bean.setRefreshTokenFormat(refreshTokenFormat);
-        bean.setRefreshTokenUnique(refreshTokenUnique);
+        bean.setMaxSessionLimit(TokenPolicy.parseRefreshTokenUnique(refreshTokenUniqueStr));
+
         bean.setRefreshTokenRotate(refreshTokenRotate);
+
+        if (refreshTokenRotate &&
+                TokenConstants.TokenFormat.JWT.getStringValue().equalsIgnoreCase(refreshTokenFormat) &&
+                !jwtRevocable) {
+            logger.warn("Invalid token policy configuration: JWT-format refresh tokens with rotation enabled must be revocable. Auto-correcting to set jwtRevocable=true.");
+            bean.setJwtRevocable(true);
+        }
+
         return bean;
     }
 
@@ -716,6 +755,7 @@ public class OauthEndpointBeanConfiguration {
     }
 
     @Bean("refreshTokenValidityResolver")
+    @ConditionalOnMissingBean(name = "refreshTokenValidityResolver")
     TokenValidityResolver refreshTokenValidityResolver(
             @Qualifier("clientRefreshTokenValidity") ClientTokenValidity clientRefreshTokenValidity,
             @Value("${jwt.token.policy.global.refreshTokenValiditySeconds:2592000}") int globalTokenValiditySeconds
@@ -748,6 +788,16 @@ public class OauthEndpointBeanConfiguration {
                 excludedClaims,
                 identityZoneManager
         );
+    }
+
+    @Bean("idTokenClaimEnhancer")
+    IdTokenClaimEnhancer idTokenClaimEnhancer(
+            org.springframework.beans.factory.ObjectProvider<IdTokenEnhancer> idTokenEnhancers,
+            @Value("${jwt.token.idToken.enhancer.allowClaimModification:false}") boolean allowClaimModification
+    ) {
+        return new IdTokenClaimEnhancer(
+                idTokenEnhancers.orderedStream().toList(),
+                allowClaimModification);
     }
 
     @Bean("refreshTokenCreator")
@@ -810,9 +860,10 @@ public class OauthEndpointBeanConfiguration {
             @Qualifier("excludedClaims") LinkedHashSet<String> excludedClaims,
             @Qualifier("globalTokenPolicy") TokenPolicy globalTokenPolicy,
             @Qualifier("keyInfoService") KeyInfoService keyInfoService,
-            @Qualifier("idTokenGranter") IdTokenGranter idTokenGranter
+            @Qualifier("idTokenGranter") IdTokenGranter idTokenGranter,
+            @Qualifier("idTokenClaimEnhancer") IdTokenClaimEnhancer idTokenClaimEnhancer
     ) {
-        return new UaaTokenServices(
+        UaaTokenServices tokenServices = new UaaTokenServices(
                 idTokenCreator,
                 tokenEndpointBuilder,
                 jdbcClientDetailsService,
@@ -828,6 +879,8 @@ public class OauthEndpointBeanConfiguration {
                 idTokenGranter,
                 approvalService
         );
+        tokenServices.setIdTokenClaimEnhancer(idTokenClaimEnhancer);
+        return tokenServices;
     }
 
     @Bean("uaaAuthenticationMgr")

@@ -22,13 +22,8 @@ import org.springframework.util.StringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static org.cloudfoundry.identity.uaa.oauth.common.util.OAuth2Utils.CLIENT_ID;
 import static org.cloudfoundry.identity.uaa.util.JwtTokenSignedByThisUAA.buildIdTokenValidator;
@@ -47,7 +42,6 @@ public final class WhitelistLogoutSuccessHandler extends SimpleUrlLogoutSuccessH
 
     private RedirectResolver redirectResolver;
 
-
     public WhitelistLogoutSuccessHandler(List<String> whitelist) {
         this.whitelist = whitelist;
         this.redirectResolver = new LegacyRedirectResolver();
@@ -56,13 +50,6 @@ public final class WhitelistLogoutSuccessHandler extends SimpleUrlLogoutSuccessH
     @Override
     protected boolean isAlwaysUseDefaultTargetUrl() {
         return false;
-    }
-
-    private Set<String> getClientWhitelist(ClientDetails client) {
-        if(client != null) {
-            return client.getRegisteredRedirectUri();
-        }
-        return null;
     }
 
     private ClientDetails getClient(HttpServletRequest request) {
@@ -110,24 +97,12 @@ public final class WhitelistLogoutSuccessHandler extends SimpleUrlLogoutSuccessH
             return targetUrl;
         }
         ClientDetails client = getClient(request);
-        String whiteListRedirect;
-        try{
-            whiteListRedirect = redirectResolver.resolveRedirect(targetUrl, client);
-        } catch (OAuth2Exception | NullPointerException e){
-            logger.info(e.getMessage());
-            whiteListRedirect = findMatchingRedirectUri(whitelist, targetUrl, defaultTargetUrl);
+        try {
+            return redirectResolver.resolveRedirect(targetUrl, client);
+        } catch (OAuth2Exception | NullPointerException e) {
+            log.info("Logout redirect was not registered for the client; checking global whitelist: {}", e.getMessage());
+            return findMatchingRedirectUri(whitelist, targetUrl, defaultTargetUrl);
         }
-
-        //TODO: check this
-/*        Set<String> clientWhitelist = getClientWhitelist(request);
-        Set<String> combinedWhitelist = Stream.of(
-                Optional.ofNullable(whitelist).orElse(List.of()),
-                Optional.ofNullable(clientWhitelist).orElse(Set.of()))
-                .flatMap(Collection::stream)
-                .collect(Collectors.toSet());
-
-        return findMatchingRedirectUri(combinedWhitelist, targetUrl, defaultTargetUrl);*/
-        return whiteListRedirect;
     }
 
     private boolean isInternalRedirect(String targetUrl, HttpServletRequest request) {

@@ -36,6 +36,7 @@ import java.util.Optional;
 import static org.cloudfoundry.identity.uaa.constants.OriginKeys.OAUTH20;
 import static org.cloudfoundry.identity.uaa.constants.OriginKeys.OIDC10;
 import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.ATTRIBUTE_MAPPINGS;
+import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.EXTERNAL_GROUPS_WHITELIST;
 import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.STORE_CUSTOM_ATTRIBUTES_NAME;
 import static org.springframework.util.StringUtils.hasText;
 
@@ -96,6 +97,7 @@ public class OauthIDPWrapperFactoryBean {
                 idpDefinitionMap.get("passwordGrantEnabled") == null ? false : (boolean) idpDefinitionMap.get("passwordGrantEnabled"));
         oidcIdentityProviderDefinition.setSetForwardHeader(idpDefinitionMap.get("setForwardHeader") == null ? false : (boolean) idpDefinitionMap.get("setForwardHeader"));
         oidcIdentityProviderDefinition.setTokenExchangeEnabled(Optional.ofNullable(idpDefinitionMap.get("tokenExchangeEnabled")).filter(Boolean.class::isInstance).map(Boolean.class::cast).orElse(false));
+        oidcIdentityProviderDefinition.setOmitIdTokenHintOnLogout(Optional.ofNullable(idpDefinitionMap.get("omitIdTokenHintOnLogout")).filter(Boolean.class::isInstance).map(Boolean.class::cast).orElse(null));
         oidcIdentityProviderDefinition.setPrompts((List<Prompt>) idpDefinitionMap.get("prompts"));
         setJwtClientAuthentication(idpDefinitionMap, oidcIdentityProviderDefinition);
         oauthIdpDefinitions.put(alias, oidcIdentityProviderDefinition);
@@ -127,7 +129,7 @@ public class OauthIDPWrapperFactoryBean {
         provider.setActive(true);
         try {
             provider.setConfig(rawDef);
-        } catch (JsonUtils.JsonUtilException x) {
+        } catch (JsonUtils.JsonUtilException _) {
             throw new RuntimeException("Non serializable Oauth config");
         }
         IdentityProviderWrapper wrapper = new IdentityProviderWrapper(provider);
@@ -144,9 +146,12 @@ public class OauthIDPWrapperFactoryBean {
         idpDefinition.setAddShadowUserOnLogin(idpDefinitionMap.get("addShadowUserOnLogin") == null ? true : (boolean) idpDefinitionMap.get("addShadowUserOnLogin"));
         idpDefinition.setStoreCustomAttributes(idpDefinitionMap.get(STORE_CUSTOM_ATTRIBUTES_NAME) == null ? true : (boolean) idpDefinitionMap.get(STORE_CUSTOM_ATTRIBUTES_NAME));
         idpDefinition.setSkipSslValidation(idpDefinitionMap.get("skipSslValidation") == null ? false : (boolean) idpDefinitionMap.get("skipSslValidation"));
+        idpDefinition.setCaCertificates((List<String>) idpDefinitionMap.get("caCertificates"));
         idpDefinition.setTokenKey((String) idpDefinitionMap.get("tokenKey"));
         idpDefinition.setIssuer((String) idpDefinitionMap.get("issuer"));
         idpDefinition.setAttributeMappings((Map<String, Object>) idpDefinitionMap.get(ATTRIBUTE_MAPPINGS));
+        idpDefinition.setExternalGroupsWhitelist((List<String>) idpDefinitionMap.get(EXTERNAL_GROUPS_WHITELIST));
+        idpDefinition.setAdditionalConfiguration((Map<String, Object>) idpDefinitionMap.get("additionalConfiguration"));
         idpDefinition.setScopes((List<String>) idpDefinitionMap.get("scopes"));
         idpDefinition.setUserPropagationParameter((String) idpDefinitionMap.get("userPropagationParameter"));
         idpDefinition.setGroupMappingMode(parseExternalGroupMappingMode(idpDefinitionMap.get("groupMappingMode")));

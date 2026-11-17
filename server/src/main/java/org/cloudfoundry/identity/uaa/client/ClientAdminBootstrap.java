@@ -1,5 +1,7 @@
 package org.cloudfoundry.identity.uaa.client;
 
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.beans.factory.annotation.Autowired;
 import static java.util.Optional.ofNullable;
 import static org.cloudfoundry.identity.uaa.client.ClientJwtConfiguration.JWT_CREDS;
 import static org.cloudfoundry.identity.uaa.client.ClientJwtConfiguration.JWKS;
@@ -27,6 +29,7 @@ import org.cloudfoundry.identity.uaa.provider.NoSuchClientException;
 import org.cloudfoundry.identity.uaa.user.UaaAuthority;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
+import org.cloudfoundry.identity.uaa.zone.IdentityZoneProvisioning;
 import org.cloudfoundry.identity.uaa.zone.MultitenantClientServices;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +50,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 @Component
+@DependsOn("identityZoneConfigurationBootstrap")
 public class ClientAdminBootstrap implements
         InitializingBean,
         ApplicationListener<ContextRefreshedEvent>,
@@ -65,6 +69,9 @@ public class ClientAdminBootstrap implements
     private final Set<String> autoApproveClients;
     private final Set<String> allowPublicClients;
     private final boolean defaultOverride;
+    @Autowired(required = false)
+    @Qualifier("identityZoneProvisioning")
+    private IdentityZoneProvisioning identityZoneProvisioning;
 
     /**
      * @param defaultOverride    the default override flag to set. Flag to indicate
@@ -87,10 +94,10 @@ public class ClientAdminBootstrap implements
             final ClientMetadataProvisioning clientMetadataProvisioning,
             @Value("${oauth.client.override:true}")final boolean defaultOverride,
             @Value("#{@config['oauth']==null ? null : @config['oauth']['clients']}") final Map<String, Map<String, Object>> clients,
-            @Value("#{@applicationProperties.containsKey('oauth.client.autoapprove') ? @config['oauth']['client']['autoapprove'] : 'cf'}") final Collection<String> autoApproveClients,
+            @Value("#{@applicationProperties.containsKey('oauth.client.autoapprove') ? (@config['oauth']==null ? null : @config['oauth']['client']==null ? null : @config['oauth']['client']['autoapprove']) : 'cf'}") final Collection<String> autoApproveClients,
             @Value("#{@config['delete']==null ? null : @config['delete']['clients']}") final Collection<String> clientsToDelete,
             final JdbcTemplate jdbcTemplate,
-            final Set<String> allowPublicClients) {
+            @Value("#{@config['oauth']==null ? null : @config['oauth']['client']==null ? null : @config['oauth']['client']['allowpublic']}") final Set<String> allowPublicClients) {
         this.passwordEncoder = passwordEncoder;
         this.clientRegistrationService = clientRegistrationService;
         this.clientMetadataProvisioning = clientMetadataProvisioning;
@@ -117,11 +124,15 @@ public class ClientAdminBootstrap implements
         autoApproveClients.removeAll(clientsToDelete);
         for (String clientId : autoApproveClients) {
             try {
-                UaaClientDetails base = (UaaClientDetails) clientRegistrationService.loadClientByClientId(clientId, IdentityZone.getUaaZoneId());
+                ClientDetails loaded = clientRegistrationService.loadClientByClientId(clientId, IdentityZone.getUaaZoneId());
+                if (!(loaded instanceof UaaClientDetails base)) {
+                    logger.warn("Client {} is not a UaaClientDetails instance, skipping autoapprove", clientId);
+                    continue;
+                }
                 base.addAdditionalInformation(ClientConstants.AUTO_APPROVE, true);
                 logger.debug("Adding autoapprove flag to client: {}", clientId);
                 clientRegistrationService.updateClientDetails(base, IdentityZone.getUaaZoneId());
-            } catch (NoSuchClientException n) {
+            } catch (NoSuchClientException e) {
                 logger.debug("Client not found, unable to set autoapprove: {}", clientId);
             }
         }
@@ -131,11 +142,15 @@ public class ClientAdminBootstrap implements
         allowPublicClients.removeAll(clientsToDelete);
         for (String clientId : allowPublicClients) {
             try {
-                UaaClientDetails base = (UaaClientDetails) clientRegistrationService.loadClientByClientId(clientId, IdentityZone.getUaaZoneId());
+                ClientDetails loaded = clientRegistrationService.loadClientByClientId(clientId, IdentityZone.getUaaZoneId());
+                if (!(loaded instanceof UaaClientDetails base)) {
+                    logger.warn("Client {} is not a UaaClientDetails instance, skipping allowpublic", clientId);
+                    continue;
+                }
                 base.addAdditionalInformation(ClientConstants.ALLOW_PUBLIC, true);
                 logger.debug("Adding allowpublic flag to client: {}", clientId);
                 clientRegistrationService.updateClientDetails(base, IdentityZone.getUaaZoneId());
-            } catch (NoSuchClientException n) {
+            } catch (NoSuchClientException e) {
                 logger.debug("Client not found, unable to set allowpublic: {}", clientId);
             }
         }
@@ -155,9 +170,20 @@ public class ClientAdminBootstrap implements
         return StringUtils.arrayToCommaDelimitedString(redirectUris.toArray(new String[]{}));
     }
 
+    /**
+     * The default zone as IdentityZoneConfigurationBootstrap saved it, including uaa.mtls.trust_bundles. The
+     * per-thread IdentityZoneHolder copy may have been cached earlier in startup, before that save.
+     */
+    private IdentityZone savedDefaultZone() {
+        return identityZoneProvisioning != null
+                ? identityZoneProvisioning.retrieve(IdentityZone.getUaaZoneId())
+                : IdentityZoneHolder.getUaaZone();
+    }
+
     private void addNewClients() {
         Set<Map.Entry<String, Map<String, Object>>> entries = clients.entrySet();
         entries.removeIf(entry -> clientsToDelete.contains(entry.getKey()));
+        IdentityZone defaultZone = entries.isEmpty() ? null : savedDefaultZone();
         for (Map.Entry<String, Map<String, Object>> entry : entries) {
             String clientId = entry.getKey();
 
@@ -214,6 +240,12 @@ public class ClientAdminBootstrap implements
             }
 
             client.setAdditionalInformation(info);
+            ClientAdminEndpointsValidator.validateMtlsClientConfiguration(client.getAdditionalInformation(), clientId,
+                    defaultZone);
+            ClientAdminEndpointsValidator.validateTlsClientAuthClaimConfig(
+                    client.getAdditionalInformation(), clientId);
+            ClientAdminEndpointsValidator.validateMtlsClientRules(
+                    client.getAdditionalInformation(), client.getAuthorizedGrantTypes(), clientId);
 
             ClientJwtConfiguration keyConfig = null;
             if (map.get(JWKS_URI) instanceof String || map.get(JWKS) instanceof String) {
@@ -341,5 +373,9 @@ public class ClientAdminBootstrap implements
         if (publisher != null) {
             publisher.publishEvent(event);
         }
+    }
+
+    protected Set<String> getAllowPublicClients() {
+        return allowPublicClients;
     }
 }

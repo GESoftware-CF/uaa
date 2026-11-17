@@ -9,7 +9,7 @@ import org.cloudfoundry.identity.uaa.util.TimeServiceImpl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.lang.NonNull;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import jakarta.servlet.FilterChain;
@@ -37,9 +37,9 @@ public class LimitedModeUaaFilter extends OncePerRequestFilter {
     public static final long STATUS_INTERVAL_MS = 5000;
 
     private Set<String> permittedMethods = emptySet();
-    private List<AntPathRequestMatcher> endpoints = emptyList();
-    private volatile boolean enabled;
     public static final String DEGRADED = "degraded";
+    private List<PathPatternRequestMatcher> endpoints = emptyList();
+    private volatile boolean enabled;
     @Getter
     private File statusFile;
     @Setter
@@ -56,6 +56,8 @@ public class LimitedModeUaaFilter extends OncePerRequestFilter {
             if (isMethodAllowed(request) || isEndpointAllowed(request)) {
                 filterChain.doFilter(request, response);
             } else {
+                log.debug("Operation Not permitted in limited mode for URL:{} and method:{}",
+                        request.getRequestURI(), request.getMethod());
                 Map<String, String> json = getErrorData();
                 if (acceptsJson(request)) {
                     response.setStatus(SC_SERVICE_UNAVAILABLE);
@@ -96,7 +98,7 @@ public class LimitedModeUaaFilter extends OncePerRequestFilter {
         this.endpoints = ofNullable(permittedEndpoints)
                 .orElse(emptySet())
                 .stream()
-                .map(AntPathRequestMatcher::new)
+                .map(pattern -> PathPatternRequestMatcher.withDefaults().matcher(pattern))
                 .toList();
     }
 

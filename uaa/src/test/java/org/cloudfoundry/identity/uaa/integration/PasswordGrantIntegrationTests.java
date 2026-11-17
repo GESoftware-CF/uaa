@@ -1,6 +1,6 @@
 package org.cloudfoundry.identity.uaa.integration;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import org.cloudfoundry.identity.uaa.ServerRunningExtension;
 import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.ClientHttpResponse;
@@ -23,15 +24,14 @@ import org.springframework.web.client.ResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.CLIENT_AUTH_NONE;
-import static org.junit.Assert.assertTrue;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
-import static org.springframework.http.MediaType.APPLICATION_JSON_UTF8;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 class PasswordGrantIntegrationTests {
@@ -61,7 +61,7 @@ class PasswordGrantIntegrationTests {
         UaaClientDetails client = addUserGroupsRequiredClient();
         ResponseEntity<String> responseEntity = makePasswordGrantRequest(testAccounts.getUserName(), testAccounts.getPassword(), client.getClientId(), "secret", serverRunning.getAccessTokenUri());
         assertThat(responseEntity.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(responseEntity.getHeaders().get("Content-Type").getFirst()).isEqualTo(APPLICATION_JSON_VALUE);
+        assertThat(responseEntity.getHeaders().get("Content-Type")).first().isEqualTo(APPLICATION_JSON_VALUE);
         Map<String, Object> errors = JsonUtils.readValue(responseEntity.getBody(), new TypeReference<Map<String, Object>>() {
         });
         assertThat(errors).containsEntry("error_description", "User does not meet the client's required group criteria.")
@@ -112,7 +112,7 @@ class PasswordGrantIntegrationTests {
         HttpEntity<String> request = new HttpEntity<>(JsonUtils.writeValueAsString(client), headers);
 
         ResponseEntity<String> response = new RestTemplate().postForEntity(serverRunning.getUrl("/oauth/clients"), request, String.class);
-        assertThat(response.getStatusCodeValue()).isEqualTo(201);
+        assertThat(response.getStatusCode().value()).isEqualTo(201);
 
         return JsonUtils.readValue(response.getBody(), UaaClientDetails.class);
     }
@@ -142,7 +142,7 @@ class PasswordGrantIntegrationTests {
             }
 
             @Override
-            public void handleError(ClientHttpResponse response) throws IOException {
+            public void handleError(URI url, HttpMethod method, ClientHttpResponse response) throws IOException {
                 //do nothing
             }
 

@@ -13,7 +13,7 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.integration.feature;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import org.cloudfoundry.identity.uaa.ServerRunningExtension;
 import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
@@ -56,8 +56,8 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.cloudfoundry.identity.uaa.integration.feature.OIDCLoginIT.doesSupportZoneDNS;
 import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.createSimplePHPSamlIDP;
+import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.doesSupportZoneDNS;
 import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.USER_ATTRIBUTES;
 import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.EMAIL_ATTRIBUTE_NAME;
 import static org.springframework.http.HttpMethod.GET;
@@ -130,7 +130,7 @@ class SamlLoginEmailIT {
             try {
                 IntegrationTestUtils.deleteZone(baseUrl, zoneId, token);
                 IntegrationTestUtils.deleteProvider(token, baseUrl, "uaa", zoneId + ".cloudfoundry-saml-login");
-            } catch (Exception ignored) {
+            } catch (Exception _) {
                 // ignored
             }
         }
@@ -210,11 +210,11 @@ class SamlLoginEmailIT {
         //we should now be in the Simple SAML PHP site
         webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
         sendCredentials("marissa6", "saml6");
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("You should not see this page. Set up your redirect URI.");
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Where to?");
 
         // do an auth code grant, passing the jsessionid
         Cookie cookie = webDriver.manage().getCookieNamed("JSESSIONID");
-        System.out.println("cookie = " + "%s=%s".formatted(cookie.getName(), cookie.getValue()));
+        IO.println("cookie = " + "%s=%s".formatted(cookie.getName(), cookie.getValue()));
 
         serverRunning.setHostName(zoneId + ".localhost");
         Map<String, String> authCodeTokenResponse = IntegrationTestUtils.getAuthorizationCodeTokenMap(serverRunning,

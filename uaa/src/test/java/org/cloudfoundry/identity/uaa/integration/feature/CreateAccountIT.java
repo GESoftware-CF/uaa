@@ -13,8 +13,9 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.integration.feature;
 
-import com.dumbster.smtp.SimpleSmtpServer;
-import com.dumbster.smtp.SmtpMessage;
+import com.icegreen.greenmail.util.GreenMail;
+import com.icegreen.greenmail.util.GreenMailUtil;
+import jakarta.mail.internet.MimeMessage;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
 import org.cloudfoundry.identity.uaa.oauth.client.test.TestAccounts;
@@ -34,11 +35,9 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import java.net.URI;
 import java.security.SecureRandom;
 import java.util.Collections;
-import java.util.Iterator;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-//Some tests are Ignored to accomodate Predix Branding changes
 @SpringJUnitConfig(classes = DefaultIntegrationTestConfig.class)
 class CreateAccountIT {
 
@@ -55,7 +54,7 @@ class CreateAccountIT {
     UaaWebDriver webDriver;
 
     @Autowired
-    SimpleSmtpServer simpleSmtpServer;
+    GreenMail greenMail;
 
     @Autowired
     TestClient testClient;
@@ -68,7 +67,7 @@ class CreateAccountIT {
     void logout_and_clear_cookies() {
         try {
             webDriver.get(baseUrl + "/logout.do");
-        } catch (org.openqa.selenium.TimeoutException x) {
+        } catch (org.openqa.selenium.TimeoutException _) {
             //try again - this should not be happening - 20 second timeouts
             webDriver.get(baseUrl + "/logout.do");
         }
@@ -76,19 +75,18 @@ class CreateAccountIT {
     }
 
     @Test
-    void userInitiatedSignup() {
-        int receivedEmailSize = simpleSmtpServer.getReceivedEmailSize();
+    void userInitiatedSignup() throws Exception {
+        int receivedEmailSize = greenMail.getReceivedMessages().length;
         String userEmail = startCreateUserFlow(SECRET);
 
-        assertThat(simpleSmtpServer.getReceivedEmailSize()).isEqualTo(receivedEmailSize + 1);
-        Iterator<SmtpMessage> receivedEmail = simpleSmtpServer.getReceivedEmail();
-        SmtpMessage message = receivedEmail.next();
-        receivedEmail.remove();
-        assertThat(message.getHeaderValue("To")).isEqualTo(userEmail);
-        String body = message.getBody();
+        greenMail.waitForIncomingEmail(5000, receivedEmailSize + 1);
+        assertThat(greenMail.getReceivedMessages()).hasSize(receivedEmailSize + 1);
+        MimeMessage message = greenMail.getReceivedMessages()[receivedEmailSize];
+        assertThat(message.getHeader("To")[0]).isEqualTo(userEmail);
+        String body = GreenMailUtil.getBody(message);
         assertThat(body).contains("Activate your account");
 
-        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Create your Predix account");
+        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Create your account");
         assertThat(webDriver.findElement(By.cssSelector(".instructions-sent")).getText()).isEqualTo("Please check email for an activation link.");
 
         String link = testClient.extractLink(body);
@@ -97,43 +95,42 @@ class CreateAccountIT {
                 .doesNotContain("%40");
 
         webDriver.get(link);
-        assertThat(webDriver.findElement(By.tagName("h1")).getText()).doesNotContain("You should not see this page.");
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).doesNotContain("Where to?");
 
         webDriver.findElement(By.name("username")).sendKeys(userEmail);
         webDriver.findElement(By.name("password")).sendKeys(SECRET);
         webDriver.clickAndWait(By.xpath("//input[@value='Sign in']"));
 
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("You should not see this page.");
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Where to?");
     }
 
     @Test
-    void clientInitiatedSignup() {
+    void clientInitiatedSignup() throws Exception {
         String userEmail = "user" + new SecureRandom().nextInt() + "@example.com";
         webDriver.get(baseUrl + "/create_account?client_id=app");
 
-        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Create your Predix account");
+        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Create your account");
 
-        int receivedEmailSize = simpleSmtpServer.getReceivedEmailSize();
+        int receivedEmailSize = greenMail.getReceivedMessages().length;
 
         webDriver.findElement(By.name("email")).sendKeys(userEmail);
         webDriver.findElement(By.name("password")).sendKeys(SECRET);
         webDriver.findElement(By.name("password_confirmation")).sendKeys(SECRET);
         webDriver.clickAndWait(By.xpath("//input[@value='Send activation link']"));
 
-        assertThat(simpleSmtpServer.getReceivedEmailSize()).isEqualTo(receivedEmailSize + 1);
-        Iterator<SmtpMessage> receivedEmail = simpleSmtpServer.getReceivedEmail();
-        SmtpMessage message = receivedEmail.next();
-        receivedEmail.remove();
-        assertThat(message.getHeaderValue("To")).isEqualTo(userEmail);
-        assertThat(message.getBody()).contains("Activate your account");
+        greenMail.waitForIncomingEmail(5000, receivedEmailSize + 1);
+        assertThat(greenMail.getReceivedMessages()).hasSize(receivedEmailSize + 1);
+        MimeMessage message = greenMail.getReceivedMessages()[receivedEmailSize];
+        assertThat(message.getHeader("To")[0]).isEqualTo(userEmail);
+        assertThat(GreenMailUtil.getBody(message)).contains("Activate your account");
 
         assertThat(webDriver.findElement(By.cssSelector(".instructions-sent")).getText()).isEqualTo("Please check email for an activation link.");
 
-        String link = testClient.extractLink(message.getBody());
+        String link = testClient.extractLink(GreenMailUtil.getBody(message));
         assertThat(link).isNotEmpty();
 
         webDriver.get(link);
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).doesNotContain("You should not see this page.");
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).doesNotContain("Where to?");
 
         webDriver.findElement(By.name("username")).sendKeys(userEmail);
         webDriver.findElement(By.name("password")).sendKeys(SECRET);
@@ -158,7 +155,7 @@ class CreateAccountIT {
         webDriver.get(baseUrl + "/");
         webDriver.clickAndWait(By.xpath("//*[text()='Create account']"));
 
-        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Create your Predix account");
+        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Create your account");
 
         webDriver.findElement(By.name("email")).sendKeys(userEmail);
         webDriver.findElement(By.name("password")).sendKeys(secret);

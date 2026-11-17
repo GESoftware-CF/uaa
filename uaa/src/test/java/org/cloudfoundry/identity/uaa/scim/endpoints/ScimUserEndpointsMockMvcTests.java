@@ -1,6 +1,5 @@
 package org.cloudfoundry.identity.uaa.scim.endpoints;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.hc.core5.http.NameValuePair;
@@ -24,7 +23,6 @@ import org.cloudfoundry.identity.uaa.resources.SearchResults;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.cloudfoundry.identity.uaa.scim.ScimUserProvisioning;
 import org.cloudfoundry.identity.uaa.scim.exception.UserAlreadyVerifiedException;
-import org.cloudfoundry.identity.uaa.scim.test.JsonObjectMatcherUtils;
 import org.cloudfoundry.identity.uaa.test.TestClient;
 import org.cloudfoundry.identity.uaa.test.ZoneSeeder;
 import org.cloudfoundry.identity.uaa.test.ZoneSeederExtension;
@@ -40,19 +38,21 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.web.context.WebApplicationContext;
+import tools.jackson.core.type.TypeReference;
 
 import java.nio.charset.Charset;
 import java.util.Arrays;
@@ -64,16 +64,11 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.codestore.ExpiringCodeType.REGISTRATION;
 import static org.cloudfoundry.identity.uaa.invitations.InvitationsEndpoint.USER_ID;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.performGet;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
 import static org.cloudfoundry.identity.uaa.oauth.common.util.OAuth2Utils.CLIENT_ID;
 import static org.cloudfoundry.identity.uaa.oauth.common.util.OAuth2Utils.REDIRECT_URI;
 import static org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter.HEADER;
-import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
-import static org.springframework.http.MediaType.APPLICATION_JSON_UTF8;
 import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
 import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.unauthenticated;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -146,6 +141,21 @@ class ScimUserEndpointsMockMvcTests {
                 .andExpect(status().isUnauthorized());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"/Users", "/Users/"})
+    void canCreateUsersWithEndpointEndingWithSlash(String url) throws Exception {
+        ScimUser user = getScimUser();
+        String password = hasText(user.getPassword()) ? user.getPassword() : "pas5word";
+        user.setPassword(password);
+        createUserAndReturnResult(url, user, scimCreateToken, null, null)
+                .andExpect(status().isCreated())
+                .andExpect(header().string("ETag", "\"0\""))
+                .andExpect(jsonPath("$.userName").value(user.getUserName()))
+                .andExpect(jsonPath("$.emails[0].value").value(user.getUserName()))
+                .andExpect(jsonPath("$.name.familyName").value(user.getFamilyName()))
+                .andExpect(jsonPath("$.name.givenName").value(user.getGivenName()));
+    }
+
     @Test
     void canCreateUserWithExclamationMark() throws Exception {
         String email = "joe!!@" + generator.generate().toLowerCase() + ".com";
@@ -158,7 +168,7 @@ class ScimUserEndpointsMockMvcTests {
 
     @Test
     void create_user_too_long_password() throws Exception {
-        String email = getUniqueEmail();
+        String email = "joe@" + generator.generate().toLowerCase() + ".com";
         ScimUser user = getScimUser();
         user.setUserName(email);
         user.setPassword(new RandomValueStringGenerator(300).generate());
@@ -169,10 +179,275 @@ class ScimUserEndpointsMockMvcTests {
                 .andExpect(jsonPath("$.error_description").value("Password must be no more than 255 characters in length."));
     }
 
+    @Nested
+    class UserOperationsWithFieldsExceedingColumnLimits {
+
+        // The DB columns for 'username', 'givenname', 'familyname', and 'email' are VARCHAR(255).
+        // The 'origin' column is VARCHAR(36).
+        private static final int MAX_LENGTH = 255;
+        private static final int OVER_LIMIT = MAX_LENGTH + 1;
+        private static final int ORIGIN_MAX_LENGTH = 36;
+        private static final int ORIGIN_OVER_LIMIT = ORIGIN_MAX_LENGTH + 1;
+
+        private static final String USERNAME = "username";
+        private static final String GIVEN_NAME = "given name";
+        private static final String FAMILY_NAME = "family name";
+        private static final String EMAIL = "email";
+        private static final String ORIGIN = "origin";
+
+        // --- POST ---
+
+        @Test
+        void tooLongUsername_returnsUserFriendlyMessage() throws Exception {
+            final String shortEmail = "joe@" + generator.generate().toLowerCase() + ".com";
+
+            final String longUsername = new RandomValueStringGenerator(OVER_LIMIT).generate();
+            assertThat(longUsername).hasSizeGreaterThanOrEqualTo(OVER_LIMIT);
+
+            final ScimUser user = new ScimUser(null, longUsername, "Joe", "User");
+            user.setPassword(USER_PASSWORD);
+            user.setPrimaryEmail(shortEmail);
+
+            final MvcResult result = createUserAndReturnResult(user, scimReadWriteToken, null, null)
+                    .andExpect(status().isBadRequest())
+                    .andReturn();
+
+            final String body = result.getResponse().getContentAsString();
+            assertDoesNotLeakDatabaseInternalsInErrorMessage(body);
+            assertHasErrorMessageMentioningExceededMaxLength(body, USERNAME);
+        }
+
+        @Test
+        void tooLongGivenName_returnsUserFriendlyMessage() throws Exception {
+            final ScimUser user = getScimUser();
+            user.setPassword(USER_PASSWORD);
+            user.setName(new ScimUser.Name(new RandomValueStringGenerator(OVER_LIMIT).generate(), "User"));
+
+            final MvcResult result = createUserAndReturnResult(user, scimReadWriteToken, null, null)
+                    .andExpect(status().isBadRequest())
+                    .andReturn();
+
+            final String body = result.getResponse().getContentAsString();
+            assertDoesNotLeakDatabaseInternalsInErrorMessage(body);
+            assertHasErrorMessageMentioningExceededMaxLength(body, GIVEN_NAME);
+        }
+
+        @Test
+        void tooLongFamilyName_returnsUserFriendlyMessage() throws Exception {
+            final ScimUser user = getScimUser();
+            user.setPassword(USER_PASSWORD);
+            user.setName(new ScimUser.Name("Joe", new RandomValueStringGenerator(OVER_LIMIT).generate()));
+
+            final MvcResult result = createUserAndReturnResult(user, scimReadWriteToken, null, null)
+                    .andExpect(status().isBadRequest())
+                    .andReturn();
+
+            final String body = result.getResponse().getContentAsString();
+            assertDoesNotLeakDatabaseInternalsInErrorMessage(body);
+            assertHasErrorMessageMentioningExceededMaxLength(body, FAMILY_NAME);
+        }
+
+        @Test
+        void tooLongEmail_returnsUserFriendlyMessage() throws Exception {
+            final ScimUser user = getScimUser();
+            user.setPassword(USER_PASSWORD);
+            final ScimUser.Email email = new ScimUser.Email();
+            email.setPrimary(true);
+            email.setValue(new RandomValueStringGenerator(OVER_LIMIT).generate() + "@example.com");
+            user.setEmails(List.of(email));
+
+            final MvcResult result = createUserAndReturnResult(user, scimReadWriteToken, null, null)
+                    .andExpect(status().isBadRequest())
+                    .andReturn();
+
+            final String body = result.getResponse().getContentAsString();
+            assertDoesNotLeakDatabaseInternalsInErrorMessage(body);
+            assertHasErrorMessageMentioningExceededMaxLength(body, EMAIL);
+        }
+
+        @Test
+        void tooLongOrigin_returnsUserFriendlyMessage() throws Exception {
+            final ScimUser user = getScimUser();
+            user.setPassword(USER_PASSWORD);
+            user.setOrigin(new RandomValueStringGenerator(ORIGIN_OVER_LIMIT).generate());
+
+            final MvcResult result = createUserAndReturnResult(user, scimReadWriteToken, null, null)
+                    .andExpect(status().isBadRequest())
+                    .andReturn();
+
+            final String body = result.getResponse().getContentAsString();
+            assertDoesNotLeakDatabaseInternalsInErrorMessage(body);
+            assertHasErrorMessageMentioningExceededMaxLength(body, ORIGIN, ORIGIN_MAX_LENGTH);
+        }
+
+        // --- PUT ---
+
+        @Test
+        void put_tooLongUsername_returnsUserFriendlyMessage() throws Exception {
+            ScimUser user = setUpScimUser();
+            user.setUserName(new RandomValueStringGenerator(OVER_LIMIT).generate());
+
+            MvcResult result = mockMvc.perform(put("/Users/" + user.getId())
+                            .header("Authorization", "Bearer " + scimReadWriteToken)
+                            .header("If-Match", "\"" + user.getVersion() + "\"")
+                            .contentType(APPLICATION_JSON)
+                            .content(JsonUtils.writeValueAsString(user)))
+                    .andExpect(status().isBadRequest())
+                    .andReturn();
+
+            String body = result.getResponse().getContentAsString();
+            assertDoesNotLeakDatabaseInternalsInErrorMessage(body);
+            assertHasErrorMessageMentioningExceededMaxLength(body, USERNAME);
+        }
+
+        @Test
+        void put_tooLongGivenName_returnsUserFriendlyMessage() throws Exception {
+            ScimUser user = setUpScimUser();
+            user.setName(new ScimUser.Name(new RandomValueStringGenerator(OVER_LIMIT).generate(), "User"));
+
+            MvcResult result = mockMvc.perform(put("/Users/" + user.getId())
+                            .header("Authorization", "Bearer " + scimReadWriteToken)
+                            .header("If-Match", "\"" + user.getVersion() + "\"")
+                            .contentType(APPLICATION_JSON)
+                            .content(JsonUtils.writeValueAsString(user)))
+                    .andExpect(status().isBadRequest())
+                    .andReturn();
+
+            String body = result.getResponse().getContentAsString();
+            assertDoesNotLeakDatabaseInternalsInErrorMessage(body);
+            assertHasErrorMessageMentioningExceededMaxLength(body, GIVEN_NAME);
+        }
+
+        @Test
+        void put_tooLongFamilyName_returnsUserFriendlyMessage() throws Exception {
+            ScimUser user = setUpScimUser();
+            user.setName(new ScimUser.Name("Joe", new RandomValueStringGenerator(OVER_LIMIT).generate()));
+
+            MvcResult result = mockMvc.perform(put("/Users/" + user.getId())
+                            .header("Authorization", "Bearer " + scimReadWriteToken)
+                            .header("If-Match", "\"" + user.getVersion() + "\"")
+                            .contentType(APPLICATION_JSON)
+                            .content(JsonUtils.writeValueAsString(user)))
+                    .andExpect(status().isBadRequest())
+                    .andReturn();
+
+            String body = result.getResponse().getContentAsString();
+            assertDoesNotLeakDatabaseInternalsInErrorMessage(body);
+            assertHasErrorMessageMentioningExceededMaxLength(body, FAMILY_NAME);
+        }
+
+        @Test
+        void put_tooLongEmail_returnsUserFriendlyMessage() throws Exception {
+            final ScimUser user = setUpScimUser();
+            final ScimUser.Email email = new ScimUser.Email();
+            email.setPrimary(true);
+            email.setValue(new RandomValueStringGenerator(OVER_LIMIT).generate() + "@example.com");
+            user.setEmails(List.of(email));
+
+            MvcResult result = mockMvc.perform(put("/Users/" + user.getId())
+                            .header("Authorization", "Bearer " + scimReadWriteToken)
+                            .header("If-Match", "\"" + user.getVersion() + "\"")
+                            .contentType(APPLICATION_JSON)
+                            .content(JsonUtils.writeValueAsString(user)))
+                    .andExpect(status().isBadRequest())
+                    .andReturn();
+
+            String body = result.getResponse().getContentAsString();
+            assertDoesNotLeakDatabaseInternalsInErrorMessage(body);
+            assertHasErrorMessageMentioningExceededMaxLength(body, EMAIL);
+        }
+
+        @Test
+        void put_tooLongOrigin_returnsUserFriendlyMessage() throws Exception {
+            ScimUser user = setUpScimUser();
+            user.setOrigin(new RandomValueStringGenerator(ORIGIN_OVER_LIMIT).generate());
+
+            MvcResult result = mockMvc.perform(put("/Users/" + user.getId())
+                            .header("Authorization", "Bearer " + scimReadWriteToken)
+                            .header("If-Match", "\"" + user.getVersion() + "\"")
+                            .contentType(APPLICATION_JSON)
+                            .content(JsonUtils.writeValueAsString(user)))
+                    .andExpect(status().isBadRequest())
+                    .andReturn();
+
+            String body = result.getResponse().getContentAsString();
+            assertDoesNotLeakDatabaseInternalsInErrorMessage(body);
+            assertHasErrorMessageMentioningExceededMaxLength(body, ORIGIN, ORIGIN_MAX_LENGTH);
+        }
+
+        // --- PATCH ---
+
+        @Test
+        void patch_tooLongGivenName_returnsUserFriendlyMessage() throws Exception {
+            ScimUser user = setUpScimUser();
+            ScimUser patch = new ScimUser();
+            patch.setName(new ScimUser.Name(new RandomValueStringGenerator(OVER_LIMIT).generate(), null));
+
+            MvcResult result = patchUser(user, patch, scimReadWriteToken, user.getVersion())
+                    .andExpect(status().isBadRequest())
+                    .andReturn();
+
+            String body = result.getResponse().getContentAsString();
+            assertDoesNotLeakDatabaseInternalsInErrorMessage(body);
+            assertHasErrorMessageMentioningExceededMaxLength(body, GIVEN_NAME);
+        }
+
+        @Test
+        void patch_tooLongFamilyName_returnsUserFriendlyMessage() throws Exception {
+            ScimUser user = setUpScimUser();
+            ScimUser patch = new ScimUser();
+            patch.setName(new ScimUser.Name(null, new RandomValueStringGenerator(OVER_LIMIT).generate()));
+
+            MvcResult result = patchUser(user, patch, scimReadWriteToken, user.getVersion())
+                    .andExpect(status().isBadRequest())
+                    .andReturn();
+
+            String body = result.getResponse().getContentAsString();
+            assertDoesNotLeakDatabaseInternalsInErrorMessage(body);
+            assertHasErrorMessageMentioningExceededMaxLength(body, FAMILY_NAME);
+        }
+
+        @Test
+        void patch_tooLongEmail_returnsUserFriendlyMessage() throws Exception {
+            ScimUser user = setUpScimUser();
+            ScimUser patch = new ScimUser();
+            patch.setPrimaryEmail(new RandomValueStringGenerator(OVER_LIMIT).generate() + "@example.com");
+
+            MvcResult result = patchUser(user, patch, scimReadWriteToken, user.getVersion())
+                    .andExpect(status().isBadRequest())
+                    .andReturn();
+
+            String body = result.getResponse().getContentAsString();
+            assertDoesNotLeakDatabaseInternalsInErrorMessage(body);
+            assertHasErrorMessageMentioningExceededMaxLength(body, EMAIL);
+        }
+
+        // no test for origin being too long (changing an origin is not allowed in PATCH requests)
+
+        private static void assertDoesNotLeakDatabaseInternalsInErrorMessage(final String body) {
+            assertThat(body)
+                    .as("error response must not leak DB details or the SQL statement")
+                    .doesNotContainIgnoringCase("insert into")
+                    .doesNotContainIgnoringCase("sql")
+                    .doesNotContainIgnoringCase("PreparedStatementCallback");
+        }
+
+        private static void assertHasErrorMessageMentioningExceededMaxLength(final String body, final String fieldName) {
+            assertHasErrorMessageMentioningExceededMaxLength(body, fieldName, MAX_LENGTH);
+        }
+
+        private static void assertHasErrorMessageMentioningExceededMaxLength(final String body, final String fieldName, final int maxLength) {
+            assertThat(JsonUtils.readValueAsMap(body))
+                    .containsEntry("error", "invalid_scim_resource")
+                    .hasEntrySatisfying("message", msg ->
+                            assertThat((String) msg).containsIgnoringCase(fieldName).containsIgnoringCase("" + maxLength));
+        }
+    }
+
     @Test
     void create_user_more_than_one_email() throws Exception {
         ScimUser scimUser = getScimUser();
-        String secondEmail = getUniqueEmail();
+        String secondEmail = "joe@" + generator.generate().toLowerCase() + ".com";
         scimUser.addEmail(secondEmail);
         createUserAndReturnResult(scimUser, scimReadWriteToken, null, null)
                 .andExpect(status().isBadRequest());
@@ -363,35 +638,38 @@ class ScimUserEndpointsMockMvcTests {
         user.setPassword("password");
         user.setPrimaryEmail("test@test.org");
 
-        mockMvc.perform(post("/Users")
+        MvcResult result = mockMvc.perform(post("/Users")
                         .header("Authorization", "Bearer " + scimReadWriteToken)
                         .contentType(APPLICATION_JSON)
                         .content(JsonUtils.writeValueAsString(user)))
                 .andExpect(status().isBadRequest())
-                .andExpect(content()
-                        .string(JsonObjectMatcherUtils.matchesJsonObject(
-                                new JSONObject()
-                                        .put("error_description", "A username must be provided.")
-                                        .put("message", "A username must be provided.")
-                                        .put("error", "invalid_scim_resource"))));
+                .andReturn();
+        assertThat(JsonUtils.readTree(result.getResponse().getContentAsString()))
+                .isEqualTo(JsonUtils.readTree(new JSONObject()
+                        .put("error_description", "A username must be provided.")
+                        .put("message", "A username must be provided.")
+                        .put("error", "invalid_scim_resource")
+                        .toString()));
     }
 
-    @Test
-    void create_user_without_email() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"/Users", "/Users/"})
+    void create_user_without_email(String url) throws Exception {
         ScimUser user = new ScimUser(null, "a_user", "Joel", "D'sa");
         user.setPassword("password");
 
-        mockMvc.perform(post("/Users")
+        MvcResult result = mockMvc.perform(post(url)
                         .header("Authorization", "Bearer " + scimReadWriteToken)
                         .contentType(APPLICATION_JSON)
                         .content(JsonUtils.writeValueAsString(user)))
                 .andExpect(status().isBadRequest())
-                .andExpect(content()
-                        .string(JsonObjectMatcherUtils.matchesJsonObject(
-                                new JSONObject()
-                                        .put("error_description", "Exactly one email must be provided.")
-                                        .put("message", "Exactly one email must be provided.")
-                                        .put("error", "invalid_scim_resource"))));
+                .andReturn();
+        assertThat(JsonUtils.readTree(result.getResponse().getContentAsString()))
+                .isEqualTo(JsonUtils.readTree(new JSONObject()
+                        .put("error_description", "Exactly one email must be provided.")
+                        .put("message", "Exactly one email must be provided.")
+                        .put("error", "invalid_scim_resource")
+                        .toString()));
     }
 
     @Test
@@ -399,18 +677,19 @@ class ScimUserEndpointsMockMvcTests {
         ScimUser user = setUpScimUser();
         user.setEmails(null);
 
-        mockMvc.perform(put("/Users/" + user.getId())
+        MvcResult result = mockMvc.perform(put("/Users/" + user.getId())
                         .header("Authorization", "Bearer " + scimReadWriteToken)
                         .header("If-Match", "\"" + user.getVersion() + "\"")
                         .contentType(APPLICATION_JSON)
                         .content(JsonUtils.writeValueAsString(user)))
                 .andExpect(status().isBadRequest())
-                .andExpect(content()
-                        .string(JsonObjectMatcherUtils.matchesJsonObject(
-                                new JSONObject()
-                                        .put("error_description", "Exactly one email must be provided.")
-                                        .put("message", "Exactly one email must be provided.")
-                                        .put("error", "invalid_scim_resource"))));
+                .andReturn();
+        assertThat(JsonUtils.readTree(result.getResponse().getContentAsString()))
+                .isEqualTo(JsonUtils.readTree(new JSONObject()
+                        .put("error_description", "Exactly one email must be provided.")
+                        .put("message", "Exactly one email must be provided.")
+                        .put("error", "invalid_scim_resource")
+                        .toString()));
     }
 
     @Test
@@ -421,7 +700,7 @@ class ScimUserEndpointsMockMvcTests {
         user.setActive(active);
         patchUser(user, scimReadWriteToken, user.getVersion())
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.active", equalTo(active)));
+                .andExpect(jsonPath("$.active").value(active));
 
         performAuthentication(user, true);
 
@@ -429,18 +708,22 @@ class ScimUserEndpointsMockMvcTests {
         user.setActive(active);
         patchUser(user, scimReadWriteToken, user.getVersion() + 1)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.active", equalTo(active)));
+                .andExpect(jsonPath("$.active").value(active));
 
         performAuthentication(user, false);
     }
 
     private ResultActions patchUser(final ScimUser user, final String token, final int version) throws Exception {
+        return patchUser(user, user, token, version);
+    }
+
+    private ResultActions patchUser(final ScimUser user, final ScimUser patchBody, final String token, final int version) throws Exception {
         return mockMvc.perform(
                 patch("/Users/" + user.getId())
                         .header("Authorization", "Bearer " + token)
                         .header("If-Match", "\"" + version + "\"")
                         .contentType(APPLICATION_JSON)
-                        .content(JsonUtils.writeValueAsString(user))
+                        .content(JsonUtils.writeValueAsString(patchBody))
         );
     }
 
@@ -450,8 +733,8 @@ class ScimUserEndpointsMockMvcTests {
         scimUser.setOrigin("some-new-origin");
         patchUser(scimUser, scimReadWriteToken, scimUser.getVersion())
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error_description", equalTo("Cannot change origin in patch of user.")))
-                .andExpect(jsonPath("$.error", equalTo("invalid_scim_resource")));
+                .andExpect(jsonPath("$.error_description").value("Cannot change origin in patch of user."))
+                .andExpect(jsonPath("$.error").value("invalid_scim_resource"));
     }
 
     @Test
@@ -462,14 +745,15 @@ class ScimUserEndpointsMockMvcTests {
 
         MockHttpServletRequestBuilder get = setUpVerificationLinkRequest(user, scimCreateToken);
 
-        mockMvc.perform(get)
+        MvcResult result = mockMvc.perform(get)
                 .andExpect(status().isMethodNotAllowed())
-                .andExpect(content()
-                        .string(JsonObjectMatcherUtils.matchesJsonObject(
-                                new JSONObject()
-                                        .put("error_description", UserAlreadyVerifiedException.DESC)
-                                        .put("message", UserAlreadyVerifiedException.DESC)
-                                        .put("error", "user_already_verified"))));
+                .andReturn();
+        assertThat(JsonUtils.readTree(result.getResponse().getContentAsString()))
+                .isEqualTo(JsonUtils.readTree(new JSONObject()
+                        .put("error_description", UserAlreadyVerifiedException.DESC)
+                        .put("message", UserAlreadyVerifiedException.DESC)
+                        .put("error", "user_already_verified")
+                        .toString()));
     }
 
     @Test
@@ -501,18 +785,20 @@ class ScimUserEndpointsMockMvcTests {
                 .param("redirect_uri", HTTP_REDIRECT_EXAMPLE_COM)
                 .accept(APPLICATION_JSON);
 
-        mockMvc.perform(get)
+        MvcResult result = mockMvc.perform(get)
                 .andExpect(status().isNotFound())
-                .andExpect(content()
-                        .string(JsonObjectMatcherUtils.matchesJsonObject(
-                                new JSONObject()
-                                        .put("error_description", "User 12345 does not exist")
-                                        .put("message", "User 12345 does not exist")
-                                        .put("error", "scim_resource_not_found"))));
+                .andReturn();
+        assertThat(JsonUtils.readTree(result.getResponse().getContentAsString()))
+                .isEqualTo(JsonUtils.readTree(new JSONObject()
+                        .put("error_description", "User 12345 does not exist")
+                        .put("message", "User 12345 does not exist")
+                        .put("error", "scim_resource_not_found")
+                        .toString()));
     }
 
-    @Test
-    void listUsers_in_anotherZone() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"/Users", "/Users/"})
+    void listUsers_in_anotherZone(String url) throws Exception {
         String subdomain = generator.generate();
         MockMvcUtils.IdentityZoneCreationResult result = MockMvcUtils.createOtherIdentityZoneAndReturnResult(subdomain, mockMvc, webApplicationContext, null, IdentityZoneHolder.getCurrentZoneId());
         String zoneAdminToken = result.getZoneAdminToken();
@@ -522,7 +808,7 @@ class ScimUserEndpointsMockMvcTests {
             createUser(getScimUser(), zoneAdminToken, IdentityZone.getUaa().getSubdomain(), result.getIdentityZone().getId());
         }
 
-        MockHttpServletRequestBuilder get = MockMvcRequestBuilders.get("/Users").param("count", Integer.toString(usersMaxCountWithOffset))
+        MockHttpServletRequestBuilder get = MockMvcRequestBuilders.get(url).param("count", Integer.toString(usersMaxCountWithOffset))
                 .header("X-Identity-Zone-Subdomain", subdomain)
                 .header("Authorization", "Bearer " + zoneAdminToken)
                 .accept(APPLICATION_JSON);
@@ -580,8 +866,9 @@ class ScimUserEndpointsMockMvcTests {
         getAndReturnUser(HttpStatus.OK.value(), updatedUser, selfToken);
     }
 
-    @Test
-    void createUserInOtherZoneIsUnauthorized() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"/Users", "/Users/"})
+    void createUserInOtherZoneIsUnauthorized(String url) throws Exception {
         String subdomain = generator.generate();
         MockMvcUtils.createOtherIdentityZone(subdomain, mockMvc, webApplicationContext, IdentityZoneHolder.getCurrentZoneId());
 
@@ -593,7 +880,7 @@ class ScimUserEndpointsMockMvcTests {
         ScimUser user = getScimUser();
 
         byte[] requestBody = JsonUtils.writeValueAsBytes(user);
-        MockHttpServletRequestBuilder post = post("/Users")
+        MockHttpServletRequestBuilder post = post(url)
                 .with(new SetServerNameRequestPostProcessor(otherSubdomain + ".localhost"))
                 .header("Authorization", "Bearer " + zoneAdminToken)
                 .contentType(APPLICATION_JSON)
@@ -611,7 +898,27 @@ class ScimUserEndpointsMockMvcTests {
         alteredAccountStatus.setLocked(false);
         updateAccountStatus(userToLockout, alteredAccountStatus)
                 .andExpect(status().isOk())
-                .andExpect(content().contentType(APPLICATION_JSON_UTF8))
+                .andExpect(content().contentType(APPLICATION_JSON))
+                .andExpect(content().string(JsonUtils.writeValueAsString(alteredAccountStatus)));
+
+        attemptLogin(userToLockout)
+                .andExpect(redirectedUrl("/"));
+    }
+
+    @Test
+    void unlockAccountWithoutAcceptHeader() throws Exception {
+        // Regression test: without @ResponseBody on updateAccountStatus, a caller
+        // that omits Accept: application/json (e.g. uaa-cli's unlock-user, which
+        // issues a raw PATCH via its curl helper) gets routed into Thymeleaf view
+        // resolution instead of the normal HttpMessageConverter path, and 500s.
+        ScimUser userToLockout = createUser(uaaAdminToken);
+        attemptUnsuccessfulLogin(5, userToLockout.getUserName(), "");
+
+        UserAccountStatus alteredAccountStatus = new UserAccountStatus();
+        alteredAccountStatus.setLocked(false);
+        updateAccountStatusWithoutAcceptHeader(userToLockout, alteredAccountStatus)
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(APPLICATION_JSON))
                 .andExpect(content().string(JsonUtils.writeValueAsString(alteredAccountStatus)));
 
         attemptLogin(userToLockout)
@@ -625,7 +932,7 @@ class ScimUserEndpointsMockMvcTests {
 
         updateAccountStatus(userToLockout, new UserAccountStatus())
                 .andExpect(status().isOk())
-                .andExpect(content().contentType(APPLICATION_JSON_UTF8))
+                .andExpect(content().contentType(APPLICATION_JSON))
                 .andExpect(content().string("{}"));
 
         attemptLogin(userToLockout)
@@ -653,7 +960,7 @@ class ScimUserEndpointsMockMvcTests {
         alteredAccountStatus.setLocked(false);
         updateAccountStatus(userToLockout, alteredAccountStatus)
                 .andExpect(status().isOk())
-                .andExpect(content().contentType(APPLICATION_JSON_UTF8))
+                .andExpect(content().contentType(APPLICATION_JSON))
                 .andExpect(content().string(JsonUtils.writeValueAsString(alteredAccountStatus)));
 
         attemptLogin(userToLockout)
@@ -697,7 +1004,7 @@ class ScimUserEndpointsMockMvcTests {
 
         updateAccountStatus(user, alteredAccountStatus)
                 .andExpect(status().isOk())
-                .andExpect(content().contentType(APPLICATION_JSON_UTF8))
+                .andExpect(content().contentType(APPLICATION_JSON))
                 .andExpect(content().string(JsonUtils.writeValueAsString(alteredAccountStatus)));
 
         assertThat(usersRepository.checkPasswordChangeIndividuallyRequired(user.getId(), IdentityZoneHolder.get().getId())).isTrue();
@@ -738,24 +1045,18 @@ class ScimUserEndpointsMockMvcTests {
                 .andExpect(redirectedUrl("/login?error=account_locked"));
     }
 
-    protected SearchResults<ScimUser> getUsersByFilter(String filter, String token) throws Exception {
-        MockHttpServletRequestBuilder get = MockMvcRequestBuilders.get("/Users?filter=" + filter)
-                .header("Authorization", "Bearer " + token)
-                .accept(APPLICATION_JSON);
-        return JsonUtils.readValue(mockMvc.perform(get).andReturn().getResponse().getContentAsString(), SearchResults.class);
-    }
-
     @Test
     void testGetUser() throws Exception {
         getUser(scimReadWriteToken, HttpStatus.OK.value());
     }
 
-    @Test
-    void getUserWithInvalidAttributes() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"/Users", "/Users/"})
+    void getUserWithInvalidAttributes(String url) throws Exception {
 
         String nonexistentAttribute = "displayBlaBla";
 
-        MockHttpServletRequestBuilder get = get("/Users")
+        MockHttpServletRequestBuilder get = get(url)
                 .header("Authorization", "Bearer " + scimReadWriteToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .param("attributes", nonexistentAttribute)
@@ -778,11 +1079,12 @@ class ScimUserEndpointsMockMvcTests {
         getUser(scimCreateToken, HttpStatus.FORBIDDEN.value());
     }
 
-    @Test
-    void getUsersWithUaaAdminToken() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"/Users", "/Users/"})
+    void getUsersWithUaaAdminToken(String url) throws Exception {
         setUpScimUser();
 
-        MockHttpServletRequestBuilder get = MockMvcRequestBuilders.get("/Users")
+        MockHttpServletRequestBuilder get = MockMvcRequestBuilders.get(url)
                 .header("Authorization", "Bearer " + uaaAdminToken)
                 .accept(APPLICATION_JSON);
 
@@ -918,10 +1220,10 @@ class ScimUserEndpointsMockMvcTests {
 
                 mockMvc.perform(put).andDo(print())
                         .andExpect(status().is(403))
-                        .andExpect(jsonPath("$.error", is("invalid_self_edit")))
-                        .andExpect(jsonPath("$.error_description", is(
+                        .andExpect(jsonPath("$.error").value("invalid_self_edit"))
+                        .andExpect(jsonPath("$.error_description").value(
                                 "Users are only allowed to edit their own User settings when internal user storage is enabled, " +
-                                        "and in that case they may only edit the givenName and familyName.")
+                                        "and in that case they may only edit the givenName and familyName."
                         ));
             }
 
@@ -994,7 +1296,7 @@ class ScimUserEndpointsMockMvcTests {
 
                 @Test
                 void put_updateNothing_shouldFail() throws Exception {
-                    mockMvc.perform(put("/Users/" + regularUser.getId())
+                    MvcResult result = mockMvc.perform(put("/Users/" + regularUser.getId())
                                     .headers(zoneSeeder.getZoneIdRequestHeader())
                                     .header("Authorization", "Bearer " + uaaAdminToken)
                                     .header("If-Match", "\"" + regularUser.getVersion() + "\"")
@@ -1003,11 +1305,13 @@ class ScimUserEndpointsMockMvcTests {
                                     .content(JsonUtils.writeValueAsBytes(regularUser)))
                             .andDo(print())
                             .andExpect(status().is(403))
-                            .andExpect(content().string(JsonObjectMatcherUtils.matchesJsonObject(
-                                    new JSONObject()
-                                            .put("error_description", "Internal User Creation is currently disabled. External User Store is in use.")
-                                            .put("message", "Internal User Creation is currently disabled. External User Store is in use.")
-                                            .put("error", "internal_user_management_disabled"))));
+                            .andReturn();
+                    assertThat(JsonUtils.readTree(result.getResponse().getContentAsString()))
+                            .isEqualTo(JsonUtils.readTree(new JSONObject()
+                                    .put("error_description", "Internal User Creation is currently disabled. External User Store is in use.")
+                                    .put("message", "Internal User Creation is currently disabled. External User Store is in use.")
+                                    .put("error", "internal_user_management_disabled")
+                                    .toString()));
                 }
 
                 @Test
@@ -1024,13 +1328,15 @@ class ScimUserEndpointsMockMvcTests {
                             .accept(APPLICATION_JSON)
                             .contentType(APPLICATION_JSON)
                             .content(JsonUtils.writeValueAsBytes(regularUser));
-                    mockMvc.perform(put).andDo(print())
+                    MvcResult result = mockMvc.perform(put).andDo(print())
                             .andExpect(status().is(403))
-                            .andExpect(content().string(JsonObjectMatcherUtils.matchesJsonObject(
-                                    new JSONObject()
-                                            .put("error_description", "Internal User Creation is currently disabled. External User Store is in use.")
-                                            .put("message", "Internal User Creation is currently disabled. External User Store is in use.")
-                                            .put("error", "internal_user_management_disabled"))));
+                            .andReturn();
+                    assertThat(JsonUtils.readTree(result.getResponse().getContentAsString()))
+                            .isEqualTo(JsonUtils.readTree(new JSONObject()
+                                    .put("error_description", "Internal User Creation is currently disabled. External User Store is in use.")
+                                    .put("message", "Internal User Creation is currently disabled. External User Store is in use.")
+                                    .put("error", "internal_user_management_disabled")
+                                    .toString()));
                 }
 
                 @Test
@@ -1046,13 +1352,15 @@ class ScimUserEndpointsMockMvcTests {
                             .accept(APPLICATION_JSON)
                             .contentType(APPLICATION_JSON)
                             .content(JsonUtils.writeValueAsBytes(regularUser));
-                    mockMvc.perform(patch)
+                    MvcResult result = mockMvc.perform(patch)
                             .andExpect(status().is(403))
-                            .andExpect(content().string(JsonObjectMatcherUtils.matchesJsonObject(
-                                    new JSONObject()
-                                            .put("error_description", "Internal User Creation is currently disabled. External User Store is in use.")
-                                            .put("message", "Internal User Creation is currently disabled. External User Store is in use.")
-                                            .put("error", "internal_user_management_disabled"))));
+                            .andReturn();
+                    assertThat(JsonUtils.readTree(result.getResponse().getContentAsString()))
+                            .isEqualTo(JsonUtils.readTree(new JSONObject()
+                                    .put("error_description", "Internal User Creation is currently disabled. External User Store is in use.")
+                                    .put("message", "Internal User Creation is currently disabled. External User Store is in use.")
+                                    .put("error", "internal_user_management_disabled")
+                                    .toString()));
                 }
             }
         }
@@ -1073,7 +1381,6 @@ class ScimUserEndpointsMockMvcTests {
         assertThat(response.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
         final Map<String, Object> responseBody = JsonUtils.readValueAsMap(response.getContentAsString());
         assertThat(responseBody)
-                .isNotNull()
                 .containsEntry("error_description", "Cannot change user's origin in update operation.")
                 .containsEntry("error", "invalid_scim_resource")
                 .containsEntry("message", "Cannot change user's origin in update operation.");
@@ -1207,91 +1514,6 @@ class ScimUserEndpointsMockMvcTests {
         }
     }
 
-    @Test
-    void testCreateUserTxSuccess() throws Exception {
-        ScimUser user0 = createScimUser(getUniqueEmail());
-        ScimUser user1 = createScimUser(getUniqueEmail());
-        ScimUser user2 = createScimUser(getUniqueEmail());
-        ScimUser user3 = createScimUser(getUniqueEmail());
-        ScimUser[] users = {user0, user1, user2, user3};
-        MockHttpServletRequestBuilder postUsersTx = post("/Users/tx")
-            .header("Authorization", "Bearer " + scimCreateToken)
-            .contentType(APPLICATION_JSON)
-            .content(JsonUtils.writeValueAsBytes(users));
-
-        ResultActions resultActions = mockMvc.perform(postUsersTx)
-                                             .andExpect(status().isCreated());
-
-        ScimUser[] createdUsers = JsonUtils.readValue(resultActions.andReturn().getResponse().getContentAsString(), ScimUser[].class);
-
-        for(ScimUser user : createdUsers ){
-            getAndReturnUser(HttpStatus.OK.value(), user, scimReadWriteToken);
-        }
-    }
-
-    @Test
-    void testCreateUserTxExistingUser() throws Exception {
-        ScimUser createdUser = setUpScimUser();
-        ScimUser user0 = createScimUser(getUniqueEmail());
-        ScimUser user1 = createScimUser(getUniqueEmail());
-        ScimUser[] users = {user0, user1};
-        users[1].setUserName(createdUser.getUserName());
-        MockHttpServletRequestBuilder postUsersTx = post("/Users/tx")
-            .header("Authorization", "Bearer " + scimCreateToken)
-            .contentType(APPLICATION_JSON)
-            .content(JsonUtils.writeValueAsBytes(users));
-
-        mockMvc.perform(postUsersTx)
-               .andExpect(status().isConflict());
-
-        SearchResults results = getUsersByFilter("userName eq \"" +user0.getUserName()+"\"", scimReadWriteToken);
-        assertTrue(results.getResources().isEmpty());
-    }
-
-    @Test
-    void testCreateUserTxDuplicateId() throws Exception {
-        ScimUser user0 = createScimUser(getUniqueEmail());
-        ScimUser user1 = createScimUser(user0.getUserName());
-        ScimUser user2 = createScimUser(getUniqueEmail());
-        ScimUser[] users = {user0, user1, user2};
-
-        MockHttpServletRequestBuilder postUsersTx = post("/Users/tx")
-            .header("Authorization", "Bearer " + scimCreateToken)
-            .contentType(APPLICATION_JSON)
-            .content(JsonUtils.writeValueAsBytes(users));
-
-        mockMvc.perform(postUsersTx)
-               .andExpect(status().isConflict());
-
-        for(ScimUser user : users ){
-            SearchResults results = getUsersByFilter("userName eq \"" +user.getUserName()+"\"", scimReadWriteToken);
-            assertTrue(results.getResources().isEmpty());
-        }
-    }
-
-    @Test
-    void testCreateUserTxMissingUserName() throws Exception {
-        ScimUser user0 = createScimUser(getUniqueEmail());
-        ScimUser user1 = createScimUser(getUniqueEmail());
-        user1.setUserName("");
-        ScimUser user2 = createScimUser(getUniqueEmail());
-        ScimUser[] users = {user0, user1, user2};
-
-        MockHttpServletRequestBuilder postUsersTx = post("/Users/tx")
-            .header("Authorization", "Bearer " + scimCreateToken)
-            .contentType(APPLICATION_JSON)
-            .content(JsonUtils.writeValueAsBytes(users));
-
-        mockMvc.perform(postUsersTx)
-               .andExpect(status().isBadRequest());
-
-        for(ScimUser user : users ){
-            SearchResults results = getUsersByFilter("userName eq \"" +user.getUserName()+"\"", scimReadWriteToken);
-            assertTrue(results.getResources().isEmpty());
-        }
-    }
-
-
     private MockHttpServletRequestBuilder setUpVerificationLinkRequest(ScimUser user, String token) {
         return MockMvcRequestBuilders.get("/Users/" + user.getId() + "/verify-link")
                 .header("Authorization", "Bearer " + token)
@@ -1307,7 +1529,7 @@ class ScimUserEndpointsMockMvcTests {
         IdentityZone original = IdentityZoneHolder.get();
         try {
             IdentityZoneHolder.set(zone);
-            String email = getUniqueEmail();
+            String email = "joe@" + generator.generate().toLowerCase() + ".com";
             ScimUser joel = new ScimUser(null, email, "Joel", "D'sa");
             joel.setVerified(false);
             joel.addEmail(email);
@@ -1318,10 +1540,6 @@ class ScimUserEndpointsMockMvcTests {
         }
     }
 
-    private String getUniqueEmail() {
-        return "joe@" + generator.generate().toLowerCase() + ".com";
-    }
-
     private String getQueryStringParam(String query, String key) {
         List<NameValuePair> params = URLEncodedUtils.parse(query, Charset.defaultCharset());
         for (NameValuePair pair : params) {
@@ -1330,14 +1548,6 @@ class ScimUserEndpointsMockMvcTests {
             }
         }
         return null;
-    }
-
-    private ScimUser createScimUser(String userName) {
-        ScimUser user = new ScimUser(null, userName, "Jo", "User");
-        user.addEmail(user.getUserName());
-        user.setPassword("password");
-        user.setOrigin("");
-        return user;
     }
 
     private IdentityZone getIdentityZone() throws Exception {
@@ -1374,8 +1584,12 @@ class ScimUserEndpointsMockMvcTests {
     }
 
     private ResultActions createUserAndReturnResult(ScimUser user, String token, String subdomain, String switchZone) throws Exception {
+        return createUserAndReturnResult("/Users",  user, token, subdomain, switchZone);
+    }
+
+    private ResultActions createUserAndReturnResult(String url, ScimUser user, String token, String subdomain, String switchZone) throws Exception {
         byte[] requestBody = JsonUtils.writeValueAsBytes(user);
-        MockHttpServletRequestBuilder post = post("/Users")
+        MockHttpServletRequestBuilder post = post(url)
                 .header("Authorization", "Bearer " + token)
                 .contentType(APPLICATION_JSON)
                 .content(requestBody);
@@ -1390,7 +1604,7 @@ class ScimUserEndpointsMockMvcTests {
     }
 
     private ScimUser getScimUser() {
-        String email = getUniqueEmail();
+        String email = "joe@" + generator.generate().toLowerCase() + ".com";
         ScimUser user = new ScimUser();
         user.setUserName(email);
         user.setName(new ScimUser.Name("Joe", "User"));
@@ -1463,21 +1677,30 @@ class ScimUserEndpointsMockMvcTests {
                 );
     }
 
+    private ResultActions updateAccountStatusWithoutAcceptHeader(ScimUser user, UserAccountStatus alteredAccountStatus) throws Exception {
+        String jsonStatus = JsonUtils.writeValueAsString(alteredAccountStatus);
+        return mockMvc
+                .perform(
+                        patch("/Users/" + user.getId() + "/status")
+                                .header("Authorization", "Bearer " + uaaAdminToken)
+                                .contentType(APPLICATION_JSON)
+                                .content(jsonStatus)
+                );
+    }
+
     private ResultActions attemptLogin(ScimUser user) throws Exception {
-        MockHttpSession session = getLoginForm();
         return mockMvc
                 .perform(post("/login.do")
-                        .with(csrf(session))
+                        .with(cookieCsrf())
                         .param("username", user.getUserName())
                         .param("password", user.getPassword()));
     }
 
     private void attemptUnsuccessfulLogin(int numberOfAttempts, String username, String subdomain) throws Exception {
         String requestDomain = "".equals(subdomain) ? "localhost" : subdomain + ".localhost";
-        MockHttpSession session = getLoginForm();
         MockHttpServletRequestBuilder post = post("/login.do")
                 .with(new SetServerNameRequestPostProcessor(requestDomain))
-                .with(csrf(session))
+                .with(cookieCsrf())
                 .param("username", username)
                 .param("password", "wrong_password");
         for (int i = 0; i < numberOfAttempts; i++) {
@@ -1488,7 +1711,7 @@ class ScimUserEndpointsMockMvcTests {
 
     private void verifyUser(String token) throws Exception {
         ScimUserProvisioning usersRepository = webApplicationContext.getBean(ScimUserProvisioning.class);
-        String email = getUniqueEmail();
+        String email = "joe@" + generator.generate().toLowerCase() + ".com";
         ScimUser joel = new ScimUser(null, email, "Joel", "D'sa");
         joel.addEmail(email);
         joel = usersRepository.createUser(joel, "pas5Word", IdentityZoneHolder.get().getId());
@@ -1536,21 +1759,13 @@ class ScimUserEndpointsMockMvcTests {
     }
 
     private void performAuthentication(ScimUser user, boolean success) throws Exception {
-        MockHttpSession session = getLoginForm();
         mockMvc.perform(
                         post("/login.do")
                                 .accept("text/html")
-                                .with(csrf(session))
+                                .with(cookieCsrf())
                                 .param("username", user.getUserName())
                                 .param("password", USER_PASSWORD))
                 .andDo(print())
                 .andExpect(success ? authenticated() : unauthenticated());
     }
-
-    private MockHttpSession getLoginForm() {
-        MockHttpSession session = new MockHttpSession();
-        MockMvcUtils.getLoginForm(mockMvc, session);
-        return session;
-    }
-
 }

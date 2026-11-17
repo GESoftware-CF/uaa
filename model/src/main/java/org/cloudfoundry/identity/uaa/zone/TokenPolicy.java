@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonSetter;
+import tools.jackson.databind.JsonNode;
 import org.cloudfoundry.identity.uaa.oauth.token.TokenConstants;
 import org.springframework.util.StringUtils;
 
@@ -46,7 +47,7 @@ public class TokenPolicy {
     private int accessTokenValidity;
     private int refreshTokenValidity;
     private boolean jwtRevocable;
-    private boolean refreshTokenUnique;
+    private int refreshTokenUnique = -1;
     private boolean refreshTokenRotate;
     private String refreshTokenFormat = JWT.getStringValue();
 
@@ -130,12 +131,64 @@ public class TokenPolicy {
         }
     }
 
+    @JsonIgnore
     public boolean isRefreshTokenUnique() {
+        return refreshTokenUnique == 1;
+    }
+
+    @JsonIgnore
+    public void setRefreshTokenUnique(boolean refreshTokenUnique) {
+        this.refreshTokenUnique = refreshTokenUnique ? 1 : -1;
+    }
+
+    @JsonGetter("refreshTokenUnique")
+    public int getMaxSessionLimit() {
         return refreshTokenUnique;
     }
 
-    public void setRefreshTokenUnique(boolean refreshTokenUnique) {
-        this.refreshTokenUnique = refreshTokenUnique;
+    @JsonIgnore
+    public void setMaxSessionLimit(int maxSessionLimit) {
+        this.refreshTokenUnique = maxSessionLimit <= 0 ? -1 : maxSessionLimit;
+    }
+
+    /**
+     * Parses a {@code refreshTokenUnique} value from its textual representation, accepting the boolean
+     * literals {@code "true"}/{@code "false"} (for backwards compatibility) or an integer. {@code "true"}
+     * maps to {@code 1}; {@code "false"} or a non-positive integer maps to {@code -1} (unlimited).
+     * Throws an {@link IllegalArgumentException} for unparseable values.
+     */
+    public static int parseRefreshTokenUnique(String value) {
+        if (value == null) {
+            return -1;
+        }
+        String text = value.trim();
+        if ("true".equalsIgnoreCase(text)) {
+            return 1;
+        }
+        if ("false".equalsIgnoreCase(text)) {
+            return -1;
+        }
+        try {
+            int parsed = Integer.parseInt(text);
+            return parsed <= 0 ? -1 : parsed;
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid jwt.token.refresh.unique value: " + value + ". Must be 'true', 'false', or a positive integer.");
+        }
+    }
+
+    @JsonSetter("refreshTokenUnique")
+    private void setRefreshTokenUniqueFromJson(JsonNode node) {
+        int parsedValue;
+        if (node.isBoolean()) {
+            parsedValue = node.asBoolean() ? 1 : -1;
+        } else if (node.isNumber()) {
+            parsedValue = node.asInt();
+        } else if (node.isTextual()) {
+            parsedValue = parseRefreshTokenUnique(node.asText());
+        } else {
+            parsedValue = -1;
+        }
+        setMaxSessionLimit(parsedValue);
     }
 
     public boolean isRefreshTokenRotate() {

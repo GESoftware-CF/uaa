@@ -133,7 +133,7 @@ public class IdentityZoneSwitchingFilter extends OncePerRequestFilter {
             if (logger.isDebugEnabled()) {
                 logger.debug("Superfluous attempt to switch to UAA(system) zone. Header[" + HEADER + "] will be ignored");
             }
-            filterChain.doFilter(new HttpHeadersFilterRequestWrapper(Arrays.asList(HEADER),request), response);
+            filterChain.doFilter(new HttpHeadersFilterRequestWrapper(Arrays.asList(HEADER, SUBDOMAIN_HEADER), request), response);
             return;
         }
 
@@ -164,7 +164,8 @@ public class IdentityZoneSwitchingFilter extends OncePerRequestFilter {
             } else {
                 identityZone = dao.retrieve(identityZoneId);
             }
-        } catch (ZoneDoesNotExistsException | EmptyResultDataAccessException ignored) {
+        } catch (ZoneDoesNotExistsException | EmptyResultDataAccessException _) {
+            // ignore
         }
         return identityZone;
     }

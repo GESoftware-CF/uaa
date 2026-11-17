@@ -5,6 +5,7 @@ import org.cloudfoundry.identity.uaa.provider.AbstractIdentityProviderDefinition
 import org.cloudfoundry.identity.uaa.provider.SamlIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.util.KeyWithCert;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
+import org.springframework.security.saml2.Saml2Exception;
 import org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistration;
 import org.springframework.util.Assert;
 
@@ -32,6 +33,7 @@ public class ConfiguratorRelyingPartyRegistrationRepository extends BaseUaaRelyi
      *
      * @param registrationId the registration identifier
      * @return the {@link RelyingPartyRegistration} if found, otherwise {@code null}
+     * @throws Saml2Exception if the registration cannot be built due to invalid or unreachable metadata
      */
     @Override
     public RelyingPartyRegistration findByRegistrationId(String registrationId) {
@@ -46,12 +48,29 @@ public class ConfiguratorRelyingPartyRegistrationRepository extends BaseUaaRelyi
             }
 
             for (SamlIdentityProviderDefinition identityProviderDefinition : configurator.getIdentityProviderDefinitionsForZone(currentZone)) {
-                if (registrationId.equals(identityProviderDefinition.getIdpEntityAlias()) || registrationId.equals(identityProviderDefinition.getIdpEntityId())) {
+                if (registrationId.equals(identityProviderDefinition.getIdpEntityAlias())) {
+                    return createRelyingPartyRegistration(identityProviderDefinition.getIdpEntityAlias(), identityProviderDefinition, currentZone);
+                }
+                // idpEntityId is populated from external_key at read time; if external_key was never
+                // stored (e.g. URL-type IDPs bootstrapped without idpEntityId being set), fall back
+                // to resolving the entity ID dynamically from the metadata.
+                String resolvedEntityId = identityProviderDefinition.getIdpEntityId();
+                if (resolvedEntityId == null) {
+                    try {
+                        resolvedEntityId = configurator.getExtendedMetadataDelegate(identityProviderDefinition)
+                                .getAssertingPartyMetadata().getEntityId();
+                    } catch (Exception e) {
+                        log.warn("Could not resolve entity ID from metadata for SAML IDP '{}': {}",
+                                identityProviderDefinition.getIdpEntityAlias(), e.getMessage());
+                    }
+                }
+                if (registrationId.equals(resolvedEntityId)) {
                     return createRelyingPartyRegistration(identityProviderDefinition.getIdpEntityAlias(), identityProviderDefinition, currentZone);
                 }
             }
         } catch (Exception e) {
-            log.warn("Cannot retrieve SAML trusted party.", e);
+            log.warn("Cannot retrieve SAML trusted party for registrationId: {}", registrationId, e);
+            throw new Saml2Exception("Unable to build SAML relying party registration for: " + registrationId, e);
         }
 
         return null;
@@ -70,7 +89,7 @@ public class ConfiguratorRelyingPartyRegistrationRepository extends BaseUaaRelyi
                 .samlEntityID(zonedSamlEntityID)
                 .samlSpNameId(nameID)
                 .keys(keyWithCerts)
-                .metadataLocation(identityProviderDefinition.getMetaDataLocation())
+                .metadataLocation(configurator.resolveMetadataXml(identityProviderDefinition))
                 .rpRegistrationId(registrationId)
                 .samlSpAlias(zonedSamlEntityIDAlias)
                 .requestSigned(requestSigned)

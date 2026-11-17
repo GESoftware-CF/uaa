@@ -158,7 +158,7 @@ public class KeyInfo {
             result.put(JWKParameterNames.RSA_MODULUS, n);
             result.put(JWKParameterNames.RSA_EXPONENT, e);
         } else if (type == EC) {
-            result.putAll(jwk.toJSONObject());
+            result.putAll(jwk.toPublicJWK().toJSONObject());
         }
         return result;
     }
@@ -186,7 +186,7 @@ public class KeyInfo {
                 x509Certificate.checkValidity();
                 return Optional.of(x509Certificate);
             }
-        } catch (RuntimeException | CertificateExpiredException | CertificateNotYetValidException e) {
+        } catch (RuntimeException | CertificateExpiredException | CertificateNotYetValidException _) {
             // ignore
         }
         return Optional.empty();

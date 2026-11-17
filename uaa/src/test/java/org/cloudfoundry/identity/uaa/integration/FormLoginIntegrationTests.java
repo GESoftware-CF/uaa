@@ -29,6 +29,7 @@ import org.apache.hc.core5.http.io.support.ClassicRequestBuilder;
 import org.apache.hc.core5.http.message.BasicHeader;
 import org.cloudfoundry.identity.uaa.ServerRunningExtension;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
+import org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository;
 import org.cloudfoundry.identity.uaa.test.TestAccountExtension;
 import org.cloudfoundry.identity.uaa.test.UaaTestAccounts;
 import org.junit.jupiter.api.AfterEach;
@@ -117,6 +118,7 @@ class FormLoginIntegrationTests {
                 .addParameter("username", testAccounts.getUserName())
                 .addParameter("password", testAccounts.getPassword())
                 .addParameter(CSRF_PARAMETER_NAME, csrf)
+                .addParameter(CookieBasedCsrfTokenRepository.DEFAULT_CSRF_COOKIE_NAME, csrf)
                 .build();
 
         response = httpclient.execute(loginPost);
