@@ -13,6 +13,7 @@ import org.cloudfoundry.identity.uaa.oauth.jwk.JsonWebKeyHelper;
 import org.cloudfoundry.identity.uaa.oauth.jwk.JsonWebKeySet;
 import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetails;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
+import org.cloudfoundry.identity.uaa.util.PrivateNetworkGuard;
 import org.cloudfoundry.identity.uaa.util.UaaUrlUtils;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
@@ -36,7 +37,7 @@ public class ClientJwtConfiguration implements Cloneable {
     public static final String JWT_CREDS = "jwt_creds";
 
     @JsonIgnore
-    private static final int MAX_KEY_SIZE = 10;
+    public static final int MAX_KEY_SIZE = 10;
 
     @JsonProperty(JWKS_URI)
     private String jwksUri;
@@ -90,17 +91,21 @@ public class ClientJwtConfiguration implements Cloneable {
     public void addJwtCredentials(final List<ClientJwtCredential> additionalCredentials) {
         HashMap<String, ClientJwtCredential> clientJwtCredentialHashMap = new HashMap<>();
         if (this.clientJwtCredentials != null) {
-            this.clientJwtCredentials.forEach(jwtEntry -> clientJwtCredentialHashMap.putIfAbsent(jwtEntry.getSubject() + jwtEntry.getIssuer(), jwtEntry));
+            this.clientJwtCredentials.forEach(jwtEntry -> clientJwtCredentialHashMap.putIfAbsent(credKey(jwtEntry), jwtEntry));
         }
         validateClientJwtCredentials(additionalCredentials, clientJwtCredentialHashMap);
         setClientJwtCredentials(clientJwtCredentialHashMap.values().stream().toList());
     }
 
+    private static String credKey(ClientJwtCredential entry) {
+        return entry.getSubject() + '\0' + entry.getIssuer();
+    }
+
     private static void validateClientJwtCredentials(List<ClientJwtCredential> additionalCredentials, HashMap<String, ClientJwtCredential> clientJwtCredentialHashMap) {
         additionalCredentials.forEach(jwtEntry ->
-                clientJwtCredentialHashMap.putIfAbsent(jwtEntry.getSubject() + jwtEntry.getIssuer(), jwtEntry));
+                clientJwtCredentialHashMap.putIfAbsent(credKey(jwtEntry), jwtEntry));
         if (clientJwtCredentialHashMap.isEmpty() || clientJwtCredentialHashMap.size() > MAX_KEY_SIZE) {
-            throw new InvalidClientDetailsException("Invalid private_key_jwt: federated jwt credentials exceeds the maximum of keys. max: + " + MAX_KEY_SIZE);
+            throw new InvalidClientDetailsException("Invalid private_key_jwt: federated JWT credentials are empty or exceed the maximum number of keys. max: " + MAX_KEY_SIZE);
         }
     }
 
@@ -210,7 +215,7 @@ public class ClientJwtConfiguration implements Cloneable {
     private boolean validateJwkSet() {
         List<JsonWebKey> keyList = jwkSet.getKeys();
         if (keyList.isEmpty() || keyList.size() > MAX_KEY_SIZE) {
-            throw new InvalidClientDetailsException("Invalid private_key_jwt: jwk set is empty of exceeds to maximum of keys. max: + " + MAX_KEY_SIZE);
+            throw new InvalidClientDetailsException("Invalid private_key_jwt: jwk set is empty or exceeds the maximum of keys. max: " + MAX_KEY_SIZE);
         }
         Set<String> keyId = new HashSet<>();
         keyList.forEach((JsonWebKey key) -> {
@@ -238,8 +243,19 @@ public class ClientJwtConfiguration implements Cloneable {
         if (!"https".equals(validateJwksUri.getScheme()) && !"http".equals(validateJwksUri.getScheme())) {
             throw new InvalidClientDetailsException("Invalid private_key_jwt: jwks_uri must be either using https or http");
         }
-        if ("http".equals(validateJwksUri.getScheme()) && !validateJwksUri.getHost().endsWith("localhost")) {
+        if ("http".equals(validateJwksUri.getScheme()) && !"localhost".equals(validateJwksUri.getHost())) {
             throw new InvalidClientDetailsException("Invalid private_key_jwt: jwks_uri with http is not on localhost");
+        }
+        // Only apply the private-network check for HTTPS URIs — HTTP is already
+        // restricted to localhost above, and localhost resolves to a loopback address.
+        if ("https".equals(validateJwksUri.getScheme())) {
+            try {
+                PrivateNetworkGuard.assertPublic(validateJwksUri);
+            } catch (IllegalArgumentException e) {
+                throw new InvalidClientDetailsException(e.getMessage());
+            } catch (java.net.UnknownHostException _) {
+                // Unresolvable host: allow through at validation time; the fetch will fail.
+            }
         }
         return true;
     }
@@ -343,12 +359,45 @@ public class ClientJwtConfiguration implements Cloneable {
         if (newConfig.clientJwtCredentials != null) {
             result = existingConfig;
             if (overwrite) {
-                result.setValidatedCredentials(newConfig.clientJwtCredentials);
+                result.setClientJwtCredentials(newConfig.clientJwtCredentials);
             } else {
                 result.addJwtCredentials(newConfig.clientJwtCredentials);
             }
         }
+        if (result == null) {
+            return Objects.requireNonNullElseGet(existingConfig, ClientJwtConfiguration::new);
+        }
         return result;
+    }
+
+    /**
+     * Builds a {@code ClientJwtConfiguration} from a raw {@code jwt_creds} value.
+     */
+    @JsonIgnore
+    public static ClientJwtConfiguration fromJwtCredsValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            String json;
+            if (value instanceof String s) {
+                json = s;
+            } else if (value instanceof List<?> list) {
+                json = JsonUtils.writeValueAsString(list);
+            } else {
+                return null;
+            }
+            ClientJwtConfiguration cfg = new ClientJwtConfiguration();
+            cfg.addJwtCredentials(ClientJwtCredential.parse(json));
+            return cfg;
+        } catch (InvalidClientDetailsException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InvalidClientDetailsException(
+                    "Invalid jwt_creds format: expected a JSON string containing an array or a pre-parsed List",
+                    e
+            );
+        }
     }
 
     @JsonIgnore

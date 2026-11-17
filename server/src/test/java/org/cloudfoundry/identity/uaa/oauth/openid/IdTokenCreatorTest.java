@@ -5,6 +5,7 @@ import org.cloudfoundry.identity.uaa.extensions.PollutionPreventionExtension;
 import org.cloudfoundry.identity.uaa.oauth.TokenEndpointBuilder;
 import org.cloudfoundry.identity.uaa.oauth.TokenValidityResolver;
 import org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants;
+import org.cloudfoundry.identity.uaa.provider.oauth.TokenActor;
 import org.cloudfoundry.identity.uaa.user.UaaUser;
 import org.cloudfoundry.identity.uaa.user.UaaUserDatabase;
 import org.cloudfoundry.identity.uaa.user.UaaUserPrototype;
@@ -12,8 +13,6 @@ import org.cloudfoundry.identity.uaa.util.TimeService;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.MultitenantClientServices;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
-import org.joda.time.DateTimeUtils;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,6 +58,15 @@ class IdTokenCreatorTest {
     private String origin;
     private String jti;
     private IdentityZoneManager mockIdentityZoneManager;
+
+    private TokenActor tokenActor = new TokenActor(
+            "actorSubject",
+            "actorIssuer",
+            "actorClientId",
+            "actorUsername",
+            "actorUserId",
+            "actorOrigin"
+    );
 
     @BeforeEach
     void setup() throws Exception {
@@ -173,14 +181,9 @@ class IdTokenCreatorTest {
                 mockIdentityZoneManager);
     }
 
-    @AfterEach
-    void teardown() {
-        DateTimeUtils.setCurrentMillisSystem();
-    }
-
     @Test
-    void create_includesStandardClaims() throws IdTokenCreationException {
-        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData);
+    void create_includesStandardClaims() throws Exception {
+        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData, tokenActor);
 
         assertThat(idToken).isNotNull();
         assertThat(idToken.sub).isEqualTo("id1234");
@@ -195,16 +198,16 @@ class IdTokenCreatorTest {
     }
 
     @Test
-    void create_includesAdditionalClaims() throws IdTokenCreationException {
-        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData);
+    void create_includesAdditionalClaims() throws Exception {
+        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData, tokenActor);
 
         assertThat(idToken).isNotNull();
         assertThat(idToken.givenName).isEqualTo(givenName);
         assertThat(idToken.familyName).isEqualTo(familyName);
         assertThat(idToken.previousLogonTime).isEqualTo(previousLogonTime);
         assertThat(idToken.phoneNumber).isEqualTo(phoneNumber);
-        assertThat(idToken.roles).isEqualTo(roles);
-        assertThat(idToken.userAttributes).isEqualTo(userAttributes);
+        assertThat(idToken.roles).hasSameElementsAs(roles);
+        assertThat(idToken.userAttributes).containsExactlyInAnyOrderEntriesOf(userAttributes);
         assertThat(idToken.scope).contains("openid");
         assertThat(idToken.emailVerified).isTrue();
         assertThat(idToken.nonce).isEqualTo(nonce);
@@ -216,36 +219,37 @@ class IdTokenCreatorTest {
         assertThat(idToken.origin).isEqualTo(origin);
         assertThat(idToken.jti).isEqualTo("accessTokenId");
         assertThat(idToken.revSig).isEqualTo("a039bd5");
+        assertThat(idToken.getTokenActor()).containsEntry(ClaimConstants.ISS, tokenActor.getIssuer());
     }
 
     @Test
-    void create_includesEmailVerified() throws IdTokenCreationException {
+    void create_includesEmailVerified() throws Exception {
         user.setVerified(false);
-        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData);
+        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData, tokenActor);
         assertThat(idToken.emailVerified).isFalse();
     }
 
     @Test
-    void create_doesntPopulateRolesWhenScopeDoesntContainRoles() throws IdTokenCreationException {
+    void create_doesntPopulateRolesWhenScopeDoesntContainRoles() throws Exception {
         scopes.clear();
         scopes.add("openid");
 
-        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData);
+        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData, tokenActor);
 
         assertThat(idToken.roles).isNull();
     }
 
     @Test
-    void create_setsRolesToNullIfThereAreNoRoles() throws IdTokenCreationException {
+    void create_setsRolesToNullIfThereAreNoRoles() throws Exception {
         roles.clear();
 
-        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData);
+        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData, tokenActor);
 
         assertThat(idToken.roles).isNull();
     }
 
     @Test
-    void create_setsRolesToNullIfRolesAreNull() throws IdTokenCreationException {
+    void create_setsRolesToNullIfRolesAreNull() throws Exception {
         userAuthenticationData = new UserAuthenticationData(
                 authTime,
                 amr,
@@ -258,23 +262,23 @@ class IdTokenCreatorTest {
                 null,
                 jti);
 
-        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData);
+        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData, tokenActor);
 
         assertThat(idToken.roles).isNull();
     }
 
     @Test
-    void create_doesntPopulateUserAttributesWhenScopeDoesntContainUserAttributes() throws IdTokenCreationException {
+    void create_doesntPopulateUserAttributesWhenScopeDoesntContainUserAttributes() throws Exception {
         scopes.clear();
         scopes.add("openid");
 
-        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData);
+        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData, tokenActor);
 
         assertThat(idToken.userAttributes).isNull();
     }
 
     @Test
-    void create_doesntSetUserAttributesIfTheyAreNull() throws IdTokenCreationException {
+    void create_doesntSetUserAttributesIfTheyAreNull() throws Exception {
         userAuthenticationData = new UserAuthenticationData(
                 authTime,
                 amr,
@@ -287,16 +291,16 @@ class IdTokenCreatorTest {
                 null,
                 jti);
 
-        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData);
+        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData, tokenActor);
 
         assertThat(idToken.userAttributes).isNull();
     }
 
     @Test
-    void create_doesntPopulateNamesAndPhone_whenNoProfileScopeGiven() throws IdTokenCreationException {
+    void create_doesntPopulateNamesAndPhone_whenNoProfileScopeGiven() throws Exception {
         scopes.remove("profile");
 
-        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData);
+        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData, tokenActor);
 
         assertThat(idToken.givenName).isNull();
         assertThat(idToken.familyName).isNull();
@@ -304,7 +308,7 @@ class IdTokenCreatorTest {
     }
 
     @Test
-    void create_doesntIncludesExcludedClaims() throws IdTokenCreationException {
+    void create_doesntIncludesExcludedClaims() throws Exception {
         excludedClaims.add(ClaimConstants.USER_ID);
         excludedClaims.add(ClaimConstants.AUD);
         excludedClaims.add(ClaimConstants.ISS);
@@ -330,8 +334,9 @@ class IdTokenCreatorTest {
         excludedClaims.add(ClaimConstants.ORIGIN);
         excludedClaims.add(ClaimConstants.JTI);
         excludedClaims.add(ClaimConstants.REVOCATION_SIGNATURE);
+        excludedClaims.add(ClaimConstants.ACT);
 
-        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData);
+        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData, tokenActor);
 
         assertThat(idToken.sub).isNull();
         assertThat(idToken.aud).isNull();
@@ -358,6 +363,7 @@ class IdTokenCreatorTest {
         assertThat(idToken.origin).isNull();
         assertThat(idToken.jti).isNull();
         assertThat(idToken.revSig).isNull();
+        assertThat(idToken.getTokenActor()).isNull();
     }
 
     @Test
@@ -367,7 +373,7 @@ class IdTokenCreatorTest {
         when(mockIdentityZone.getSubdomain()).thenReturn("myzone");
         when(mockIdentityZoneManager.getCurrentIdentityZone()).thenReturn(mockIdentityZone);
 
-        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData);
+        IdToken idToken = tokenCreator.create(clientDetails, user, userAuthenticationData, tokenActor);
 
         assertThat(idToken.iss).isEqualTo("http://myzone.localhost:8080/uaa/oauth/token");
     }

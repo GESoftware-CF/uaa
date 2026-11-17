@@ -1,7 +1,7 @@
 package org.cloudfoundry.identity.uaa.oauth.common.exceptions;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import tools.jackson.databind.annotation.JsonDeserialize;
+import tools.jackson.databind.annotation.JsonSerialize;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -36,6 +36,7 @@ public class OAuth2Exception extends RuntimeException {
     public static final String REDIRECT_URI_MISMATCH = "redirect_uri_mismatch";
     public static final String UNSUPPORTED_RESPONSE_TYPE = "unsupported_response_type";
     public static final String ACCESS_DENIED = "access_denied";
+    public static final String INVALID_TARGET = "invalid_target";
 
     private final Map<String, String> additionalInformation = new TreeMap<>();
 
@@ -114,6 +115,8 @@ public class OAuth2Exception extends RuntimeException {
             return new UnsupportedResponseTypeException(errorMessage);
         } else if (ACCESS_DENIED.equals(errorCode)) {
             return new UserDeniedAuthorizationException(errorMessage);
+        } else if (INVALID_TARGET.equals(errorCode)) {
+            return new InvalidTargetException(errorMessage);
         } else {
             return new OAuth2Exception(errorMessage);
         }

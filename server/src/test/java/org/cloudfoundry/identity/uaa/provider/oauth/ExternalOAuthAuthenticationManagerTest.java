@@ -21,6 +21,9 @@ import org.cloudfoundry.identity.uaa.login.Prompt;
 import org.cloudfoundry.identity.uaa.oauth.KeyInfo;
 import org.cloudfoundry.identity.uaa.oauth.KeyInfoService;
 import org.cloudfoundry.identity.uaa.oauth.TokenEndpointBuilder;
+import com.nimbusds.jose.jwk.JWK;
+import org.cloudfoundry.identity.uaa.oauth.jwk.JsonWebKey;
+import org.cloudfoundry.identity.uaa.oauth.jwk.JsonWebKeySet;
 import org.cloudfoundry.identity.uaa.oauth.client.ClientConstants;
 import org.cloudfoundry.identity.uaa.oauth.common.exceptions.InvalidTokenException;
 import org.cloudfoundry.identity.uaa.oauth.jwt.JwtClientAuthentication;
@@ -30,14 +33,19 @@ import org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
 import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
 import org.cloudfoundry.identity.uaa.provider.OIDCIdentityProviderDefinition;
+import org.cloudfoundry.identity.uaa.provider.RawExternalOAuthIdentityProviderDefinition;
+import org.cloudfoundry.identity.uaa.provider.SamlIdentityProviderDefinition;
+import org.cloudfoundry.identity.uaa.scim.ScimGroupExternalMember;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimGroupExternalMembershipManager;
 import org.cloudfoundry.identity.uaa.user.UaaUser;
+import org.cloudfoundry.identity.uaa.user.UaaUserDatabase;
 import org.cloudfoundry.identity.uaa.util.AlphanumericRandomValueStringGenerator;
 import org.cloudfoundry.identity.uaa.util.LinkedMaskingMultiValueMap;
 import org.cloudfoundry.identity.uaa.util.TimeServiceImpl;
 import org.cloudfoundry.identity.uaa.util.UaaTokenUtils;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
+import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManagerImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,9 +61,11 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -64,7 +74,6 @@ import org.springframework.web.client.RestTemplate;
 
 import java.net.MalformedURLException;
 import java.net.URI;
-import java.text.ParseException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -80,6 +89,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
+import static org.cloudfoundry.identity.uaa.constants.OriginKeys.OAUTH20;
 import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.AUD;
 import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.EMAIL;
 import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.EXPIRY_IN_SECONDS;
@@ -108,11 +118,11 @@ import static org.mockito.Mockito.when;
 
 class ExternalOAuthAuthenticationManagerTest {
     private static final String OIDC_PROVIDER_KEY = "oidc-provider-key";
-    private ExternalOAuthAuthenticationManager authManager;
-    private String origin;
-    private String zoneId;
+    private static final String ORIGIN = "google-oidc";
+    private static final String ZONE_ID = "zoneId";
+    private static final String UAA_ISSUER_BASE_URL = "http://uaa.example.com";
 
-    private final String uaaIdentityZoneTokenSigningKey = """
+    private static final String UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY = """
             -----BEGIN RSA PRIVATE KEY-----
             MIICXgIBAAKBgQDR94jLH/fHUjdMzFCajcD8E/RUWcSOPPj5mSnIM1427q0hScP9
             yw5kifK4unqi/urO6t4IPXVN304tm8E0Um/nw3t4NAxd7aCwc0fu6wnXIlb+aZeP
@@ -129,7 +139,7 @@ class ExternalOAuthAuthenticationManagerTest {
             rHnyY28TwVjI/PpZgWXNdOeD4MrQuyjvr+n+5d7CCU8tYQ==
             -----END RSA PRIVATE KEY-----""";
 
-    private final String oidcProviderTokenSigningKey = """
+    private static final String OIDC_PROVIDER_TOKEN_SIGNING_KEY = """
             -----BEGIN RSA PRIVATE KEY-----
             MIICXQIBAAKBgQC7FTvb+tIJN91iu2CFWXR9xCfPyyqalhCA5glhPdYNRbOPSE66
             uLLIiovjhe+QOc9mMalK+pGc5FXRo1MECy38/mfVeOGiHtqcGfO6cxJ4B3IapQM2
@@ -146,12 +156,14 @@ class ExternalOAuthAuthenticationManagerTest {
             PEw0pNKKUspeBvWwNMltYeRMw032ovZAmZewYQAqOB+a
             -----END RSA PRIVATE KEY-----""";
 
+    private ExternalOAuthAuthenticationManager authManager;
     private OIDCIdentityProviderDefinition oidcConfig;
-    private String uaaIssuerBaseUrl;
     private TokenEndpointBuilder tokenEndpointBuilder;
     private IdentityProvider<OIDCIdentityProviderDefinition> provider;
     private IdentityProviderProvisioning identityProviderProvisioning;
     private OidcMetadataFetcher oidcMetadataFetcher;
+    private JdbcScimGroupExternalMembershipManager externalMembershipManager;
+    private UaaUserDatabase userDatabase;
 
     private KeyInfoService mockKeyInfoService() throws JOSEException {
         KeyInfoService keyInfoService = mock(KeyInfoService.class);
@@ -187,35 +199,44 @@ class ExternalOAuthAuthenticationManagerTest {
 
     @BeforeEach
     void beforeEach() throws Exception {
-        origin = "google-oidc";
-        zoneId = "zoneId";
         IdentityZone identityZone = new IdentityZone();
-        identityZone.setId(zoneId);
+        identityZone.setId(ZONE_ID);
         IdentityZoneHolder.set(identityZone);
 
         identityProviderProvisioning = mock(IdentityProviderProvisioning.class);
-        JdbcScimGroupExternalMembershipManager externalMembershipManager = mock(JdbcScimGroupExternalMembershipManager.class);
+        externalMembershipManager = mock(JdbcScimGroupExternalMembershipManager.class);
+        userDatabase = mock(UaaUserDatabase.class);
         provider = new IdentityProvider<>();
         oidcConfig = new OIDCIdentityProviderDefinition();
         String oidcIssuerUrl = "http://issuer.com";
         oidcConfig.setIssuer(oidcIssuerUrl);
-        oidcConfig.setTokenKey(oidcProviderTokenSigningKey);
+        oidcConfig.setTokenKey(OIDC_PROVIDER_TOKEN_SIGNING_KEY);
         oidcConfig.setRelyingPartyId("uaa-relying-party");
         Map<String, Object> externalGroupMapping = map(
                 entry(GROUP_ATTRIBUTE_NAME, "roles")
         );
         oidcConfig.setAttributeMappings(externalGroupMapping);
         provider.setConfig(oidcConfig);
-        when(identityProviderProvisioning.retrieveByOrigin(origin, zoneId)).thenReturn(provider);
-        uaaIssuerBaseUrl = "http://uaa.example.com";
-        tokenEndpointBuilder = new TokenEndpointBuilder(uaaIssuerBaseUrl);
+        when(identityProviderProvisioning.retrieveByOrigin(ORIGIN, ZONE_ID)).thenReturn(provider);
+        tokenEndpointBuilder = new TokenEndpointBuilder(UAA_ISSUER_BASE_URL);
         oidcMetadataFetcher = new OidcMetadataFetcher(
                 new StaleUrlCache(Duration.ofMinutes(2), new TimeServiceImpl(), 10, Ticker.disabledTicker()),
                 new RestTemplate(),
                 new RestTemplate()
         );
-        authManager = new ExternalOAuthAuthenticationManager(identityProviderProvisioning, new IdentityZoneManagerImpl(), new RestTemplate(), new RestTemplate(), tokenEndpointBuilder, new KeyInfoService(uaaIssuerBaseUrl), oidcMetadataFetcher);
+        authManager = new ExternalOAuthAuthenticationManager(identityProviderProvisioning, new IdentityZoneManagerImpl(), new RestTemplate(), new RestTemplate(), tokenEndpointBuilder, new KeyInfoService(UAA_ISSUER_BASE_URL), oidcMetadataFetcher, false);
         authManager.setExternalMembershipManager(externalMembershipManager);
+        authManager.setUserDatabase(userDatabase);
+    }
+
+    @Test
+    void getJwkSetFromOAuth_withConfiguredTokenKey_returnsSameKeysAsGetTokenKeyFromOAuth() throws Exception {
+        List<String> expectedKids = authManager.getTokenKeyFromOAuth(oidcConfig).getKeys().stream()
+                .map(JsonWebKey::getKid).toList();
+
+        assertThat(authManager.getJwkSetFromOAuth(oidcConfig).getKeys())
+                .extracting(JWK::getKeyID)
+                .containsExactlyElementsOf(expectedKids);
     }
 
     @AfterEach
@@ -230,17 +251,17 @@ class ExternalOAuthAuthenticationManagerTest {
                 entry(HeaderParameterNames.ALGORITHM, JWSAlgorithm.RS256.getName()),
                 entry(HeaderParameterNames.KEY_ID, OIDC_PROVIDER_KEY)
         );
-        JWSSigner signer = new KeyInfo(OIDC_PROVIDER_KEY, oidcProviderTokenSigningKey, DEFAULT_UAA_URL).getSigner();
+        JWSSigner signer = new KeyInfo(OIDC_PROVIDER_KEY, OIDC_PROVIDER_TOKEN_SIGNING_KEY, DEFAULT_UAA_URL).getSigner();
         Map<String, Object> claims = map(
                 entry(EXPIRY_IN_SECONDS, 0),
                 entry(AUD, "uaa-relying-party"),
                 entry(ISS, oidcConfig.getIssuer()),
                 entry(EMAIL, "someuser@google.com")
         );
-        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", uaaIdentityZoneTokenSigningKey));
+        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY));
         String idTokenJwt = UaaTokenUtils.constructToken(header, claims, signer);
 
-        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken("thecode", origin, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
+        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken("thecode", ORIGIN, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
         assertThatThrownBy(() -> authManager.getExternalAuthenticationDetails(oidcAuthentication))
                 .isInstanceOf(InvalidTokenException.class)
                 .hasMessage("Could not verify token signature.");
@@ -254,14 +275,14 @@ class ExternalOAuthAuthenticationManagerTest {
                 entry(HeaderParameterNames.ALGORITHM, JWSAlgorithm.RS256.getName()),
                 entry(HeaderParameterNames.KEY_ID, "uaa-key")
         );
-        JWSSigner signer = new KeyInfo("uaa-key", oidcProviderTokenSigningKey, DEFAULT_UAA_URL).getSigner();
+        JWSSigner signer = new KeyInfo("uaa-key", OIDC_PROVIDER_TOKEN_SIGNING_KEY, DEFAULT_UAA_URL).getSigner();
         Map<String, Object> claims = map(
                 entry(EMAIL, "someuser@google.com")
         );
-        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", uaaIdentityZoneTokenSigningKey));
+        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY));
         String idTokenJwt = UaaTokenUtils.constructToken(header, claims, signer);
 
-        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken(null, origin, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
+        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken(null, ORIGIN, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
         assertThatThrownBy(() -> authManager.getExternalAuthenticationDetails(oidcAuthentication))
                 .isInstanceOf(InvalidTokenException.class)
                 .hasMessage("Could not verify token signature.");
@@ -273,7 +294,7 @@ class ExternalOAuthAuthenticationManagerTest {
                 entry(HeaderParameterNames.ALGORITHM, JWSAlgorithm.RS256.getName()),
                 entry(HeaderParameterNames.KEY_ID, OIDC_PROVIDER_KEY)
         );
-        JWSSigner signer = new KeyInfo(OIDC_PROVIDER_KEY, oidcProviderTokenSigningKey, DEFAULT_UAA_URL).getSigner();
+        JWSSigner signer = new KeyInfo(OIDC_PROVIDER_KEY, OIDC_PROVIDER_TOKEN_SIGNING_KEY, DEFAULT_UAA_URL).getSigner();
         Map<String, Object> claims = map(
                 entry(EMAIL, "someuser@google.com"),
                 entry(ISS, oidcConfig.getIssuer()),
@@ -281,11 +302,35 @@ class ExternalOAuthAuthenticationManagerTest {
                 entry(EXPIRY_IN_SECONDS, ((int) (System.currentTimeMillis() / 1000L)) + 60),
                 entry(SUB, "abc-def-asdf")
         );
-        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", uaaIdentityZoneTokenSigningKey));
+        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY));
         String idTokenJwt = UaaTokenUtils.constructToken(header, claims, signer);
 
-        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken(null, origin, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
+        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken(null, ORIGIN, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
         assertThatNoException().isThrownBy(() -> authManager.getExternalAuthenticationDetails(oidcAuthentication));
+    }
+
+    @Test
+    void getExternalAuthenticationDetails_whenExplicitOriginAndExternalAudienceDoesNotMatchRelyingParty_throws() {
+        Map<String, Object> header = map(
+                entry(HeaderParameterNames.ALGORITHM, JWSAlgorithm.RS256.getName()),
+                entry(HeaderParameterNames.KEY_ID, OIDC_PROVIDER_KEY)
+        );
+        JWSSigner signer = new KeyInfo(OIDC_PROVIDER_KEY, OIDC_PROVIDER_TOKEN_SIGNING_KEY, DEFAULT_UAA_URL).getSigner();
+        Map<String, Object> claims = map(
+                entry(EMAIL, "someuser@google.com"),
+                entry(ISS, oidcConfig.getIssuer()),
+                entry(AUD, "some-other-client-not-this-relying-party"),
+                entry(EXPIRY_IN_SECONDS, ((int) (System.currentTimeMillis() / 1000L)) + 60),
+                entry(SUB, "abc-def-asdf")
+        );
+        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY));
+        String idTokenJwt = UaaTokenUtils.constructToken(header, claims, signer);
+
+        // explicit origin = interactive callback: the audience must match this IdP's relying party
+        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken(null, ORIGIN, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
+        assertThatThrownBy(() -> authManager.getExternalAuthenticationDetails(oidcAuthentication))
+                .isInstanceOf(InvalidTokenException.class)
+                .hasMessageContaining("Some parties were not in the token audience");
     }
 
     @Test
@@ -295,7 +340,7 @@ class ExternalOAuthAuthenticationManagerTest {
                 entry(HeaderParameterNames.ALGORITHM, JWSAlgorithm.RS256.getName()),
                 entry(HeaderParameterNames.KEY_ID, "uaa-key")
         );
-        JWSSigner signer = new KeyInfo("uaa-key", uaaIdentityZoneTokenSigningKey, DEFAULT_UAA_URL).getSigner();
+        JWSSigner signer = new KeyInfo("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY, DEFAULT_UAA_URL).getSigner();
         Map<String, Object> claims = map(
                 entry(EMAIL, "someuser@google.com"),
                 entry(ISS, oidcConfig.getIssuer()),
@@ -303,10 +348,10 @@ class ExternalOAuthAuthenticationManagerTest {
                 entry(EXPIRY_IN_SECONDS, ((int) (System.currentTimeMillis() / 1000L)) + 60),
                 entry(SUB, "abc-def-asdf")
         );
-        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", uaaIdentityZoneTokenSigningKey));
+        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY));
         String idTokenJwt = UaaTokenUtils.constructToken(header, claims, signer);
 
-        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken("thecode", origin, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
+        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken("thecode", ORIGIN, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
         assertThatNoException().isThrownBy(() -> authManager.getExternalAuthenticationDetails(oidcAuthentication));
     }
 
@@ -317,7 +362,7 @@ class ExternalOAuthAuthenticationManagerTest {
                 entry(HeaderParameterNames.ALGORITHM, JWSAlgorithm.RS256.getName()),
                 entry(HeaderParameterNames.KEY_ID, "uaa-key")
         );
-        JWSSigner signer = new KeyInfo("uaa-key", uaaIdentityZoneTokenSigningKey, DEFAULT_UAA_URL).getSigner();
+        JWSSigner signer = new KeyInfo("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY, DEFAULT_UAA_URL).getSigner();
         List<String> roles = Arrays.asList("manager.us", "manager.eu");
         Map<String, Object> claims = map(
                 entry(EMAIL, "someuser@google.com"),
@@ -327,14 +372,14 @@ class ExternalOAuthAuthenticationManagerTest {
                 entry(EXPIRY_IN_SECONDS, ((int) (System.currentTimeMillis() / 1000L)) + 60),
                 entry(SUB, "abc-def-asdf")
         );
-        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", uaaIdentityZoneTokenSigningKey));
+        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY));
         String idTokenJwt = UaaTokenUtils.constructToken(header, claims, signer);
         // When
         oidcConfig.setGroupMappingMode(AbstractExternalOAuthIdentityProviderDefinition.OAuthGroupMappingMode.EXPLICITLY_MAPPED);
         provider.setConfig(oidcConfig);
-        when(identityProviderProvisioning.retrieveByOrigin(origin, zoneId)).thenReturn(provider);
+        when(identityProviderProvisioning.retrieveByOrigin(ORIGIN, ZONE_ID)).thenReturn(provider);
 
-        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken("thecode", origin, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
+        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken("thecode", ORIGIN, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
         ExternalOAuthAuthenticationManager.AuthenticationData authenticationData = authManager.getExternalAuthenticationDetails(oidcAuthentication);
         assertThat(authenticationData).isNotNull();
         assertThat(authenticationData.getAuthorities()).isEmpty();
@@ -347,7 +392,7 @@ class ExternalOAuthAuthenticationManagerTest {
                 entry(HeaderParameterNames.ALGORITHM, JWSAlgorithm.RS256.getName()),
                 entry(HeaderParameterNames.KEY_ID, "uaa-key")
         );
-        JWSSigner signer = new KeyInfo("uaa-key", uaaIdentityZoneTokenSigningKey, DEFAULT_UAA_URL).getSigner();
+        JWSSigner signer = new KeyInfo("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY, DEFAULT_UAA_URL).getSigner();
         Set<String> roles = new HashSet<>(Arrays.asList("manager.us", "manager.eu"));
         Map<String, Object> claims = map(
                 entry(EMAIL, "someuser@google.com"),
@@ -357,14 +402,14 @@ class ExternalOAuthAuthenticationManagerTest {
                 entry(EXPIRY_IN_SECONDS, ((int) (System.currentTimeMillis() / 1000L)) + 60),
                 entry(SUB, "abc-def-asdf")
         );
-        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", uaaIdentityZoneTokenSigningKey));
+        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY));
         String idTokenJwt = UaaTokenUtils.constructToken(header, claims, signer);
         // When
         oidcConfig.setGroupMappingMode(AbstractExternalOAuthIdentityProviderDefinition.OAuthGroupMappingMode.AS_SCOPES);
         provider.setConfig(oidcConfig);
-        when(identityProviderProvisioning.retrieveByOrigin(origin, zoneId)).thenReturn(provider);
+        when(identityProviderProvisioning.retrieveByOrigin(ORIGIN, ZONE_ID)).thenReturn(provider);
 
-        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken("thecode", origin, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
+        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken("thecode", ORIGIN, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
         ExternalOAuthAuthenticationManager.AuthenticationData authenticationData = authManager.getExternalAuthenticationDetails(oidcAuthentication);
         assertThat(authenticationData).isNotNull();
         assertThat(authenticationData.getAuthorities()).hasSize(2);
@@ -374,13 +419,106 @@ class ExternalOAuthAuthenticationManagerTest {
     }
 
     @Test
+    void getExternalAuthenticationDetails_whenUaaToken_internalAndExternalRolesAreDifferentViaExternalGroupMapping() {
+        oidcConfig.setIssuer(tokenEndpointBuilder.getTokenEndpoint(IdentityZoneHolder.get()));
+        Map<String, Object> header = map(
+                entry(HeaderParameterNames.ALGORITHM, JWSAlgorithm.RS256.getName()),
+                entry(HeaderParameterNames.KEY_ID, "uaa-key")
+        );
+        JWSSigner signer = new KeyInfo("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY, DEFAULT_UAA_URL).getSigner();
+        Set<String> roles = new HashSet<>(Arrays.asList("manager.us", "manager.eu"));
+        Map<String, Object> claims = map(
+                entry(EMAIL, "someuser@google.com"),
+                entry(ISS, oidcConfig.getIssuer()),
+                entry(AUD, "uaa-relying-party"),
+                entry(ROLES, roles),
+                entry(EXPIRY_IN_SECONDS, ((int) (System.currentTimeMillis() / 1000L)) + 60),
+                entry(SUB, "abc-def-asdf")
+        );
+        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY));
+        String idTokenJwt = UaaTokenUtils.constructToken(header, claims, signer);
+        // When
+        oidcConfig.setGroupMappingMode(AbstractExternalOAuthIdentityProviderDefinition.OAuthGroupMappingMode.EXPLICITLY_MAPPED);
+        provider.setConfig(oidcConfig);
+        when(identityProviderProvisioning.retrieveByOrigin(ORIGIN, ZONE_ID)).thenReturn(provider);
+
+        ScimGroupExternalMember groupMap1 = new ScimGroupExternalMember("group-1", "manager.us");
+        groupMap1.setDisplayName("cloud_controller.read");
+        ScimGroupExternalMember groupMap2 = new ScimGroupExternalMember("group-2", "manager.eu");
+        groupMap2.setDisplayName("cloud_controller.write");
+        ScimGroupExternalMember groupMap3 = new ScimGroupExternalMember("group-3", "manager.eu");
+        groupMap3.setDisplayName("cloud_controller.delete");
+        when(externalMembershipManager.getExternalGroupMapsByExternalGroup(eq("manager.us"), any(), any())).thenReturn(List.of(groupMap1));
+        when(externalMembershipManager.getExternalGroupMapsByExternalGroup(eq("manager.eu"), any(), any())).thenReturn(List.of(groupMap2, groupMap3));
+
+        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken("thecode", ORIGIN, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
+        ExternalOAuthAuthenticationManager.AuthenticationData authenticationData = authManager.getExternalAuthenticationDetails(oidcAuthentication);
+        assertThat(authenticationData).isNotNull();
+        //external authorities
+        assertThat(authenticationData.getExternalAuthorities()).hasSize(2);
+        Set<String> externalAuthorities = AuthorityUtils.authorityListToSet(authenticationData.getExternalAuthorities());
+        assertThat(externalAuthorities).containsAll(roles);
+        //internal (mapped) authorities
+        assertThat(authenticationData.getAuthorities()).hasSize(3);
+        Set<String> internalAuthorities = AuthorityUtils.authorityListToSet(authenticationData.getAuthorities());
+        assertThat(Set.of("cloud_controller.read", "cloud_controller.write", "cloud_controller.delete")).containsAll(internalAuthorities);
+    }
+
+    @Test
+    void getExternalAuthenticationDetails_whenUaaToken_ExternalRolesAreFiltered() {
+        oidcConfig.setIssuer(tokenEndpointBuilder.getTokenEndpoint(IdentityZoneHolder.get()));
+        Map<String, Object> header = map(
+                entry(HeaderParameterNames.ALGORITHM, JWSAlgorithm.RS256.getName()),
+                entry(HeaderParameterNames.KEY_ID, "uaa-key")
+        );
+        JWSSigner signer = new KeyInfo("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY, DEFAULT_UAA_URL).getSigner();
+        Set<String> roles = new HashSet<>(Arrays.asList("manager.us", "manager.eu"));
+        Map<String, Object> claims = map(
+                entry(EMAIL, "someuser@google.com"),
+                entry(ISS, oidcConfig.getIssuer()),
+                entry(AUD, "uaa-relying-party"),
+                entry(ROLES, roles),
+                entry(EXPIRY_IN_SECONDS, ((int) (System.currentTimeMillis() / 1000L)) + 60),
+                entry(SUB, "abc-def-asdf")
+        );
+        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY));
+        String idTokenJwt = UaaTokenUtils.constructToken(header, claims, signer);
+        // When
+        oidcConfig.setGroupMappingMode(AbstractExternalOAuthIdentityProviderDefinition.OAuthGroupMappingMode.EXPLICITLY_MAPPED);
+        oidcConfig.setExternalGroupsWhitelist(List.of("manager.us"));
+        provider.setConfig(oidcConfig);
+        when(identityProviderProvisioning.retrieveByOrigin(ORIGIN, ZONE_ID)).thenReturn(provider);
+
+        ScimGroupExternalMember groupMap1 = new ScimGroupExternalMember("group-1", "manager.us");
+        groupMap1.setDisplayName("cloud_controller.read");
+        ScimGroupExternalMember groupMap2 = new ScimGroupExternalMember("group-2", "manager.eu");
+        groupMap2.setDisplayName("cloud_controller.write");
+        ScimGroupExternalMember groupMap3 = new ScimGroupExternalMember("group-3", "manager.eu");
+        groupMap3.setDisplayName("cloud_controller.delete");
+        when(externalMembershipManager.getExternalGroupMapsByExternalGroup(eq("manager.us"), any(), any())).thenReturn(List.of(groupMap1));
+        when(externalMembershipManager.getExternalGroupMapsByExternalGroup(eq("manager.eu"), any(), any())).thenReturn(List.of(groupMap2, groupMap3));
+
+        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken("thecode", ORIGIN, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
+        ExternalOAuthAuthenticationManager.AuthenticationData authenticationData = authManager.getExternalAuthenticationDetails(oidcAuthentication);
+        assertThat(authenticationData).isNotNull();
+        //external authorities
+        assertThat(authenticationData.getExternalAuthorities()).hasSize(1);
+        Set<String> externalAuthorities = AuthorityUtils.authorityListToSet(authenticationData.getExternalAuthorities());
+        assertThat(externalAuthorities).containsExactly("manager.us");
+        //internal (mapped) authorities
+        assertThat(authenticationData.getAuthorities()).hasSize(1);
+        Set<String> internalAuthorities = AuthorityUtils.authorityListToSet(authenticationData.getAuthorities());
+        assertThat(Set.of("cloud_controller.read")).containsAll(internalAuthorities);
+    }
+
+    @Test
     void getExternalAuthenticationDetails_whenUaaToken_mapRoleAsScopeToScopeWhenIdTokenIsValid_AndFilterManagerRolesOnly() {
         oidcConfig.setIssuer(tokenEndpointBuilder.getTokenEndpoint(IdentityZoneHolder.get()));
         Map<String, Object> header = map(
                 entry(HeaderParameterNames.ALGORITHM, JWSAlgorithm.RS256.getName()),
                 entry(HeaderParameterNames.KEY_ID, "uaa-key")
         );
-        JWSSigner signer = new KeyInfo("uaa-key", uaaIdentityZoneTokenSigningKey, DEFAULT_UAA_URL).getSigner();
+        JWSSigner signer = new KeyInfo("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY, DEFAULT_UAA_URL).getSigner();
         Set<String> roles = new HashSet<>(Arrays.asList("manager.us", "manager.eu", "uaa.admin", "uaa.user", "idp.write", "employee.us"));
         Map<String, Object> claims = map(
                 entry(EMAIL, "someuser@google.com"),
@@ -390,15 +528,15 @@ class ExternalOAuthAuthenticationManagerTest {
                 entry(EXPIRY_IN_SECONDS, ((int) (System.currentTimeMillis() / 1000L)) + 60),
                 entry(SUB, "abc-def-asdf")
         );
-        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", uaaIdentityZoneTokenSigningKey));
+        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY));
         String idTokenJwt = UaaTokenUtils.constructToken(header, claims, signer);
         // When
         oidcConfig.setGroupMappingMode(AbstractExternalOAuthIdentityProviderDefinition.OAuthGroupMappingMode.AS_SCOPES);
         oidcConfig.setExternalGroupsWhitelist(List.of("manager.*"));
         provider.setConfig(oidcConfig);
-        when(identityProviderProvisioning.retrieveByOrigin(origin, zoneId)).thenReturn(provider);
+        when(identityProviderProvisioning.retrieveByOrigin(ORIGIN, ZONE_ID)).thenReturn(provider);
 
-        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken("thecode", origin, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
+        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken("thecode", ORIGIN, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
         ExternalOAuthAuthenticationManager.AuthenticationData authenticationData = authManager.getExternalAuthenticationDetails(oidcAuthentication);
         assertThat(authenticationData).isNotNull();
         assertThat(authenticationData.getAuthorities()).hasSize(2);
@@ -413,7 +551,7 @@ class ExternalOAuthAuthenticationManagerTest {
                 entry(HeaderParameterNames.ALGORITHM, JWSAlgorithm.RS256.getName()),
                 entry(HeaderParameterNames.KEY_ID, OIDC_PROVIDER_KEY)
         );
-        JWSSigner signer = new KeyInfo(OIDC_PROVIDER_KEY, oidcProviderTokenSigningKey, DEFAULT_UAA_URL).getSigner();
+        JWSSigner signer = new KeyInfo(OIDC_PROVIDER_KEY, OIDC_PROVIDER_TOKEN_SIGNING_KEY, DEFAULT_UAA_URL).getSigner();
         Map<String, Object> claims = map(
                 entry("external_family_name", Collections.emptyList()),
                 entry("external_given_name", List.of("bar", "bar")),
@@ -432,10 +570,10 @@ class ExternalOAuthAuthenticationManagerTest {
         );
         oidcConfig.setAttributeMappings(externalGroupMapping);
         provider.setConfig(oidcConfig);
-        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", uaaIdentityZoneTokenSigningKey));
+        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY));
         String idTokenJwt = UaaTokenUtils.constructToken(header, claims, signer);
 
-        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken(null, origin, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
+        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken(null, ORIGIN, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
         UaaUser uaaUser = authManager.getUser(oidcAuthentication, authManager.getExternalAuthenticationDetails(oidcAuthentication));
         assertThat(uaaUser).isNotNull();
         assertThat(uaaUser.getFamilyName()).isNull();
@@ -450,7 +588,7 @@ class ExternalOAuthAuthenticationManagerTest {
                 entry(HeaderParameterNames.ALGORITHM, JWSAlgorithm.RS256.getName()),
                 entry(HeaderParameterNames.KEY_ID, OIDC_PROVIDER_KEY)
         );
-        JWSSigner signer = new KeyInfo(OIDC_PROVIDER_KEY, oidcProviderTokenSigningKey, DEFAULT_UAA_URL).getSigner();
+        JWSSigner signer = new KeyInfo(OIDC_PROVIDER_KEY, OIDC_PROVIDER_TOKEN_SIGNING_KEY, DEFAULT_UAA_URL).getSigner();
         Map<String, Object> claims = map(
                 entry("external_family_name", Arrays.asList("bar", "baz")),
                 entry(ISS, oidcConfig.getIssuer()),
@@ -463,10 +601,10 @@ class ExternalOAuthAuthenticationManagerTest {
         );
         oidcConfig.setAttributeMappings(externalGroupMapping);
         provider.setConfig(oidcConfig);
-        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", uaaIdentityZoneTokenSigningKey));
+        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY));
         String idTokenJwt = UaaTokenUtils.constructToken(header, claims, signer);
 
-        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken(null, origin, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
+        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken(null, ORIGIN, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
         ExternalOAuthAuthenticationManager.AuthenticationData externalAuthenticationDetails = authManager.getExternalAuthenticationDetails(oidcAuthentication);
         assertThatThrownBy(() -> authManager.getUser(oidcAuthentication, externalAuthenticationDetails))
                 .isInstanceOf(BadCredentialsException.class)
@@ -479,7 +617,7 @@ class ExternalOAuthAuthenticationManagerTest {
                 entry(HeaderParameterNames.ALGORITHM, JWSAlgorithm.RS256.getName()),
                 entry(HeaderParameterNames.KEY_ID, OIDC_PROVIDER_KEY)
         );
-        JWSSigner signer = new KeyInfo("uaa-key", oidcProviderTokenSigningKey, DEFAULT_UAA_URL).getSigner();
+        JWSSigner signer = new KeyInfo("uaa-key", OIDC_PROVIDER_TOKEN_SIGNING_KEY, DEFAULT_UAA_URL).getSigner();
         Map<String, Object> entryMap = map(
                 entry("external_map_name", Arrays.asList("bar", "baz"))
         );
@@ -495,10 +633,10 @@ class ExternalOAuthAuthenticationManagerTest {
         );
         oidcConfig.setAttributeMappings(externalGroupMapping);
         provider.setConfig(oidcConfig);
-        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", uaaIdentityZoneTokenSigningKey));
+        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY));
         String idTokenJwt = UaaTokenUtils.constructToken(header, claims, signer);
 
-        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken(null, origin, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
+        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken(null, ORIGIN, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
         ExternalOAuthAuthenticationManager.AuthenticationData externalAuthenticationDetails = authManager.getExternalAuthenticationDetails(oidcAuthentication);
         assertThatThrownBy(() -> authManager.getUser(oidcAuthentication, externalAuthenticationDetails))
                 .isInstanceOf(BadCredentialsException.class)
@@ -506,13 +644,13 @@ class ExternalOAuthAuthenticationManagerTest {
     }
 
     @Test
-    void populateAuthenticationAttributes_setsIdpIdToken() {
+    void populateAuthenticationAttributes_setsIdpIdTokenAndExternalGroupsFromExternalAuthoritiesByDefault() {
         UaaAuthentication authentication = new UaaAuthentication(new UaaPrincipal("user-guid", "marissa", "marissa@test.org", "uaa", "", ""), Collections.emptyList(), null);
         Map<String, Object> header = map(
                 entry(HeaderParameterNames.ALGORITHM, JWSAlgorithm.RS256.getName()),
                 entry(HeaderParameterNames.KEY_ID, OIDC_PROVIDER_KEY)
         );
-        JWSSigner signer = new KeyInfo("uaa-key", oidcProviderTokenSigningKey, DEFAULT_UAA_URL).getSigner();
+        JWSSigner signer = new KeyInfo("uaa-key", OIDC_PROVIDER_TOKEN_SIGNING_KEY, DEFAULT_UAA_URL).getSigner();
         Map<String, Object> entryMap = map(
                 entry("external_map_name", Arrays.asList("bar", "baz"))
         );
@@ -523,12 +661,48 @@ class ExternalOAuthAuthenticationManagerTest {
                 entry(EXPIRY_IN_SECONDS, ((int) (System.currentTimeMillis() / 1000L)) + 60),
                 entry(SUB, "abc-def-asdf")
         );
-        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", uaaIdentityZoneTokenSigningKey));
+        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY));
         String idTokenJwt = UaaTokenUtils.constructToken(header, claims, signer);
-        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken(null, origin, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
+        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken(null, ORIGIN, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
         ExternalOAuthAuthenticationManager.AuthenticationData authenticationData = authManager.getExternalAuthenticationDetails(oidcAuthentication);
+        authenticationData.setAuthorities(List.of(new SimpleGrantedAuthority("uaa-authorities")));
+        authenticationData.setExternalAuthorities(List.of(new SimpleGrantedAuthority("raw_external_group")));
         authManager.populateAuthenticationAttributes(authentication, oidcAuthentication, authenticationData);
         assertThat(authentication.getIdpIdToken()).isEqualTo(idTokenJwt);
+        assertThat(authentication.getExternalGroups()).containsExactlyInAnyOrder("raw_external_group");
+    }
+
+    @Test
+    void populateAuthenticationAttributes_setsExternalGroupsFromMappedAuthoritiesWhenEnabled() {
+        authManager = new ExternalOAuthAuthenticationManager(identityProviderProvisioning, new IdentityZoneManagerImpl(), new RestTemplate(), new RestTemplate(), tokenEndpointBuilder, new KeyInfoService(UAA_ISSUER_BASE_URL), oidcMetadataFetcher, true);
+        authManager.setExternalMembershipManager(externalMembershipManager);
+        authManager.setUserDatabase(userDatabase);
+
+        UaaAuthentication authentication = new UaaAuthentication(new UaaPrincipal("user-guid", "marissa", "marissa@test.org", "uaa", "", ""), Collections.emptyList(), null);
+        Map<String, Object> header = map(
+                entry(HeaderParameterNames.ALGORITHM, JWSAlgorithm.RS256.getName()),
+                entry(HeaderParameterNames.KEY_ID, OIDC_PROVIDER_KEY)
+        );
+        JWSSigner signer = new KeyInfo("uaa-key", OIDC_PROVIDER_TOKEN_SIGNING_KEY, DEFAULT_UAA_URL).getSigner();
+        Map<String, Object> entryMap = map(
+                entry("external_map_name", Arrays.asList("bar", "baz"))
+        );
+        Map<String, Object> claims = map(
+                entry("external_family_name", entryMap),
+                entry(ISS, oidcConfig.getIssuer()),
+                entry(AUD, "uaa-relying-party"),
+                entry(EXPIRY_IN_SECONDS, ((int) (System.currentTimeMillis() / 1000L)) + 60),
+                entry(SUB, "abc-def-asdf")
+        );
+        IdentityZoneHolder.get().getConfig().getTokenPolicy().setKeys(Collections.singletonMap("uaa-key", UAA_IDENTITY_ZONE_TOKEN_SIGNING_KEY));
+        String idTokenJwt = UaaTokenUtils.constructToken(header, claims, signer);
+        ExternalOAuthCodeToken oidcAuthentication = new ExternalOAuthCodeToken(null, ORIGIN, "http://google.com", idTokenJwt, "accesstoken", "signedrequest");
+        ExternalOAuthAuthenticationManager.AuthenticationData authenticationData = authManager.getExternalAuthenticationDetails(oidcAuthentication);
+        authenticationData.setAuthorities(List.of(new SimpleGrantedAuthority("uaa-authorities")));
+        authenticationData.setExternalAuthorities(List.of(new SimpleGrantedAuthority("raw_external_group")));
+        authManager.populateAuthenticationAttributes(authentication, oidcAuthentication, authenticationData);
+        assertThat(authentication.getIdpIdToken()).isEqualTo(idTokenJwt);
+        assertThat(authentication.getExternalGroups()).containsExactlyInAnyOrder("uaa-authorities");
     }
 
     @Test
@@ -537,7 +711,7 @@ class ExternalOAuthAuthenticationManagerTest {
                 entry(HeaderParameterNames.ALGORITHM, JWSAlgorithm.RS256.getName()),
                 entry(HeaderParameterNames.KEY_ID, OIDC_PROVIDER_KEY)
         );
-        JWSSigner signer = new KeyInfo("uaa-key", oidcProviderTokenSigningKey, DEFAULT_UAA_URL).getSigner();
+        JWSSigner signer = new KeyInfo("uaa-key", OIDC_PROVIDER_TOKEN_SIGNING_KEY, DEFAULT_UAA_URL).getSigner();
         Map<String, Object> entryMap = map(
                 entry("external_map_name", Arrays.asList("bar", "baz"))
         );
@@ -549,9 +723,9 @@ class ExternalOAuthAuthenticationManagerTest {
                 entry(SUB, "abc-def-asdf")
         );
         String idTokenJwt = UaaTokenUtils.constructToken(header, claims, signer);
-        ExternalOAuthCodeToken codeToken = new ExternalOAuthCodeToken("thecode", origin, "http://google.com", null, "accesstoken", "signedrequest");
+        ExternalOAuthCodeToken codeToken = new ExternalOAuthCodeToken("thecode", ORIGIN, "http://google.com", null, "accesstoken", "signedrequest");
 
-        authManager = new ExternalOAuthAuthenticationManager(identityProviderProvisioning, new IdentityZoneManagerImpl(), new RestTemplate(), new RestTemplate(), tokenEndpointBuilder, new KeyInfoService(uaaIssuerBaseUrl), null) {
+        authManager = new ExternalOAuthAuthenticationManager(identityProviderProvisioning, new IdentityZoneManagerImpl(), new RestTemplate(), new RestTemplate(), tokenEndpointBuilder, new KeyInfoService(UAA_ISSUER_BASE_URL), null, false) {
             @Override
             protected <T extends AbstractExternalOAuthIdentityProviderDefinition<T>> String getTokenFromCode(
                     ExternalOAuthCodeToken codeToken,
@@ -569,10 +743,10 @@ class ExternalOAuthAuthenticationManagerTest {
     }
 
     @Test
-    void fetchOidcMetadata() throws OidcMetadataFetchingException {
+    void fetchOidcMetadata() throws Exception {
         OIDCIdentityProviderDefinition mockedProviderDefinition = mock(OIDCIdentityProviderDefinition.class);
         OidcMetadataFetcher mockedOidcMetadataFetcher = mock(OidcMetadataFetcher.class);
-        authManager = new ExternalOAuthAuthenticationManager(identityProviderProvisioning, new IdentityZoneManagerImpl(), new RestTemplate(), new RestTemplate(), tokenEndpointBuilder, new KeyInfoService(uaaIssuerBaseUrl), mockedOidcMetadataFetcher);
+        authManager = new ExternalOAuthAuthenticationManager(identityProviderProvisioning, new IdentityZoneManagerImpl(), new RestTemplate(), new RestTemplate(), tokenEndpointBuilder, new KeyInfoService(UAA_ISSUER_BASE_URL), mockedOidcMetadataFetcher, false);
         doThrow(new OidcMetadataFetchingException("error")).when(mockedOidcMetadataFetcher).fetchMetadataAndUpdateDefinition(mockedProviderDefinition);
         assertThatNoException().isThrownBy(() -> authManager.fetchMetadataAndUpdateDefinition(mockedProviderDefinition));
     }
@@ -617,7 +791,7 @@ class ExternalOAuthAuthenticationManagerTest {
 
 
     @Test
-    void getOidcProxyIdpForTokenExchangeSuccess() throws MalformedURLException {
+    void getOidcProxyIdpForTokenExchangeSuccess() throws Exception {
         IdentityProvider<OIDCIdentityProviderDefinition> idp = mockOidcIdentityProvider();
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("login_hint", new UaaLoginHint("idp").toString());
@@ -634,7 +808,7 @@ class ExternalOAuthAuthenticationManagerTest {
     }
 
     @Test
-    void getOidcProxyIdpForTokenExchangeNotEnabled() throws MalformedURLException {
+    void getOidcProxyIdpForTokenExchangeNotEnabled() throws Exception {
         IdentityProvider<OIDCIdentityProviderDefinition> idp = mockOidcIdentityProvider();
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("login_hint", new UaaLoginHint("idp").toString());
@@ -652,7 +826,7 @@ class ExternalOAuthAuthenticationManagerTest {
     }
 
     @Test
-    void getOidcProxyIdpForTokenExchangeDbException() throws MalformedURLException {
+    void getOidcProxyIdpForTokenExchangeDbException() throws Exception {
         IdentityProvider<OIDCIdentityProviderDefinition> idp = mockOidcIdentityProvider();
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("login_hint", new UaaLoginHint("idp").toString());
@@ -666,7 +840,7 @@ class ExternalOAuthAuthenticationManagerTest {
     }
 
     @Test
-    void getOidcProxyIdpForTokenExchangeNoResult() throws MalformedURLException {
+    void getOidcProxyIdpForTokenExchangeNoResult() throws Exception {
         IdentityProvider<OIDCIdentityProviderDefinition> idp = mockOidcIdentityProvider();
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("login_hint", new UaaLoginHint("idp").toString());
@@ -718,7 +892,7 @@ class ExternalOAuthAuthenticationManagerTest {
     }
 
     @Test
-    void oidcPasswordGrantProviderJwtClientCredentials() throws ParseException, JOSEException, MalformedURLException {
+    void oidcPasswordGrantProviderJwtClientCredentials() throws Exception {
         // Given
         KeyInfoService keyInfoService = mockKeyInfoService();
         ResponseEntity responseEntity = mock(ResponseEntity.class);
@@ -727,7 +901,7 @@ class ExternalOAuthAuthenticationManagerTest {
         when(rt.exchange(eq("http://localhost:8080/uaa/oauth/token"), eq(HttpMethod.POST), any(HttpEntity.class), any(ParameterizedTypeReference.class))).thenReturn(responseEntity);
         when(responseEntity.hasBody()).thenReturn(true);
         when(responseEntity.getBody()).thenReturn(Map.of("id_token", "dummy"));
-        authManager = new ExternalOAuthAuthenticationManager(identityProviderProvisioning, new IdentityZoneManagerImpl(), rt, rt, tokenEndpointBuilder, keyInfoService, oidcMetadataFetcher);
+        authManager = new ExternalOAuthAuthenticationManager(identityProviderProvisioning, new IdentityZoneManagerImpl(), rt, rt, tokenEndpointBuilder, keyInfoService, oidcMetadataFetcher, false);
 
         // When
         authManager.oauthTokenRequest(null, mockOidcIdentityProvider(), GRANT_TYPE_PASSWORD, new LinkedMaskingMultiValueMap<>());
@@ -744,14 +918,17 @@ class ExternalOAuthAuthenticationManagerTest {
                 .containsKey("scope")
                 .containsEntry("scope", Collections.singletonList("openid email"));
         /* verify client assertion according OIDC private_key_jwt */
-        JWTClaimsSet jwtClaimsSet = JWTParser.parse((String) httpEntityBody.get("client_assertion").getFirst()).getJWTClaimsSet();
-        assertThat(jwtClaimsSet.getAudience()).isEqualTo(Collections.singletonList("http://localhost:8080/uaa/oauth/token"));
+        assertThat(httpEntityBody).isNotNull();
+        final List<Object> clientAssertion = httpEntityBody.get("client_assertion");
+        assertThat(clientAssertion).isNotEmpty();
+        JWTClaimsSet jwtClaimsSet = JWTParser.parse((String) clientAssertion.getFirst()).getJWTClaimsSet();
+        assertThat(jwtClaimsSet.getAudience()).containsExactlyElementsOf(Collections.singletonList("http://localhost:8080/uaa/oauth/token"));
         assertThat(jwtClaimsSet.getSubject()).isEqualTo("identity");
         assertThat(jwtClaimsSet.getIssuer()).isEqualTo("identity");
     }
 
     @Test
-    void oidcJwtBearerProviderJwtClientCredentials() throws ParseException, JOSEException, MalformedURLException {
+    void oidcJwtBearerProviderJwtClientCredentials() throws Exception {
         // Given
         KeyInfoService keyInfoService = mockKeyInfoService();
         ResponseEntity responseEntity = mock(ResponseEntity.class);
@@ -761,7 +938,7 @@ class ExternalOAuthAuthenticationManagerTest {
         when(rt.exchange(eq("http://localhost:8080/uaa/oauth/token"), eq(HttpMethod.POST), any(HttpEntity.class), any(ParameterizedTypeReference.class))).thenReturn(responseEntity);
         when(responseEntity.hasBody()).thenReturn(true);
         when(responseEntity.getBody()).thenReturn(Map.of("id_token", "dummy"));
-        authManager = new ExternalOAuthAuthenticationManager(identityProviderProvisioning, new IdentityZoneManagerImpl(), rt, rt, tokenEndpointBuilder, keyInfoService, oidcMetadataFetcher);
+        authManager = new ExternalOAuthAuthenticationManager(identityProviderProvisioning, new IdentityZoneManagerImpl(), rt, rt, tokenEndpointBuilder, keyInfoService, oidcMetadataFetcher, false);
 
         // When
         assertThat(authManager.oidcJwtBearerGrant(uaaAuthenticationDetails, mockOidcIdentityProvider() , "proxy-token")).isEqualTo("dummy");
@@ -780,14 +957,17 @@ class ExternalOAuthAuthenticationManagerTest {
                 .containsKey("scope")
                 .containsEntry("scope", Collections.singletonList("openid email"));
         /* verify client assertion according OIDC private_key_jwt */
-        JWTClaimsSet jwtClaimsSet = JWTParser.parse((String) httpEntityBody.get("client_assertion").getFirst()).getJWTClaimsSet();
-        assertThat(jwtClaimsSet.getAudience()).isEqualTo(Collections.singletonList("http://localhost:8080/uaa/oauth/token"));
+        assertThat(httpEntityBody).isNotNull();
+        final List<Object> clientAssertion = httpEntityBody.get("client_assertion");
+        assertThat(clientAssertion).isNotEmpty();
+        JWTClaimsSet jwtClaimsSet = JWTParser.parse((String) clientAssertion.getFirst()).getJWTClaimsSet();
+        assertThat(jwtClaimsSet.getAudience()).containsExactlyElementsOf(Collections.singletonList("http://localhost:8080/uaa/oauth/token"));
         assertThat(jwtClaimsSet.getSubject()).isEqualTo("identity");
         assertThat(jwtClaimsSet.getIssuer()).isEqualTo("identity");
     }
 
     @Test
-    void oidcJwtBearerProviderProxyThrowException() throws JOSEException, MalformedURLException {
+    void oidcJwtBearerProviderProxyThrowException() throws Exception {
         // Given
         KeyInfoService keyInfoService = mockKeyInfoService();
         UaaAuthenticationDetails uaaAuthenticationDetails = mock(UaaAuthenticationDetails.class);
@@ -798,7 +978,7 @@ class ExternalOAuthAuthenticationManagerTest {
         when(config.getRelyingPartySecret()).thenReturn("secret");
         doReturn(false).when(config).isClientAuthInBody();
         when(rt.exchange(eq("http://localhost:8080/uaa/oauth/token"), eq(HttpMethod.POST), any(HttpEntity.class), any(ParameterizedTypeReference.class))).thenThrow(new HttpClientErrorException(HttpStatus.UNAUTHORIZED));
-        authManager = new ExternalOAuthAuthenticationManager(identityProviderProvisioning, new IdentityZoneManagerImpl(), rt, rt, tokenEndpointBuilder, keyInfoService, oidcMetadataFetcher);
+        authManager = new ExternalOAuthAuthenticationManager(identityProviderProvisioning, new IdentityZoneManagerImpl(), rt, rt, tokenEndpointBuilder, keyInfoService, oidcMetadataFetcher, false);
 
         // When
         assertThatThrownBy(() -> authManager.oidcJwtBearerGrant(uaaAuthenticationDetails, identityProvider, "proxy-token"))
@@ -810,14 +990,14 @@ class ExternalOAuthAuthenticationManagerTest {
         }));
         HttpEntity httpEntity = httpEntityArgumentCaptor.getValue();
         HttpHeaders httpHeaders = httpEntity.getHeaders();
-        assertThat(httpHeaders).containsKey("Authorization")
-                .containsEntry("Authorization", Collections.singletonList("Basic aWRlbnRpdHk6c2VjcmV0"))
-                .containsKey("Accept")
-                .containsEntry("Content-Type", Collections.singletonList("application/x-www-form-urlencoded"));
+        assertThat(httpHeaders.containsHeader("Authorization")).isTrue();
+        assertThat(httpHeaders.get("Authorization")).containsExactlyElementsOf(Collections.singletonList("Basic aWRlbnRpdHk6c2VjcmV0"));
+        assertThat(httpHeaders.containsHeader("Accept")).isTrue();
+        assertThat(httpHeaders.get("Content-Type")).containsExactlyElementsOf(Collections.singletonList("application/x-www-form-urlencoded"));
     }
 
     @Test
-    void oidcPasswordGrantWithForwardHeader() throws JOSEException, MalformedURLException {
+    void oidcPasswordGrantWithForwardHeader() throws Exception {
         IdentityProvider<OIDCIdentityProviderDefinition> identityProvider = mockOidcIdentityProvider();
         OIDCIdentityProviderDefinition config = identityProvider.getConfig();
         KeyInfoService keyInfoService = mockKeyInfoService();
@@ -831,7 +1011,7 @@ class ExternalOAuthAuthenticationManagerTest {
         when(auth.getDetails()).thenReturn(details);
 
         RestTemplate rt = mock(RestTemplate.class);
-        authManager = new ExternalOAuthAuthenticationManager(identityProviderProvisioning, new IdentityZoneManagerImpl(), rt, rt, tokenEndpointBuilder, keyInfoService, oidcMetadataFetcher);
+        authManager = new ExternalOAuthAuthenticationManager(identityProviderProvisioning, new IdentityZoneManagerImpl(), rt, rt, tokenEndpointBuilder, keyInfoService, oidcMetadataFetcher, false);
 
         ResponseEntity<Map<String, String>> response = mock(ResponseEntity.class);
         when(response.hasBody()).thenReturn(true);
@@ -867,25 +1047,24 @@ class ExternalOAuthAuthenticationManagerTest {
                 .containsEntry("password", Collections.singletonList("koala"));
 
         HttpHeaders headers = httpEntity.getHeaders();
-        assertThat(headers.getAccept()).isEqualTo(Collections.singletonList(MediaType.APPLICATION_JSON));
+        assertThat(headers.getAccept()).containsExactlyElementsOf(Collections.singletonList(MediaType.APPLICATION_JSON));
         assertThat(headers.getContentType()).isEqualTo(MediaType.APPLICATION_FORM_URLENCODED);
-        assertThat(headers).containsKey("Authorization");
-        assertThat(headers.get("Authorization")).hasSize(1);
-        assertThat(headers.get("Authorization").getFirst()).startsWith("Basic ");
-        assertThat(headers).containsKey("X-Forwarded-For");
-        assertThat(headers.get("X-Forwarded-For")).hasSize(1);
-        assertThat(headers.get("X-Forwarded-For").getFirst()).isEqualTo("203.0.113.1");
+        assertAuthorizationHeaderIsSetAndStartsWithBasic(headers);
+        assertThat(headers.containsHeader("X-Forwarded-For")).isTrue();
+        final List<String> xForwardedForHeaders = headers.get("X-Forwarded-For");
+        assertThat(xForwardedForHeaders).hasSize(1);
+        assertThat(xForwardedForHeaders).first().isEqualTo("203.0.113.1");
     }
 
     @Test
-    void oidcPasswordGrant_credentialsMustBeStringButNoSecretNeeded() throws MalformedURLException, JOSEException {
+    void oidcPasswordGrant_credentialsMustBeStringButNoSecretNeeded() throws Exception {
         RestTemplate restTemplate = mock(RestTemplate.class);
         ResponseEntity responseEntity = mock(ResponseEntity.class);
 
         when(restTemplate.exchange(anyString(), any(HttpMethod.class), any(HttpEntity.class), any(ParameterizedTypeReference.class))).thenReturn(responseEntity);
         when(responseEntity.hasBody()).thenReturn(true);
         when(responseEntity.getBody()).thenReturn(Map.of("id_token", "dummy"));
-        authManager = new ExternalOAuthAuthenticationManager(identityProviderProvisioning, new IdentityZoneManagerImpl(), restTemplate, restTemplate, tokenEndpointBuilder, mockKeyInfoService(), oidcMetadataFetcher);
+        authManager = new ExternalOAuthAuthenticationManager(identityProviderProvisioning, new IdentityZoneManagerImpl(), restTemplate, restTemplate, tokenEndpointBuilder, mockKeyInfoService(), oidcMetadataFetcher, false);
 
         final IdentityProvider<OIDCIdentityProviderDefinition> localIdp = new IdentityProvider<>();
         localIdp.setOriginKey(new AlphanumericRandomValueStringGenerator(8).generate().toLowerCase());
@@ -901,7 +1080,7 @@ class ExternalOAuthAuthenticationManagerTest {
     }
 
     @Test
-    void oidcPasswordGrantWithPrompts() throws MalformedURLException, JOSEException {
+    void oidcPasswordGrantWithPrompts() throws Exception {
         KeyInfoService keyInfoService = mockKeyInfoService();
         IdentityProvider<OIDCIdentityProviderDefinition> identityProvider = mockOidcIdentityProvider();
         OIDCIdentityProviderDefinition config = identityProvider.getConfig();
@@ -937,7 +1116,7 @@ class ExternalOAuthAuthenticationManagerTest {
         when(config.getScopes()).thenReturn(null);
 
         RestTemplate rt = mock(RestTemplate.class);
-        authManager = new ExternalOAuthAuthenticationManager(identityProviderProvisioning, new IdentityZoneManagerImpl(), rt, rt, tokenEndpointBuilder, keyInfoService, oidcMetadataFetcher);
+        authManager = new ExternalOAuthAuthenticationManager(identityProviderProvisioning, new IdentityZoneManagerImpl(), rt, rt, tokenEndpointBuilder, keyInfoService, oidcMetadataFetcher, false);
 
         ResponseEntity<Map<String, String>> response = mock(ResponseEntity.class);
         when(response.hasBody()).thenReturn(true);
@@ -973,11 +1152,139 @@ class ExternalOAuthAuthenticationManagerTest {
                 .doesNotContainKey("missingvalue");
 
         HttpHeaders headers = httpEntity.getHeaders();
-        assertThat(headers.getAccept()).isEqualTo(Collections.singletonList(MediaType.APPLICATION_JSON));
+        assertThat(headers.getAccept()).containsExactlyElementsOf(Collections.singletonList(MediaType.APPLICATION_JSON));
         assertThat(headers.getContentType()).isEqualTo(MediaType.APPLICATION_FORM_URLENCODED);
-        assertThat(headers).containsKey("Authorization");
-        assertThat(headers.get("Authorization")).hasSize(1);
-        assertThat(headers.get("Authorization").getFirst()).startsWith("Basic ");
-        assertThat(headers).doesNotContainKey("X-Forwarded-For");
+        assertAuthorizationHeaderIsSetAndStartsWithBasic(headers);
+        assertThat(headers.containsHeader("X-Forwarded-For")).isFalse();
+    }
+
+    @Test
+    void oauth20AuthorizationFlowWithUserInfo() throws Exception {
+
+        final ExternalOAuthCodeToken codeToken = new ExternalOAuthCodeToken("thecode", "some-origin", "http://google.com", null, null, "signedrequest");
+        final RestTemplate restTemplate = mock(RestTemplate.class);
+        final ResponseEntity<Map<String, Object>> responseEntity = mock(ResponseEntity.class);
+        when(responseEntity.getStatusCode()).thenReturn(HttpStatus.OK);
+        when(responseEntity.getBody()).thenReturn(Collections.emptyMap());
+        when(restTemplate.exchange(any(URI.class), eq(HttpMethod.GET), any(HttpEntity.class), any(ParameterizedTypeReference.class))).thenReturn(responseEntity);
+        authManager = new ExternalOAuthAuthenticationManager(
+                identityProviderProvisioning,
+                mock(IdentityZoneManager.class),
+                restTemplate,
+                restTemplate,
+                tokenEndpointBuilder,
+                new KeyInfoService("http://uaa.example.com"),
+                null,
+                false
+        ) {
+            @Override
+            protected <T extends AbstractExternalOAuthIdentityProviderDefinition<T>> String getTokenFromCode(
+                    ExternalOAuthCodeToken codeToken,
+                    IdentityProvider<T> config
+            ) {
+                return "opaque-access-token";
+            }
+
+            @Override
+            public RestTemplate getRestTemplate(IdentityProvider<?> identityProvider) {
+                return restTemplate;
+            }
+        };
+        final RawExternalOAuthIdentityProviderDefinition config = new RawExternalOAuthIdentityProviderDefinition();
+        config.setResponseType("code");
+        config.setUserInfoUrl(URI.create("https://some.metadata.url/userinfo").toURL());
+        final IdentityProvider<AbstractExternalOAuthIdentityProviderDefinition> idp = new IdentityProvider<>();
+        idp.setType(OAUTH20);
+        idp.setConfig(config);
+        authManager.getClaimsFromToken(codeToken, idp);
+        assertThat(codeToken.getIdToken()).isNull();
+        assertThat(codeToken.getAccessToken()).isEqualTo("opaque-access-token");
+
+    }
+
+    @Test
+    void verifySubjectToken_whenProviderConfigIsNotOAuthType_throwsInsufficientAuthenticationException() {
+        final IdentityProvider<SamlIdentityProviderDefinition> nonOAuthProvider = new IdentityProvider<>();
+        nonOAuthProvider.setConfig(new SamlIdentityProviderDefinition());
+        final ExternalOAuthAuthenticationManager manager = new ExternalOAuthAuthenticationManager(
+                identityProviderProvisioning, new IdentityZoneManagerImpl(), new RestTemplate(), new RestTemplate(),
+                tokenEndpointBuilder, new KeyInfoService(UAA_ISSUER_BASE_URL), oidcMetadataFetcher, false) {
+            @Override
+            public IdentityProvider resolveOriginProvider(String idToken) {
+                return nonOAuthProvider;
+            }
+        };
+
+        assertThatThrownBy(() -> manager.verifySubjectToken("subject-token"))
+                .isInstanceOf(InsufficientAuthenticationException.class);
+    }
+
+    @Test
+    void verifySubjectToken_whenValidateTokenThrowsUnexpectedRuntimeException_throwsInvalidTokenException() {
+        // reuse the beforeEach-configured provider (issuer != UAA's own token endpoint, so
+        // validateToken resolves signing keys via getTokenKeyFromOAuth()); simulate some
+        // unrelated internal failure there to prove verifySubjectToken still honors its
+        // documented contract of only ever throwing InsufficientAuthenticationException or
+        // InvalidTokenException, instead of letting an arbitrary RuntimeException escape.
+        final ExternalOAuthAuthenticationManager manager = new ExternalOAuthAuthenticationManager(
+                identityProviderProvisioning, new IdentityZoneManagerImpl(), new RestTemplate(), new RestTemplate(),
+                tokenEndpointBuilder, new KeyInfoService(UAA_ISSUER_BASE_URL), oidcMetadataFetcher, false) {
+            @Override
+            public IdentityProvider resolveOriginProvider(String idToken) {
+                return provider;
+            }
+
+            @Override
+            public JsonWebKeySet<JsonWebKey> getTokenKeyFromOAuth(AbstractExternalOAuthIdentityProviderDefinition config) {
+                throw new NullPointerException("simulated unexpected failure while resolving signing keys");
+            }
+        };
+
+        assertThatThrownBy(() -> manager.verifySubjectToken("subject-token"))
+                .isInstanceOf(InvalidTokenException.class)
+                .hasCauseInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void verifySubjectToken_whenExternalIssuerTokenAudienceDoesNotMatchRelyingParty_stillVerifies() {
+        // Same machine-to-machine exemption as the self-referencing (this-UAA-issued) branch:
+        // a token-exchange subject_token from a genuinely external issuer must not be rejected
+        // just because it wasn't minted with this IdP's relyingPartyId as its audience - that
+        // binding exists for the *interactive* login callback (see
+        // getExternalAuthenticationDetails_doesNotThrowWhenIdTokenIsValid, which uses a matching
+        // "uaa-relying-party" audience), not for a caller that already authenticated itself to
+        // /oauth/token directly and is deliberately presenting a token minted for someone else.
+        final ExternalOAuthAuthenticationManager manager = new ExternalOAuthAuthenticationManager(
+                identityProviderProvisioning, new IdentityZoneManagerImpl(), new RestTemplate(), new RestTemplate(),
+                tokenEndpointBuilder, new KeyInfoService(UAA_ISSUER_BASE_URL), oidcMetadataFetcher, false) {
+            @Override
+            public IdentityProvider resolveOriginProvider(String idToken) {
+                return provider;
+            }
+        };
+
+        Map<String, Object> header = map(
+                entry(HeaderParameterNames.ALGORITHM, JWSAlgorithm.RS256.getName()),
+                entry(HeaderParameterNames.KEY_ID, OIDC_PROVIDER_KEY)
+        );
+        JWSSigner signer = new KeyInfo(OIDC_PROVIDER_KEY, OIDC_PROVIDER_TOKEN_SIGNING_KEY, DEFAULT_UAA_URL).getSigner();
+        Map<String, Object> claims = map(
+                entry(ISS, oidcConfig.getIssuer()),
+                entry(AUD, "some-other-client-not-this-relying-party"),
+                entry(EXPIRY_IN_SECONDS, ((int) (System.currentTimeMillis() / 1000L)) + 60),
+                entry(SUB, "abc-def-asdf")
+        );
+        String subjectToken = UaaTokenUtils.constructToken(header, claims, signer);
+
+        JWTClaimsSet result = manager.verifySubjectToken(subjectToken);
+
+        assertThat(result.getSubject()).isEqualTo("abc-def-asdf");
+    }
+
+    private static void assertAuthorizationHeaderIsSetAndStartsWithBasic(final HttpHeaders headers) {
+        assertThat(headers.containsHeader("Authorization")).isTrue();
+        final List<String> authorizationHeaders = headers.get("Authorization");
+        assertThat(authorizationHeaders).hasSize(1);
+        assertThat(authorizationHeaders.getFirst()).startsWith("Basic ");
     }
 }

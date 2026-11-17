@@ -15,6 +15,7 @@
 
 package org.cloudfoundry.identity.uaa.provider.saml;
 
+import org.apache.commons.io.ByteOrderMark;
 import org.apache.hc.client5.http.ConnectTimeoutException;
 import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 import org.cloudfoundry.identity.uaa.cache.UrlContentCache;
@@ -25,6 +26,7 @@ import org.cloudfoundry.identity.uaa.provider.IdentityProviderProvisioning;
 import org.cloudfoundry.identity.uaa.provider.IdpAlreadyExistsException;
 import org.cloudfoundry.identity.uaa.provider.SamlIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.provider.SlowHttpServer;
+import org.cloudfoundry.identity.uaa.security.IdpOutboundTrustCache;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManagerImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -37,6 +39,7 @@ import org.springframework.security.saml2.provider.service.registration.RelyingP
 import org.springframework.web.client.ResourceAccessException;
 
 import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -54,6 +57,8 @@ import static org.cloudfoundry.identity.uaa.constants.OriginKeys.SAML;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -76,7 +81,6 @@ public class SamlIdentityProviderConfiguratorTests {
     private SlowHttpServer slowHttpServer;
     private SamlIdentityProviderConfigurator configurator;
     private SamlConfiguration samlConfiguration;
-    RequestScopedIdpDefinitionsCache requestScopedIdpDefinitionsCache = mock(RequestScopedIdpDefinitionsCache.class);
 
     @BeforeAll
     static void beforeAll() {
@@ -100,8 +104,7 @@ public class SamlIdentityProviderConfiguratorTests {
 
         fixedHttpMetaDataProvider = mock(FixedHttpMetaDataProvider.class);
 
-        configurator = new SamlIdentityProviderConfigurator(
-            provisioning, new IdentityZoneManagerImpl(), fixedHttpMetaDataProvider, requestScopedIdpDefinitionsCache);
+        configurator = new SamlIdentityProviderConfigurator(provisioning, new IdentityZoneManagerImpl(), fixedHttpMetaDataProvider);
     }
 
     @AfterEach
@@ -125,7 +128,7 @@ public class SamlIdentityProviderConfiguratorTests {
 
     @Test
     void getEntityID() {
-        when(fixedHttpMetaDataProvider.fetchMetadata(any(), anyBoolean())).thenReturn(getSimpleSamlPhpMetadata("http://simplesamlphp.somewhere.com").getBytes());
+        when(fixedHttpMetaDataProvider.fetchMetadata(any(), anyBoolean(), any(), any())).thenReturn(getSimpleSamlPhpMetadata("http://simplesamlphp.somewhere.com").getBytes());
         BootstrapSamlIdentityProviderData bootstrap = new BootstrapSamlIdentityProviderData(configurator);
         bootstrap.setIdentityProviders(BootstrapSamlIdentityProviderDataTests.parseYaml(BootstrapSamlIdentityProviderDataTests.sampleYaml));
         bootstrap.afterPropertiesSet();
@@ -147,13 +150,99 @@ public class SamlIdentityProviderConfiguratorTests {
                 }
                 case "simplesamlphp-url": {
                     RelyingPartyRegistration extendedMetadataDelegate = configurator.getExtendedMetadataDelegate(def);
-                    assertThat(extendedMetadataDelegate.getAssertingPartyDetails().getEntityId()).isEqualTo("http://simplesamlphp.somewhere.com/saml2/idp/metadata.php");
+                    assertThat(extendedMetadataDelegate.getAssertingPartyMetadata().getEntityId()).isEqualTo("http://simplesamlphp.somewhere.com/saml2/idp/metadata.php");
                     break;
                 }
                 default:
                     fail("Unknown provider %s".formatted(def.getIdpEntityAlias()));
             }
         }
+    }
+
+    @Test
+    void resolvesUrlMetadataWithLeadingUtf8ByteOrderMark() {
+        // Some IdPs (e.g. Microsoft Entra ID's federation metadata endpoint) prepend a UTF-8
+        // byte order marker (EF BB BF) to their XML response.
+        byte[] utf8Bom = ByteOrderMark.UTF_8.getBytes();
+        byte[] metadataBytes = concat(utf8Bom, getSimpleSamlPhpMetadata("http://simplesamlphp.somewhere.com").getBytes(StandardCharsets.UTF_8));
+        when(fixedHttpMetaDataProvider.fetchMetadata(any(), anyBoolean(), any(), any())).thenReturn(metadataBytes);
+
+        SamlIdentityProviderDefinition def = new SamlIdentityProviderDefinition()
+                .setMetaDataLocation("http://simplesamlphp.somewhere.com/metadata")
+                .setIdpEntityAlias("simplesamlphp-utf8-bom")
+                .setZoneId("uaa");
+
+        RelyingPartyRegistration extendedMetadataDelegate = configurator.getExtendedMetadataDelegate(def);
+        assertThat(extendedMetadataDelegate.getAssertingPartyMetadata().getEntityId())
+                .isEqualTo("http://simplesamlphp.somewhere.com/saml2/idp/metadata.php");
+    }
+
+    @Test
+    void resolvesUrlMetadataWithLeadingUtf16LittleEndianByteOrderMark() {
+        byte[] utf16LeBom = ByteOrderMark.UTF_16LE.getBytes();
+        byte[] metadataBytes = concat(utf16LeBom, getSimpleSamlPhpMetadata("http://simplesamlphp.somewhere.com").getBytes(StandardCharsets.UTF_16LE));
+        when(fixedHttpMetaDataProvider.fetchMetadata(any(), anyBoolean(), any(), any())).thenReturn(metadataBytes);
+
+        SamlIdentityProviderDefinition def = new SamlIdentityProviderDefinition()
+                .setMetaDataLocation("http://simplesamlphp.somewhere.com/metadata")
+                .setIdpEntityAlias("simplesamlphp-utf16-le-bom")
+                .setZoneId("uaa");
+
+        RelyingPartyRegistration extendedMetadataDelegate = configurator.getExtendedMetadataDelegate(def);
+        assertThat(extendedMetadataDelegate.getAssertingPartyMetadata().getEntityId())
+                .isEqualTo("http://simplesamlphp.somewhere.com/saml2/idp/metadata.php");
+    }
+
+    @Test
+    void resolvesUrlMetadataWithLeadingUtf16BigEndianByteOrderMark() {
+        byte[] utf16BeBom = ByteOrderMark.UTF_16BE.getBytes();
+        byte[] metadataBytes = concat(utf16BeBom, getSimpleSamlPhpMetadata("http://simplesamlphp.somewhere.com").getBytes(StandardCharsets.UTF_16BE));
+        when(fixedHttpMetaDataProvider.fetchMetadata(any(), anyBoolean(), any(), any())).thenReturn(metadataBytes);
+
+        SamlIdentityProviderDefinition def = new SamlIdentityProviderDefinition()
+                .setMetaDataLocation("http://simplesamlphp.somewhere.com/metadata")
+                .setIdpEntityAlias("simplesamlphp-utf16-be-bom")
+                .setZoneId("uaa");
+
+        RelyingPartyRegistration extendedMetadataDelegate = configurator.getExtendedMetadataDelegate(def);
+        assertThat(extendedMetadataDelegate.getAssertingPartyMetadata().getEntityId())
+                .isEqualTo("http://simplesamlphp.somewhere.com/saml2/idp/metadata.php");
+    }
+
+    @Test
+    void detectCharsetReturnsUtf8WhenNoByteOrderMarkIsPresent() {
+        byte[] metadataBytes = getSimpleSamlPhpMetadata("http://simplesamlphp.somewhere.com").getBytes(StandardCharsets.UTF_8);
+        assertThat(SamlIdentityProviderConfigurator.detectCharset(metadataBytes)).isEqualTo(StandardCharsets.UTF_8);
+    }
+
+    @Test
+    void detectCharsetReturnsUtf8WhenUtf8ByteOrderMarkIsPresent() {
+        byte[] metadataBytes = concat(ByteOrderMark.UTF_8.getBytes(), getSimpleSamlPhpMetadata("http://simplesamlphp.somewhere.com").getBytes(StandardCharsets.UTF_8));
+        assertThat(SamlIdentityProviderConfigurator.detectCharset(metadataBytes)).isEqualTo(StandardCharsets.UTF_8);
+    }
+
+    @Test
+    void detectCharsetReturnsUtf16LittleEndianWhenThatByteOrderMarkIsPresent() {
+        byte[] metadataBytes = concat(ByteOrderMark.UTF_16LE.getBytes(), getSimpleSamlPhpMetadata("http://simplesamlphp.somewhere.com").getBytes(StandardCharsets.UTF_16LE));
+        assertThat(SamlIdentityProviderConfigurator.detectCharset(metadataBytes)).isEqualTo(StandardCharsets.UTF_16LE);
+    }
+
+    @Test
+    void detectCharsetReturnsUtf16BigEndianWhenThatByteOrderMarkIsPresent() {
+        byte[] metadataBytes = concat(ByteOrderMark.UTF_16BE.getBytes(), getSimpleSamlPhpMetadata("http://simplesamlphp.somewhere.com").getBytes(StandardCharsets.UTF_16BE));
+        assertThat(SamlIdentityProviderConfigurator.detectCharset(metadataBytes)).isEqualTo(StandardCharsets.UTF_16BE);
+    }
+
+    @Test
+    void detectCharsetReturnsUtf8ForByteArrayShorterThanAnyByteOrderMark() {
+        assertThat(SamlIdentityProviderConfigurator.detectCharset(new byte[]{(byte) 0xFF})).isEqualTo(StandardCharsets.UTF_8);
+    }
+
+    private static byte[] concat(byte[] first, byte[] second) {
+        byte[] result = new byte[first.length + second.length];
+        System.arraycopy(first, 0, result, 0, first.length);
+        System.arraycopy(second, 0, result, first.length, second.length);
+        return result;
     }
 
     @Test
@@ -171,8 +260,7 @@ public class SamlIdentityProviderConfiguratorTests {
         for (SamlIdentityProviderDefinition def : bootstrap.getIdentityProviderDefinitions()) {
             if ("okta-local-2".equalsIgnoreCase(def.getIdpEntityAlias())) {
                 when(idp2.getConfig()).thenReturn(def.clone().setIdpEntityAlias("okta-local-1"));
-                when(idp2.getType()).thenReturn(SAML);
-                when(requestScopedIdpDefinitionsCache.getIdps(any())).thenReturn(List.of(idp2));
+                when(provisioning.retrieveActiveByTypes(anyString(), eq(SAML))).thenReturn(List.of(idp2));
                 assertThatThrownBy(() -> configurator.validateSamlIdentityProviderDefinition(def, true))
                         .isInstanceOf(IdpAlreadyExistsException.class)
                         .hasMessageStartingWith("Duplicate entity ID:http://www.okta.com");
@@ -195,11 +283,13 @@ public class SamlIdentityProviderConfiguratorTests {
                 .setIconUrl("sample-icon-url")
                 .setZoneId("other-zone-id");
 
+        when(idp1.getConfig()).thenReturn(def1);
         when(idp2.getConfig()).thenReturn(def1.clone().setIdpEntityAlias("okta-local-2"));
-        when(idp2.getType()).thenReturn(SAML);
-        when(requestScopedIdpDefinitionsCache.getIdps(any())).thenReturn(List.of(idp1, idp2));
+        when(provisioning.retrieveActiveByTypes(anyString(), eq(SAML))).thenReturn(Arrays.asList(idp1, idp2));
 
-        configurator.getIdentityProviderDefinitions(clientIdpAliases, Arrays.asList(idp1, idp2));
+        List<SamlIdentityProviderDefinition> clientIdps = configurator.getIdentityProviderDefinitions(clientIdpAliases, new IdentityZoneManagerImpl().getCurrentIdentityZone());
+        assertThat(clientIdps).hasSize(2);
+        assertThat(clientIdpAliases).contains(clientIdps.getFirst().getIdpEntityAlias(), clientIdps.get(1).getIdpEntityAlias());
     }
 
     @Test
@@ -216,23 +306,28 @@ public class SamlIdentityProviderConfiguratorTests {
                 .setLinkText("sample-link-test")
                 .setIconUrl("sample-icon-url")
                 .setZoneId("other-zone-id");
-        List<SamlIdentityProviderDefinition> clientIdps = configurator.getIdentityProviderDefinitions(clientIdpAliases, Arrays.asList(idp1, idp2));
+
+        when(idp1.getConfig()).thenReturn(def1);
+        when(idp2.getConfig()).thenReturn(def1.clone().setIdpEntityAlias("okta-local-2"));
+        when(provisioning.retrieveActiveByTypes(anyString(), eq(SAML))).thenReturn(Arrays.asList(idp1, idp2));
+
+        List<SamlIdentityProviderDefinition> clientIdps = configurator.getIdentityProviderDefinitions(clientIdpAliases, new IdentityZoneManagerImpl().getCurrentIdentityZone());
         assertThat(clientIdps).isEmpty();
     }
 
     FixedHttpMetaDataProvider createNonMockFixedHttpMetaDataProvider(SamlConfiguration samlConfiguration) throws NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
         UrlContentCache urlContentCache = samlConfiguration.urlContentCache(samlConfiguration.timeService());
 
-        return samlConfiguration.fixedHttpMetaDataProvider(RestTemplateConfig.createDefaults(), urlContentCache);
+        return samlConfiguration.fixedHttpMetaDataProvider(RestTemplateConfig.createDefaults(), urlContentCache, new IdpOutboundTrustCache());
     }
 
     @Test
-    void shouldTimeoutOnReadWhenFetchingMetadataURL() throws NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
+    void shouldTimeoutOnReadWhenFetchingMetadataURL() throws Exception {
         slowHttpServer.run();
         // set read timeout to value that will cause read timeout before 1s
         samlConfiguration.setSocketReadTimeout(100);
         FixedHttpMetaDataProvider realFixedHttpMetaDataProvider = createNonMockFixedHttpMetaDataProvider(samlConfiguration);
-        configurator = new SamlIdentityProviderConfigurator(provisioning, new IdentityZoneManagerImpl(), realFixedHttpMetaDataProvider, requestScopedIdpDefinitionsCache);
+        configurator = new SamlIdentityProviderConfigurator(provisioning, new IdentityZoneManagerImpl(), realFixedHttpMetaDataProvider);
 
         SamlIdentityProviderDefinition def = new SamlIdentityProviderDefinition();
         def.setMetaDataLocation(slowHttpServer.getUrl());
@@ -244,12 +339,12 @@ public class SamlIdentityProviderConfiguratorTests {
     }
 
     @Test
-    void shouldTimeoutOnConnectingWhenFetchingMetadataURL() throws NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
+    void shouldTimeoutOnConnectingWhenFetchingMetadataURL() throws Exception {
         slowHttpServer.run();
         // Set connection timeout to very low value to cause connect timeout
         samlConfiguration.setSocketConnectionTimeout(1);
         fixedHttpMetaDataProvider = createNonMockFixedHttpMetaDataProvider(samlConfiguration);
-        configurator = new SamlIdentityProviderConfigurator(provisioning, new IdentityZoneManagerImpl(), fixedHttpMetaDataProvider, requestScopedIdpDefinitionsCache);
+        configurator = new SamlIdentityProviderConfigurator(provisioning, new IdentityZoneManagerImpl(), fixedHttpMetaDataProvider);
 
         SamlIdentityProviderDefinition def = new SamlIdentityProviderDefinition();
         def.setMetaDataLocation("http://10.255.255.1/something");

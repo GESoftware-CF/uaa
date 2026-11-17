@@ -63,8 +63,6 @@ public final class UaaUserPrototype {
 
     private Long previousLogonTime;
 
-    private UaaUser previousUser;
-
     public UaaUserPrototype() {
     }
 
@@ -88,8 +86,7 @@ public final class UaaUserPrototype {
                 .withSalt(user.getSalt())
                 .withCreated(user.getCreated())
                 .withModified(user.getModified())
-                .withPasswordChangeRequired(user.isPasswordChangeRequired())
-                .withPreviousUser(user.getPreviousUser());
+                .withPasswordChangeRequired(user.isPasswordChangeRequired());
     }
 
     public UaaUserPrototype withId(String id) {
@@ -202,11 +199,6 @@ public final class UaaUserPrototype {
 
     public UaaUserPrototype withPreviousLogonSuccess(Long previousLogonTime) {
         this.previousLogonTime = previousLogonTime;
-        return this;
-    }
-
-    public UaaUserPrototype withPreviousUser(UaaUser previousUser) {
-        this.previousUser = previousUser;
         return this;
     }
 }

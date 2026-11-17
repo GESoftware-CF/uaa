@@ -123,14 +123,21 @@ public class JdbcExpiringCodeStore implements ExpiringCodeStore {
             ExpiringCode expiringCode = jdbcTemplate.queryForObject(selectAllFields, rowMapper, code, zoneId);
             if (expiringCode != null) {
                 if (!peek) {
-                    jdbcTemplate.update(delete, code, zoneId);
+                    int deleted = jdbcTemplate.update(delete, code, zoneId);
+                    if (deleted == 0) {
+                        return null;
+                    }
+                    if (deleted != 1) {
+                        logger.warn("Expected to delete 1 expiring code row for zoneId={} but deleted {}", zoneId, deleted);
+                        return null;
+                    }
                 }
                 if (expiringCode.getExpiresAt().getTime() < timeService.getCurrentTimeMillis()) {
                     expiringCode = null;
                 }
             }
             return expiringCode;
-        } catch (EmptyResultDataAccessException x) {
+        } catch (EmptyResultDataAccessException _) {
             return null;
         }
     }
@@ -161,7 +168,8 @@ public class JdbcExpiringCodeStore implements ExpiringCodeStore {
         long now = timeService.getCurrentTimeMillis();
         long lastCheck = lastExpired.get();
 
-        if ((now - lastCheck) > expirationInterval && lastExpired.compareAndSet(lastCheck, now)) {
+        boolean shouldRun = expirationInterval == 0 || (now - lastCheck) > expirationInterval;
+        if (shouldRun && lastExpired.compareAndSet(lastCheck, now)) {
             int count = jdbcTemplate.update(deleteExpired, now);
             logger.debug("Expiring code sweeper complete, deleted {} entries.", count);
             return count;

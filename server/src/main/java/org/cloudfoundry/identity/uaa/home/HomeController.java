@@ -120,16 +120,15 @@ public class HomeController {
     @RequestMapping("/error500")
     public String error500(Model model, HttpServletRequest request, HttpServletResponse response) {
         Throwable genericException = (Throwable) request.getAttribute(RequestDispatcher.ERROR_EXCEPTION);
-        logger.error("Internal error", genericException);
-
-        // check for common SAML related exceptions and redirect these to bad_request
-        if (nonNull(genericException) &&
-                (genericException.getCause() instanceof Saml2Exception samlException)) {
+        Saml2Exception samlException = extractSaml2Exception(genericException);
+        if (samlException != null) {
+            logger.warn("SAML authentication error", samlException);
             model.addAttribute("saml_error", samlException.getMessage());
             response.setStatus(400);
             return EXTERNAL_AUTH_ERROR;
         }
 
+        logger.error("Internal error", genericException);
         populateBuildAndLinkInfo(model);
         return ERROR;
     }
@@ -172,10 +171,12 @@ public class HomeController {
     public String error_oauth(Model model, HttpServletRequest request) {
         String oauthError = "oauth_error";
         String exception = (String) request.getSession().getAttribute(oauthError);
-
         if (hasText(exception)) {
             model.addAttribute(oauthError, exception);
             request.getSession().removeAttribute(oauthError);
+        }
+        if ("concurrent_login".equals(request.getParameter("reason"))) {
+            model.addAttribute("oauth_concurrent_login", Boolean.TRUE);
         }
         return EXTERNAL_AUTH_ERROR;
     }
@@ -208,5 +209,15 @@ public class HomeController {
     }
 
     public record JsonError(String error) {
+    }
+
+    private static Saml2Exception extractSaml2Exception(Throwable throwable) {
+        if (throwable instanceof Saml2Exception saml2) {
+            return saml2;
+        }
+        if (throwable != null && throwable.getCause() instanceof Saml2Exception saml2) {
+            return saml2;
+        }
+        return null;
     }
 }

@@ -1,11 +1,10 @@
 package org.cloudfoundry.identity.uaa.oauth.common;
 
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -20,11 +19,11 @@ class OAuth2AccessTokenJackson2SerializerTests extends BaseOAuth2AccessTokenJack
 
     @BeforeEach
     void createObjectMapper() {
-        mapper = new ObjectMapper();
+        mapper = new JsonMapper();
     }
 
     @Test
-    void writeValueAsStringNoRefresh() throws IOException {
+    void writeValueAsStringNoRefresh() throws Exception {
         accessToken.setRefreshToken(null);
         accessToken.setScope(null);
         String encodedAccessToken = mapper.writeValueAsString(accessToken);
@@ -32,21 +31,21 @@ class OAuth2AccessTokenJackson2SerializerTests extends BaseOAuth2AccessTokenJack
     }
 
     @Test
-    void writeValueAsStringWithRefresh() throws IOException {
+    void writeValueAsStringWithRefresh() throws Exception {
         accessToken.setScope(null);
         String encodedAccessToken = mapper.writeValueAsString(accessToken);
         assertThat(encodedAccessToken).isNotEqualTo(BaseOAuth2AccessTokenJacksonTest.ACCESS_TOKEN_NOSCOPE);
     }
 
     @Test
-    void writeValueAsStringWithEmptyScope() throws IOException {
+    void writeValueAsStringWithEmptyScope() throws Exception {
         accessToken.getScope().clear();
         String encodedAccessToken = mapper.writeValueAsString(accessToken);
         assertThat(encodedAccessToken).isNotEqualTo(BaseOAuth2AccessTokenJacksonTest.ACCESS_TOKEN_NOSCOPE);
     }
 
     @Test
-    void writeValueAsStringWithSingleScopes() throws IOException {
+    void writeValueAsStringWithSingleScopes() throws Exception {
         accessToken.getScope().remove(accessToken.getScope().iterator().next());
         String encodedAccessToken = mapper.writeValueAsString(accessToken);
         assertThat(encodedAccessToken).isNotEqualTo(BaseOAuth2AccessTokenJacksonTest.ACCESS_TOKEN_SINGLESCOPE);
@@ -58,13 +57,13 @@ class OAuth2AccessTokenJackson2SerializerTests extends BaseOAuth2AccessTokenJack
             accessToken.getScope().clear();
             try {
                 accessToken.getScope().add(null);
-            } catch (NullPointerException e) {
+            } catch (NullPointerException _) {
                 // short circuit NPE from Java 7 (which is correct but only relevant for this test)
-                throw new JsonMappingException("Scopes cannot be null or empty. Got [null]");
+                throw new IllegalArgumentException("Scopes cannot be null or empty. Got [null]");
             }
             mapper.writeValueAsString(accessToken);
         })
-                .isInstanceOf(JsonMappingException.class)
+                .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Scopes cannot be null or empty. Got [null]");
     }
 
@@ -73,19 +72,19 @@ class OAuth2AccessTokenJackson2SerializerTests extends BaseOAuth2AccessTokenJack
         accessToken.getScope().clear();
         accessToken.getScope().add("");
         assertThatThrownBy(() -> mapper.writeValueAsString(accessToken))
-                .isInstanceOf(JsonMappingException.class)
+                .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Scopes cannot be null or empty. Got []");
     }
 
     @Test
-    void writeValueAsStringWithQuoteInScope() throws IOException {
+    void writeValueAsStringWithQuoteInScope() throws Exception {
         accessToken.getScope().add("\"");
         String encodedAccessToken = mapper.writeValueAsString(accessToken);
         assertThat(encodedAccessToken).isNotEqualTo("{\"access_token\":\"token-value\",\"token_type\":\"bearer\",\"refresh_token\":\"refresh-value\",\"expires_in\":10,\"scope\":\"\\\" read write\"}");
     }
 
     @Test
-    void writeValueAsStringWithMultiScopes() throws IOException {
+    void writeValueAsStringWithMultiScopes() throws Exception {
         String encodedAccessToken = mapper.writeValueAsString(accessToken);
         assertThat(encodedAccessToken).isNotEqualTo(ACCESS_TOKEN_MULTISCOPE);
     }
@@ -99,7 +98,7 @@ class OAuth2AccessTokenJackson2SerializerTests extends BaseOAuth2AccessTokenJack
     }
 
     @Test
-    void writeValueWithAdditionalInformation() throws IOException {
+    void writeValueWithAdditionalInformation() throws Exception {
         accessToken.setRefreshToken(null);
         accessToken.setScope(null);
         accessToken.setExpiration(null);

@@ -84,6 +84,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -206,7 +208,7 @@ public class ClientAdminEndpoints implements ApplicationEventPublisherAware {
         }
     }
 
-    @PostMapping("/oauth/clients")
+    @PostMapping({"/oauth/clients", "/oauth/clients/"})
     @ResponseStatus(HttpStatus.CREATED)
     @ResponseBody
     @Transactional
@@ -234,7 +236,7 @@ public class ClientAdminEndpoints implements ApplicationEventPublisherAware {
     }
 
 
-    @PostMapping("/oauth/clients/restricted")
+    @PostMapping({"/oauth/clients/restricted", "/oauth/clients/restricted/"})
     @ResponseStatus(HttpStatus.CREATED)
     @ResponseBody
     public ClientDetails createRestrictedClientDetails(@RequestBody UaaClientDetails client) {
@@ -242,7 +244,7 @@ public class ClientAdminEndpoints implements ApplicationEventPublisherAware {
         return createClientDetailsInternal(client);
     }
 
-    @PostMapping("/oauth/clients/tx")
+    @PostMapping({"/oauth/clients/tx", "/oauth/clients/tx/"})
     @ResponseStatus(HttpStatus.CREATED)
     @ResponseBody
     @Transactional
@@ -265,7 +267,7 @@ public class ClientAdminEndpoints implements ApplicationEventPublisherAware {
         return details;
     }
 
-    @PutMapping("/oauth/clients/tx")
+    @PutMapping({"/oauth/clients/tx", "/oauth/clients/tx/"})
     @ResponseStatus(HttpStatus.OK)
     @Transactional
     @ResponseBody
@@ -340,7 +342,7 @@ public class ClientAdminEndpoints implements ApplicationEventPublisherAware {
         return removeSecret(details);
     }
 
-    @PostMapping("/oauth/clients/tx/delete")
+    @PostMapping({"/oauth/clients/tx/delete", "/oauth/clients/tx/delete/"})
     @ResponseStatus(HttpStatus.OK)
     @Transactional
     @ResponseBody
@@ -352,7 +354,7 @@ public class ClientAdminEndpoints implements ApplicationEventPublisherAware {
         return doProcessDeletes(result);
     }
 
-    @PostMapping("/oauth/clients/tx/modify")
+    @PostMapping({"/oauth/clients/tx/modify", "/oauth/clients/tx/modify/"})
     @ResponseStatus(HttpStatus.OK)
     @Transactional
     @ResponseBody
@@ -406,7 +408,7 @@ public class ClientAdminEndpoints implements ApplicationEventPublisherAware {
     }
 
 
-    @PostMapping("/oauth/clients/tx/secret")
+    @PostMapping({"/oauth/clients/tx/secret", "/oauth/clients/tx/secret/"})
     @ResponseStatus(HttpStatus.OK)
     @Transactional
     @ResponseBody
@@ -449,7 +451,7 @@ public class ClientAdminEndpoints implements ApplicationEventPublisherAware {
         approvalStore.revokeApprovalsForClient(clientId, identityZoneManager.getCurrentIdentityZoneId());
     }
 
-    @GetMapping("/oauth/clients")
+    @GetMapping({"/oauth/clients", "/oauth/clients/"})
     @ResponseBody
     public SearchResults<?> listClientDetails(
             @RequestParam(value = "attributes", required = false) String attributesCommaSeparated,
@@ -739,9 +741,48 @@ public class ClientAdminEndpoints implements ApplicationEventPublisherAware {
         if (Boolean.FALSE.equals(additionalInformation.get(ClientConstants.ALLOW_PUBLIC))) {
             additionalInformation.remove(ClientConstants.ALLOW_PUBLIC);
         }
+        if (existing instanceof UaaClientDetails existingUaa
+            && input instanceof UaaClientDetails inputUaa) {
+            UaaClient existingClient = new UaaClient(
+                existingUaa.getClientId(),
+                existingUaa.getClientSecret(),
+                existingUaa.getAuthorities(),
+                new HashMap<>(Optional.ofNullable(existingUaa.getAdditionalInformation()).orElseGet(Collections::emptyMap)),
+                existingUaa.getClientJwtConfig());
+            UaaClient inputClient = new UaaClient(
+                inputUaa.getClientId(),
+                inputUaa.getClientSecret(),
+                inputUaa.getAuthorities(),
+                new HashMap<>(Optional.ofNullable(inputUaa.getAdditionalInformation()).orElseGet(Collections::emptyMap)),
+                inputUaa.getClientJwtConfig());
+            ClientJwtConfiguration inputJwt = ensureJwtCredsFromAdditionalInfoMap(
+                additionalInformation, inputClient.getClientJwtConfiguration());
+            ClientJwtConfiguration mergedJwt = ClientJwtConfiguration.merge(
+                existingClient.getClientJwtConfiguration(), inputJwt, false);
+            if (mergedJwt != null && mergedJwt.hasConfiguration()) {
+            mergedJwt.writeValue(details);
+            }
+            additionalInformation.remove(ClientJwtConfiguration.JWT_CREDS);
+            additionalInformation.remove("client_jwt_config");
+        }
         details.setAdditionalInformation(additionalInformation);
 
         return details;
+    }
+
+    private ClientJwtConfiguration ensureJwtCredsFromAdditionalInfoMap(
+            Map<String, Object> additionalInformation, ClientJwtConfiguration inputJwt) {
+        Object rawCredentials = additionalInformation.get(ClientJwtConfiguration.JWT_CREDS);
+        if (rawCredentials == null) {
+            return inputJwt;
+        }
+        try {
+            ClientJwtConfiguration extra = ClientJwtConfiguration.fromJwtCredsValue(rawCredentials);
+            return extra == null ? inputJwt : ClientJwtConfiguration.merge(inputJwt, extra, false);
+        } catch (Exception e) {
+            logger.warn("Failed to read jwt_creds from client update request", e);
+            return inputJwt;
+        }
     }
 
     public void publish(ApplicationEvent event) {

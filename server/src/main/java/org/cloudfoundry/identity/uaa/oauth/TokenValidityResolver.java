@@ -1,15 +1,18 @@
 package org.cloudfoundry.identity.uaa.oauth;
 
+import lombok.Setter;
+import org.cloudfoundry.identity.uaa.oauth.refresh.RefreshTokenRequestData;
 import org.cloudfoundry.identity.uaa.util.TimeService;
-import org.joda.time.DateTime;
 
 import java.util.Date;
+import java.time.Instant;
 
 import static java.util.Optional.ofNullable;
 
 public class TokenValidityResolver {
     public static final int DEFAULT_TO_GLOBAL_POLICY = -1;
     private final int globalTokenValiditySeconds;
+    @Setter
     private TimeService timeService;
     private final ClientTokenValidity clientTokenValidity;
 
@@ -32,10 +35,19 @@ public class TokenValidityResolver {
             tokenValiditySeconds = globalTokenValiditySeconds;
         }
 
-        return new DateTime(timeService.getCurrentTimeMillis()).plusSeconds(tokenValiditySeconds).toDate();
+        return Date.from(Instant.ofEpochMilli(timeService.getCurrentTimeMillis()).plusSeconds(tokenValiditySeconds));
     }
 
-    public void setTimeService(TimeService timeService) {
-        this.timeService = timeService;
+    /**
+     * Extension point for enterprise implementations that need to constrain refresh token
+     * validity based on request context (e.g. a JIT session boundary carried in the assertion).
+     * The default implementation ignores {@code requestData} and delegates to {@link #resolve(String)}.
+     *
+     * @param clientId    the OAuth client identifier
+     * @param requestData the refresh token request context; may be {@code null}
+     * @return the effective expiration date
+     */
+    public Date resolve(String clientId, RefreshTokenRequestData requestData) {
+        return resolve(clientId);
     }
 }

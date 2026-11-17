@@ -27,10 +27,20 @@ import java.util.Objects;
 @Getter
 @JsonIgnoreProperties(ignoreUnknown = true)
 public abstract class AbstractExternalOAuthIdentityProviderDefinition<T extends AbstractExternalOAuthIdentityProviderDefinition> extends ExternalIdentityProviderDefinition {
+
     public enum OAuthGroupMappingMode {
+        /**
+         * Evaluate the external group mappings with the external groups and only include the mapped internal groups in
+         * the UAA token.
+         */
         EXPLICITLY_MAPPED,
+
+        /**
+         * Directly include the external groups as scopes in the UAA token.
+         */
         AS_SCOPES
     }
+
     private URL authUrl;
     private URL tokenUrl;
     private URL tokenKeyUrl;
@@ -55,6 +65,8 @@ public abstract class AbstractExternalOAuthIdentityProviderDefinition<T extends 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private String authMethod;
     private boolean cacheJwks = true;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private List<String> caCertificates;
 
     public T setAuthUrl(URL authUrl) {
         this.authUrl = authUrl;
@@ -147,6 +159,11 @@ public abstract class AbstractExternalOAuthIdentityProviderDefinition<T extends 
 
     public T setCacheJwks(final boolean cacheJwks) {
         this.cacheJwks = cacheJwks;
+        return (T) this;
+    }
+
+    public T setCaCertificates(List<String> caCertificates) {
+        this.caCertificates = caCertificates;
         return (T) this;
     }
 
@@ -244,6 +261,9 @@ public abstract class AbstractExternalOAuthIdentityProviderDefinition<T extends 
         if (cacheJwks != that.cacheJwks) {
             return false;
         }
+        if (!Objects.equals(caCertificates, that.caCertificates)) {
+            return false;
+        }
         return Objects.equals(responseType, that.responseType);
 
     }
@@ -271,6 +291,7 @@ public abstract class AbstractExternalOAuthIdentityProviderDefinition<T extends 
         result = 31 * result + (performRpInitiatedLogout ? 1 : 0);
         result = 31 * result + (authMethod != null ? authMethod.hashCode() : 0);
         result = 31 * result + (cacheJwks ? 1 : 0);
+        result = 31 * result + (caCertificates != null ? caCertificates.hashCode() : 0);
         return result;
     }
 }

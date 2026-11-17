@@ -70,7 +70,7 @@ class ForcedPasswordChangeIT {
     void logoutAndClearCookies() {
         try {
             webDriver.get(baseUrl + "/logout.do");
-        } catch (org.openqa.selenium.TimeoutException x) {
+        } catch (org.openqa.selenium.TimeoutException _) {
             //try again - this should not be happening - 20 second timeouts
             webDriver.get(baseUrl + "/logout.do");
         }
@@ -125,7 +125,7 @@ class ForcedPasswordChangeIT {
         webDriver.findElement(By.name("password_confirmation")).sendKeys("secr3T");
         webDriver.clickAndWait(By.xpath("//input[@value='Create new password']"));
         assertThat(webDriver.getCurrentUrl()).isEqualTo(baseUrl + "/force_password_change");
-        assertThat(webDriver.findElement(By.cssSelector(".toast__description")).getText()).contains("Your new password cannot be the same as the old password.");
+        assertThat(webDriver.findElement(By.cssSelector(".error-message")).getText()).contains("Your new password cannot be the same as the old password.");
     }
 
     @Test
@@ -135,7 +135,7 @@ class ForcedPasswordChangeIT {
         webDriver.findElement(By.name("password_confirmation")).sendKeys("invalid");
         webDriver.clickAndWait(By.xpath("//input[@value='Create new password']"));
         assertThat(webDriver.getCurrentUrl()).isEqualTo(baseUrl + "/force_password_change");
-        assertThat(webDriver.findElement(By.cssSelector(".toast__description")).getText()).contains("Passwords must match and not be empty.");
+        assertThat(webDriver.findElement(By.cssSelector(".error-message")).getText()).contains("Passwords must match and not be empty.");
     }
 
     @Test
@@ -144,7 +144,7 @@ class ForcedPasswordChangeIT {
         webDriver.findElement(By.name("password")).sendKeys("newsecr3T");
         webDriver.clickAndWait(By.xpath("//input[@value='Create new password']"));
         assertThat(webDriver.getCurrentUrl()).isEqualTo(baseUrl + "/force_password_change");
-        assertThat(webDriver.findElement(By.cssSelector(".toast__description")).getText()).contains("Passwords must match and not be empty.");
+        assertThat(webDriver.findElement(By.cssSelector(".error-message")).getText()).contains("Passwords must match and not be empty.");
     }
 
     @Test
@@ -176,7 +176,7 @@ class ForcedPasswordChangeIT {
         webDriver.findElement(By.name("password_confirmation")).sendKeys(invalidNewPassword);
         webDriver.clickAndWait(By.xpath("//input[@value='Create new password']"));
         assertThat(webDriver.getCurrentUrl()).isEqualTo(baseUrl + "/force_password_change");
-        assertThat(webDriver.findElement(By.cssSelector(".toast__description")).getText()).contains("Password must be no more than 255 characters in length.");
+        assertThat(webDriver.findElement(By.cssSelector(".error-message")).getText()).contains("Password must be no more than 255 characters in length.");
     }
 
     private void navigateToForcePasswordChange() {
@@ -185,7 +185,7 @@ class ForcedPasswordChangeIT {
         webDriver.findElement(By.name("username")).sendKeys(userEmail);
         webDriver.findElement(By.name("password")).sendKeys("secr3T");
         webDriver.clickAndWait(By.xpath("//input[@value='Sign in']"));
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Force change password");
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Force Change Password");
         assertThat(webDriver.getCurrentUrl()).isEqualTo(baseUrl + "/force_password_change");
     }
 }

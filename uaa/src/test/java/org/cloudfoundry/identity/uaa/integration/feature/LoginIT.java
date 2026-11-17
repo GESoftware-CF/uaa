@@ -13,25 +13,25 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.integration.feature;
 
-import com.dumbster.smtp.SimpleSmtpServer;
+import com.icegreen.greenmail.util.GreenMail;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
 import org.cloudfoundry.identity.uaa.oauth.client.test.TestAccounts;
+import org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository;
 import org.cloudfoundry.identity.uaa.test.UaaWebDriver;
 import org.cloudfoundry.identity.uaa.zone.BrandingInformation;
 import org.cloudfoundry.identity.uaa.zone.BrandingInformation.Banner;
-import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
-import org.cloudfoundry.identity.uaa.zone.Links;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -40,18 +40,20 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.web.client.ResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.IOException;
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.assertSupportsZoneDNS;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.CSRF_PARAMETER_NAME;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.doesSupportZoneDNS;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
 
@@ -77,14 +79,14 @@ class LoginIT {
     TestClient testClient;
 
     @Autowired
-    SimpleSmtpServer simpleSmtpServer;
+    GreenMail greenMail;
 
     @BeforeEach
     @AfterEach
     void logout_and_clear_cookies() {
         try {
             webDriver.get(baseUrl + "/logout.do");
-        } catch (org.openqa.selenium.TimeoutException x) {
+        } catch (org.openqa.selenium.TimeoutException _) {
             //try again - this should not be happening - 20 second timeouts
             webDriver.get(baseUrl + "/logout.do");
         }
@@ -107,8 +109,8 @@ class LoginIT {
                 String.class);
 
         IntegrationTestUtils.copyCookies(loginResponse, headers);
-        String csrf = IntegrationTestUtils.extracCsrfToken(loginResponse.getBody());
-        requestBody.add(CSRF_PARAMETER_NAME, csrf);
+        String csrf = IntegrationTestUtils.extractCookieCsrf(loginResponse.getBody());
+        requestBody.add(CookieBasedCsrfTokenRepository.DEFAULT_CSRF_COOKIE_NAME, csrf);
 
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         loginResponse = template.exchange(baseUrl + "/login.do",
@@ -117,7 +119,7 @@ class LoginIT {
                 String.class);
         cookies = loginResponse.getHeaders().get("Set-Cookie");
         assertThat(cookies).anySatisfy(s -> assertThat(s).startsWith("JSESSIONID"))
-                //.anySatisfy(s -> assertThat(s).startsWith("X-Uaa-Csrf")) // we are using session based csrf
+                .anySatisfy(s -> assertThat(s).startsWith("X-Uaa-Csrf"))
                 .anySatisfy(s -> assertThat(s).startsWith("Current-User"));
         headers.clear();
         boolean jsessionIdValidated = false;
@@ -136,7 +138,6 @@ class LoginIT {
     }
 
     @Test
-    @Disabled("To be ignored till ge branding for the new pivotal-ui-main.html layout")
     void bannerFunctionalityInDiscoveryPage() {
         String zoneId = "testzone3";
 
@@ -200,15 +201,15 @@ class LoginIT {
         String newUserEmail = createAnotherUser();
         webDriver.get(baseUrl + "/logout.do");
         webDriver.get(baseUrl + "/login");
-        assertThat(webDriver.getTitle()).isEqualTo("Predix");
-
-        //assert Predix logo
-        assertThat(webDriver.findElement(By.id("logo-header")).getAttribute("src"))
-                .isEqualTo("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAATBJREFUeNqk008og3Ecx/HNnrJSu63kIC5qKRe7KeUiOSulTHJUTrsr0y5ycFaEgyQXElvt5KDYwU0uO2hSUy4KoR7v7/qsfmjPHvzq1e/XU8/39/3zPFHf9yP/WV7jED24nGRbxDFWUAsToM05zyKFLG60d/wmQBxWzwyOlMU1phELEyCmtPeRQRoVbKOM0VYB6q0QW+3IYQpJFFDEYFCAiMqwNY857Ko3SxjGBTbRXb+xMUamcMbWh148YwJvOHSCdyqTAdxZo72ADGwKT98C9CChcxUPQSVYLz50toae4Fy9WcAISl7AiN/RhS1N5RV5rOLxx5eom90pvGAI/VjHMm6bfspK18a1gXvsqM41XDVL052C1Tim56cYd/rR+mdSrXGluxfm5S8Z/HV9CjAAvQZLXoa5mpgAAAAASUVORK5CYII=");
-
+        assertThat(webDriver.getTitle()).isEqualTo("Cloud Foundry");
         attemptLogin(newUserEmail, USER_PASSWORD);
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText())
-                .isEqualTo("You should not see this page. Set up your redirect URI.");
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Where to?");
+        webDriver.get(baseUrl + "/logout.do");
+        attemptLogin(newUserEmail, USER_PASSWORD);
+
+        assertThat(webDriver.findElement(By.cssSelector("#last_login_time"))).isNotNull();
+        String lastLoginDate = webDriver.findElement(By.cssSelector("#last_login_time")).getAttribute("innerHTML");
+        assertThat(lastLoginDate).isNotEmpty();
 
         IntegrationTestUtils.validateAccountChooserCookie(baseUrl, webDriver, IdentityZoneHolder.get());
     }
@@ -219,24 +220,24 @@ class LoginIT {
         webDriver.get(baseUrl + "/logout.do");
         String ldapLoginHint = URLEncoder.encode("{\"origin\":\"ldap\"}", StandardCharsets.UTF_8);
         webDriver.get(baseUrl + "/login?login_hint=" + ldapLoginHint);
-        assertThat(webDriver.getTitle()).isEqualTo("Predix");
+        assertThat(webDriver.getTitle()).isEqualTo("Cloud Foundry");
         assertThat(webDriver.getPageSource()).doesNotContain("or sign in with:");
         attemptLogin(newUserEmail, USER_PASSWORD);
-        assertThat(webDriver.findElement(By.cssSelector(".toast__description")).getText()).contains("Provided credentials are invalid. Please try again.");
+        assertThat(webDriver.findElement(By.className("alert-error")).getText()).contains("Provided credentials are invalid. Please try again.");
 
         String uaaLoginHint = URLEncoder.encode("{\"origin\":\"uaa\"}", StandardCharsets.UTF_8);
         webDriver.get(baseUrl + "/login?login_hint=" + uaaLoginHint);
-        assertThat(webDriver.getTitle()).isEqualTo("Predix");
+        assertThat(webDriver.getTitle()).isEqualTo("Cloud Foundry");
         assertThat(webDriver.getPageSource()).doesNotContain("or sign in with:");
         attemptLogin(newUserEmail, USER_PASSWORD);
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("You should not see this page. Set up your redirect URI.");
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Where to?");
         webDriver.get(baseUrl + "/logout.do");
     }
 
     @Test
-    public void noZoneFound() {
-        assertSupportsZoneDNS();
-        webDriver.get(baseUrl.replace("localhost","testzonedoesnotexist.localhost") + "/login");
+    void noZoneFound() {
+        assertThat(doesSupportZoneDNS()).as("Expected testzone1/2/3/4/doesnotexist.localhost to resolve to 127.0.0.1").isTrue();
+        webDriver.get(baseUrl.replace("localhost", "testzonedoesnotexist.localhost") + "/login");
         assertThat(webDriver.findElement(By.tagName("p")).getText()).isEqualTo("The subdomain does not map to a valid identity zone.");
     }
 
@@ -250,34 +251,45 @@ class LoginIT {
     @Test
     void passcodeRedirect() {
         webDriver.get(baseUrl + "/passcode");
-        assertThat(webDriver.getTitle()).isEqualTo("Predix");
+        assertThat(webDriver.getTitle()).isEqualTo("Cloud Foundry");
 
         attemptLogin(testAccounts.getUserName(), testAccounts.getPassword());
 
+        WebDriverWait wait = webDriver.createWebDriverWait();
+        wait.until(ExpectedConditions.textToBePresentInElementLocated(By.cssSelector("h1"), "Temporary Authentication Code"));
         assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Temporary Authentication Code");
 
-        // Verify that the CopyToClipboard function can be executed
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("passcode")));
         String passcode = webDriver.findElement(By.id("passcode")).getText();
         (webDriver.getJavascriptExecutor()).executeScript("CopyToClipboard",
                 passcode);
-        // Verify that the copybutton can be clicked
-        webDriver.findElement(By.id("copybutton")).click();
+        wait.until(ExpectedConditions.elementToBeClickable(By.id("copybutton"))).click();
     }
 
     @Test
     void unsuccessfulLogin() {
         webDriver.get(baseUrl + "/login");
-        assertThat(webDriver.getTitle()).isEqualTo("Predix");
+        assertThat(webDriver.getTitle()).isEqualTo("Cloud Foundry");
 
         attemptLogin(testAccounts.getUserName(), "invalidpassword");
 
-        assertThat(webDriver.findElement(By.cssSelector(".toast__description")).getText()).contains("Provided credentials are invalid. Please try again.");
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Welcome!");
     }
 
     @Test
     void accessDeniedIfCsrfIsMissing() {
         RestTemplate template = new RestTemplate();
-        template.setErrorHandler(response -> response.getStatusCode().is5xxServerError());
+        template.setErrorHandler(new ResponseErrorHandler() {
+            @Override
+            public boolean hasError(ClientHttpResponse response) throws IOException {
+                return response.getStatusCode().is5xxServerError();
+            }
+
+            @Override
+            public void handleError(URI url, HttpMethod method, ClientHttpResponse response) {
+                // pass through
+            }
+        });
         LinkedMultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("username", testAccounts.getUserName());
         body.add("password", testAccounts.getPassword());
@@ -292,6 +304,15 @@ class LoginIT {
     }
 
     @Test
+    void csrfIsResetDuringLoginPageReload() {
+        webDriver.get(baseUrl + "/login");
+        String csrf1 = webDriver.manage().getCookieNamed(CookieBasedCsrfTokenRepository.DEFAULT_CSRF_COOKIE_NAME).getValue();
+        webDriver.get(baseUrl + "/login");
+        String csrf2 = webDriver.manage().getCookieNamed(CookieBasedCsrfTokenRepository.DEFAULT_CSRF_COOKIE_NAME).getValue();
+        assertThat(csrf2).isNotEqualTo(csrf1);
+    }
+
+    @Test
     void redirectAfterUnsuccessfulLogin() {
         RestTemplate template = new RestTemplate();
 
@@ -303,11 +324,11 @@ class LoginIT {
                 String.class);
 
         IntegrationTestUtils.copyCookies(loginResponse, headers);
-        String csrf = IntegrationTestUtils.extracCsrfToken(loginResponse.getBody());
+        String csrf = IntegrationTestUtils.extractCookieCsrf(loginResponse.getBody());
         LinkedMultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("username", testAccounts.getUserName());
         body.add("password", "invalidpassword");
-        body.add(CSRF_PARAMETER_NAME, csrf);
+        body.add(CookieBasedCsrfTokenRepository.DEFAULT_CSRF_COOKIE_NAME, csrf);
         loginResponse = template.exchange(baseUrl + "/login.do",
                 HttpMethod.POST,
                 new HttpEntity<>(body, headers),
@@ -318,6 +339,8 @@ class LoginIT {
     @Test
     void loginPageReloadBasedOnCsrf() {
         webDriver.get(baseUrl + "/login");
+        webDriver.createWebDriverWait()
+                .until(driver -> driver.getPageSource().contains("http-equiv=\"refresh\""));
         assertThat(webDriver.getPageSource()).contains("http-equiv=\"refresh\"");
     }
 
@@ -333,7 +356,7 @@ class LoginIT {
         }
 
         attemptLogin(userEmail, USER_PASSWORD);
-        assertThat(webDriver.findElement(By.cssSelector(".toast__description")).getText()).contains("Your account has been locked because of too many failed attempts to login.");
+        assertThat(webDriver.findElement(By.cssSelector(".alert-error")).getText()).contains("Your account has been locked because of too many failed attempts to login.");
     }
 
     public void attemptLogin(String username, String password) {
@@ -367,8 +390,7 @@ class LoginIT {
         webDriver.clickAndWait(By.cssSelector("div.action a"));
 
         loginThroughDiscovery(userEmail, USER_PASSWORD);
-        assertThat(webDriver.findElement(By.cssSelector(".island h1")).getText()).isEqualTo("You should not see this page. Set up your redirect URI.");
-
+        assertThat(webDriver.findElement(By.cssSelector(".island h1")).getText()).isEqualTo("Where to?");
     }
 
     @Test
@@ -391,11 +413,10 @@ class LoginIT {
         assertThat(webDriver.getCurrentUrl()).contains("login_hint");
         webDriver.findElement(By.id("password")).sendKeys(USER_PASSWORD);
         webDriver.clickAndWait(By.xpath("//input[@value='Sign in']"));
-        assertThat(webDriver.findElement(By.cssSelector(".island h1")).getText()).isEqualTo("You should not see this page. Set up your redirect URI.");
+        assertThat(webDriver.findElement(By.cssSelector(".island h1")).getText()).isEqualTo("Where to?");
     }
 
     @Test
-        //@Disabled("Not available in our version of UAA")
     void accountChooserPopulatesUsernameNotEmailWhenOriginIsUAAorLDAP() throws Exception {
         String userUAA = "{\"userId\":\"1\",\"username\":\"userUAA\",\"origin\":\"uaa\",\"email\":\"user@uaa.org\"}";
         String userLDAP = "{\"userId\":\"2\",\"username\":\"userLDAP\",\"origin\":\"ldap\",\"email\":\"user@ldap.org\"}";
@@ -432,7 +453,7 @@ class LoginIT {
 
         String redirectUri = "http://expected.com";
         webDriver.get(baseUrl + "/oauth/authorize?client_id=test&redirect_uri=" + redirectUri);
-        (webDriver.getJavascriptExecutor()).executeScript("document.getElementsByName('" + CSRF_PARAMETER_NAME + "')[0].value=''");
+        (webDriver.getJavascriptExecutor()).executeScript("document.getElementsByName('X-Uaa-Csrf')[0].value=''");
         webDriver.manage().deleteCookieNamed("JSESSIONID");
 
         webDriver.clickAndWait(By.xpath("//input[@value='Sign in']"));
@@ -446,7 +467,7 @@ class LoginIT {
     }
 
     private String createAnotherUser(String url) {
-        return IntegrationTestUtils.createAnotherUser(webDriver, USER_PASSWORD, simpleSmtpServer, url, testClient);
+        return IntegrationTestUtils.createAnotherUser(webDriver, USER_PASSWORD, greenMail, url, testClient);
     }
 
     private String createDiscoveryZone() {
@@ -460,7 +481,6 @@ class LoginIT {
         config.setAccountChooserEnabled(true);
         config.getCorsPolicy().getDefaultConfiguration().setAllowedMethods(
                 List.of(GET.toString(), POST.toString()));
-        config.getLinks().setSelfService(new Links.SelfService().setSignup("/create_account").setPasswd(""));
         IntegrationTestUtils.createZoneOrUpdateSubdomain(identityClient, baseUrl, testzone3, testzone3, config);
         String res = baseUrl.replace("localhost", testzone3 + ".localhost");
         webDriver.get(res + "/logout.do");
@@ -473,65 +493,5 @@ class LoginIT {
         webDriver.clickAndWait(By.cssSelector(".form-group input[value='Next']"));
         webDriver.findElement(By.id("password")).sendKeys(password);
         webDriver.clickAndWait(By.xpath("//input[@value='Sign in']"));
-    }
-
-    @Test
-    public void testSelfServiceResetPasswordLinksBehavior() {
-        RestTemplate adminClient = IntegrationTestUtils.getClientCredentialsTemplate(
-                IntegrationTestUtils.getClientCredentialsResource(baseUrl, new String[0], "admin", "adminsecret"));
-        String zoneId = "testzone3";
-        String zoneUrl = baseUrl.replace("localhost", zoneId+".localhost");
-        Links.SelfService selfService = new Links.SelfService();
-        IdentityZone testZone3 = IntegrationTestUtils.createZoneOrUpdateSubdomain(adminClient, baseUrl, zoneId, zoneId, new IdentityZoneConfiguration());
-
-        testZone3.getConfig().getLinks().setSelfService(selfService.setSelfServiceResetPasswordEnabled(true).setPasswd(""));
-        IntegrationTestUtils.createZoneOrUpdateSubdomain(adminClient, baseUrl, zoneId, zoneId, testZone3.getConfig());
-        webDriver.get(zoneUrl);
-        assertEquals(0, webDriver.findElements(By.xpath("//*[text()='Reset password']")).size());
-
-        testZone3.getConfig().getLinks().setSelfService(selfService.setSelfServiceResetPasswordEnabled(true).setPasswd(null));
-        IntegrationTestUtils.createZoneOrUpdateSubdomain(adminClient, baseUrl, zoneId, zoneId, testZone3.getConfig());
-        webDriver.get(zoneUrl);
-        assertEquals(1, webDriver.findElements(By.xpath("//*[text()='Reset password']")).size());
-
-        testZone3.getConfig().getLinks().setSelfService(selfService.setSelfServiceResetPasswordEnabled(true).setPasswd("/forgot_password"));
-        IntegrationTestUtils.createZoneOrUpdateSubdomain(adminClient, baseUrl, zoneId, zoneId, testZone3.getConfig());
-        webDriver.get(zoneUrl);
-        assertEquals(1, webDriver.findElements(By.xpath("//*[text()='Reset password']")).size());
-
-        testZone3.getConfig().getLinks().setSelfService(selfService.setSelfServiceResetPasswordEnabled(false).setPasswd("/forgot_password"));
-        IntegrationTestUtils.createZoneOrUpdateSubdomain(adminClient, baseUrl, zoneId, zoneId, testZone3.getConfig());
-        webDriver.get(zoneUrl);
-        assertEquals(0, webDriver.findElements(By.xpath("//*[text()='Reset password']")).size());
-    }
-
-    @Test
-    public void testSelfServiceCreateAccountLinksBehavior() {
-        RestTemplate adminClient = IntegrationTestUtils.getClientCredentialsTemplate(
-                IntegrationTestUtils.getClientCredentialsResource(baseUrl, new String[0], "admin", "adminsecret"));
-        String zoneId = "testzone3";
-        String zoneUrl = baseUrl.replace("localhost", zoneId+".localhost");
-        Links.SelfService selfService = new Links.SelfService();
-        IdentityZone testZone3 = IntegrationTestUtils.createZoneOrUpdateSubdomain(adminClient, baseUrl, zoneId, zoneId, new IdentityZoneConfiguration());
-
-        testZone3.getConfig().getLinks().setSelfService(selfService.setSelfServiceCreateAccountEnabled(true).setSignup(""));
-        IntegrationTestUtils.createZoneOrUpdateSubdomain(adminClient, baseUrl, zoneId, zoneId, testZone3.getConfig());
-        webDriver.get(zoneUrl);
-        assertEquals(0, webDriver.findElements(By.xpath("//*[text()='Create account']")).size());
-
-        testZone3.getConfig().getLinks().setSelfService(selfService.setSelfServiceCreateAccountEnabled(true).setSignup(null));
-        IntegrationTestUtils.createZoneOrUpdateSubdomain(adminClient, baseUrl, zoneId, zoneId, testZone3.getConfig());
-        webDriver.get(zoneUrl);
-        assertEquals(0, webDriver.findElements(By.xpath("//*[text()='Create account']")).size());
-
-        testZone3.getConfig().getLinks().setSelfService(selfService.setSelfServiceCreateAccountEnabled(false).setSignup("/create_account"));
-        IntegrationTestUtils.createZoneOrUpdateSubdomain(adminClient, baseUrl, zoneId, zoneId, testZone3.getConfig());
-        webDriver.get(zoneUrl);
-        assertEquals(0, webDriver.findElements(By.xpath("//*[text()='Create account']")).size());
-
-        testZone3.getConfig().getLinks().setSelfService(selfService.setSelfServiceCreateAccountEnabled(true).setSignup("/create_account"));
-        IntegrationTestUtils.createZoneOrUpdateSubdomain(adminClient, baseUrl, zoneId, zoneId, testZone3.getConfig());
-        webDriver.get(zoneUrl);
-        assertEquals(1, webDriver.findElements(By.xpath("//*[text()='Create account']")).size());
     }
 }

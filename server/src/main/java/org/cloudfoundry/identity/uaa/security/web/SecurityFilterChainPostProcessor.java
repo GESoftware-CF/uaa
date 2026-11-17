@@ -15,6 +15,7 @@
 package org.cloudfoundry.identity.uaa.security.web;
 
 import jakarta.servlet.RequestDispatcher;
+import org.apache.tomcat.util.http.InvalidParameterException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
@@ -267,6 +268,13 @@ public class SecurityFilterChainPostProcessor implements BeanPostProcessor {
                     request.getRequestDispatcher("/rejected").forward(request, response);
                     return;
                 }
+                if (x instanceof InvalidParameterException) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.getWriter().write("{\"error\":\"parameter_parsing_error\",\"error_description\":\"One of the parameters was incorrectly encoded\"}");
+                    response.flushBuffer();
+                    return;
+                }
                 ReasonPhrase reasonPhrase = getErrorMap().get(x.getClass());
                 if (null == reasonPhrase) {
                     for (Class<? extends Exception> clazz : getErrorMap().keySet()) {
@@ -347,12 +355,11 @@ public class SecurityFilterChainPostProcessor implements BeanPostProcessor {
                     }
                 }
             }
-            switch (placement) {
-                case POSITION: return position;
-                case BEFORE: return index;
-                case AFTER: return Math.min(chain.getFilters().size(), index + 1);
-            }
-            return index;
+            return switch (placement) {
+                case POSITION -> position;
+                case BEFORE -> index;
+                case AFTER -> Math.min(chain.getFilters().size(), index + 1);
+            };
         }
 
         public static FilterPosition position(int pos) {

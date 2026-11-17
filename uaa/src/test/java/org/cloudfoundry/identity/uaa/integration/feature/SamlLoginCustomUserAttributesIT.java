@@ -13,7 +13,7 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.integration.feature;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import org.cloudfoundry.identity.uaa.ServerRunningExtension;
 import org.cloudfoundry.identity.uaa.account.UserInfoResponse;
 import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
@@ -57,8 +57,8 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.cloudfoundry.identity.uaa.integration.feature.OIDCLoginIT.doesSupportZoneDNS;
 import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.createSimplePHPSamlIDP;
+import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.doesSupportZoneDNS;
 import static org.cloudfoundry.identity.uaa.oauth.common.OAuth2AccessToken.ACCESS_TOKEN;
 import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.USER_ATTRIBUTES;
 import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.USER_ATTRIBUTE_PREFIX;
@@ -88,7 +88,6 @@ class SamlLoginCustomUserAttributesIT {
     @Value("${integration.test.base_url}")
     String baseUrl;
 
-    @RegisterExtension
     private static final ServerRunningExtension serverRunning = ServerRunningExtension.connect();
 
     @Autowired
@@ -132,7 +131,7 @@ class SamlLoginCustomUserAttributesIT {
             try {
                 IntegrationTestUtils.deleteZone(baseUrl, zoneId, token);
                 IntegrationTestUtils.deleteProvider(token, baseUrl, "uaa", zoneId + ".cloudfoundry-saml-login");
-            } catch (Exception ignored) {
+            } catch (Exception _) {
                 // ignored
             }
         }
@@ -233,7 +232,7 @@ class SamlLoginCustomUserAttributesIT {
         //we should now be in the Simple SAML PHP site
         webDriver.findElement(By.xpath(samlServerConfig.getLoginPromptXpathExpr()));
         sendCredentials("marissa5", "saml5");
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("You should not see this page. Set up your redirect URI.");
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Where to?");
 
         // do an auth code grant, passing the jsessionid
         Cookie cookie = webDriver.manage().getCookieNamed("JSESSIONID");

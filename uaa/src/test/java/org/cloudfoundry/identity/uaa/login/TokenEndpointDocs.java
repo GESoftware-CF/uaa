@@ -1,14 +1,28 @@
 package org.cloudfoundry.identity.uaa.login;
 
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.BasicConstraints;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
+import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.util.io.pem.PemObject;
+import org.bouncycastle.util.io.pem.PemWriter;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthentication;
 import org.cloudfoundry.identity.uaa.authentication.UaaPrincipal;
+import org.cloudfoundry.identity.uaa.client.TlsClientAuthConfiguration;
 import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.mock.token.AbstractTokenMockMvcTests;
 import org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils;
 import org.cloudfoundry.identity.uaa.oauth.common.OAuth2RefreshToken;
+import org.cloudfoundry.identity.uaa.oauth.jwt.Jwt;
+import org.cloudfoundry.identity.uaa.oauth.jwt.JwtHelper;
 import org.cloudfoundry.identity.uaa.oauth.jwt.JwtClientAuthentication;
 import org.cloudfoundry.identity.uaa.oauth.pkce.PkceValidationService;
+import org.cloudfoundry.identity.uaa.oauth.tls.RawPeerCertificateCaptureFilter;
 import org.cloudfoundry.identity.uaa.oauth.token.CompositeToken;
 import org.cloudfoundry.identity.uaa.oauth.token.TokenConstants;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
@@ -25,6 +39,8 @@ import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter;
+import org.cloudfoundry.identity.uaa.zone.ZoneContextPathSessionFilter;
+import org.cloudfoundry.identity.uaa.zone.ZonePathContextRewritingFilter;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,8 +58,10 @@ import org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders;
 import org.springframework.restdocs.payload.FieldDescriptor;
 import org.springframework.restdocs.request.ParameterDescriptor;
 import org.springframework.restdocs.snippet.Snippet;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -51,10 +69,22 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.io.StringWriter;
+import java.math.BigInteger;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.MessageDigest;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.Security;
+import java.security.cert.X509Certificate;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.Date;
+import java.util.Map;
 
 import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.MockSecurityContext;
 import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.getClientCredentialsOAuthAccessToken;
@@ -78,8 +108,9 @@ import static org.cloudfoundry.identity.uaa.provider.saml.TestCredentialObjects.
 import static org.cloudfoundry.identity.uaa.provider.saml.TestCredentialObjects.legacyKey;
 import static org.cloudfoundry.identity.uaa.provider.saml.TestCredentialObjects.legacyPassphrase;
 import static org.cloudfoundry.identity.uaa.provider.saml.idp.SamlTestUtils.createLocalSamlIdpDefinition;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.cloudfoundry.identity.uaa.test.SnippetUtils.parameterWithName;
-import static org.hamcrest.Matchers.containsString;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.http.HttpHeaders.HOST;
 import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
@@ -101,10 +132,25 @@ import static org.springframework.restdocs.snippet.Attributes.key;
 import static org.springframework.restdocs.templates.TemplateFormats.markdown;
 import static org.springframework.security.config.BeanIds.SPRING_SECURITY_FILTER_CHAIN;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * {@code uaa.mtls.enabled=true} is set for the whole class because
+ * {@link #getTokenUsingClientCredentialGrantWithTlsClientAuth()} cannot document an endpoint the
+ * deployment has not enabled. That is a change to a pre-existing test's configuration, and it is
+ * load-bearing in a non-obvious way: enabling mTLS registers {@code MtlsClaimsEnhancer}, which makes
+ * {@code uaaTokenEnhancers} non-empty, and {@code UaaTokenServices} takes a different code path when
+ * that list is non-empty.
+ *
+ * <p>Checked rather than assumed: the generated snippets were captured with mTLS on and off and
+ * compared. Across all 29 other documented examples the response JSON key sets and every documented
+ * field/parameter table are identical; only randomised values (client ids, JWTs, timestamps) differ.
+ * So no other published example is affected. If a future change makes the enhancer contribute claims
+ * for non-{@code tls_client_auth} callers, that guarantee breaks and this example should move to its
+ * own docs class instead.
+ */
+@TestPropertySource(properties = {"login.entityBaseURL=", "uaa.mtls.enabled=true"})
 @ExtendWith(JUnitRestDocumentationExtension.class)
 class TokenEndpointDocs extends AbstractTokenMockMvcTests {
     private static final Base64.Encoder ENCODER = Base64.getEncoder();
@@ -150,13 +196,35 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
 
     private static final HeaderDescriptor IDENTITY_ZONE_ID_HEADER = headerWithName(IdentityZoneSwitchingFilter.HEADER).description("May include this header to administer another zone if using `zones.<zoneId>.admin` or `uaa.admin` scope against the default UAA zone.").optional();
     private static final HeaderDescriptor IDENTITY_ZONE_SUBDOMAIN_HEADER = headerWithName(IdentityZoneSwitchingFilter.SUBDOMAIN_HEADER).optional().description("If using a `zones.<zoneId>.admin` scope/token, indicates what zone this request goes to by supplying a subdomain.");
-    private static final HeaderDescriptor CLIENT_BASIC_AUTH_HEADER = headerWithName(HttpHeaders.AUTHORIZATION).optional().description("Client ID and secret may be passed as a basic authorization header, per <a href=\"https://tools.ietf.org/html/rfc6749#section-2.3.1\">RFC 6749</a> or as request parameters.");
+    /** Parallel to form body client_id/client_secret: documents client authentication via HTTP Basic (RFC 7617). */
+    private static final HeaderDescriptor CLIENT_BASIC_AUTH_HEADER = headerWithName(AUTHORIZATION)
+            .description("Base64 encoded client details in the format: `Basic client_id:client_secret`");
 
     private ScimUser user;
 
     @Qualifier(SPRING_SECURITY_FILTER_CHAIN)
     @Autowired
     FilterChainProxy securityFilterChain;
+
+    @Qualifier(ZonePathContextRewritingFilter.REGISTRATION_BEAN_NAME)
+    @Autowired
+    FilterRegistrationBean<ZonePathContextRewritingFilter> zonePathFilterRegistration;
+
+    @Qualifier(ZoneContextPathSessionFilter.REGISTRATION_BEAN_NAME)
+    @Autowired
+    FilterRegistrationBean<ZoneContextPathSessionFilter> zoneContextPathSessionFilterRegistration;
+
+    /**
+     * Registered in {@code SpringServletXmlFiltersConfiguration} but not automatically added to the
+     * servlet container by {@code MockMvcBuilders.webAppContextSetup(...)} -- must be added explicitly
+     * to the MockMvc filter chain (like the other filters below) so that
+     * {@link org.cloudfoundry.identity.uaa.oauth.tls.TlsClientAuthentication#getCertificateChainFromRequest}
+     * can read {@link RawPeerCertificateCaptureFilter#RAW_PEER_CERTIFICATE_ATTRIBUTE} for
+     * {@code /oauth/mtls/token} requests.
+     */
+    @Qualifier("rawPeerCertificateCaptureFilter")
+    @Autowired
+    FilterRegistrationBean<RawPeerCertificateCaptureFilter> rawPeerCertificateCaptureFilterRegistration;
 
     @BeforeAll
     static void beforeAll() {
@@ -173,6 +241,9 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
     @BeforeEach
     void setUpContext(ManualRestDocumentation manualRestDocumentation) {
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
+                .addFilter(zonePathFilterRegistration.getFilter())
+                .addFilter(zoneContextPathSessionFilterRegistration.getFilter())
+                .addFilter(rawPeerCertificateCaptureFilterRegistration.getFilter())
                 .addFilter(securityFilterChain)
                 .apply(documentationConfiguration(manualRestDocumentation)
                         .uris().withPort(80)
@@ -190,9 +261,20 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
         }
     }
 
-    @Test
-    void getTokenUsingAuthCodeGrant() throws Exception {
+    @BeforeEach
+    void configureJwksForPrivateKeyJwtDocumentationClients() throws Exception {
+        mergeSampleJwtClientConfiguration(IdentityZone.getUaa(), uaaClientDetails("login"));
+        mergeSampleJwtClientConfiguration(IdentityZone.getUaa(), uaaClientDetails("app"));
+    }
 
+    private UaaClientDetails uaaClientDetails(String clientId) throws Exception {
+        return (UaaClientDetails) clientDetailsService.loadClientByClientId(clientId, IdentityZone.getUaa().getId());
+    }
+
+    private record AuthCodeResult(String code, String redirect) {
+    }
+
+    private AuthCodeResult obtainAuthCodeForLoginClient() throws Exception {
         String cfAccessToken = getUserOAuthAccessToken(
                 mockMvc,
                 "cf",
@@ -218,24 +300,23 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
                 .getResponse();
 
         UriComponents location = UriComponentsBuilder.fromUri(URI.create(authCodeResponse.getHeader("Location"))).build();
-        String code = location.getQueryParams().getFirst("code");
+        return new AuthCodeResult(location.getQueryParams().getFirst("code"), redirect);
+    }
 
-        String clientAuthBase64 = new String(ENCODER.encode(("login:loginsecret".getBytes())));
-        Snippet headerFields = requestHeaders(CLIENT_BASIC_AUTH_HEADER);
+    @Test
+    void getTokenUsingAuthCodeGrantWithClientSecret() throws Exception {
+        AuthCodeResult auth = obtainAuthCodeForLoginClient();
 
         MockHttpServletRequestBuilder postForToken = post("/oauth/token")
-                .header(HttpHeaders.AUTHORIZATION, "Basic " + clientAuthBase64)
                 .accept(APPLICATION_JSON)
                 .contentType(APPLICATION_FORM_URLENCODED)
                 .param(CLIENT_ID, "login")
                 .param("client_secret", "loginsecret")
-                .param("client_assertion", "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjU4ZDU1YzUwMGNjNmI1ODM3OTYxN2UwNmU3ZGVjNmNhIn0.eyJzdWIiOiJsb2dpbiIsImlzcyI6ImxvZ2luIiwianRpIjoiNThkNTVjNTAwY2M2YjU4Mzc5NjE3ZTA2ZTdhZmZlZSIsImV4cCI6MTIzNDU2NzgsImF1ZCI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODA4MC91YWEvb2F1dGgvdG9rZW4ifQ.jwWw0OKZecd4ZjtwQ_ievqBVrh2SieqMF6vY74Oo5H6v-Ibcmumq96NLNtoUEwaAEQQOHb8MWcC8Gwi9dVQdCrtpomC86b_LKkihRBSKuqpw0udL9RMH5kgtC04ctsN0yZNifUWMP85VHn97Ual5eZ2miaBFob3H5jUe98CcBj1TSRehr64qBFYuwt9vD19q6U-ONhRt0RXBPB7ayHAOMYtb1LFIzGAiKvqWEy9f-TBPXSsETjKkAtSuM-WVWi4EhACMtSvI6iJN15f7qlverRSkGIdh1j2vPXpKKBJoRhoLw6YqbgcUC9vAr17wfa_POxaRHvh9JPty0ZXLA4XPtA")
-                .param("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
                 .param(GRANT_TYPE, GRANT_TYPE_AUTHORIZATION_CODE)
-                .param("code", code)
+                .param("code", auth.code())
                 .param(REQUEST_TOKEN_FORMAT, OPAQUE.getStringValue())
                 .param(PkceValidationService.CODE_VERIFIER, UaaTestAccounts.CODE_VERIFIER)
-                .param(REDIRECT_URI, redirect);
+                .param(REDIRECT_URI, auth.redirect());
 
         Snippet formParameters = formParameters(
                 clientIdParameter,
@@ -243,6 +324,88 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
                 parameterWithName("code").description(codeDescription).attributes(SnippetUtils.constraints.value("Required"), SnippetUtils.type.value(STRING)),
                 grantTypeParameter.description("the type of authentication being used to obtain the token, in this case `authorization_code`"),
                 clientSecretParameter.description("<small><mark>UAA 75.21.0</mark></small> Optional and can be omitted if client has configured allowpublic and [PKCE](https://tools.ietf.org/html/rfc7636) with `code_challenge_method=S256` is used to create to `code`."),
+                codeVerifier,
+                opaqueFormatParameter
+        );
+
+        Snippet responseFields = responseFields(
+                accessTokenFieldDescriptor,
+                idTokenFieldDescriptor,
+                tokenTypeFieldDescriptor,
+                expiresInFieldDescriptor,
+                scopeFieldDescriptorWhenUserToken,
+                refreshTokenFieldDescriptor,
+                jtiFieldDescriptor
+        );
+
+        mockMvc.perform(postForToken)
+                .andExpect(status().isOk())
+                .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), formParameters, responseFields));
+    }
+
+    @Test
+    void getTokenUsingAuthCodeGrantWithAuthorizationHeader() throws Exception {
+        AuthCodeResult auth = obtainAuthCodeForLoginClient();
+
+        String clientAuthorization = new String(ENCODER.encode("login:loginsecret".getBytes()));
+        MockHttpServletRequestBuilder postForToken = post("/oauth/token")
+                .accept(APPLICATION_JSON)
+                .contentType(APPLICATION_FORM_URLENCODED)
+                .header(AUTHORIZATION, "Basic " + clientAuthorization)
+                .param(CLIENT_ID, "login")
+                .param(GRANT_TYPE, GRANT_TYPE_AUTHORIZATION_CODE)
+                .param("code", auth.code())
+                .param(REQUEST_TOKEN_FORMAT, OPAQUE.getStringValue())
+                .param(PkceValidationService.CODE_VERIFIER, UaaTestAccounts.CODE_VERIFIER)
+                .param(REDIRECT_URI, auth.redirect());
+
+        Snippet requestHeaders = requestHeaders(CLIENT_BASIC_AUTH_HEADER);
+
+        Snippet formParameters = formParameters(
+                clientIdParameter,
+                parameterWithName(REDIRECT_URI).description("redirection URI to which the authorization server will send the user-agent back once access is granted (or denied)").attributes(SnippetUtils.constraints.value("Required if provided on authorization request"), SnippetUtils.type.value(STRING)),
+                parameterWithName("code").description(codeDescription).attributes(SnippetUtils.constraints.value("Required"), SnippetUtils.type.value(STRING)),
+                grantTypeParameter.description("the type of authentication being used to obtain the token, in this case `authorization_code`"),
+                codeVerifier,
+                opaqueFormatParameter
+        );
+
+        Snippet responseFields = responseFields(
+                accessTokenFieldDescriptor,
+                idTokenFieldDescriptor,
+                tokenTypeFieldDescriptor,
+                expiresInFieldDescriptor,
+                scopeFieldDescriptorWhenUserToken,
+                refreshTokenFieldDescriptor,
+                jtiFieldDescriptor
+        );
+
+        mockMvc.perform(postForToken)
+                .andExpect(status().isOk())
+                .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), requestHeaders, formParameters, responseFields));
+    }
+
+    @Test
+    void getTokenUsingAuthCodeGrantWithClientAssertion() throws Exception {
+        AuthCodeResult auth = obtainAuthCodeForLoginClient();
+
+        MockHttpServletRequestBuilder postForToken = post("/oauth/token")
+                .accept(APPLICATION_JSON)
+                .contentType(APPLICATION_FORM_URLENCODED)
+                .param(CLIENT_ID, "login")
+                .param("client_assertion", getClientAssertionJwt(IdentityZone.getUaa(), uaaClientDetails("login")))
+                .param("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
+                .param(GRANT_TYPE, GRANT_TYPE_AUTHORIZATION_CODE)
+                .param("code", auth.code())
+                .param(REQUEST_TOKEN_FORMAT, OPAQUE.getStringValue())
+                .param(PkceValidationService.CODE_VERIFIER, UaaTestAccounts.CODE_VERIFIER)
+                .param(REDIRECT_URI, auth.redirect());
+
+        Snippet formParameters = formParameters(
+                clientIdParameter,
+                parameterWithName(REDIRECT_URI).description("redirection URI to which the authorization server will send the user-agent back once access is granted (or denied)").attributes(SnippetUtils.constraints.value("Required if provided on authorization request"), SnippetUtils.type.value(STRING)),
+                parameterWithName("code").description(codeDescription).attributes(SnippetUtils.constraints.value("Required"), SnippetUtils.type.value(STRING)),
+                grantTypeParameter.description("the type of authentication being used to obtain the token, in this case `authorization_code`"),
                 clientAssertion,
                 clientAssertionType,
                 codeVerifier,
@@ -261,19 +424,17 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
 
         mockMvc.perform(postForToken)
                 .andExpect(status().isOk())
-                .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), headerFields, formParameters, responseFields));
+                .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), formParameters, responseFields));
     }
 
     @Test
-    void getTokenUsingClientCredentialGrant() throws Exception {
+    void getTokenUsingClientCredentialGrantWithClientSecret() throws Exception {
 
         MockHttpServletRequestBuilder postForToken = post("/oauth/token")
                 .accept(APPLICATION_JSON)
                 .contentType(APPLICATION_FORM_URLENCODED)
                 .param(CLIENT_ID, "login")
                 .param("client_secret", "loginsecret")
-                .param("client_assertion", "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjU4ZDU1YzUwMGNjNmI1ODM3OTYxN2UwNmU3ZGVjNmNhIn0.eyJzdWIiOiJsb2dpbiIsImlzcyI6ImxvZ2luIiwianRpIjoiNThkNTVjNTAwY2M2YjU4Mzc5NjE3ZTA2ZTdhZmZlZSIsImV4cCI6MTIzNDU2NzgsImF1ZCI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODA4MC91YWEvb2F1dGgvdG9rZW4ifQ.jwWw0OKZecd4ZjtwQ_ievqBVrh2SieqMF6vY74Oo5H6v-Ibcmumq96NLNtoUEwaAEQQOHb8MWcC8Gwi9dVQdCrtpomC86b_LKkihRBSKuqpw0udL9RMH5kgtC04ctsN0yZNifUWMP85VHn97Ual5eZ2miaBFob3H5jUe98CcBj1TSRehr64qBFYuwt9vD19q6U-ONhRt0RXBPB7ayHAOMYtb1LFIzGAiKvqWEy9f-TBPXSsETjKkAtSuM-WVWi4EhACMtSvI6iJN15f7qlverRSkGIdh1j2vPXpKKBJoRhoLw6YqbgcUC9vAr17wfa_POxaRHvh9JPty0ZXLA4XPtA")
-                .param("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
                 .param(SCOPE, "scim.write")
                 .param(GRANT_TYPE, GRANT_TYPE_CLIENT_CREDENTIALS)
                 .param(REQUEST_TOKEN_FORMAT, OPAQUE.getStringValue());
@@ -282,6 +443,38 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
                 clientIdParameter,
                 grantTypeParameter.description("the type of authentication being used to obtain the token, in this case `client_credentials`"),
                 clientSecretParameter,
+                scopeParameter,
+                opaqueFormatParameter
+        );
+
+        Snippet responseFields = responseFields(
+                accessTokenFieldDescriptor,
+                tokenTypeFieldDescriptor,
+                expiresInFieldDescriptor,
+                scopeFieldDescriptorWhenClientCredentialsToken,
+                jtiFieldDescriptor
+        );
+
+        mockMvc.perform(postForToken)
+                .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), formParameters, responseFields));
+    }
+
+    @Test
+    void getTokenUsingClientCredentialGrantWithClientAssertion() throws Exception {
+
+        MockHttpServletRequestBuilder postForToken = post("/oauth/token")
+                .accept(APPLICATION_JSON)
+                .contentType(APPLICATION_FORM_URLENCODED)
+                .param(CLIENT_ID, "login")
+                .param("client_assertion", getClientAssertionJwt(IdentityZone.getUaa(), uaaClientDetails("login")))
+                .param("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
+                .param(SCOPE, "scim.write")
+                .param(GRANT_TYPE, GRANT_TYPE_CLIENT_CREDENTIALS)
+                .param(REQUEST_TOKEN_FORMAT, OPAQUE.getStringValue());
+
+        Snippet formParameters = formParameters(
+                clientIdParameter,
+                grantTypeParameter.description("the type of authentication being used to obtain the token, in this case `client_credentials`"),
                 clientAssertion,
                 clientAssertionType,
                 scopeParameter,
@@ -318,7 +511,7 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
                 opaqueFormatParameter
         );
 
-        Snippet requestHeaders = requestHeaders(headerWithName("Authorization").description("Base64 encoded client details in the format: `Basic client_id:client_secret`"));
+        Snippet requestHeaders = requestHeaders(CLIENT_BASIC_AUTH_HEADER);
 
         Snippet responseFields = responseFields(
                 accessTokenFieldDescriptor,
@@ -332,15 +525,160 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
                 .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), formParameters, requestHeaders, responseFields));
     }
 
+    /**
+     * Documents {@code /oauth/mtls/token} (RFC 8705 mutual-TLS client authentication, {@code tls_client_auth}).
+     * Unlike {@code client_secret}/{@code client_assertion}, this method has no request parameter at all --
+     * the client authenticates by presenting an X.509 certificate at the TLS layer itself (or, behind a
+     * trusted proxy, via the {@code X-Forwarded-Client-Cert} header), which the Gorouter/servlet container
+     * populates on the request before this endpoint's client authentication runs. This test simulates that by
+     * setting the standard {@code jakarta.servlet.request.X509Certificate} request attribute directly, which
+     * {@link RawPeerCertificateCaptureFilter} (added to the MockMvc filter chain in {@link #setUpContext}, as
+     * it would run in the real filter chain) copies into the attribute
+     * {@link org.cloudfoundry.identity.uaa.oauth.tls.TlsClientAuthentication#getCertificateChainFromRequest}
+     * reads for {@code /oauth/mtls/token/**} requests -- exercising the same
+     * {@code ClientDetailsAuthenticationProvider.validateTlsClientAuth} path a genuine mTLS handshake would.
+     */
     @Test
-    void getTokenUsingPasswordGrant() throws Exception {
+    void getTokenUsingClientCredentialGrantWithTlsClientAuth() throws Exception {
+        KeyPair caKeyPair = generateKeyPair();
+        X500Name caSubject = new X500Name("CN=Test mTLS CA");
+        X509Certificate caCert = signCert(caSubject, caSubject, caKeyPair.getPublic(), caKeyPair.getPrivate(), true, BigInteger.valueOf(1));
+
+        KeyPair leafKeyPair = generateKeyPair();
+        X500Name leafSubject = new X500Name("CN=mtls-doc-client");
+        X509Certificate leafCert = signCert(leafSubject, caSubject, leafKeyPair.getPublic(), caKeyPair.getPrivate(), false, BigInteger.valueOf(2));
+
+        // RFC 8707: the one resource this client is permitted to request. An absent or non-permitted
+        // value is refused as invalid_target, so the allow-list has to be registered to document it.
+        String permittedResource = "https://billing.apps.internal";
+
+        String clientId = "mtlsdocclient" + generator.generate();
+        setUpClients(clientId, "uaa.resource", "uaa.resource", GRANT_TYPE_CLIENT_CREDENTIALS,
+                false, null, null, -1, IdentityZone.getUaa(),
+                Map.of(
+                        TlsClientAuthConfiguration.TLS_CLIENT_AUTH_CA, toPem(caCert),
+                        // RFC 8705 section 2.1.2 requires exactly one registered subject value; the
+                        // CA only establishes who issued the certificate, not which client it is.
+                        TlsClientAuthConfiguration.TLS_CLIENT_AUTH_SUBJECT_DN, "CN=mtls-doc-client",
+                        TlsClientAuthConfiguration.TLS_CLIENT_CERTIFICATE_BOUND_ACCESS_TOKENS, true,
+                        TlsClientAuthConfiguration.TLS_CLIENT_AUTH_CLAIM_MAPPINGS,
+                        Collections.singletonList(new TlsClientAuthConfiguration.ClaimMapping(
+                                "subject_cn", null, "instance_guid")),
+                        TlsClientAuthConfiguration.TLS_CLIENT_AUTH_ALLOWED_RESOURCES,
+                        Collections.singletonList(permittedResource)));
+        clientDetailsService.updateClientSecret(clientId, null);
+        assertThat(clientDetailsService.loadClientByClientId(clientId).getClientSecret()).isNull();
+
+        MockHttpServletRequestBuilder postForToken = RestDocumentationRequestBuilders.post("/oauth/mtls/token")
+                .accept(APPLICATION_JSON)
+                .contentType(APPLICATION_FORM_URLENCODED)
+                .param(CLIENT_ID, clientId)
+                .param(GRANT_TYPE, GRANT_TYPE_CLIENT_CREDENTIALS)
+                .param(REQUEST_TOKEN_FORMAT, JWT.getStringValue())
+                .param(TlsClientAuthConfiguration.RESOURCE_PARAMETER, permittedResource)
+                // RawPeerCertificateCaptureFilter.isMtlsTokenPath(...) matches on the *effective*
+                // servlet path (post-ZonePathContextRewritingFilter); MockMvc does not compute this
+                // itself from the request URI the way a real DispatcherServlet mapping would, so it
+                // must be set explicitly here to simulate the real /oauth/mtls/token servlet path.
+                .servletPath("/oauth/mtls/token")
+                .requestAttr("jakarta.servlet.request.X509Certificate", new X509Certificate[]{leafCert});
+
+        ParameterDescriptor mtlsClientIdParameter = parameterWithName(CLIENT_ID).required().type(STRING)
+                .description("Required. The client ID whose tls-client-auth-ca selects the certificate trust anchor for this mTLS token request.");
+        assertThat(mtlsClientIdParameter.getAttributes()).containsEntry("constraints", SnippetUtils.REQUIRED);
+
+        Snippet formParameters = formParameters(
+                mtlsClientIdParameter,
+                grantTypeParameter.description("the type of authentication being used to obtain the token, in this case `client_credentials`"),
+                parameterWithName(REQUEST_TOKEN_FORMAT).optional("jwt").type(STRING)
+                        .description("Set to `jwt` to receive a JSON Web Token containing the mTLS certificate-derived claims and RFC 8705 confirmation claim."),
+                parameterWithName(TlsClientAuthConfiguration.RESOURCE_PARAMETER).optional(null).type(STRING)
+                        .description("Optional. An [RFC 8707](https://www.rfc-editor.org/rfc/rfc8707) resource indicator "
+                                + "naming the target this token is for; it becomes the token's `aud` claim. Must be an "
+                                + "absolute URI without a fragment, and must be one of the values registered in the "
+                                + "client's `tls-client-auth-allowed-resources`. A value outside that list, more than one "
+                                + "`resource` parameter, or a client with no allow-list configured is refused with "
+                                + "`invalid_target`. Omit it to receive the client's default audience.")
+        );
+
+        Snippet responseFields = responseFields(
+                accessTokenFieldDescriptor,
+                tokenTypeFieldDescriptor,
+                expiresInFieldDescriptor,
+                scopeFieldDescriptorWhenClientCredentialsToken,
+                jtiFieldDescriptor
+        );
+
+        MvcResult result = mockMvc.perform(postForToken)
+                .andExpect(status().isOk())
+                .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), formParameters, responseFields))
+                .andReturn();
+
+        String formParametersSnippet = Files.readString(Path.of(
+                System.getProperty("docs.build.generated.snippets.dir"),
+                "TokenEndpointDocs",
+                "getTokenUsingClientCredentialGrantWithTlsClientAuth",
+                "form-parameters.md"));
+        assertThat(formParametersSnippet)
+                .contains("`client_id`", "Required.");
+
+        Map<String, Object> tokenResponse = JsonUtils.readValue(result.getResponse().getContentAsString(), Map.class);
+        Jwt accessToken = JwtHelper.decode((String) tokenResponse.get("access_token"));
+        String kid = accessToken.getHeader().getKid();
+        assertThat(kid).isNotBlank();
+        assertThatCode(() -> accessToken.verifySignature(keyInfoService.getKey(kid).getVerifier()))
+                .doesNotThrowAnyException();
+
+        Map<String, Object> claims = JsonUtils.readValue(accessToken.getClaims(), Map.class);
+        assertThat(claims).containsEntry("instance_guid", "mtls-doc-client");
+        // A single-element aud renders as a scalar string per RFC 7519 section 4.1.3.
+        assertThat(claims)
+                .as("the requested RFC 8707 resource must be what the token is actually audienced for, "
+                        + "otherwise the documented parameter would be decorative")
+                .containsEntry("aud", permittedResource);
+        String expectedThumbprint = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(MessageDigest.getInstance("SHA-256").digest(leafCert.getEncoded()));
+        assertThat((Map<String, Object>) claims.get("cnf"))
+                .containsEntry("x5t#S256", expectedThumbprint);
+    }
+
+    private static KeyPair generateKeyPair() throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA", BouncyCastleFipsProvider.PROVIDER_NAME);
+        kpg.initialize(2048);
+        return kpg.generateKeyPair();
+    }
+
+    private static X509Certificate signCert(X500Name subject, X500Name issuer, PublicKey subjectKey,
+            PrivateKey signerKey, boolean isCa, BigInteger serial) throws Exception {
+        Date notBefore = new Date(System.currentTimeMillis() - 60_000);
+        Date notAfter = new Date(System.currentTimeMillis() + 3_600_000);
+        JcaX509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
+                issuer, serial, notBefore, notAfter, subject, subjectKey);
+        builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(isCa));
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
+                .setProvider(BouncyCastleFipsProvider.PROVIDER_NAME)
+                .build(signerKey);
+        X509CertificateHolder holder = builder.build(signer);
+        return new JcaX509CertificateConverter()
+                .setProvider(BouncyCastleFipsProvider.PROVIDER_NAME)
+                .getCertificate(holder);
+    }
+
+    private static String toPem(X509Certificate cert) throws Exception {
+        StringWriter sw = new StringWriter();
+        try (PemWriter pemWriter = new PemWriter(sw)) {
+            pemWriter.writeObject(new PemObject("CERTIFICATE", cert.getEncoded()));
+        }
+        return sw.toString();
+    }
+
+    @Test
+    void getTokenUsingPasswordGrantWithClientSecret() throws Exception {
         MockHttpServletRequestBuilder postForToken = post("/oauth/token")
                 .accept(APPLICATION_JSON)
                 .contentType(APPLICATION_FORM_URLENCODED)
                 .param(CLIENT_ID, "app")
                 .param("client_secret", "appclientsecret")
-                .param("client_assertion", "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjU4ZDU1YzUwMGNjNmI1ODM3OTYxN2UwNmU3ZGVjNmNhIn0.eyJzdWIiOiJsb2dpbiIsImlzcyI6ImxvZ2luIiwianRpIjoiNThkNTVjNTAwY2M2YjU4Mzc5NjE3ZTA2ZTdhZmZlZSIsImV4cCI6MTIzNDU2NzgsImF1ZCI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODA4MC91YWEvb2F1dGgvdG9rZW4ifQ.jwWw0OKZecd4ZjtwQ_ievqBVrh2SieqMF6vY74Oo5H6v-Ibcmumq96NLNtoUEwaAEQQOHb8MWcC8Gwi9dVQdCrtpomC86b_LKkihRBSKuqpw0udL9RMH5kgtC04ctsN0yZNifUWMP85VHn97Ual5eZ2miaBFob3H5jUe98CcBj1TSRehr64qBFYuwt9vD19q6U-ONhRt0RXBPB7ayHAOMYtb1LFIzGAiKvqWEy9f-TBPXSsETjKkAtSuM-WVWi4EhACMtSvI6iJN15f7qlverRSkGIdh1j2vPXpKKBJoRhoLw6YqbgcUC9vAr17wfa_POxaRHvh9JPty0ZXLA4XPtA")
-                .param("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
                 .param(GRANT_TYPE, GRANT_TYPE_PASSWORD)
                 .param("username", user.getUserName())
                 .param("password", user.getPassword())
@@ -351,6 +689,43 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
                 clientIdParameter,
                 grantTypeParameter.description("the type of authentication being used to obtain the token, in this case `password`"),
                 clientSecretParameter,
+                parameterWithName("username").required().type(STRING).description("the username for the user trying to get a token"),
+                parameterWithName("password").required().type(STRING).description("the password for the user trying to get a token"),
+                opaqueFormatParameter,
+                loginHintParameter
+        );
+
+        Snippet responseFields = responseFields(
+                accessTokenFieldDescriptor,
+                idTokenFieldDescriptor,
+                tokenTypeFieldDescriptor,
+                expiresInFieldDescriptor,
+                scopeFieldDescriptorWhenUserToken,
+                refreshTokenFieldDescriptor,
+                jtiFieldDescriptor
+        );
+
+        mockMvc.perform(postForToken)
+                .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), formParameters, responseFields));
+    }
+
+    @Test
+    void getTokenUsingPasswordGrantWithClientAssertion() throws Exception {
+        MockHttpServletRequestBuilder postForToken = post("/oauth/token")
+                .accept(APPLICATION_JSON)
+                .contentType(APPLICATION_FORM_URLENCODED)
+                .param(CLIENT_ID, "app")
+                .param("client_assertion", getClientAssertionJwt(IdentityZone.getUaa(), uaaClientDetails("app")))
+                .param("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
+                .param(GRANT_TYPE, GRANT_TYPE_PASSWORD)
+                .param("username", user.getUserName())
+                .param("password", user.getPassword())
+                .param(REQUEST_TOKEN_FORMAT, OPAQUE.getStringValue())
+                .param("login_hint", "{\"origin\":\"uaa\"}");
+
+        Snippet formParameters = formParameters(
+                clientIdParameter,
+                grantTypeParameter.description("the type of authentication being used to obtain the token, in this case `password`"),
                 clientAssertion,
                 clientAssertionType,
                 parameterWithName("username").required().type(STRING).description("the username for the user trying to get a token"),
@@ -416,66 +791,177 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
                 .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), requestHeaders, formParameters, responseFields));
     }
 
-    @Test
-    void getTokenUsingSaml2BearerGrant() throws Exception {
-        final String subdomain = "68uexx";
-        // all our SAML defaults use `:8080/uaa/` so we have to use that here too
+    private record Saml2BearerDocContext(String fullPath, String host, String clientId, String encodedSamlAssertion,
+                                         IdentityZone clientZone, UaaClientDetails oauthClient) {
+    }
+
+    /**
+     * @param useDefaultOAuthTokenPath when {@code true}, the documented HTTP request POSTs to {@code /uaa/oauth/token};
+     *                                 the SAML assertion {@code Recipient} must still be the IdP ACS-derived
+     *                                 {@code .../oauth/token/alias/&lt;registrationId&gt;} URI (same as the alias-path flow).
+     */
+    private Saml2BearerDocContext prepareSaml2BearerDocumentationContext(String subdomain, boolean useDefaultOAuthTokenPath) throws Exception {
         final String host = "%s.localhost".formatted(subdomain);
-        final String fullPath = "/uaa/oauth/token/alias/%s.integration-saml-entity-id".formatted(subdomain);
+        final String fullPath = useDefaultOAuthTokenPath
+                ? "/uaa/oauth/token"
+                : "/uaa/oauth/token/alias/%s.integration-saml-entity-id".formatted(subdomain);
         final String origin = "%s.integration-saml-entity-id".formatted(subdomain);
         MockMvcUtils.IdentityZoneCreationResult testZone = MockMvcUtils.createOtherIdentityZoneAndReturnResult(
                 subdomain, mockMvc, this.webApplicationContext, null,
                 IdentityZoneHolder.getCurrentZoneId());
 
-        //create an IDP in the default zone
-        String idpMetadata = getIdpMetadata(host, origin);
+        IdentityZone samlZone = identityZoneProvisioning.retrieve(testZone.getIdentityZone().getId());
+
+        String samlIssuerEntityId = "%s.cloudfoundry-saml-login".formatted(subdomain);
+        String idpMetadata = getIdpMetadata(host, origin, samlIssuerEntityId);
         SamlIdentityProviderDefinition idpDef = createLocalSamlIdpDefinition(
-                origin, testZone.getIdentityZone().getId(), idpMetadata);
-        idpDef.setIdpEntityId("68uexx.cloudfoundry-saml-login");
+                origin, samlZone.getId(), idpMetadata);
+        // Issuer must match entityID in metadata and the SAML assertion; signing uses legacy test keys (issuerEntityId param only).
+        idpDef.setIdpEntityId(samlIssuerEntityId);
         IdentityProvider<SamlIdentityProviderDefinition> provider = new IdentityProvider<>();
         provider.setConfig(idpDef);
         provider.setActive(true);
-        provider.setIdentityZoneId(testZone.getIdentityZone().getId());
+        provider.setIdentityZoneId(samlZone.getId());
         provider.setName(origin);
         provider.setOriginKey(origin);
 
-        IdentityZoneHolder.set(testZone.getIdentityZone());
-        identityProviderProvisioning.create(provider, testZone.getIdentityZone().getId());
+        IdentityZoneHolder.set(samlZone);
+        identityProviderProvisioning.create(provider, samlZone.getId());
         IdentityZoneHolder.clear();
 
         String spEndpoint = "http://%s:8080/uaa/oauth/token/alias/%s".formatted(host, origin);
-        String assertionStr = TestOpenSamlObjects.getEncodedAssertion("68uexx.cloudfoundry-saml-login", NameID.UNSPECIFIED,
+        String assertionStr = TestOpenSamlObjects.getEncodedAssertion(samlIssuerEntityId, NameID.UNSPECIFIED,
                 "Saml2BearerIntegrationUser", spEndpoint, origin, true);
 
-        // create a client in the default zone
         String clientId = "testclient" + generator.generate();
-        setUpClients(clientId, "uaa.none", "uaa.user,openid",
+        UaaClientDetails oauthClient = setUpClients(clientId, "uaa.none", "uaa.user,openid",
                 GRANT_TYPE_SAML2_BEARER + ",password,refresh_token", true,
-                TEST_REDIRECT_URI, null, 600, testZone.getIdentityZone());
+                TEST_REDIRECT_URI, null, 600, samlZone);
+        mergeSampleJwtClientConfiguration(samlZone, oauthClient);
+        oauthClient = (UaaClientDetails) clientDetailsService.loadClientByClientId(clientId, samlZone.getId());
 
-        MockHttpServletRequestBuilder post = MockMvcRequestBuilders.post(fullPath)
+        return new Saml2BearerDocContext(fullPath, host, clientId, assertionStr, samlZone, oauthClient);
+    }
+
+    @Test
+    void getTokenUsingSaml2BearerGrantWithClientSecretOnDefaultTokenPath() throws Exception {
+        Saml2BearerDocContext ctx = prepareSaml2BearerDocumentationContext("68ues4", true);
+
+        MockHttpServletRequestBuilder post = MockMvcRequestBuilders.post(ctx.fullPath())
                 .with(request -> {
                     request.setServerPort(8080);
-                    request.setRequestURI(fullPath);
-                    request.setServerName(host);
+                    request.setRequestURI(ctx.fullPath());
+                    request.setServerName(ctx.host());
                     return request;
                 })
                 .contextPath("/uaa")
                 .accept(APPLICATION_JSON)
-                .header(HOST, host)
+                .header(HOST, ctx.host())
                 .contentType(APPLICATION_FORM_URLENCODED)
                 .param("grant_type", TokenConstants.GRANT_TYPE_SAML2_BEARER)
-                .param("client_id", clientId)
+                .param("client_id", ctx.clientId())
                 .param("client_secret", "secret")
-                .param("client_assertion", "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjU4ZDU1YzUwMGNjNmI1ODM3OTYxN2UwNmU3ZGVjNmNhIn0.eyJzdWIiOiJsb2dpbiIsImlzcyI6ImxvZ2luIiwianRpIjoiNThkNTVjNTAwY2M2YjU4Mzc5NjE3ZTA2ZTdhZmZlZSIsImV4cCI6MTIzNDU2NzgsImF1ZCI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODA4MC91YWEvb2F1dGgvdG9rZW4ifQ.jwWw0OKZecd4ZjtwQ_ievqBVrh2SieqMF6vY74Oo5H6v-Ibcmumq96NLNtoUEwaAEQQOHb8MWcC8Gwi9dVQdCrtpomC86b_LKkihRBSKuqpw0udL9RMH5kgtC04ctsN0yZNifUWMP85VHn97Ual5eZ2miaBFob3H5jUe98CcBj1TSRehr64qBFYuwt9vD19q6U-ONhRt0RXBPB7ayHAOMYtb1LFIzGAiKvqWEy9f-TBPXSsETjKkAtSuM-WVWi4EhACMtSvI6iJN15f7qlverRSkGIdh1j2vPXpKKBJoRhoLw6YqbgcUC9vAr17wfa_POxaRHvh9JPty0ZXLA4XPtA")
-                .param("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
-                .param("assertion", assertionStr)
+                .param("assertion", ctx.encodedSamlAssertion())
                 .param("scope", "openid");
 
         final ParameterDescriptor assertionFormatParameter = parameterWithName("assertion").required().type(STRING).description("An XML based SAML 2.0 bearer assertion, which is Base64URl encoded.");
         Snippet formParameters = formParameters(
                 clientIdParameter.description("The client ID of the receiving client, this client must have `urn:ietf:params:oauth:grant-type:saml2-bearer` grant type"),
                 clientSecretParameter,
+                grantTypeParameter.description("The type of token grant requested, in this case `" + GRANT_TYPE_SAML2_BEARER + "`"),
+                assertionFormatParameter,
+                scopeParameter
+        );
+
+        Snippet responseFields = responseFields(
+                accessTokenFieldDescriptor,
+                fieldWithPath("token_type").description("The type of the access token issued, always `bearer`"),
+                fieldWithPath("expires_in").description("Number of seconds of lifetime for an access_token, when retrieved"),
+                scopeFieldDescriptorWhenUserToken,
+                refreshTokenFieldDescriptor,
+                jtiFieldDescriptor
+        );
+
+        mockMvc.perform(post)
+                .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), formParameters, responseFields))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.access_token").exists())
+                .andExpect(jsonPath("$.scope").value("openid"));
+    }
+
+    @Test
+    void getTokenUsingSaml2BearerGrantWithAuthorizationHeaderOnDefaultTokenPath() throws Exception {
+        Saml2BearerDocContext ctx = prepareSaml2BearerDocumentationContext("68ues5", true);
+
+        String clientAuthorization = new String(ENCODER.encode((ctx.clientId() + ":secret").getBytes()));
+
+        MockHttpServletRequestBuilder post = MockMvcRequestBuilders.post(ctx.fullPath())
+                .with(request -> {
+                    request.setServerPort(8080);
+                    request.setRequestURI(ctx.fullPath());
+                    request.setServerName(ctx.host());
+                    return request;
+                })
+                .contextPath("/uaa")
+                .accept(APPLICATION_JSON)
+                .header(HOST, ctx.host())
+                .header(AUTHORIZATION, "Basic " + clientAuthorization)
+                .contentType(APPLICATION_FORM_URLENCODED)
+                .param("grant_type", TokenConstants.GRANT_TYPE_SAML2_BEARER)
+                .param("client_id", ctx.clientId())
+                .param("assertion", ctx.encodedSamlAssertion())
+                .param("scope", "openid");
+
+        final ParameterDescriptor assertionFormatParameter = parameterWithName("assertion").required().type(STRING).description("An XML based SAML 2.0 bearer assertion, which is Base64URl encoded.");
+        Snippet requestHeaders = requestHeaders(CLIENT_BASIC_AUTH_HEADER);
+        Snippet formParameters = formParameters(
+                clientIdParameter.description("The client ID of the receiving client, this client must have `urn:ietf:params:oauth:grant-type:saml2-bearer` grant type"),
+                grantTypeParameter.description("The type of token grant requested, in this case `" + GRANT_TYPE_SAML2_BEARER + "`"),
+                assertionFormatParameter,
+                scopeParameter
+        );
+
+        Snippet responseFields = responseFields(
+                accessTokenFieldDescriptor,
+                fieldWithPath("token_type").description("The type of the access token issued, always `bearer`"),
+                fieldWithPath("expires_in").description("Number of seconds of lifetime for an access_token, when retrieved"),
+                scopeFieldDescriptorWhenUserToken,
+                refreshTokenFieldDescriptor,
+                jtiFieldDescriptor
+        );
+
+        mockMvc.perform(post)
+                .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), requestHeaders, formParameters, responseFields))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.access_token").exists())
+                .andExpect(jsonPath("$.scope").value("openid"));
+    }
+
+    @Test
+    void getTokenUsingSaml2BearerGrantWithClientAssertionOnDefaultTokenPath() throws Exception {
+        Saml2BearerDocContext ctx = prepareSaml2BearerDocumentationContext("68ues6", true);
+
+        MockHttpServletRequestBuilder post = MockMvcRequestBuilders.post(ctx.fullPath())
+                .with(request -> {
+                    request.setServerPort(8080);
+                    request.setRequestURI(ctx.fullPath());
+                    request.setServerName(ctx.host());
+                    return request;
+                })
+                .contextPath("/uaa")
+                .accept(APPLICATION_JSON)
+                .header(HOST, ctx.host())
+                .contentType(APPLICATION_FORM_URLENCODED)
+                .param("grant_type", TokenConstants.GRANT_TYPE_SAML2_BEARER)
+                .param("client_id", ctx.clientId())
+                .param("client_assertion", getClientAssertionJwt(ctx.clientZone(), ctx.oauthClient()))
+                .param("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
+                .param("assertion", ctx.encodedSamlAssertion())
+                .param("scope", "openid");
+
+        final ParameterDescriptor assertionFormatParameter = parameterWithName("assertion").required().type(STRING).description("An XML based SAML 2.0 bearer assertion, which is Base64URl encoded.");
+        Snippet formParameters = formParameters(
+                clientIdParameter.description("The client ID of the receiving client, this client must have `urn:ietf:params:oauth:grant-type:saml2-bearer` grant type"),
                 clientAssertion,
                 clientAssertionType,
                 grantTypeParameter.description("The type of token grant requested, in this case `" + GRANT_TYPE_SAML2_BEARER + "`"),
@@ -499,49 +985,159 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
                 .andExpect(jsonPath("$.scope").value("openid"));
     }
 
-    private static String getIdpMetadata(String host, String origin) {
-        //Mock an IDP metadata: %1$s is the host; %2$s is the origin
+    @Test
+    void getTokenUsingSaml2BearerGrantWithClientSecret() throws Exception {
+        Saml2BearerDocContext ctx = prepareSaml2BearerDocumentationContext("68ues1", false);
+
+        MockHttpServletRequestBuilder post = MockMvcRequestBuilders.post(ctx.fullPath())
+                .with(request -> {
+                    request.setServerPort(8080);
+                    request.setRequestURI(ctx.fullPath());
+                    request.setServerName(ctx.host());
+                    return request;
+                })
+                .contextPath("/uaa")
+                .accept(APPLICATION_JSON)
+                .header(HOST, ctx.host())
+                .contentType(APPLICATION_FORM_URLENCODED)
+                .param("grant_type", TokenConstants.GRANT_TYPE_SAML2_BEARER)
+                .param("client_id", ctx.clientId())
+                .param("client_secret", "secret")
+                .param("assertion", ctx.encodedSamlAssertion())
+                .param("scope", "openid");
+
+        final ParameterDescriptor assertionFormatParameter = parameterWithName("assertion").required().type(STRING).description("An XML based SAML 2.0 bearer assertion, which is Base64URl encoded.");
+        Snippet formParameters = formParameters(
+                clientIdParameter.description("The client ID of the receiving client, this client must have `urn:ietf:params:oauth:grant-type:saml2-bearer` grant type"),
+                clientSecretParameter,
+                grantTypeParameter.description("The type of token grant requested, in this case `" + GRANT_TYPE_SAML2_BEARER + "`"),
+                assertionFormatParameter,
+                scopeParameter
+        );
+
+        Snippet responseFields = responseFields(
+                accessTokenFieldDescriptor,
+                fieldWithPath("token_type").description("The type of the access token issued, always `bearer`"),
+                fieldWithPath("expires_in").description("Number of seconds of lifetime for an access_token, when retrieved"),
+                scopeFieldDescriptorWhenUserToken,
+                refreshTokenFieldDescriptor,
+                jtiFieldDescriptor
+        );
+
+        mockMvc.perform(post)
+                .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), formParameters, responseFields))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.access_token").exists())
+                .andExpect(jsonPath("$.scope").value("openid"));
+    }
+
+    @Test
+    void getTokenUsingSaml2BearerGrantWithAuthorizationHeader() throws Exception {
+        Saml2BearerDocContext ctx = prepareSaml2BearerDocumentationContext("68ues3", false);
+
+        String clientAuthorization = new String(ENCODER.encode((ctx.clientId() + ":secret").getBytes()));
+
+        MockHttpServletRequestBuilder post = MockMvcRequestBuilders.post(ctx.fullPath())
+                .with(request -> {
+                    request.setServerPort(8080);
+                    request.setRequestURI(ctx.fullPath());
+                    request.setServerName(ctx.host());
+                    return request;
+                })
+                .contextPath("/uaa")
+                .accept(APPLICATION_JSON)
+                .header(HOST, ctx.host())
+                .header(AUTHORIZATION, "Basic " + clientAuthorization)
+                .contentType(APPLICATION_FORM_URLENCODED)
+                .param("grant_type", TokenConstants.GRANT_TYPE_SAML2_BEARER)
+                .param("client_id", ctx.clientId())
+                .param("assertion", ctx.encodedSamlAssertion())
+                .param("scope", "openid");
+
+        final ParameterDescriptor assertionFormatParameter = parameterWithName("assertion").required().type(STRING).description("An XML based SAML 2.0 bearer assertion, which is Base64URl encoded.");
+        Snippet requestHeaders = requestHeaders(CLIENT_BASIC_AUTH_HEADER);
+        Snippet formParameters = formParameters(
+                clientIdParameter.description("The client ID of the receiving client, this client must have `urn:ietf:params:oauth:grant-type:saml2-bearer` grant type"),
+                grantTypeParameter.description("The type of token grant requested, in this case `" + GRANT_TYPE_SAML2_BEARER + "`"),
+                assertionFormatParameter,
+                scopeParameter
+        );
+
+        Snippet responseFields = responseFields(
+                accessTokenFieldDescriptor,
+                fieldWithPath("token_type").description("The type of the access token issued, always `bearer`"),
+                fieldWithPath("expires_in").description("Number of seconds of lifetime for an access_token, when retrieved"),
+                scopeFieldDescriptorWhenUserToken,
+                refreshTokenFieldDescriptor,
+                jtiFieldDescriptor
+        );
+
+        mockMvc.perform(post)
+                .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), requestHeaders, formParameters, responseFields))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.access_token").exists())
+                .andExpect(jsonPath("$.scope").value("openid"));
+    }
+
+    @Test
+    void getTokenUsingSaml2BearerGrantWithClientAssertion() throws Exception {
+        Saml2BearerDocContext ctx = prepareSaml2BearerDocumentationContext("68ues2", false);
+
+        MockHttpServletRequestBuilder post = MockMvcRequestBuilders.post(ctx.fullPath())
+                .with(request -> {
+                    request.setServerPort(8080);
+                    request.setRequestURI(ctx.fullPath());
+                    request.setServerName(ctx.host());
+                    return request;
+                })
+                .contextPath("/uaa")
+                .accept(APPLICATION_JSON)
+                .header(HOST, ctx.host())
+                .contentType(APPLICATION_FORM_URLENCODED)
+                .param("grant_type", TokenConstants.GRANT_TYPE_SAML2_BEARER)
+                .param("client_id", ctx.clientId())
+                .param("client_assertion", getClientAssertionJwt(ctx.clientZone(), ctx.oauthClient()))
+                .param("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
+                .param("assertion", ctx.encodedSamlAssertion())
+                .param("scope", "openid");
+
+        final ParameterDescriptor assertionFormatParameter = parameterWithName("assertion").required().type(STRING).description("An XML based SAML 2.0 bearer assertion, which is Base64URl encoded.");
+        Snippet formParameters = formParameters(
+                clientIdParameter.description("The client ID of the receiving client, this client must have `urn:ietf:params:oauth:grant-type:saml2-bearer` grant type"),
+                clientAssertion,
+                clientAssertionType,
+                grantTypeParameter.description("The type of token grant requested, in this case `" + GRANT_TYPE_SAML2_BEARER + "`"),
+                assertionFormatParameter,
+                scopeParameter
+        );
+
+        Snippet responseFields = responseFields(
+                accessTokenFieldDescriptor,
+                fieldWithPath("token_type").description("The type of the access token issued, always `bearer`"),
+                fieldWithPath("expires_in").description("Number of seconds of lifetime for an access_token, when retrieved"),
+                scopeFieldDescriptorWhenUserToken,
+                refreshTokenFieldDescriptor,
+                jtiFieldDescriptor
+        );
+
+        mockMvc.perform(post)
+                .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), formParameters, responseFields))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.access_token").exists())
+                .andExpect(jsonPath("$.scope").value("openid"));
+    }
+
+    /**
+     * Mock IdP metadata. {@code host} and {@code origin} drive SSO locations; {@code idpEntityId} must match
+     * the SAML assertion issuer and {@link SamlIdentityProviderDefinition#setIdpEntityId}. Unsigned metadata
+     * (no {@code ds:Signature}) so {@code idpEntityId} can vary per subdomain; {@code createLocalSamlIdpDefinition}
+     * sets {@code metadataTrustCheck} false.
+     */
+    private static String getIdpMetadata(String host, String origin, String idpEntityId) {
         return """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" ID="%2$s"
-                                     entityID="68uexx.cloudfoundry-saml-login">
-                    <ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
-                        <ds:SignedInfo>
-                            <ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
-                            <ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
-                            <ds:Reference URI="#%2$s">
-                                <ds:Transforms>
-                                    <ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
-                                    <ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
-                                </ds:Transforms>
-                                <ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
-                                <ds:DigestValue>MNO5mOgijKliauTLhxL1pqT15s4=</ds:DigestValue>
-                            </ds:Reference>
-                        </ds:SignedInfo>
-                        <ds:SignatureValue>
-                            CwxB189hOth7P4g+jswYiG1XHyy0a8Pci6LahimDi0sSuWF5ui1Dw8MSamNDfi2GC5QGArrupPdxgX5F8BFFuio3XkmcQqRhsC01R2u1/NhpabGTgczrk1LYMpCaIOitaXRM2cEkqrmf/s6S3zXDQkQJTcJefc/0NrYgFN6Pisc=
-                        </ds:SignatureValue>
-                        <ds:KeyInfo>
-                            <ds:X509Data>
-                                <ds:X509Certificate>MIIDSTCCArKgAwIBAgIBADANBgkqhkiG9w0BAQQFADB8MQswCQYDVQQGEwJhdzEOMAwGA1UECBMF
-                                    YXJ1YmExDjAMBgNVBAoTBWFydWJhMQ4wDAYDVQQHEwVhcnViYTEOMAwGA1UECxMFYXJ1YmExDjAM
-                                    BgNVBAMTBWFydWJhMR0wGwYJKoZIhvcNAQkBFg5hcnViYUBhcnViYS5hcjAeFw0xNTExMjAyMjI2
-                                    MjdaFw0xNjExMTkyMjI2MjdaMHwxCzAJBgNVBAYTAmF3MQ4wDAYDVQQIEwVhcnViYTEOMAwGA1UE
-                                    ChMFYXJ1YmExDjAMBgNVBAcTBWFydWJhMQ4wDAYDVQQLEwVhcnViYTEOMAwGA1UEAxMFYXJ1YmEx
-                                    HTAbBgkqhkiG9w0BCQEWDmFydWJhQGFydWJhLmFyMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKB
-                                    gQDHtC5gUXxBKpEqZTLkNvFwNGnNIkggNOwOQVNbpO0WVHIivig5L39WqS9u0hnA+O7MCA/KlrAR
-                                    4bXaeVVhwfUPYBKIpaaTWFQR5cTR1UFZJL/OF9vAfpOwznoD66DDCnQVpbCjtDYWX+x6imxn8HCY
-                                    xhMol6ZnTbSsFW6VZjFMjQIDAQABo4HaMIHXMB0GA1UdDgQWBBTx0lDzjH/iOBnOSQaSEWQLx1sy
-                                    GDCBpwYDVR0jBIGfMIGcgBTx0lDzjH/iOBnOSQaSEWQLx1syGKGBgKR+MHwxCzAJBgNVBAYTAmF3
-                                    MQ4wDAYDVQQIEwVhcnViYTEOMAwGA1UEChMFYXJ1YmExDjAMBgNVBAcTBWFydWJhMQ4wDAYDVQQL
-                                    EwVhcnViYTEOMAwGA1UEAxMFYXJ1YmExHTAbBgkqhkiG9w0BCQEWDmFydWJhQGFydWJhLmFyggEA
-                                    MAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEEBQADgYEAYvBJ0HOZbbHClXmGUjGs+GS+xC1FO/am
-                                    2suCSYqNB9dyMXfOWiJ1+TLJk+o/YZt8vuxCKdcZYgl4l/L6PxJ982SRhc83ZW2dkAZI4M0/Ud3o
-                                    ePe84k8jm3A7EvH5wi5hvCkKRpuRBwn3Ei+jCRouxTbzKPsuCVB+1sNyxMTXzf0=
-                                </ds:X509Certificate>
-                            </ds:X509Data>
-                        </ds:KeyInfo>
-                    </ds:Signature>
+                                     entityID="%3$s">
                     <md:IDPSSODescriptor WantAuthnRequestsSigned="false"
                                          protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
                         <md:KeyDescriptor use="signing">
@@ -596,7 +1192,7 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
                         <md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
                                                 Location="http://%1$s:8080/uaa/saml/idp/SSO/alias/%2$s"/>
                     </md:IDPSSODescriptor>
-                </md:EntityDescriptor>""".formatted(host, origin);
+                </md:EntityDescriptor>""".formatted(host, origin, idpEntityId);
     }
 
     @Test
@@ -619,7 +1215,7 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
                 opaqueFormatParameter
         );
 
-        Snippet requestHeaders = requestHeaders(headerWithName("Authorization").description("Base64 encoded client details in the format: `Basic client_id:client_secret`"));
+        Snippet requestHeaders = requestHeaders(CLIENT_BASIC_AUTH_HEADER);
 
         Snippet responseFields = responseFields(
                 accessTokenFieldDescriptor,
@@ -643,7 +1239,7 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
                 Collections.singletonList(UaaAuthority.fromAuthorities("uaa.user")), null);
 
         MockHttpSession session = new MockHttpSession();
-        session.setAttribute(
+        MockMvcUtils.getZoneSession(session).setAttribute(
                 HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
                 new MockSecurityContext(principal)
         );
@@ -684,22 +1280,20 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
                 jtiFieldDescriptor
         );
 
-        Snippet requestHeaders = requestHeaders(headerWithName("Authorization").description("Base64 encoded client details in the format: `Basic client_id:client_secret`"));
+        Snippet requestHeaders = requestHeaders(CLIENT_BASIC_AUTH_HEADER);
         mockMvc.perform(postForToken)
                 .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), formParameters, requestHeaders, responseFields))
                 .andExpect(status().isOk());
     }
 
     @Test
-    void refreshToken() throws Exception {
+    void refreshTokenWithClientSecret() throws Exception {
 
         MockHttpServletRequestBuilder postForToken = post("/oauth/token")
                 .accept(APPLICATION_JSON)
                 .contentType(APPLICATION_FORM_URLENCODED)
                 .param(CLIENT_ID, "app")
                 .param("client_secret", "appclientsecret")
-                .param("client_assertion", "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjU4ZDU1YzUwMGNjNmI1ODM3OTYxN2UwNmU3ZGVjNmNhIn0.eyJzdWIiOiJsb2dpbiIsImlzcyI6ImxvZ2luIiwianRpIjoiNThkNTVjNTAwY2M2YjU4Mzc5NjE3ZTA2ZTdhZmZlZSIsImV4cCI6MTIzNDU2NzgsImF1ZCI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODA4MC91YWEvb2F1dGgvdG9rZW4ifQ.jwWw0OKZecd4ZjtwQ_ievqBVrh2SieqMF6vY74Oo5H6v-Ibcmumq96NLNtoUEwaAEQQOHb8MWcC8Gwi9dVQdCrtpomC86b_LKkihRBSKuqpw0udL9RMH5kgtC04ctsN0yZNifUWMP85VHn97Ual5eZ2miaBFob3H5jUe98CcBj1TSRehr64qBFYuwt9vD19q6U-ONhRt0RXBPB7ayHAOMYtb1LFIzGAiKvqWEy9f-TBPXSsETjKkAtSuM-WVWi4EhACMtSvI6iJN15f7qlverRSkGIdh1j2vPXpKKBJoRhoLw6YqbgcUC9vAr17wfa_POxaRHvh9JPty0ZXLA4XPtA")
-                .param("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
                 .param(GRANT_TYPE, GRANT_TYPE_PASSWORD)
                 .param("username", user.getUserName())
                 .param("password", user.getPassword())
@@ -713,8 +1307,6 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
                 .contentType(APPLICATION_FORM_URLENCODED)
                 .param(CLIENT_ID, "app")
                 .param("client_secret", "appclientsecret")
-                .param("client_assertion", "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjU4ZDU1YzUwMGNjNmI1ODM3OTYxN2UwNmU3ZGVjNmNhIn0.eyJzdWIiOiJsb2dpbiIsImlzcyI6ImxvZ2luIiwianRpIjoiNThkNTVjNTAwY2M2YjU4Mzc5NjE3ZTA2ZTdhZmZlZSIsImV4cCI6MTIzNDU2NzgsImF1ZCI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODA4MC91YWEvb2F1dGgvdG9rZW4ifQ.jwWw0OKZecd4ZjtwQ_ievqBVrh2SieqMF6vY74Oo5H6v-Ibcmumq96NLNtoUEwaAEQQOHb8MWcC8Gwi9dVQdCrtpomC86b_LKkihRBSKuqpw0udL9RMH5kgtC04ctsN0yZNifUWMP85VHn97Ual5eZ2miaBFob3H5jUe98CcBj1TSRehr64qBFYuwt9vD19q6U-ONhRt0RXBPB7ayHAOMYtb1LFIzGAiKvqWEy9f-TBPXSsETjKkAtSuM-WVWi4EhACMtSvI6iJN15f7qlverRSkGIdh1j2vPXpKKBJoRhoLw6YqbgcUC9vAr17wfa_POxaRHvh9JPty0ZXLA4XPtA")
-                .param("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
                 .param(GRANT_TYPE, GRANT_TYPE_REFRESH_TOKEN)
                 .param(REQUEST_TOKEN_FORMAT, OPAQUE.getStringValue())
                 .param("refresh_token", refreshToken.getValue());
@@ -723,6 +1315,105 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
                 grantTypeParameter.description("the type of authentication being used to obtain the token, in this case `refresh_token`"),
                 clientIdParameter,
                 clientSecretParameter.description("Optional and can be omitted if token before was requested using [PKCE](https://tools.ietf.org/html/rfc7636) with `code_challenge_method=S256` without a secret or client_assertion is used for private_key_jwt client authentication."),
+                parameterWithName("refresh_token").required().type(STRING).description("the refresh_token that was returned along with the access token."),
+                opaqueFormatParameter
+        );
+
+        Snippet responseFields = responseFields(
+                accessTokenFieldDescriptor,
+                idTokenFieldDescriptor,
+                refreshTokenFieldDescriptor,
+                tokenTypeFieldDescriptor,
+                expiresInFieldDescriptor,
+                scopeFieldDescriptorWhenUserToken,
+                jtiFieldDescriptor
+        );
+        mockMvc.perform(postForRefreshToken)
+                .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), formParameters, responseFields))
+                .andExpect(status().isOk())
+                .andReturn();
+    }
+
+    @Test
+    void refreshTokenWithAuthorizationHeader() throws Exception {
+
+        MockHttpServletRequestBuilder postForToken = post("/oauth/token")
+                .accept(APPLICATION_JSON)
+                .contentType(APPLICATION_FORM_URLENCODED)
+                .param(CLIENT_ID, "app")
+                .param("client_secret", "appclientsecret")
+                .param(GRANT_TYPE, GRANT_TYPE_PASSWORD)
+                .param("username", user.getUserName())
+                .param("password", user.getPassword())
+                .param(REQUEST_TOKEN_FORMAT, OPAQUE.getStringValue());
+
+        MvcResult mvcResult = mockMvc.perform(postForToken).andExpect(status().isOk()).andReturn();
+        OAuth2RefreshToken refreshToken = JsonUtils.readValue(mvcResult.getResponse().getContentAsString(), CompositeToken.class).getRefreshToken();
+
+        String clientAuthorization = new String(ENCODER.encode("app:appclientsecret".getBytes()));
+        MockHttpServletRequestBuilder postForRefreshToken = post("/oauth/token")
+                .accept(APPLICATION_JSON)
+                .contentType(APPLICATION_FORM_URLENCODED)
+                .header(AUTHORIZATION, "Basic " + clientAuthorization)
+                .param(CLIENT_ID, "app")
+                .param(GRANT_TYPE, GRANT_TYPE_REFRESH_TOKEN)
+                .param(REQUEST_TOKEN_FORMAT, OPAQUE.getStringValue())
+                .param("refresh_token", refreshToken.getValue());
+
+        Snippet requestHeaders = requestHeaders(CLIENT_BASIC_AUTH_HEADER);
+
+        Snippet formParameters = formParameters(
+                grantTypeParameter.description("the type of authentication being used to obtain the token, in this case `refresh_token`"),
+                clientIdParameter,
+                parameterWithName("refresh_token").required().type(STRING).description("the refresh_token that was returned along with the access token."),
+                opaqueFormatParameter
+        );
+
+        Snippet responseFields = responseFields(
+                accessTokenFieldDescriptor,
+                idTokenFieldDescriptor,
+                refreshTokenFieldDescriptor,
+                tokenTypeFieldDescriptor,
+                expiresInFieldDescriptor,
+                scopeFieldDescriptorWhenUserToken,
+                jtiFieldDescriptor
+        );
+        mockMvc.perform(postForRefreshToken)
+                .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), requestHeaders, formParameters, responseFields))
+                .andExpect(status().isOk())
+                .andReturn();
+    }
+
+    @Test
+    void refreshTokenWithClientAssertion() throws Exception {
+
+        MockHttpServletRequestBuilder postForToken = post("/oauth/token")
+                .accept(APPLICATION_JSON)
+                .contentType(APPLICATION_FORM_URLENCODED)
+                .param(CLIENT_ID, "app")
+                .param("client_assertion", getClientAssertionJwt(IdentityZone.getUaa(), uaaClientDetails("app")))
+                .param("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
+                .param(GRANT_TYPE, GRANT_TYPE_PASSWORD)
+                .param("username", user.getUserName())
+                .param("password", user.getPassword())
+                .param(REQUEST_TOKEN_FORMAT, OPAQUE.getStringValue());
+
+        MvcResult mvcResult = mockMvc.perform(postForToken).andExpect(status().isOk()).andReturn();
+        OAuth2RefreshToken refreshToken = JsonUtils.readValue(mvcResult.getResponse().getContentAsString(), CompositeToken.class).getRefreshToken();
+
+        MockHttpServletRequestBuilder postForRefreshToken = post("/oauth/token")
+                .accept(APPLICATION_JSON)
+                .contentType(APPLICATION_FORM_URLENCODED)
+                .param(CLIENT_ID, "app")
+                .param("client_assertion", getClientAssertionJwt(IdentityZone.getUaa(), uaaClientDetails("app")))
+                .param("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
+                .param(GRANT_TYPE, GRANT_TYPE_REFRESH_TOKEN)
+                .param(REQUEST_TOKEN_FORMAT, OPAQUE.getStringValue())
+                .param("refresh_token", refreshToken.getValue());
+
+        Snippet formParameters = formParameters(
+                grantTypeParameter.description("the type of authentication being used to obtain the token, in this case `refresh_token`"),
+                clientIdParameter,
                 clientAssertion,
                 clientAssertionType,
                 parameterWithName("refresh_token").required().type(STRING).description("the refresh_token that was returned along with the access token."),
@@ -754,47 +1445,19 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
     }
 
     @Test
-    void getIdTokenUsingAuthCodeGrant() throws Exception {
-
-        String cfAccessToken = getUserOAuthAccessToken(
-                mockMvc,
-                "cf",
-                "",
-                user.getUserName(),
-                user.getPassword(),
-                "uaa.user"
-        );
-
-        String redirect = "http://localhost/redirect/cf";
-        MockHttpServletRequestBuilder getAuthCode = get("/oauth/authorize")
-                .header("Authorization", "Bearer " + cfAccessToken)
-                .param(RESPONSE_TYPE, "code")
-                .param(CLIENT_ID, "login")
-                .param(REDIRECT_URI, redirect)
-                .param(PkceValidationService.CODE_CHALLENGE, UaaTestAccounts.CODE_CHALLENGE)
-                .param(PkceValidationService.CODE_CHALLENGE_METHOD, UaaTestAccounts.CODE_CHALLENGE_METHOD_S256)
-                .param(STATE, new AlphanumericRandomValueStringGenerator().generate());
-
-        MockHttpServletResponse authCodeResponse = mockMvc.perform(getAuthCode)
-                .andExpect(status().isFound())
-                .andReturn()
-                .getResponse();
-
-        UriComponents location = UriComponentsBuilder.fromUri(URI.create(authCodeResponse.getHeader("Location"))).build();
-        String code = location.getQueryParams().getFirst("code");
+    void getIdTokenUsingAuthCodeGrantWithClientSecret() throws Exception {
+        AuthCodeResult auth = obtainAuthCodeForLoginClient();
 
         MockHttpServletRequestBuilder postForToken = post("/oauth/token")
                 .accept(APPLICATION_JSON)
                 .contentType(APPLICATION_FORM_URLENCODED)
                 .param(CLIENT_ID, "login")
                 .param("client_secret", "loginsecret")
-                .param("client_assertion", "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6IjU4ZDU1YzUwMGNjNmI1ODM3OTYxN2UwNmU3ZGVjNmNhIn0.eyJzdWIiOiJsb2dpbiIsImlzcyI6ImxvZ2luIiwianRpIjoiNThkNTVjNTAwY2M2YjU4Mzc5NjE3ZTA2ZTdhZmZlZSIsImV4cCI6MTIzNDU2NzgsImF1ZCI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODA4MC91YWEvb2F1dGgvdG9rZW4ifQ.jwWw0OKZecd4ZjtwQ_ievqBVrh2SieqMF6vY74Oo5H6v-Ibcmumq96NLNtoUEwaAEQQOHb8MWcC8Gwi9dVQdCrtpomC86b_LKkihRBSKuqpw0udL9RMH5kgtC04ctsN0yZNifUWMP85VHn97Ual5eZ2miaBFob3H5jUe98CcBj1TSRehr64qBFYuwt9vD19q6U-ONhRt0RXBPB7ayHAOMYtb1LFIzGAiKvqWEy9f-TBPXSsETjKkAtSuM-WVWi4EhACMtSvI6iJN15f7qlverRSkGIdh1j2vPXpKKBJoRhoLw6YqbgcUC9vAr17wfa_POxaRHvh9JPty0ZXLA4XPtA")
-                .param("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
                 .param(GRANT_TYPE, GRANT_TYPE_AUTHORIZATION_CODE)
-                .param("code", code)
+                .param("code", auth.code())
                 .param(REQUEST_TOKEN_FORMAT, OPAQUE.getStringValue())
                 .param(PkceValidationService.CODE_VERIFIER, UaaTestAccounts.CODE_VERIFIER)
-                .param(REDIRECT_URI, redirect);
+                .param(REDIRECT_URI, auth.redirect());
 
         Snippet formParameters = formParameters(
                 clientIdParameter,
@@ -802,6 +1465,86 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
                 parameterWithName("code").required().type(STRING).description(codeDescription),
                 grantTypeParameter.description("the type of authentication being used to obtain the token, in this case `authorization_code`"),
                 clientSecretParameter.description("<small><mark>UAA 75.21.0</mark></small> Optional and can be omitted if client has configured allowpublic and [PKCE](https://tools.ietf.org/html/rfc7636) with `code_challenge_method=S256` is used to create to `code`."),
+                codeVerifier,
+                opaqueFormatParameter
+        );
+
+        Snippet responseFields = responseFields(
+                accessTokenFieldDescriptor,
+                idTokenFieldDescriptor,
+                tokenTypeFieldDescriptor,
+                expiresInFieldDescriptor,
+                scopeFieldDescriptorWhenUserToken,
+                refreshTokenFieldDescriptor,
+                jtiFieldDescriptor
+        );
+
+        mockMvc.perform(postForToken)
+                .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), formParameters, responseFields));
+    }
+
+    @Test
+    void getIdTokenUsingAuthCodeGrantWithAuthorizationHeader() throws Exception {
+        AuthCodeResult auth = obtainAuthCodeForLoginClient();
+
+        String clientAuthorization = new String(ENCODER.encode("login:loginsecret".getBytes()));
+        MockHttpServletRequestBuilder postForToken = post("/oauth/token")
+                .accept(APPLICATION_JSON)
+                .contentType(APPLICATION_FORM_URLENCODED)
+                .header(AUTHORIZATION, "Basic " + clientAuthorization)
+                .param(CLIENT_ID, "login")
+                .param(GRANT_TYPE, GRANT_TYPE_AUTHORIZATION_CODE)
+                .param("code", auth.code())
+                .param(REQUEST_TOKEN_FORMAT, OPAQUE.getStringValue())
+                .param(PkceValidationService.CODE_VERIFIER, UaaTestAccounts.CODE_VERIFIER)
+                .param(REDIRECT_URI, auth.redirect());
+
+        Snippet requestHeaders = requestHeaders(CLIENT_BASIC_AUTH_HEADER);
+
+        Snippet formParameters = formParameters(
+                clientIdParameter,
+                parameterWithName(REDIRECT_URI).type(STRING).description("redirection URI to which the authorization server will send the user-agent back once access is granted (or denied)").attributes(SnippetUtils.constraints.value("Required if provided on authorization request")),
+                parameterWithName("code").required().type(STRING).description(codeDescription),
+                grantTypeParameter.description("the type of authentication being used to obtain the token, in this case `authorization_code`"),
+                codeVerifier,
+                opaqueFormatParameter
+        );
+
+        Snippet responseFields = responseFields(
+                accessTokenFieldDescriptor,
+                idTokenFieldDescriptor,
+                tokenTypeFieldDescriptor,
+                expiresInFieldDescriptor,
+                scopeFieldDescriptorWhenUserToken,
+                refreshTokenFieldDescriptor,
+                jtiFieldDescriptor
+        );
+
+        mockMvc.perform(postForToken)
+                .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), requestHeaders, formParameters, responseFields));
+    }
+
+    @Test
+    void getIdTokenUsingAuthCodeGrantWithClientAssertion() throws Exception {
+        AuthCodeResult auth = obtainAuthCodeForLoginClient();
+
+        MockHttpServletRequestBuilder postForToken = post("/oauth/token")
+                .accept(APPLICATION_JSON)
+                .contentType(APPLICATION_FORM_URLENCODED)
+                .param(CLIENT_ID, "login")
+                .param("client_assertion", getClientAssertionJwt(IdentityZone.getUaa(), uaaClientDetails("login")))
+                .param("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
+                .param(GRANT_TYPE, GRANT_TYPE_AUTHORIZATION_CODE)
+                .param("code", auth.code())
+                .param(REQUEST_TOKEN_FORMAT, OPAQUE.getStringValue())
+                .param(PkceValidationService.CODE_VERIFIER, UaaTestAccounts.CODE_VERIFIER)
+                .param(REDIRECT_URI, auth.redirect());
+
+        Snippet formParameters = formParameters(
+                clientIdParameter,
+                parameterWithName(REDIRECT_URI).type(STRING).description("redirection URI to which the authorization server will send the user-agent back once access is granted (or denied)").attributes(SnippetUtils.constraints.value("Required if provided on authorization request")),
+                parameterWithName("code").required().type(STRING).description(codeDescription),
+                grantTypeParameter.description("the type of authentication being used to obtain the token, in this case `authorization_code`"),
                 clientAssertion,
                 clientAssertionType,
                 codeVerifier,
@@ -859,11 +1602,12 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
                 .andExpect(status().isOk())
                 .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), requestHeaders, pathParameters));
 
-        mockMvc.perform(
+        MvcResult revokedResult = mockMvc.perform(
                 get("/oauth/clients")
                         .header("Authorization", "Bearer " + userInfoToken))
                 .andExpect(status().isUnauthorized())
-                .andExpect(content().string(containsString("\"error\":\"invalid_token\"")));
+                .andReturn();
+        assertThat(revokedResult.getResponse().getContentAsString()).contains("\"error\":\"invalid_token\"");
     }
 
     @Test
@@ -922,11 +1666,12 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
                 .andExpect(status().isOk())
                 .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), requestHeaders, pathParameters));
 
-        mockMvc.perform(
+        MvcResult revokedResult = mockMvc.perform(
                 get("/userinfo")
                         .header("Authorization", "Bearer " + userInfoTokenToRevoke))
                 .andExpect(status().isUnauthorized())
-                .andExpect(content().string(containsString("\"error\":\"invalid_token\"")));
+                .andReturn();
+        assertThat(revokedResult.getResponse().getContentAsString()).contains("\"error\":\"invalid_token\"");
 
         mockMvc.perform(
                 get("/userinfo")
@@ -966,11 +1711,12 @@ class TokenEndpointDocs extends AbstractTokenMockMvcTests {
                 .andExpect(status().isOk())
                 .andDo(document("{ClassName}/{methodName}", preprocessResponse(prettyPrint()), requestHeaders, pathParameters));
 
-        mockMvc.perform(
+        MvcResult revokedResult = mockMvc.perform(
                 get("/oauth/clients")
                         .header("Authorization", "Bearer " + readClientsToken))
                 .andExpect(status().isUnauthorized())
-                .andExpect(content().string(containsString("\"error\":\"invalid_token\"")));
+                .andReturn();
+        assertThat(revokedResult.getResponse().getContentAsString()).contains("\"error\":\"invalid_token\"");
     }
 
     @Test

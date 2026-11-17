@@ -5,12 +5,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.oauth.common.exceptions.RedirectMismatchException;
 import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetails;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -24,9 +24,8 @@ import java.util.HashSet;
 import java.util.List;
 
 import static org.apache.logging.log4j.Level.WARN;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -63,16 +62,6 @@ class LegacyRedirectResolverTest {
                 .contains(expectedMessage);
     }
 
-    private void assertNotThatMessageWasLogged(
-            final List<LogEvent> logEvents,
-            final Level expectedLevel,
-            final String expectedMessage) {
-
-        assertThat(logEvents).filteredOn(l -> l.getLevel().equals(expectedLevel))
-                .extracting(l -> l.getMessage().getFormattedMessage())
-                .doesNotContain(expectedMessage);
-    }
-
     @Nested
     class WithCapturedLogs {
         private List<LogEvent> logEvents;
@@ -100,10 +89,6 @@ class LegacyRedirectResolverTest {
         }
 
         @Test
-        @Disabled
-        // In Predix, domain expansion is not allowed
-        // so requested URL https://subdomain.example.com should not match https://example.com/ configured URL
-        // https://github.com/GESoftware-CF/uaa/commit/1404e58467a323aee44841e158580323bbcc9b8b
         void warnsOnImplicitDomainExpansion() {
             final String configuredRedirectUri = "https://example.com";
             final String requestedRedirectUri = "https://subdomain.example.com";
@@ -122,10 +107,6 @@ class LegacyRedirectResolverTest {
         }
 
         @Test
-        @Disabled
-        // In Predix, domain expansion is not allowed
-        // so requested URL https://another.subdomain.example.com should not match https://example.com/ configured URL
-        // https://github.com/GESoftware-CF/uaa/commit/1404e58467a323aee44841e158580323bbcc9b8b
         void warnsOnImplicitMultipleDomainExpansion() {
             final String configuredRedirectUri = "https://example.com";
             final String requestedRedirectUri = "https://another.subdomain.example.com";
@@ -195,18 +176,11 @@ class LegacyRedirectResolverTest {
             ClientDetails client = createClient("foo", configuredExplicitRedirectUri, configuredImplicitRedirectUri);
 
             resolver.resolveRedirect(requestedRedirectUri, client);
-            // In Predix, domain expansion is not allowed
-            // so requested URL https://an.example.com/ should not match https://example.com/ configured URL
-            // https://github.com/GESoftware-CF/uaa/commit/1404e58467a323aee44841e158580323bbcc9b8b
-            assertNotThatMessageWasLogged(logEvents, WARN, expectedWarning(client.getClientId(), requestedRedirectUri, configuredImplicitRedirectUri));
+            assertThatMessageWasLogged(logEvents, WARN, expectedWarning(client.getClientId(), requestedRedirectUri, configuredImplicitRedirectUri));
             assertThatMessageWasLogged(logEvents, WARN, expectedWarning(client.getClientId(), requestedRedirectUri, configuredExplicitRedirectUri));
         }
 
         @Test
-        @Disabled
-        // In Predix, domain expansion is not allowed
-        // so requested URL https://an.example.com/ should not match https://example.com/ configured URL
-        // https://github.com/GESoftware-CF/uaa/commit/1404e58467a323aee44841e158580323bbcc9b8b
         void warnsOnlyAboutMatchingConfiguredUrisMWhenThereIsAMatch() {
             final String configuredImplicitRedirectUri = "https://example.com";
             final String configuredOtherRedirectUri = "https://other.com/";
@@ -275,7 +249,7 @@ class LegacyRedirectResolverTest {
 
             ClientDetails client = createClient("foo", configuredRedirectUri);
 
-            assertThatExceptionOfType(RedirectMismatchException.class).isThrownBy(() -> resolver.resolveRedirect(requestedRedirectUri, client));
+            assertThatThrownBy(() -> resolver.resolveRedirect(requestedRedirectUri, client)).asInstanceOf(InstanceOfAssertFactories.throwable(RedirectMismatchException.class));
 
             assertThat(logEvents).isEmpty();
         }
@@ -287,7 +261,7 @@ class LegacyRedirectResolverTest {
 
             ClientDetails client = createClient("foo", configuredRedirectUri);
 
-            assertThatExceptionOfType(RedirectMismatchException.class).isThrownBy(() -> resolver.resolveRedirect(requestedRedirectUri, client));
+            assertThatThrownBy(() -> resolver.resolveRedirect(requestedRedirectUri, client)).asInstanceOf(InstanceOfAssertFactories.throwable(RedirectMismatchException.class));
 
             assertThat(logEvents).isEmpty();
         }
@@ -300,9 +274,9 @@ class LegacyRedirectResolverTest {
 
         @Test
         void allSubdomainsShouldMatch() {
-            assertThat(resolver.redirectMatches("http://subdomain.domain.com", clientRedirectUri)).isFalse();
-            assertThat(resolver.redirectMatches("http://another-subdomain.domain.com", clientRedirectUri)).isFalse();
-            assertThat(resolver.redirectMatches("http://one.two.domain.com", clientRedirectUri)).isFalse();
+            assertThat(resolver.redirectMatches("http://subdomain.domain.com", clientRedirectUri)).isTrue();
+            assertThat(resolver.redirectMatches("http://another-subdomain.domain.com", clientRedirectUri)).isTrue();
+            assertThat(resolver.redirectMatches("http://one.two.domain.com", clientRedirectUri)).isTrue();
         }
 
         @Test
@@ -314,17 +288,17 @@ class LegacyRedirectResolverTest {
 
         @Test
         void allPathsInAnySubdomainShouldMatch() {
-            assertThat(resolver.redirectMatches("http://subdomain.domain.com/one", clientRedirectUri)).isFalse();
-            assertThat(resolver.redirectMatches("http://subdomain.domain.com/another", clientRedirectUri)).isFalse();
-            assertThat(resolver.redirectMatches("http://subdomain.domain.com/one/two", clientRedirectUri)).isFalse();
+            assertThat(resolver.redirectMatches("http://subdomain.domain.com/one", clientRedirectUri)).isTrue();
+            assertThat(resolver.redirectMatches("http://subdomain.domain.com/another", clientRedirectUri)).isTrue();
+            assertThat(resolver.redirectMatches("http://subdomain.domain.com/one/two", clientRedirectUri)).isTrue();
 
-            assertThat(resolver.redirectMatches("http://another-subdomain.domain.com/one", clientRedirectUri)).isFalse();
-            assertThat(resolver.redirectMatches("http://another-subdomain.domain.com/another", clientRedirectUri)).isFalse();
-            assertThat(resolver.redirectMatches("http://another-subdomain.domain.com/one/two", clientRedirectUri)).isFalse();
+            assertThat(resolver.redirectMatches("http://another-subdomain.domain.com/one", clientRedirectUri)).isTrue();
+            assertThat(resolver.redirectMatches("http://another-subdomain.domain.com/another", clientRedirectUri)).isTrue();
+            assertThat(resolver.redirectMatches("http://another-subdomain.domain.com/one/two", clientRedirectUri)).isTrue();
 
-            assertThat(resolver.redirectMatches("http://one.two.domain.com/one", clientRedirectUri)).isFalse();
-            assertThat(resolver.redirectMatches("http://one.two.domain.com/another", clientRedirectUri)).isFalse();
-            assertThat(resolver.redirectMatches("http://one.two.domain.com/one/two", clientRedirectUri)).isFalse();
+            assertThat(resolver.redirectMatches("http://one.two.domain.com/one", clientRedirectUri)).isTrue();
+            assertThat(resolver.redirectMatches("http://one.two.domain.com/another", clientRedirectUri)).isTrue();
+            assertThat(resolver.redirectMatches("http://one.two.domain.com/one/two", clientRedirectUri)).isTrue();
         }
 
         @Test

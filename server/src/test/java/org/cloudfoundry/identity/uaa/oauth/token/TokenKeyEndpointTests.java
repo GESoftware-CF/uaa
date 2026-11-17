@@ -1,6 +1,7 @@
 package org.cloudfoundry.identity.uaa.oauth.token;
 
 import com.nimbusds.jose.JWSSigner;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.cloudfoundry.identity.uaa.extensions.PollutionPreventionExtension;
 import org.cloudfoundry.identity.uaa.oauth.KeyInfo;
 import org.cloudfoundry.identity.uaa.oauth.KeyInfoService;
@@ -39,7 +40,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.cloudfoundry.identity.uaa.oauth.jwt.JwtHelperX5tTest.CERTIFICATE_1;
 import static org.cloudfoundry.identity.uaa.oauth.jwt.JwtHelperX5tTest.SIGNING_KEY_1;
 import static org.cloudfoundry.identity.uaa.util.UaaStringUtils.DEFAULT_UAA_URL;
@@ -72,6 +73,17 @@ class TokenKeyEndpointTests {
             SkbkWTex/hl+l0wdNErz/yBxP8esbPukOUqks/if
             -----END RSA PRIVATE KEY-----""";
 
+    private static final String SAMPLE_EC_KEY_PAIR = """
+            -----BEGIN PRIVATE KEY-----
+            MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgevZzL1gdAFr88hb2
+            OF/2NxApJCzGCEDdfSp6VQO30hyhRANCAAQRWz+jn65BtOMvdyHKcvjBeBSDZH2r
+            1RTwjmYSi9R/zpBnuQ4EiMnCqfMPWiZqB4QdbAd0E7oH50VpuZ1P087G
+            -----END PRIVATE KEY-----
+            -----BEGIN PUBLIC KEY-----
+            MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEVs/o5+uQbTjL3chynL4wXgUg2R9
+            q9UU8I5mEovUf86QZ7kOBIjJwqnzD1omageEHWwHdBO6B+dFabmdT9POxg==
+            -----END PUBLIC KEY-----""";
+
     @BeforeEach
     void setUp() {
         validUaaResource = new UsernamePasswordAuthenticationToken("client_id", null, Collections.singleton(new SimpleGrantedAuthority("uaa.resource")));
@@ -97,9 +109,9 @@ class TokenKeyEndpointTests {
     void sharedSecretCannotBeAnonymouslyRetrievedFromTokenKeyEndpoint() {
         configureKeysForDefaultZone(Collections.singletonMap("anotherKeyId", "someKey"));
 
-        assertThatExceptionOfType(AccessDeniedException.class).isThrownBy(() -> tokenKeyEndpoint.getKey(
+        assertThatThrownBy(() -> tokenKeyEndpoint.getKey(
                 new AnonymousAuthenticationToken("anon", "anonymousUser", AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS"))
-        ));
+        )).asInstanceOf(InstanceOfAssertFactories.throwable(AccessDeniedException.class));
     }
 
     @Test
@@ -264,6 +276,51 @@ class TokenKeyEndpointTests {
         IdentityZoneHolder.set(zone);
 
         return zone;
+    }
+
+    @Test
+    void ecKeyIsReturned() {
+        configureKeysForDefaultZone(Collections.singletonMap("ecKey1", SAMPLE_EC_KEY_PAIR));
+
+        // EC keys should be available to unauthenticated users (like RSA keys)
+        VerificationKeyResponse response = tokenKeyEndpoint.getKey(null);
+
+        assertThat(response.getType()).isEqualTo("EC");
+        assertThat(response.getAlgorithm()).isEqualTo("ES256");
+        assertThat(response.getId()).isEqualTo("ecKey1");
+
+        // Verify the EC Key
+        Map<String, Object> keyProperties = response.getKeyProperties();
+        assertThat(keyProperties).containsKeys("crv", "x", "y")
+                .doesNotContainKey("d");
+    }
+
+    @Test
+    void listResponseContainsECKeysWhenUnauthenticated() {
+        Map<String, String> keys = new HashMap<>();
+        keys.put("rsaKey", SIGNING_KEY_1);
+        keys.put("ecKey", SAMPLE_EC_KEY_PAIR);
+        keys.put("symmetricKey", "someSymmetricSecret");
+
+        configureKeysForDefaultZone(keys);
+
+        // Unauthenticated users should get RSA and EC keys, but not symmetric keys
+        VerificationKeysListResponse response = tokenKeyEndpoint.getKeys(null);
+
+        Map<String, VerificationKeyResponse> keysMap = response.getKeys().stream()
+                .collect(new MapCollector<>(VerificationKeyResponse::getId, k -> k));
+
+        assertThat(keysMap).hasSize(2)
+                // RSA + EC, no symmetric
+                .containsKeys("rsaKey", "ecKey")
+                .doesNotContainKey("symmetricKey");
+
+        // Verify EC key
+        VerificationKeyResponse ecKeyResponse = keysMap.get("ecKey");
+        assertThat(ecKeyResponse.getType()).isEqualTo("EC");
+        assertThat(ecKeyResponse.getKeyProperties())
+                .containsKeys("crv", "x", "y")
+                .doesNotContainKey("d");
     }
 
     private void configureKeysForDefaultZone(Map<String, String> keys) {

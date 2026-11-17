@@ -1,5 +1,6 @@
 package org.cloudfoundry.identity.uaa.resources.jdbc;
 
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.cloudfoundry.identity.uaa.annotations.WithDatabaseContext;
 import org.cloudfoundry.identity.uaa.extensions.profiles.DisabledIfProfile;
 import org.cloudfoundry.identity.uaa.extensions.profiles.EnabledIfProfile;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.TransientDataAccessResourceException;
 import org.springframework.jdbc.BadSqlGrammarException;
+import org.springframework.jdbc.UncategorizedSQLException;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -19,9 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @WithDatabaseContext
 class JdbcPagingListTests {
@@ -144,14 +145,15 @@ class JdbcPagingListTests {
     }
 
     @Test
-    void testWrongStatement() {
+    void wrongStatement() {
         assertThatThrownBy(() -> new JdbcPagingList<>(jdbcTemplate, limitSqlAdapter, "Insert ('6', 'sab') from foo", new ColumnMapRowMapper(), 3))
                 .isInstanceOf(BadSqlGrammarException.class);
 
         assertThatThrownBy(() -> new JdbcPagingList<>(jdbcTemplate, limitSqlAdapter, "SELECT * ", new ColumnMapRowMapper(), 3))
                 .isInstanceOfAny(
                         BadSqlGrammarException.class, // hsqldb, postgres
-                        TransientDataAccessResourceException.class // mysql
+                        TransientDataAccessResourceException.class, // mysql
+                        UncategorizedSQLException.class // mariadb driver
                 );
     }
 
@@ -187,7 +189,7 @@ class JdbcPagingListTests {
     void subListExtendsBeyondSize() {
         list = new JdbcPagingList<>(jdbcTemplate, limitSqlAdapter, "SELECT * from foo",
                 new ColumnMapRowMapper(), 3);
-        assertThatExceptionOfType(IndexOutOfBoundsException.class).isThrownBy(() -> list.subList(1, 40));
+        assertThatThrownBy(() -> list.subList(1, 40)).asInstanceOf(InstanceOfAssertFactories.throwable(IndexOutOfBoundsException.class));
     }
 
     @Test

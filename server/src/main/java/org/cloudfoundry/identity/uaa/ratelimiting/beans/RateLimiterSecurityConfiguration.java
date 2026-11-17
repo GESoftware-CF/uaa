@@ -21,6 +21,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 
+import static org.cloudfoundry.identity.uaa.web.AuthorizationManagersUtils.anyOf;
+
 @Configuration
 @EnableWebSecurity
 class RateLimiterSecurityConfiguration {
@@ -50,12 +52,11 @@ class RateLimiterSecurityConfiguration {
     @Order(FilterChainOrder.RESOURCE)
     UaaFilterChain ratelimitSecurity(HttpSecurity http) throws Exception {
         SecurityFilterChain chain = http
-                .securityMatcher("/RateLimitingStatus/**")
+                .securityMatcher("/RateLimitingStatus", "/RateLimitingStatus/**")
                 .authorizeHttpRequests( auth -> {
-                    auth.requestMatchers("/**").hasAuthority("uaa.admin");
+                    auth.requestMatchers("/**").access(anyOf(true).hasScopeWithZoneId("uaa.admin"));
                     auth.anyRequest().denyAll();
                 })
-                //TODO is the auth manager needed?
                 .authenticationManager(clientAuthenticationManager)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(oauthWithoutResourceAuthenticationFilter.getFilter(), BasicAuthenticationFilter.class)

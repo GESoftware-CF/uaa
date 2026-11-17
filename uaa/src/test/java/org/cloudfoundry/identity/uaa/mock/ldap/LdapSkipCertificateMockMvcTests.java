@@ -14,17 +14,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.util.FileSystemUtils;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.io.File;
 
 import static org.cloudfoundry.identity.uaa.constants.OriginKeys.LDAP;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.getLoginForm;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
 import static org.cloudfoundry.identity.uaa.provider.LdapIdentityProviderDefinition.LDAP_TLS_NONE;
 import static org.springframework.http.MediaType.TEXT_HTML_VALUE;
 import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
@@ -42,10 +39,6 @@ class LdapSkipCertificateMockMvcTests {
 
     private RandomValueStringGenerator gen = new RandomValueStringGenerator(8);
 
-    @Autowired
-    private WebApplicationContext webApplicationContext;
-
-    @Autowired
     private MockMvc mockMvc;
 
     @BeforeAll
@@ -65,7 +58,9 @@ class LdapSkipCertificateMockMvcTests {
     }
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp(@Autowired WebApplicationContext webApplicationContext, @Autowired MockMvc mockMvc) throws Exception {
+        this.mockMvc = mockMvc;
+
         trustedCertZone = MockMvcUtils.createOtherIdentityZoneAndReturnResult(
                 gen.generate(),
                 mockMvc,
@@ -102,9 +97,8 @@ class LdapSkipCertificateMockMvcTests {
 
     @Test
     void ignoreServerCertificate() throws Exception {
-        MockHttpSession session = getLoginForm(mockMvc);
         mockMvc.perform(post("/login.do").accept(TEXT_HTML_VALUE)
-                        .with(csrf(session))
+                        .with(cookieCsrf())
                         .with(new SetServerNameRequestPostProcessor(trustedCertZone.getIdentityZone().getSubdomain() + ".localhost"))
                         .param("username", "marissa2")
                         .param("password", LDAP))
@@ -115,9 +109,8 @@ class LdapSkipCertificateMockMvcTests {
 
     @Test
     void ignoreExpiredServerCertificate() throws Exception {
-        MockHttpSession session = getLoginForm(mockMvc);
         mockMvc.perform(post("/login.do").accept(TEXT_HTML_VALUE)
-                        .with(csrf(session))
+                        .with(cookieCsrf())
                         .with(new SetServerNameRequestPostProcessor(trustedButExpiredCertZone.getIdentityZone().getSubdomain() + ".localhost"))
                         .param("username", "marissa2")
                         .param("password", LDAP))

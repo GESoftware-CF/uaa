@@ -16,7 +16,7 @@ clients, as well as various other management functions.
 
 The authentication service is `uaa`. It's a plain Spring MVC webapp.
 Deploy as normal in Tomcat or your container of choice, or execute
-`./gradlew run` to run it directly from `uaa` directory in the source
+`./gradlew run` (or `./gradlew bootRun`) to run it directly from `uaa` directory in the source
 tree. When running with Gradle, it listens on port 8080 and the URL is
 `http://localhost:8080/uaa`
 
@@ -72,7 +72,7 @@ Security OAuth that can do the heavy lifting if your client is Java.
 ## Quick Start
 
 Requirements:
-* Java 21
+* Java 25
 
 If this works, you are in business:
 
@@ -90,7 +90,7 @@ UAA will log to a file called `uaa.log` which can be found using the following c
 
 which you should find under something like:-
 
-    $TMPDIR/cargo/conf/logs/
+    scripts/boot/tomcat/logs/
 
 ### Demo of command line usage on a local server
 
@@ -109,16 +109,17 @@ For complex requests it is more convenient to interact with UAA using
 
 ### Running as a Spring Boot Application
 
-Two separate Gradle tasks can be used to run the Spring Boot application
+Three separate Gradle tasks can be used to run the Spring Boot application
 
+- `./gradlew run` — alias that kills any running UAA and starts the application (recommended)
 - `./gradlew bootRun` — the built-in Spring Boot Gradle task
 - `./gradlew bootWarRun` — use a `JavaExec` Gradle task to launch the runnable .war file
 - Manual run, as show below, to be run after `./gradlew assemble`
 - Using ./scripts/boot/boot-with-tls.sh — runs http/8080 and https/8443
 
 ```text
-java -DCLOUDFOUNDRY_CONFIG_PATH=`pwd`/scripts/cargo \
-    -DSECRETS_DIR=`pwd`/scripts/cargo \
+java -DCLOUDFOUNDRY_CONFIG_PATH=`pwd`/scripts/boot \
+    -DSECRETS_DIR=`pwd`/scripts/boot \
     -Djava.security.egd=file:/dev/./urandom \
     -Dmetrics.perRequestMetrics=true \
     -Dserver.servlet.context-path=/uaa \
@@ -135,32 +136,32 @@ java -DCLOUDFOUNDRY_CONFIG_PATH=`pwd`/scripts/cargo \
 ```
 
 Running Spring Boot standalone allows us to run the integration tests against it using the
-`./gradlew -Dcargo.tests.run=false integrationTest` with the system property preventing Gradle from starting up Apache Tomcat.
+`./gradlew integrationTest` with the system property preventing Gradle from starting up Apache Tomcat.
 
 ### Debugging local server
 
 To load JDWP agent for UAA jvm debugging, start the server as follows:
 ```sh
-./gradlew run -Dxdebug=true
+./gradlew run -Pdebug
 ```
-or
-```sh
-./gradlew -Dspring.profiles.active=hsqldb,debug run
-```
+
 You can then attach your debugger to port 5005 of the jvm process.
 
 To suspend the server start-up until the debugger is attached (useful for
 debugging start-up code), start the server as follows:
 ```sh
-./gradlew run -Dxdebugs=true
+./gradlew run -Pdebugs
 ```
-or
-```sh
-./gradlew -Dspring.profiles.active=hsqldb,debugs run
+
+Note: You can also use `bootRun` instead of `run` for these commands.
+To change the port that the debug command listens on, set the `debugPort` property, as follows:
+
+```bash
+./gradlew run -Pdebug -PdebugPort=5006
 ```
 
 ## Running a local UAA server with different databases
-`./gradlew run` runs the UAA server with hsqldb database by default.
+`./gradlew run` (or `./gradlew bootRun`) runs the UAA server with hsqldb database by default.
 
 ### MySql
 1. Start the mysql server (e.g. a mysql docker container)
@@ -321,14 +322,14 @@ The tests that run this are located in [`uaa/tests`](file:./uaa/src/test/java) f
 
 The formatting of the output documentation is done by using Ruby and [Slate](https://github.com/slatedocs/slate).
 
-To be able to run the command `./gradlew generateDocs` having Ruby 3.3.5 and bundler installed is key.
+To be able to run the command `./gradlew generateDocs` having Ruby 3.3.8 (see `uaa/slate/.ruby-version`) and bundler installed is key.
 
 ### Installing Ruby using brew and rbenv
 
 ```shell
 brew install rbenv
-rbenv install 3.3.5
-rbenv global 3.3.5 # or use rbenv local 3.3.5
+rbenv install 3.3.8
+rbenv global 3.3.8 # or use rbenv local 3.3.8
 gem install bundler
 ./gradlew generateDocs
 ```
@@ -337,25 +338,7 @@ The produced documentation can be accessed via [index.html](file:./uaa/build/doc
 
 # Running the UAA on Kubernetes
 
-__Prerequisites__
-* [ytt](https://get-ytt.io/), tested with 0.24.0
-* [kubectl](https://kubernetes.io/docs/reference/kubectl/overview/)
-
-The Kubernetes deployment is in active development.  You should expect frequent (and possibly breaking) changes. This section will be updated as progress is made on this feature set. As of now:
-
-The [K8s directory](./k8s) contains `ytt` templates that can be rendered and applied to a K8s cluster.
-
-In development, [this Makefile](./k8s/Makefile) can be used for common rendering and deployment activities.
-
-In production, you'll most likely want to use ytt directly. Something like this should get you going:
-
-`$ ytt -f templates -f values/default-values.yml | kubectl apply -f -`
-
-If you'd like to override some of those values, you can do so by taking advantage of YTT's [overlay functionality](https://get-ytt.io/#example:example-multiple-data-values).
-
-`$ ytt -f templates -f values/default-values.yml -f your-dir/production-values.yml | kubectl apply -f -`
-
-Of course, you can always abandon the default values altogether and provide your own values file.
+For running UAA on Kubernetes using the published Docker image, see [Running on Kubernetes](docs/Running-on-Kubernetes.md).
 
 # Contributing to the UAA
 

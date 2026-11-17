@@ -13,7 +13,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mock.web.MockHttpSession;
 import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.util.FileSystemUtils;
@@ -22,7 +21,7 @@ import org.springframework.web.context.WebApplicationContext;
 import java.io.File;
 
 import static org.cloudfoundry.identity.uaa.constants.OriginKeys.LDAP;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
 import static org.springframework.http.MediaType.TEXT_HTML_VALUE;
 import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
 import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.unauthenticated;
@@ -105,10 +104,8 @@ class LdapCertificateMockMvcTests {
 
     @Test
     void trusted_server_certificate() throws Exception {
-        MockHttpSession session = getLoginForm();
-
         mockMvc.perform(post("/login.do").accept(TEXT_HTML_VALUE)
-                .with(csrf(session))
+                .with(cookieCsrf())
                 .with(new SetServerNameRequestPostProcessor(trustedCertZone.getIdentityZone().getSubdomain() + ".localhost"))
                 .param("username", "marissa2")
                 .param("password", LDAP))
@@ -119,10 +116,8 @@ class LdapCertificateMockMvcTests {
 
     @Test
     void trusted_but_expired_server_certificate() throws Exception {
-        MockHttpSession session = getLoginForm();
-
         mockMvc.perform(post("/login.do").accept(TEXT_HTML_VALUE)
-                .with(csrf(session))
+                .with(cookieCsrf())
                 .with(new SetServerNameRequestPostProcessor(trustedButExpiredCertZone.getIdentityZone().getSubdomain() + ".localhost"))
                 .param("username", "marissa2")
                 .param("password", LDAP))
@@ -130,11 +125,4 @@ class LdapCertificateMockMvcTests {
                 .andExpect(redirectedUrl("/login?error=login_failure"))
                 .andExpect(unauthenticated());
     }
-
-    private MockHttpSession getLoginForm() {
-        MockHttpSession session = new MockHttpSession();
-        MockMvcUtils.getLoginForm(mockMvc, session);
-        return session;
-    }
-
 }

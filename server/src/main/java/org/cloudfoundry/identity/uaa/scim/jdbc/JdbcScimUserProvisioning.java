@@ -172,7 +172,7 @@ public class JdbcScimUserProvisioning extends AbstractQueryable<ScimUser>
     public ScimUser retrieve(String id, String zoneId) {
         try {
             return jdbcTemplate.queryForObject(USER_BY_ID_QUERY, mapper, id, zoneId);
-        } catch (EmptyResultDataAccessException e) {
+        } catch (EmptyResultDataAccessException _) {
             throw new ScimResourceNotFoundException(USER_DOES_NOT_EXIST_MESSAGE.formatted(id));
         }
     }
@@ -202,6 +202,11 @@ public class JdbcScimUserProvisioning extends AbstractQueryable<ScimUser>
         // build WHERE clause
         final ProcessedFilter where = joinConverter.convert(filter, sortBy, ascending, zoneId);
         final String whereClauseScimFilter = where.getSql();
+        // The SQL fragment comes from the configured SearchQueryConverter (here joinConverter,
+        // see AbstractQueryable#getQuerySQL for the full converter-contract justification);
+        // assertSafeGeneratedSql adds a defense-in-depth check so this direct concatenation
+        // is protected by the same guard as the inherited query() path.
+        assertSafeGeneratedSql(whereClauseScimFilter);
         String whereClause = "idp.active is true and (";
         if (where.hasOrderBy()) {
             whereClause += whereClauseScimFilter.replace(ProcessedFilter.ORDER_BY, ")" + ProcessedFilter.ORDER_BY);
@@ -444,7 +449,7 @@ public class JdbcScimUserProvisioning extends AbstractQueryable<ScimUser>
                             new int[]{VARCHAR, VARCHAR},
                             String.class
                     );
-        } catch (IncorrectResultSizeDataAccessException e) {
+        } catch (IncorrectResultSizeDataAccessException _) {
             throw new ScimResourceNotFoundException(USER_DOES_NOT_EXIST_MESSAGE.formatted(id));
         }
 
@@ -648,6 +653,38 @@ public class JdbcScimUserProvisioning extends AbstractQueryable<ScimUser>
                     currentZone.getConfig().getUserConfig() :
                     jdbcIdentityZoneProvisioning.retrieve(zoneId).getConfig().getUserConfig();
         } catch (ZoneDoesNotExistsException e) {
+            throw new InvalidScimResourceException("Invalid identity zone id: %s".formatted(zoneId));
+        }
+    }
+
+    private void validateUserLimit(String zoneId, UserConfig userConfig) {
+        // get the current limit of allowed users
+        long maxAllowedUsers = userConfig == null ? -1 : userConfig.getMaxUsers();
+        // check, if there is a limit (>0), that the limit is not reached with one user more (getUsersCountForZone + 1)
+        if (maxAllowedUsers > 0 && maxAllowedUsers < (getUsersCountForZone(zoneId) + 1)) {
+            throw new InvalidScimResourceException("The maximum allowed numbers of users: " + maxAllowedUsers
+                    + " is reached already in Identity Zone " + zoneId);
+        }
+    }
+
+    private boolean isCheckOriginEnabled(UserConfig userConfig) {
+        return userConfig != null && userConfig.isCheckOriginEnabled();
+    }
+
+    private void checkOrigin(String origin, String zoneId) {
+        Integer count = jdbcTemplate.queryForObject("select count(*) from identity_provider where origin_key=? and identity_zone_id=? ", Integer.class, origin, zoneId);
+        if (count == null || count == 0) {
+            throw new InvalidScimResourceException("Invalid origin " + origin + " in Identity Zone " + zoneId);
+        }
+    }
+
+    private UserConfig getUserConfig(String zoneId) throws InvalidScimResourceException {
+        try {
+            IdentityZone currentZone = identityZoneManager.getCurrentIdentityZone();
+            return currentZone.getId().equals(zoneId) ?
+                    currentZone.getConfig().getUserConfig() :
+                    jdbcIdentityZoneProvisioning.retrieve(zoneId).getConfig().getUserConfig();
+        } catch (ZoneDoesNotExistsException _) {
             throw new InvalidScimResourceException("Invalid identity zone id: %s".formatted(zoneId));
         }
     }

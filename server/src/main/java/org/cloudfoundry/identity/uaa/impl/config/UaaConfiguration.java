@@ -143,13 +143,21 @@ public class UaaConfiguration {
             this.web_domains = web_domains;
         }
     }
+    public Map<String, Object> springdoc;
 
     public static class Zones {
         @Valid
         public InternalZone internal;
 
+        @Valid
+        public Paths paths;
+
         public static class InternalZone {
             public Set<String> hostnames;
+        }
+
+        public static class Paths {
+            public boolean enabled;
         }
     }
 
@@ -381,7 +389,7 @@ public class UaaConfiguration {
         }
     }
 
-    public static void main(String[] args) throws Exception {
+    void main(String[] args) throws Exception {
         if (args.length != 1) {
             throw new IllegalArgumentException("YAML file required");
         }
@@ -392,7 +400,7 @@ public class UaaConfiguration {
             ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
             Validator validator = factory.getValidator();
             Set<ConstraintViolation<UaaConfiguration>> errors = validator.validate(config);
-            System.out.println(errors);
+            IO.println(errors);
         }
     }
 }

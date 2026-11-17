@@ -13,10 +13,7 @@
   "author": "CloudFoundry",
   "license": "Apache-2.0",
   "dependencies": {
-    "jasmine": "^5.9.0",
-    "jasmine-core": "5.9.0"
-  },
-  "overrides": {
-    "glob": ">=10.5.0"
+    "jasmine": "^7.0.0",
+    "jasmine-core": "7.0.2"
   }
 }

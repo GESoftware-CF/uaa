@@ -2,6 +2,7 @@ package org.cloudfoundry.identity.uaa.provider.saml;
 
 import org.cloudfoundry.identity.uaa.provider.SamlIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
+import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.util.ReflectionUtils;
@@ -9,6 +10,7 @@ import org.springframework.util.ReflectionUtils;
 import java.io.File;
 import java.lang.reflect.Field;
 import java.util.Collections;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.provider.SamlIdentityProviderDefinition.MetadataLocation.DATA;
@@ -106,6 +108,28 @@ public class SamlIdentityProviderDefinitionTests {
     }
 
     @Test
+    void setCaCertificates() {
+        SamlIdentityProviderDefinition def = new SamlIdentityProviderDefinition();
+        assertThat(def.getCaCertificates()).isNull();
+        def.setCaCertificates(List.of("cert-a"));
+        assertThat(def.getCaCertificates()).containsExactly("cert-a");
+    }
+
+    @Test
+    void caCertificates_areCopiedByClone() {
+        definition.setCaCertificates(List.of("cert-a"));
+        SamlIdentityProviderDefinition cloned = definition.clone();
+        assertThat(cloned.getCaCertificates()).containsExactly("cert-a");
+    }
+
+    @Test
+    void serialize_caCertificates() {
+        definition.setCaCertificates(List.of("-----BEGIN CERTIFICATE-----\nfake\n-----END CERTIFICATE-----"));
+        SamlIdentityProviderDefinition def = JsonUtils.readValue(JsonUtils.writeValueAsString(definition), SamlIdentityProviderDefinition.class);
+        assertThat(def.getCaCertificates()).containsExactlyElementsOf(definition.getCaCertificates());
+    }
+
+    @Test
     void get_file_type_fails_and_is_no_longer_supported() {
         definition.setMetaDataLocation(System.getProperty("user.home"));
         assertThat(definition.getType()).isEqualTo(UNKNOWN);
@@ -138,6 +162,18 @@ public class SamlIdentityProviderDefinitionTests {
     @Test
     void get_data_type_when_valid() {
         definition.setMetaDataLocation(IDP_METADATA);
+        assertThat(definition.getType()).isEqualTo(DATA);
+    }
+
+    @Test
+    void get_data_type_when_valid_with_leading_byte_order_marker() {
+        // Microsoft Entra ID's federation metadata endpoint prepends a byte order marker to its
+        // XML response. Whether the original bytes were a UTF-8, UTF-16LE, or UTF-16BE BOM,
+        // correctly decoded text has this same character (U+FEFF) leading it; String.trim() does
+        // not strip it, so metadata that is otherwise identical to get_data_type_when_valid()
+        // must still classify as DATA, not UNKNOWN.
+        String byteOrderMarkerPrefixedMetadata = UaaStringUtils.BYTE_ORDER_MARKER + IDP_METADATA;
+        definition.setMetaDataLocation(byteOrderMarkerPrefixedMetadata);
         assertThat(definition.getType()).isEqualTo(DATA);
     }
 
@@ -192,7 +228,7 @@ public class SamlIdentityProviderDefinitionTests {
     void setEmailDomain() {
         SamlIdentityProviderDefinition def = new SamlIdentityProviderDefinition();
         def.setEmailDomain(Collections.singletonList("test.com"));
-        assertThat(def.getEmailDomain().getFirst()).isEqualTo("test.com");
+        assertThat(def.getEmailDomain()).first().isEqualTo("test.com");
     }
 
     @Test
@@ -205,7 +241,7 @@ public class SamlIdentityProviderDefinitionTests {
     void setAuthnContext() {
         SamlIdentityProviderDefinition def = new SamlIdentityProviderDefinition();
         def.setAuthnContext(Collections.singletonList("a-custom-context"));
-        assertThat(def.getAuthnContext().getFirst()).isEqualTo("a-custom-context");
+        assertThat(def.getAuthnContext()).first().isEqualTo("a-custom-context");
     }
 
     @Test

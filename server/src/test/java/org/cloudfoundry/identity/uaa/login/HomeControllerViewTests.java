@@ -1,6 +1,5 @@
 package org.cloudfoundry.identity.uaa.login;
 
-import jakarta.annotation.PostConstruct;
 import jakarta.servlet.RequestDispatcher;
 import org.cloudfoundry.identity.uaa.TestClassNullifier;
 import org.cloudfoundry.identity.uaa.client.ClientMetadata;
@@ -18,7 +17,6 @@ import org.cloudfoundry.identity.uaa.zone.Links;
 import org.cloudfoundry.identity.uaa.zone.MultitenancyFixture;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -36,13 +34,13 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.ui.Model;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.servlet.config.annotation.DefaultServletHandlerConfigurer;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter;
 
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -50,12 +48,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.xpath;
@@ -101,7 +97,6 @@ class HomeControllerViewTests extends TestClassNullifier {
     }
 
     @Test
-    @Disabled
     void tilesFromClientMetadataAndTilesConfigShown() throws Exception {
         mockMvc.perform(get("/"))
                 .andExpect(xpath("//*[@id='tile-1'][text()[contains(.,'client-1')]]").exists())
@@ -115,7 +110,6 @@ class HomeControllerViewTests extends TestClassNullifier {
     }
 
     @Test
-    @Disabled
     void tilesFromClientMetadataAndTilesConfigShown_forOtherZone() throws Exception {
         IdentityZone identityZone = MultitenancyFixture.identityZone("test", "test");
         IdentityZoneHolder.set(identityZone);
@@ -162,42 +156,92 @@ class HomeControllerViewTests extends TestClassNullifier {
             "/saml_error"
     })
     void errorBranding(final String errorUrl) throws Exception {
-        mockMvc.perform(get(errorUrl).sessionAttr(WebAttributes.AUTHENTICATION_EXCEPTION, new InternalAuthenticationServiceException("auth error")))
+        MvcResult result = mockMvc.perform(get(errorUrl).sessionAttr(WebAttributes.AUTHENTICATION_EXCEPTION, new InternalAuthenticationServiceException("auth error")))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString(customFooterText)))
-                .andExpect(content().string(containsString(base64ProductLogo)));
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).contains(customFooterText, base64ProductLogo);
     }
 
     @Test
     void errorOauthWithExceptionString() throws Exception {
-        mockMvc.perform(get("/oauth_error").sessionAttr("oauth_error", "auth error"))
+        MvcResult result = mockMvc.perform(get("/oauth_error").sessionAttr("oauth_error", "auth error"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString(customFooterText)))
-                .andExpect(content().string(containsString(base64ProductLogo)));
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).contains(customFooterText, base64ProductLogo);
+    }
+
+    /**
+     * Verifies that {@code /oauth_error?reason=concurrent_login} displays a human-readable
+     * "Another sign-in is already in progress" message and a link that lets the user restart
+     * the login flow — rather than showing a cryptic technical error.
+     */
+    @Test
+    void oauthError_withConcurrentLoginReason_showsFriendlyMessageAndRestartLink() throws Exception {
+        MvcResult result = mockMvc.perform(get("/oauth_error").param("reason", "concurrent_login"))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString())
+                .contains("Another sign-in is already in progress", "Start a new login");
+    }
+
+    @Test
+    void oauthError_withConcurrentLoginReason_doesNotShowGenericOAuthError() throws Exception {
+        MvcResult result = mockMvc.perform(get("/oauth_error").param("reason", "concurrent_login"))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).doesNotContain("There was an error when authenticating");
+    }
+
+    @Test
+    void oauthError_withConcurrentLoginReasonAndLeftoverSessionError_suppressesGenericOAuthError() throws Exception {
+        MvcResult result = mockMvc.perform(get("/oauth_error")
+                        .param("reason", "concurrent_login")
+                        .sessionAttr("oauth_error", "There was an error when authenticating against the external identity provider: leftover"))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString())
+                .contains("Another sign-in is already in progress")
+                .doesNotContain("leftover");
+    }
+
+    @Test
+    void oauthError_withoutConcurrentLoginReason_doesNotShowFriendlyMessage() throws Exception {
+        MvcResult result = mockMvc.perform(get("/oauth_error"))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).doesNotContain("Another sign-in is already in progress");
     }
 
     @Test
     void error500WithGenericException() throws Exception {
-        mockMvc.perform(get("/error500").requestAttr(RequestDispatcher.ERROR_EXCEPTION, new Exception("bad")))
+        MvcResult result = mockMvc.perform(get("/error500").requestAttr(RequestDispatcher.ERROR_EXCEPTION, new Exception("bad")))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString(customFooterText)))
-                .andExpect(content().string(containsString(base64ProductLogo)));
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).contains(customFooterText, base64ProductLogo);
     }
 
     @Test
     void error500WithSAMLExceptionAsCause() throws Exception {
-        mockMvc.perform(get("/error500").requestAttr(RequestDispatcher.ERROR_EXCEPTION, new Exception(new Saml2Exception("bad"))))
+        MvcResult result = mockMvc.perform(get("/error500").requestAttr(RequestDispatcher.ERROR_EXCEPTION, new Exception(new Saml2Exception("bad"))))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string(containsString(customFooterText)))
-                .andExpect(content().string(containsString(base64ProductLogo)));
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).contains(customFooterText, base64ProductLogo);
+    }
+
+    @Test
+    void error500WithDirectSAMLException() throws Exception {
+        MvcResult result = mockMvc.perform(get("/error500").requestAttr(RequestDispatcher.ERROR_EXCEPTION, new Saml2Exception("metadata fetch failed")))
+                .andExpect(status().isBadRequest())
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).contains(customFooterText, base64ProductLogo);
     }
 
     @Test
     void error500WithMetadataProviderNotFoundExceptionCause() throws Exception {
-        mockMvc.perform(get("/error500").requestAttr(RequestDispatcher.ERROR_EXCEPTION, new Exception(new MetadataProviderNotFoundException("bad", new RuntimeException()))))
+        MvcResult result = mockMvc.perform(get("/error500").requestAttr(RequestDispatcher.ERROR_EXCEPTION, new Exception(new MetadataProviderNotFoundException("bad", new RuntimeException()))))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string(containsString(customFooterText)))
-                .andExpect(content().string(containsString(base64ProductLogo)));
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).contains(customFooterText, base64ProductLogo);
     }
 
     @ParameterizedTest
@@ -254,14 +298,6 @@ class HomeControllerViewTests extends TestClassNullifier {
     @EnableWebMvc
     @Import(ThymeleafConfig.class)
     static class ContextConfiguration implements WebMvcConfigurer {
-
-        @Autowired
-        private RequestMappingHandlerAdapter requestMappingHandlerAdapter;
-
-        @PostConstruct
-        public void init() {
-            requestMappingHandlerAdapter.setIgnoreDefaultModelOnRedirect(false);
-        }
 
         @Override
         public void configureDefaultServletHandling(DefaultServletHandlerConfigurer configurer) {

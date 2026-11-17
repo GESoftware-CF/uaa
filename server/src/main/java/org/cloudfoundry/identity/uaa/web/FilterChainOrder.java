@@ -12,6 +12,7 @@ public class FilterChainOrder {
 
     // spring-servlet.xml: 0
     public static final int NO_SECURITY = 1;
+    public static final int SESSION_MANAGEMENT = 2;
 
     // login-server-security.xml: 100
     public static final int AUTHENTICATE_BEARER = 100;
@@ -34,6 +35,7 @@ public class FilterChainOrder {
     public static final int OAUTH_08 = 208;
     public static final int OAUTH_09 = 209;
     public static final int OAUTH_10 = 210;
+    public static final int OAUTH_11 = 211;
 
     // scim-endpoints.xml: 300
     public static final int SCIM_PASSWORD = 300;
@@ -43,7 +45,6 @@ public class FilterChainOrder {
     public static final int IDENTITY_ZONES = 400;
 
     public static final int ORCHESTRATOR_ZONES = 350;
-
     // approval-endpoints.xml: 500
     public static final int APPROVAL = 500;
 

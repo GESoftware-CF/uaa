@@ -29,12 +29,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.savedrequest.SavedRequest;
 
 import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
-import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URI;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -170,7 +167,7 @@ class UaaSavedRequestCacheTests {
     }
 
     @Test
-    void should_save_condition_works() throws MalformedURLException {
+    void should_save_condition_works() throws Exception {
         assertThat(cache.shouldSaveFormRedirectParameter(request)).isFalse();
 
         request.setPathInfo("/login.do");
@@ -208,19 +205,19 @@ class UaaSavedRequestCacheTests {
         request.setQueryString("name=value");
         request.setServerPort(443);
         ClientRedirectSavedRequest saved = new ClientRedirectSavedRequest(request, redirectUrl);
-        assertThat(saved.doesRequestMatch(request, null)).isTrue();
+        assertThat(saved.doesRequestMatch(request)).isTrue();
 
         request.setQueryString("name=value&name2=value2");
-        assertThat(saved.doesRequestMatch(request, null)).isFalse();
+        assertThat(saved.doesRequestMatch(request)).isFalse();
         request.setQueryString("name=value");
 
         request = new MockHttpServletRequest(POST.name(), "/login.do");
         request.setParameter(FORM_REDIRECT_PARAMETER, redirectUrl);
-        assertThat(saved.doesRequestMatch(request, null)).isTrue();
+        assertThat(saved.doesRequestMatch(request)).isTrue();
     }
 
     @Test
-    void unapprovedFormRedirectRequestDoesNotSave() throws IOException, ServletException {
+    void unapprovedFormRedirectRequestDoesNotSave() throws Exception {
         request.setPathInfo("/login.do");
         request.setRequestURI("/login.do");
         request.setMethod(HttpMethod.POST.name());

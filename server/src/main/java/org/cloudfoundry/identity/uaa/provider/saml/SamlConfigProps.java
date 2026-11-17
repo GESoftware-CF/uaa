@@ -69,7 +69,12 @@ public class SamlConfigProps implements EnvironmentAware {
     /**
      * Local/SP metadata - want incoming assertions signed
      * Defaults to true
+     *
+     * @deprecated Since 78.13.0. Only controls the {@code WantAssertionsSigned} attribute in SAML SP metadata.
+     * No longer affects authentication behavior; see {@link org.cloudfoundry.identity.uaa.zone.SamlConfig}.
+     * Scheduled for removal in a future release.
      */
+    @Deprecated(since = "78.13.0", forRemoval = true)
     private Boolean wantAssertionSigned = true;
 
     /**

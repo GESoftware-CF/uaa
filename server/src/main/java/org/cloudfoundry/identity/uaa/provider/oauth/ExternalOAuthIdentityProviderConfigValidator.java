@@ -5,6 +5,7 @@ import org.cloudfoundry.identity.uaa.provider.AbstractExternalOAuthIdentityProvi
 import org.cloudfoundry.identity.uaa.provider.AbstractIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.provider.BaseIdentityProviderValidator;
 import org.cloudfoundry.identity.uaa.provider.OIDCIdentityProviderDefinition;
+import org.cloudfoundry.identity.uaa.util.PemCertificateParser;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -20,7 +21,8 @@ public class ExternalOAuthIdentityProviderConfigValidator extends BaseIdentityPr
 
     private static final Set<String> oAuthStandardParameters = Set.of("redirect_uri", "code", "client_id", "client_secret", "response_type",
             "grant_type", "code_verifier", "client_assertion", "client_assertion_type", "code_challenge", "code_challenge_method", "nonce", "state",
-            "scope", "assertion", "subject_token", "actor_token", "username", "password");
+            "scope", "assertion", "subject_token", "actor_token", "username", "password", "subject_token_type", "audience",
+            "requested_token_type", "resource");
 
     @Override
     public void validate(AbstractIdentityProviderDefinition definition) {
@@ -80,6 +82,13 @@ public class ExternalOAuthIdentityProviderConfigValidator extends BaseIdentityPr
             errors.add("Link Text must be specified because showLinkText is true");
         }
 
+        if (def.getCaCertificates() != null) {
+            try {
+                PemCertificateParser.parseCertificates(def.getCaCertificates());
+            } catch (IllegalArgumentException e) {
+                errors.add(e.getMessage());
+            }
+        }
 
         if (!errors.isEmpty()) {
             String errorMessages = String.join(",", errors);

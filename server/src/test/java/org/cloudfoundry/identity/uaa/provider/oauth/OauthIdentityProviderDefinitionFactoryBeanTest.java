@@ -15,6 +15,7 @@
 
 package org.cloudfoundry.identity.uaa.provider.oauth;
 
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.cloudfoundry.identity.uaa.constants.ClientAuthentication;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.provider.IdentityProvider;
@@ -24,11 +25,13 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.EXTERNAL_GROUPS_WHITELIST;
 import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.GROUP_ATTRIBUTE_NAME;
 import static org.cloudfoundry.identity.uaa.provider.ExternalIdentityProviderDefinition.STORE_CUSTOM_ATTRIBUTES_NAME;
 import static org.cloudfoundry.identity.uaa.util.UaaMapUtils.entry;
@@ -103,7 +106,7 @@ class OauthIdentityProviderDefinitionFactoryBeanTest {
         idpDefinitionMap.put("groupMappingMode", "AS_SCOPES");
         idpDefinitionMap.put("attributeMappings", externalGroupMapping);
         factoryBean.setCommonProperties(idpDefinitionMap, providerDefinition);
-        assertThat(providerDefinition.getAttributeMappings()).isEqualTo(externalGroupMapping);
+        assertThat(providerDefinition.getAttributeMappings()).containsExactlyInAnyOrderEntriesOf(externalGroupMapping);
         assertThat(providerDefinition.getGroupMappingMode()).hasToString("AS_SCOPES");
     }
 
@@ -114,8 +117,50 @@ class OauthIdentityProviderDefinitionFactoryBeanTest {
         );
         idpDefinitionMap.put("attributeMappings", externalGroupMapping);
         factoryBean.setCommonProperties(idpDefinitionMap, providerDefinition);
-        assertThat(providerDefinition.getAttributeMappings()).isEqualTo(externalGroupMapping);
+        assertThat(providerDefinition.getAttributeMappings()).containsExactlyInAnyOrderEntriesOf(externalGroupMapping);
         assertThat(providerDefinition.getGroupMappingMode()).isNull();
+    }
+
+    @Test
+    void external_groups_whitelist_default_is_empty() {
+        factoryBean.setCommonProperties(idpDefinitionMap, providerDefinition);
+        assertThat(providerDefinition.getExternalGroupsWhitelist()).isEmpty();
+    }
+
+    @Test
+    void external_groups_whitelist_in_body() {
+        idpDefinitionMap.put(EXTERNAL_GROUPS_WHITELIST, List.of("*"));
+        factoryBean.setCommonProperties(idpDefinitionMap, providerDefinition);
+        assertThat(providerDefinition.getExternalGroupsWhitelist()).containsExactly("*");
+    }
+
+    @Test
+    void caCertificatesDefaultIsNull() {
+        factoryBean.setCommonProperties(idpDefinitionMap, providerDefinition);
+        assertThat(providerDefinition.getCaCertificates()).isNull();
+    }
+
+    @Test
+    void caCertificatesInBody() {
+        idpDefinitionMap.put("caCertificates", List.of("-----BEGIN CERTIFICATE-----FAKE-----END CERTIFICATE-----"));
+        factoryBean.setCommonProperties(idpDefinitionMap, providerDefinition);
+        assertThat(providerDefinition.getCaCertificates()).containsExactly("-----BEGIN CERTIFICATE-----FAKE-----END CERTIFICATE-----");
+    }
+
+    @Test
+    void additionalConfigurationIsMapped() {
+        Map<String, Object> additionalConfiguration = map(
+                entry("origin_override", map(entry("uaa", "uaa")))
+        );
+        idpDefinitionMap.put("additionalConfiguration", additionalConfiguration);
+        factoryBean.setCommonProperties(idpDefinitionMap, providerDefinition);
+        assertThat(providerDefinition.getAdditionalConfiguration()).containsExactlyInAnyOrderEntriesOf(additionalConfiguration);
+    }
+
+    @Test
+    void additionalConfigurationIsNullWhenNotProvided() {
+        factoryBean.setCommonProperties(idpDefinitionMap, providerDefinition);
+        assertThat(providerDefinition.getAdditionalConfiguration()).isNull();
     }
 
     @Test
@@ -280,7 +325,16 @@ class OauthIdentityProviderDefinitionFactoryBeanTest {
     @Test
     void authMethodSetInvalidValue() {
         idpDefinitionMap.put("authMethod", "empty");
-        assertThatExceptionOfType(IllegalArgumentException.class).isThrownBy(() -> factoryBean.setCommonProperties(idpDefinitionMap, providerDefinition));
+        assertThatThrownBy(() -> factoryBean.setCommonProperties(idpDefinitionMap, providerDefinition)).asInstanceOf(InstanceOfAssertFactories.throwable(IllegalArgumentException.class));
+    }
+
+    @Test
+    void authMethodSetToTlsClientAuthIsRejected() {
+        idpDefinitionMap.put("authMethod", ClientAuthentication.TLS_CLIENT_AUTH);
+
+        assertThatThrownBy(() -> factoryBean.setCommonProperties(idpDefinitionMap, providerDefinition))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid IdP authentication method");
     }
 
     @Test

@@ -43,7 +43,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.ClientHttpResponse;
-import org.springframework.security.crypto.codec.Base64;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
@@ -51,8 +50,10 @@ import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -62,11 +63,11 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
-import static org.cloudfoundry.identity.uaa.integration.feature.OIDCLoginIT.doesSupportZoneDNS;
+import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.doesSupportZoneDNS;
 import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.getHeaders;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.CSRF_PARAMETER_NAME;
 import static org.cloudfoundry.identity.uaa.oauth.common.util.OAuth2Utils.USER_OAUTH_APPROVAL;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
+import static org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository.DEFAULT_CSRF_COOKIE_NAME;
 
 @OAuth2ContextConfiguration(OAuth2ContextConfiguration.ClientCredentials.class)
 class ScimGroupEndpointsIntegrationTests {
@@ -120,7 +121,7 @@ class ScimGroupEndpointsIntegrationTests {
             }
 
             @Override
-            public void handleError(ClientHttpResponse response) {
+            public void handleError(URI url, HttpMethod method, ClientHttpResponse response) {
                 // pass through
             }
         });
@@ -224,7 +225,7 @@ class ScimGroupEndpointsIntegrationTests {
     }
 
     @Test
-    void createAllowedGroupSucceeds() throws URISyntaxException {
+    void createAllowedGroupSucceeds() throws Exception {
         String testZoneId = "testzone1";
         assertThat(doesSupportZoneDNS()).as("Expected testzone1.localhost and testzone2.localhost to resolve to 127.0.0.1").isTrue();
         String adminToken = IntegrationTestUtils.getClientCredentialsToken(serverRunning.getBaseUrl(), "admin", "adminsecret");
@@ -241,7 +242,7 @@ class ScimGroupEndpointsIntegrationTests {
     }
 
     @Test
-    void createNotAllowedGroupFailsCorrectly() throws URISyntaxException {
+    void createNotAllowedGroupFailsCorrectly() throws Exception {
         String testZoneId = "testzone1";
         assertThat(doesSupportZoneDNS()).as("Expected testzone1.localhost and testzone2.localhost to resolve to 127.0.0.1").isTrue();
         final String notAllowed = "not_allowed_" + new RandomValueStringGenerator().generate().toLowerCase();
@@ -258,7 +259,7 @@ class ScimGroupEndpointsIntegrationTests {
             fail("must fail");
         } catch (HttpClientErrorException e) {
             assertThat(e.getStatusCode().is4xxClientError()).isTrue();
-            assertThat(e.getRawStatusCode()).isEqualTo(400);
+            assertThat(e.getStatusCode().value()).isEqualTo(400);
             assertThat(e.getMessage()).contains("The group with displayName: " + g1.getDisplayName() + " is not allowed in Identity Zone " + testZoneId);
         } finally {
             IntegrationTestUtils.deleteZone(serverRunning.getBaseUrl(), testZoneId, adminToken);
@@ -266,7 +267,7 @@ class ScimGroupEndpointsIntegrationTests {
     }
 
     @Test
-    void relyOnDefaultGroupsShouldAllowedGroupSucceed() throws URISyntaxException {
+    void relyOnDefaultGroupsShouldAllowedGroupSucceed() throws Exception {
         String testZoneId = "testzone1";
         assertThat(doesSupportZoneDNS()).as("Expected testzone1.localhost and testzone2.localhost to resolve to 127.0.0.1").isTrue();
         String adminToken = IntegrationTestUtils.getClientCredentialsToken(serverRunning.getBaseUrl(), "admin", "adminsecret");
@@ -292,7 +293,7 @@ class ScimGroupEndpointsIntegrationTests {
     }
 
     @Test
-    void changeDefaultGroupsAllowedGroupsUsageShouldSucceed() throws URISyntaxException {
+    void changeDefaultGroupsAllowedGroupsUsageShouldSucceed() throws Exception {
         String testZoneId = "testzone1";
         assertThat(doesSupportZoneDNS()).as("Expected testzone1.localhost and testzone2.localhost to resolve to 127.0.0.1").isTrue();
         String adminToken = IntegrationTestUtils.getClientCredentialsToken(serverRunning.getBaseUrl(), "admin", "adminsecret");
@@ -563,7 +564,7 @@ class ScimGroupEndpointsIntegrationTests {
         HttpHeaders headers = new HttpHeaders();
         headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
         headers.set("Authorization",
-                "Basic " + new String(Base64.encode("%s:%s".formatted(clientId, clientSecret).getBytes())));
+                "Basic " + Base64.getEncoder().encodeToString("%s:%s".formatted(clientId, clientSecret).getBytes(StandardCharsets.UTF_8)));
 
         @SuppressWarnings("rawtypes")
         ResponseEntity<Map> response = serverRunning.postForMap("/oauth/token", formData, headers);
@@ -618,7 +619,7 @@ class ScimGroupEndpointsIntegrationTests {
                 .contains("username")
                 .contains("password");
 
-        if (response.getHeaders().containsKey("Set-Cookie")) {
+        if (response.getHeaders().containsHeader("Set-Cookie")) {
             String cookie = response.getHeaders().getFirst("Set-Cookie");
             int nameLength = cookie.indexOf('=');
             cookies.addCookie(new BasicClientCookie(cookie.substring(0, nameLength), cookie.substring(nameLength + 1)));
@@ -627,7 +628,7 @@ class ScimGroupEndpointsIntegrationTests {
         MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
         formData.add("username", username);
         formData.add("password", password);
-        formData.add(CSRF_PARAMETER_NAME, IntegrationTestUtils.extracCsrfToken(response.getBody()));
+        formData.add(DEFAULT_CSRF_COOKIE_NAME, IntegrationTestUtils.extractCookieCsrf(response.getBody()));
 
         // Should be redirected to the original URL, but now authenticated
         result = serverRunning.postForResponse("/login.do", getHeaders(cookies), formData);
@@ -648,7 +649,7 @@ class ScimGroupEndpointsIntegrationTests {
             assertThat(response.getBody()).contains("<h1>Application Authorization</h1>");
 
             formData.clear();
-            formData.add(CSRF_PARAMETER_NAME, IntegrationTestUtils.extracCsrfToken(response.getBody()));
+            formData.add(DEFAULT_CSRF_COOKIE_NAME, IntegrationTestUtils.extractCookieCsrf(response.getBody()));
             formData.add(USER_OAUTH_APPROVAL, "true");
             formData.add("scope.0", "scope." + cfid);
             result = serverRunning.postForResponse("/oauth/authorize", getHeaders(cookies), formData);

@@ -59,7 +59,6 @@ public class TestUtils {
         jdbcTemplate.update("DELETE FROM " +
                 new DbUtils().getQuotedIdentifier("groups", jdbcTemplate));
         jdbcTemplate.update("DELETE FROM identity_provider");
-        jdbcTemplate.update("DELETE FROM orchestrator_zone");
         jdbcTemplate.update("DELETE FROM identity_zone");
         jdbcTemplate.update("DELETE FROM oauth_client_details");
         jdbcTemplate.update("DELETE FROM oauth_code");
@@ -79,7 +78,7 @@ public class TestUtils {
         JdbcTemplate jdbcTemplate;
         try {
             jdbcTemplate = applicationContext.getBean(JdbcTemplate.class);
-        } catch (NoSuchBeanDefinitionException ignored) {
+        } catch (NoSuchBeanDefinitionException _) {
             return;
         }
 
@@ -91,10 +90,16 @@ public class TestUtils {
     private static void seedUaaZoneSimilarToHowTheRealFlywayMigrationDoesIt(JdbcTemplate jdbcTemplate) {
         IdentityZone uaa = IdentityZone.getUaa();
         Timestamp t = new Timestamp(uaa.getCreated().getTime());
-        jdbcTemplate.update("insert into identity_zone VALUES (?,?,?,?,?,?,?,?,?,?)", uaa.getId(), t, t, uaa.getVersion(), uaa.getSubdomain(), uaa.getName(), uaa.getDescription(), null, true,true);
+        jdbcTemplate.update("insert into identity_zone VALUES (?,?,?,?,?,?,?,?,?)", uaa.getId(), t, t, uaa.getVersion(), uaa.getSubdomain(), uaa.getName(), uaa.getDescription(), null, true);
         Map<String, String> originMap = new HashMap<>();
         Set<String> origins = new LinkedHashSet<>();
-        origins.addAll(Arrays.asList(new String[]{OriginKeys.UAA, OriginKeys.LOGIN_SERVER, OriginKeys.LDAP, OriginKeys.KEYSTONE}));
+        // V2.0.2 (BootstrapIdentityZones) used to unconditionally seed login-server/ldap/keystone
+        // here too, but a later migration (DeleteUnconfiguredBootstrapIdentityProviders) removes
+        // those placeholders again on any database where they were never actually configured -
+        // which is every fresh database. Only "uaa" plus whatever origins real user data already
+        // references survive the full migration chain now, so that's what this seeds.
+        // see https://github.com/cloudfoundry/uaa/issues/4062
+        origins.add(OriginKeys.UAA);
         origins.addAll(jdbcTemplate.queryForList("SELECT DISTINCT origin from users", String.class));
         for (String origin : origins) {
             String identityProviderId = UUID.randomUUID().toString();
@@ -119,8 +124,8 @@ public class TestUtils {
         try {
             ClientAdminBootstrap bootstrap = applicationContext.getBean(ClientAdminBootstrap.class);
             bootstrap.afterPropertiesSet();
-        } catch (Exception ignored) {
-
+        } catch (Exception _) {
+            // ignore
         }
     }
 
@@ -128,8 +133,8 @@ public class TestUtils {
         try {
             InitializingBean bootstrap = applicationContext.getBean(clazz);
             bootstrap.afterPropertiesSet();
-        } catch (Exception ignored) {
-
+        } catch (Exception _) {
+            // ignore
         }
     }
 
@@ -145,10 +150,10 @@ public class TestUtils {
         try {
             IdentityZoneHolder.setProvisioning(applicationContext.getBean(JdbcIdentityZoneProvisioning.class));
             IdentityZoneHolder.setSamlKeyManagerFactory(applicationContext.getBean(SamlKeyManagerFactory.class));
-        } catch (NoSuchBeanDefinitionException ignored) {
+        } catch (NoSuchBeanDefinitionException _) {
             try {
                 IdentityZoneHolder.setProvisioning(new JdbcIdentityZoneProvisioning(applicationContext.getBean(JdbcTemplate.class)));
-            } catch (NoSuchBeanDefinitionException ignoredAgain) {
+            } catch (NoSuchBeanDefinitionException _) {
                 IdentityZoneHolder.setProvisioning(null);
             }
         }

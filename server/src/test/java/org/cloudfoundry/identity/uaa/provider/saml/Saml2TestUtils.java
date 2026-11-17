@@ -16,7 +16,7 @@
 
 package org.cloudfoundry.identity.uaa.provider.saml;
 
-import net.shibboleth.utilities.java.support.xml.SerializeSupport;
+import net.shibboleth.shared.xml.SerializeSupport;
 import org.cloudfoundry.identity.uaa.saml.SamlKey;
 import org.opensaml.core.xml.XMLObject;
 import org.opensaml.core.xml.config.XMLObjectProviderRegistrySupport;
@@ -36,6 +36,7 @@ import org.opensaml.saml.saml2.core.SubjectConfirmationData;
 import org.opensaml.saml.saml2.core.impl.AttributeBuilder;
 import org.opensaml.xmlsec.signature.support.SignatureConstants;
 import org.springframework.security.saml2.Saml2Exception;
+import org.springframework.security.saml2.core.Saml2X509Credential;
 import org.springframework.security.saml2.provider.service.authentication.AbstractSaml2AuthenticationRequest;
 import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticationToken;
 import org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistration;
@@ -43,9 +44,16 @@ import org.springframework.security.saml2.provider.service.registration.Saml2Mes
 import org.springframework.util.StringUtils;
 import org.w3c.dom.Element;
 
+import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyFactory;
+import java.security.PrivateKey;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
@@ -58,7 +66,7 @@ import static org.mockito.Mockito.mock;
  * @see TestOpenSamlObjects
  * <p>
  * The Functions in here were copied from Spring-Security Test Classes and made static:
- * - spring-security/saml2/saml2-service-provider/src/opensaml4Test/java/org/springframework/security/saml2/provider/service/authentication/OpenSaml4AuthenticationProviderTests
+ * - spring-security/saml2/saml2-service-provider/src/opensaml5Test/java/org/springframework/security/saml2/provider/service/authentication/OpenSaml5AuthenticationProviderTests
  */
 public final class Saml2TestUtils {
 
@@ -139,6 +147,75 @@ public final class Saml2TestUtils {
 
     public static Response responseWithAssertions(String issuer) {
         return responseWithAssertions(issuer, null, TestOpenSamlObjects.attributeStatements());
+    }
+
+    /**
+     * Builds a SAML Response with a signed assertion targeting a custom ACS URL.
+     * <p>
+     * Use this to simulate IDP-initiated SSO where the SP alias (and thus ACS URL) differs from the
+     * default test destination. The {@code SubjectConfirmationData.Recipient} is set to {@code destination}
+     * so that Spring Security SAML accepts the response during processing.
+     */
+    public static Response responseWithAssertionsForDestination(String destination, String issuer) {
+        Response response = TestOpenSamlObjects.response(destination, issuer);
+        response.setIssueInstant(Instant.now());
+
+        Assertion rawAssertion = assertion(issuer, null, null);
+        // Override the Recipient to match the custom ACS URL
+        rawAssertion.getSubject().getSubjectConfirmations()
+                .forEach(sc -> sc.getSubjectConfirmationData().setRecipient(destination));
+        rawAssertion.getAttributeStatements().addAll(TestOpenSamlObjects.attributeStatements());
+
+        Assertion signedAssertion = TestOpenSamlObjects.signed(rawAssertion,
+                TestSaml2X509Credentials.assertingPartySigningCredential(),
+                RELYING_PARTY_ENTITY_ID,
+                SignatureConstants.ALGO_ID_SIGNATURE_RSA_SHA1);
+        response.getAssertions().add(signedAssertion);
+        return response;
+    }
+
+    /**
+     * Builds a SAML Response with a signed assertion, using a caller-supplied signing credential.
+     * Use this when the test IDP has its own distinct key material rather than sharing the default
+     * test credentials.
+     */
+    public static Response responseWithAssertions(String issuer, Saml2X509Credential signingCredential) {
+        Response response = response(issuer);
+        Assertion assertion = assertion(issuer, null, null);
+        assertion.getAttributeStatements().addAll(TestOpenSamlObjects.attributeStatements());
+        Assertion signedAssertion = TestOpenSamlObjects.signed(assertion, signingCredential, RELYING_PARTY_ENTITY_ID);
+        response.getAssertions().add(signedAssertion);
+        return response;
+    }
+
+    /**
+     * Builds a SAML Response with a signed assertion using a signing credential created from the
+     * supplied PEM-encoded PKCS8 private key and PEM-encoded X.509 certificate. This overload lets
+     * callers in modules that do not have {@code spring-security-saml2-service-provider} on their
+     * test compile classpath provide key material without constructing a {@link Saml2X509Credential}.
+     */
+    public static Response responseWithAssertions(String issuer, String pemPrivateKey, String pemCertificate) {
+        return responseWithAssertions(issuer, buildSigningCredential(pemPrivateKey, pemCertificate));
+    }
+
+    private static Saml2X509Credential buildSigningCredential(String pemPrivateKey, String pemCertificate) {
+        try {
+            String keyBody = pemPrivateKey
+                    .replace("-----BEGIN PRIVATE KEY-----", "")
+                    .replace("-----END PRIVATE KEY-----", "")
+                    .replaceAll("\\s+", "");
+            byte[] keyDer = Base64.getDecoder().decode(keyBody);
+            PrivateKey privateKey = KeyFactory.getInstance("RSA")
+                    .generatePrivate(new PKCS8EncodedKeySpec(keyDer));
+
+            X509Certificate certificate = (X509Certificate) CertificateFactory.getInstance("X.509")
+                    .generateCertificate(new ByteArrayInputStream(
+                            pemCertificate.getBytes(StandardCharsets.UTF_8)));
+
+            return new Saml2X509Credential(privateKey, certificate, Saml2X509Credential.Saml2X509CredentialType.SIGNING);
+        } catch (Exception e) {
+            throw new Saml2Exception("Failed to build SAML signing credential from PEM material", e);
+        }
     }
 
     public static Response responseWithAssertions(String username, List<AttributeStatement> attributeStatements) {
@@ -244,11 +321,11 @@ public final class Saml2TestUtils {
         return TestRelyingPartyRegistrations.noCredentials()
                 .entityId(RELYING_PARTY_ENTITY_ID)
                 .assertionConsumerServiceLocation(DESTINATION)
-                .assertingPartyDetails(party -> party.entityId(ASSERTING_PARTY_ENTITY_ID));
+                .assertingPartyMetadata(party -> party.entityId(ASSERTING_PARTY_ENTITY_ID));
     }
 
     public static RelyingPartyRegistration.Builder verifying(RelyingPartyRegistration.Builder builder) {
-        return builder.assertingPartyDetails(party -> party
+        return builder.assertingPartyMetadata(party -> party
                 .verificationX509Credentials(c -> c.add(TestSaml2X509Credentials.relyingPartyVerifyingCredential())));
     }
 

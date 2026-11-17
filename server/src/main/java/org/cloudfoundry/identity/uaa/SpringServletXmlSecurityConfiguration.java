@@ -1,5 +1,7 @@
 package org.cloudfoundry.identity.uaa;
 
+import org.cloudfoundry.identity.uaa.oauth.tls.MtlsZoneAvailabilityFilter;
+import org.cloudfoundry.identity.uaa.oauth.tls.MtlsFeaturePolicy;
 import jakarta.servlet.Filter;
 import org.apache.catalina.filters.HttpHeaderSecurityFilter;
 import org.cloudfoundry.identity.uaa.authentication.SessionResetFilter;
@@ -32,6 +34,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.saml2.provider.service.web.authentication.logout.Saml2LogoutRequestFilter;
 import org.springframework.security.saml2.provider.service.web.authentication.logout.Saml2LogoutResponseFilter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
+import org.springframework.security.web.authentication.logout.LogoutFilter;
 import org.springframework.web.filter.RequestContextFilter;
 
 import java.util.Arrays;
@@ -39,11 +43,22 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static org.springframework.security.config.Customizer.withDefaults;
 
 @Configuration
 @EnableWebSecurity
 public class SpringServletXmlSecurityConfiguration {
+
+    /**
+     * These endpoints are loaded by the uaa-singular library inside a hidden cross-origin iframe
+     * (opFrame) to drive OIDC Session Management via postMessage. They must never send
+     * X-Frame-Options: DENY, which is handled by the dedicated sessionManagementFilters chain below.
+     * Keeping them in a separate chain prevents the frameOptions override from accidentally
+     * spreading to the rest of the no-security endpoints in a future refactor.
+     */
+    private final String[] sessionManagementEndpoints = {
+            "/session",
+            "/session_management"
+    };
 
     private final String[] noSecurityEndpoints = {
             "/error**",
@@ -61,10 +76,15 @@ public class SpringServletXmlSecurityConfiguration {
             "/saml_error",
             "/favicon.ico",
             "/oauth_error",
-            "/session",
-            "/session_management",
             "/oauth/token/.well-known/openid-configuration",
-            "/.well-known/openid-configuration"
+            "/.well-known/openid-configuration",
+            // OpenAPI documentation endpoints
+            "/v3/api-docs/**",
+            "/v3/api-docs",
+            "/v3/api-docs.yaml",
+            "/swagger-ui/**",
+            "/swagger-ui.html",
+            "/logged_out"
     };
 
     private final String[] secFilterOpenSamlEndPoints = {
@@ -110,10 +130,27 @@ public class SpringServletXmlSecurityConfiguration {
     }
 
     @Bean
+    @Order(FilterChainOrder.SESSION_MANAGEMENT)
+    UaaFilterChain sessionManagementFilters(HttpSecurity http) throws Exception {
+        SecurityFilterChain chain = http
+                .headers(headers -> headers.frameOptions(c -> c.disable()))
+                .securityMatcher(sessionManagementEndpoints)
+                .authorizeHttpRequests(requests -> requests.anyRequest().permitAll())
+                .anonymous(AnonymousConfigurer::disable)
+                .csrf(csrf -> csrf.ignoringRequestMatchers(sessionManagementEndpoints))
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+                .securityContext(sc -> sc.requireExplicitSave(false))
+                .build();
+
+        return new UaaFilterChain(chain, "sessionManagementFilters");
+    }
+
+    @Bean
     @Order(FilterChainOrder.NO_SECURITY)
     UaaFilterChain noSecurityFilters(HttpSecurity http) throws Exception {
         SecurityFilterChain chain = http
-                .headers(headers -> headers.frameOptions(withDefaults()))
                 .securityMatcher(noSecurityEndpoints)
                 .authorizeHttpRequests(requests -> requests.anyRequest().permitAll())
                 .anonymous(AnonymousConfigurer::disable)
@@ -129,6 +166,7 @@ public class SpringServletXmlSecurityConfiguration {
 
     @Bean
     SecurityFilterChainPostProcessor securityFilterChainPostProcessor(
+            MtlsFeaturePolicy mtlsFeaturePolicy,
             UaaProperties.RootLevel rootLevel,
             @Qualifier("tracingFilter") FilterRegistrationBean<Filter> tracingFilter,
             @Qualifier("metricsFilter") FilterRegistrationBean<UaaMetricsFilter> metricsFilter,
@@ -166,25 +204,29 @@ public class SpringServletXmlSecurityConfiguration {
         bean.setIgnore(Arrays.asList("secFilterOpen05Healthz"));
         int filterPos = 0;
         Map<SecurityFilterChainPostProcessor.FilterPosition, Filter> additionalFilters = new LinkedHashMap<>();
+        // headerFilter must run before rateLimitingFilter: it strips spoofable IP headers (X-Client-IP, X-Real-IP)
+        // so that RateLimiterImpl.getClientIP() cannot be influenced by untrusted client-supplied values.
+        additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), headerFilter.getFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), rateLimitingFilter.getFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), springRequestContextFilter.getFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), httpHeaderSecurityFilter.getFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), tracingFilter.getFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), metricsFilter.getFilter());
-        additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), headerFilter.getFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), new BackwardsCompatibleScopeParsingFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), contentSecurityPolicyFilter.getFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), utf8ConversionFilter);
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), limitedModeUaaFilter.getFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), identityZoneResolvingFilter.getFilter());
+        additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++),
+                new MtlsZoneAvailabilityFilter(mtlsFeaturePolicy));
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), corsFilter.getFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), disableIdTokenResponseFilter.getFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), saml2WebSsoAuthenticationRequestFilter.getFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(filterPos++), saml2WebSsoAuthenticationFilter.getFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.after(OAuth2AuthenticationProcessingFilter.class), identityZoneSwitchingFilter.getFilter());
-        additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.after(IdentityZoneSwitchingFilter.class), saml2LogoutRequestFilter.getFilter());
+        additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.before(LogoutFilter.class), saml2LogoutRequestFilter.getFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.after(Saml2LogoutRequestFilter.class), saml2LogoutResponseFilter.getFilter());
-        additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.after(Saml2LogoutResponseFilter.class), userManagementSecurityFilter.getFilter());
+        additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.before(AnonymousAuthenticationFilter.class), userManagementSecurityFilter.getFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.after(DisableUserManagementSecurityFilter.class), userManagementFilter.getFilter());
         additionalFilters.put(SecurityFilterChainPostProcessor.FilterPosition.position(102), sessionResetFilter.getFilter());
 

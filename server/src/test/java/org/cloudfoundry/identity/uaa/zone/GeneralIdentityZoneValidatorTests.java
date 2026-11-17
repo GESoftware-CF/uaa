@@ -3,15 +3,19 @@ package org.cloudfoundry.identity.uaa.zone;
 import org.cloudfoundry.identity.uaa.extensions.PollutionPreventionExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Arrays;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 import static org.cloudfoundry.identity.uaa.zone.IdentityZoneValidator.Mode.CREATE;
+import static org.cloudfoundry.identity.uaa.zone.ZonePathContextRewritingFilter.DEFAULT_ZONE_SUBDOMAIN_PATH;
 import static org.cloudfoundry.identity.uaa.zone.IdentityZoneValidator.Mode.DELETE;
 import static org.cloudfoundry.identity.uaa.zone.IdentityZoneValidator.Mode.MODIFY;
 import static org.mockito.Mockito.any;
@@ -32,7 +36,7 @@ class GeneralIdentityZoneValidatorTests {
     GeneralIdentityZoneValidator validator;
 
     @Test
-    void validateRightMode() throws InvalidIdentityZoneDetailsException, InvalidIdentityZoneConfigurationException {
+    void validateRightMode() throws Exception {
         IdentityZone zone = MultitenancyFixture.identityZone("id", "domain");
         IdentityZoneConfiguration config = new IdentityZoneConfiguration();
         zone.setConfig(config);
@@ -53,8 +57,48 @@ class GeneralIdentityZoneValidatorTests {
         }
     }
 
+    /**
+     * On case-insensitive databases (default MySQL collations), a WHERE id = 'UAA' lookup
+     * resolves to the system-zone row stored as 'uaa'. The validator must also treat all
+     * case variants of "uaa" as the system zone and refuse to deactivate them.
+     */
+    @ParameterizedTest(name = "uaaZoneInactive blocked for id=''{0}''")
+    @ValueSource(strings = {"UAA", "Uaa", "uAA", "uAa", "UaA", "UAa"})
+    void uaaZoneInactive_withCasedId_fails(String caseVariant) {
+        IdentityZone zone = new IdentityZone();
+        zone.setId(caseVariant);
+        zone.setSubdomain("");
+        zone.setName(caseVariant);
+        zone.setActive(false);
+        for (IdentityZoneValidator.Mode mode : Arrays.asList(CREATE, MODIFY, DELETE)) {
+            try {
+                validator.validate(zone, mode);
+                fail("Expected InvalidIdentityZoneDetailsException for id='" + caseVariant + "' mode=" + mode);
+            } catch (InvalidIdentityZoneDetailsException e) {
+                assertThat(e.getMessage()).isEqualTo("The default zone cannot be set inactive.");
+            }
+        }
+    }
+
     @Test
-    void otherZoneInactiveSucceeds() throws InvalidIdentityZoneConfigurationException, InvalidIdentityZoneDetailsException {
+    void reservedSubdomainDefault_rejectsForAllModes() {
+        for (String subdomain : List.of(DEFAULT_ZONE_SUBDOMAIN_PATH,
+                DEFAULT_ZONE_SUBDOMAIN_PATH.substring(0, 1).toUpperCase() + DEFAULT_ZONE_SUBDOMAIN_PATH.substring(1),
+                DEFAULT_ZONE_SUBDOMAIN_PATH.toUpperCase())) {
+            IdentityZone zone = MultitenancyFixture.identityZone("id", subdomain);
+            for (IdentityZoneValidator.Mode mode : Arrays.asList(CREATE, MODIFY, DELETE)) {
+                try {
+                    validator.validate(zone, mode);
+                    fail("Expected InvalidIdentityZoneDetailsException for subdomain: " + subdomain + " mode: " + mode);
+                } catch (InvalidIdentityZoneDetailsException e) {
+                    assertThat(e.getMessage()).contains("reserved");
+                }
+            }
+        }
+    }
+
+    @Test
+    void otherZoneInactiveSucceeds() throws Exception {
         IdentityZone zone = MultitenancyFixture.identityZone("id", "domain");
         IdentityZoneConfiguration config = new IdentityZoneConfiguration();
         zone.setConfig(config);

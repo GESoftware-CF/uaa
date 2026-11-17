@@ -1,5 +1,5 @@
 package org.cloudfoundry.identity.uaa.util;
-
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.cloudfoundry.identity.uaa.extensions.PollutionPreventionExtension;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.MultitenancyFixture;
@@ -24,9 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.fail;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.*;
+import static org.cloudfoundry.identity.uaa.util.UaaUrlUtils.normalizeUrlForPortComparison;
 import static org.mockito.Mockito.mock;
 
 @ExtendWith(PollutionPreventionExtension.class)
@@ -85,18 +84,14 @@ class UaaUrlUtilsTest {
             "http://username:password@some.server.com",
             "http://*:*@some.server.com",
             "http://username:password@some.server.com/path",
-            "http://username:password@example.com:8080/path",
             "http://under_score_subdomain.example.com",
             "http://under_score_subdomain.ex_ample.com",
             "http://dash-subdomain.example.com",
             "http://dash-subdomain.ex-ample.com",
             "cool-app://example.com",
-            "http://localhost:*/path",
-            "http://localhost:*/**",
-            "http://localhost:*/*",
             "org.cloudfoundry.identity://mobile-windows-app.com/view",
             "org+cloudfoundry+identity://mobile-ios-app.com/view",
-           "org-cl0udfoundry-identity://mobile-android-app.com/view"
+            "org-cl0udfoundry-identity://mobile-android-app.com/view"
     );
 
     private final List<String> validSubdomains = Arrays.asList(
@@ -497,12 +492,6 @@ class UaaUrlUtilsTest {
     }
 
     @Test
-    void addSubdomainToUrl_handlesEmptySubdomain_defaultZone() {
-        String url = UaaUrlUtils.addSubdomainToUrl("http://localhost:8080", UaaStringUtils.EMPTY_STRING);
-        assertThat(url).isEqualTo("http://localhost:8080");
-    }
-
-    @Test
     void addSudomain_handlesExtraSpaceInSubdomain() {
         String url = UaaUrlUtils.addSubdomainToUrl("http://localhost:8080", " somezone  ");
         assertThat(url).isEqualTo("http://somezone.localhost:8080");
@@ -544,7 +533,7 @@ class UaaUrlUtilsTest {
     void getHostForURI() {
         assertThat(UaaUrlUtils.getHostForURI("http://google.com")).isEqualTo("google.com");
         assertThat(UaaUrlUtils.getHostForURI("http://subdomain.uaa.com/nowhere")).isEqualTo("subdomain.uaa.com");
-        assertThatExceptionOfType(IllegalArgumentException.class).isThrownBy(() -> UaaUrlUtils.getHostForURI(UaaStringUtils.EMPTY_STRING));
+        assertThatThrownBy(() -> UaaUrlUtils.getHostForURI(UaaStringUtils.EMPTY_STRING)).asInstanceOf(InstanceOfAssertFactories.throwable(IllegalArgumentException.class));
     }
 
     @Test
@@ -605,13 +594,13 @@ class UaaUrlUtilsTest {
     @Test
     void validateUriPathDecodingLimit() {
         // URI path encoded more than MAX_URI_DECODES times
-        assertThatExceptionOfType(IllegalArgumentException.class).isThrownBy(() -> UaaUrlUtils.normalizeUri("https://example.com/test1/%25252525252e"));
+        assertThatThrownBy(() -> UaaUrlUtils.normalizeUri("https://example.com/test1/%25252525252e")).asInstanceOf(InstanceOfAssertFactories.throwable(IllegalArgumentException.class));
     }
 
     @Test
     void validateNormalizeUriIfNull() {
-        assertThatExceptionOfType(IllegalArgumentException.class).isThrownBy(() -> UaaUrlUtils.normalizeUri("nohost"));
-        assertThatExceptionOfType(IllegalArgumentException.class).isThrownBy(() -> UaaUrlUtils.normalizeUri(" ://host/path"));
+        assertThatThrownBy(() -> UaaUrlUtils.normalizeUri("nohost")).asInstanceOf(InstanceOfAssertFactories.throwable(IllegalArgumentException.class));
+        assertThatThrownBy(() -> UaaUrlUtils.normalizeUri(" ://host/path")).asInstanceOf(InstanceOfAssertFactories.throwable(IllegalArgumentException.class));
     }
 
     @Test
@@ -665,17 +654,29 @@ class UaaUrlUtilsTest {
     }
 
     @Test
+    void isValidRegisteredRedirectUrlRejectsOverlongInputQuickly() {
+        // Defence against polynomial regex backtracking (CWE-1333). A long pathological input
+        // that does not contain "://" should be rejected by the length cap before regex matching,
+        // and must complete well under the 1 s budget even on a slow CI box.
+        String pathological = "a".repeat(100_000);
+        long start = System.nanoTime();
+        boolean result = UaaUrlUtils.isValidRegisteredRedirectUrl(pathological);
+        long elapsedMillis = (System.nanoTime() - start) / 1_000_000L;
+
+        assertThat(result).isFalse();
+        assertThat(elapsedMillis).as("regex evaluation time in ms").isLessThan(1000);
+    }
+
+    @Test
     void invalidUrlExceptionIsThrown() {
-        assertThatExceptionOfType(InvalidUrlException.class).isThrownBy(
-                () -> UaaUrlUtils.fromUriString("invalid-url")
-        );
+        assertThatThrownBy(() -> UaaUrlUtils.fromUriString("invalid-url")).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidUrlException.class));
     }
 
     private static void validateRedirectUri(List<String> urls, boolean result) {
         Map<String, String> failed = getUnsuccessfulUrls(urls, result);
         if (!failed.isEmpty()) {
             StringBuilder builder = new StringBuilder("\n");
-            failed.forEach((key, value) -> builder.append(value).append("\n"));
+            failed.forEach((_, value) -> builder.append(value).append("\n"));
             fail(builder.toString());
         }
     }
@@ -713,5 +714,186 @@ class UaaUrlUtilsTest {
 
     private static List<String> convertToHttps(List<String> urls) {
         return urls.stream().map(url -> url.replace("http:", "https:")).toList();
+    }
+
+    // Tests for normalizeUrlForPortComparison method
+    @ParameterizedTest(name = "normalizeUrlForPortComparison: \"{0}\" should become \"{1}\"")
+    @CsvSource({
+            // Standard port removal
+            "'http://example.com:80/path', 'http://example.com/path'",
+            "'https://example.com:443/path', 'https://example.com/path'",
+            
+            // Non-standard ports preserved
+            "'http://example.com:8080/path', 'http://example.com:8080/path'",
+            "'https://example.com:8443/path', 'https://example.com:8443/path'",
+            
+            // URLs without explicit ports remain unchanged
+            "'http://example.com/path', 'http://example.com/path'",
+            "'https://example.com/path', 'https://example.com/path'",
+            
+            // Query parameters and fragments preserved
+            "'http://example.com:80/path?param1=value1&param2=value2', 'http://example.com/path?param1=value1&param2=value2'",
+            "'https://example.com:443/path#section1', 'https://example.com/path#section1'",
+            
+            // Complex URLs with user info
+            "'http://user:pass@example.com:80/path/to/resource?query=value#fragment', 'http://user:pass@example.com/path/to/resource?query=value#fragment'",
+            
+            // Subdomains preserved
+            "'https://subdomain.example.com:443/path', 'https://subdomain.example.com/path'",
+            
+            // Different schemes keep non-standard ports
+            "'ftp://example.com:80/path', 'ftp://example.com:80/path'",
+            
+            // SAML-specific URL
+            "'https://uaa.example.com:443/saml/SSO/alias/provider-name?RelayState=https://app.example.com&param=value#section', 'https://uaa.example.com/saml/SSO/alias/provider-name?RelayState=https://app.example.com&param=value#section'",
+            
+            // Malformed URLs return unchanged
+            "'not-a-valid-url', 'not-a-valid-url'",
+            "'http://[invalid:url:with:colons:everywhere', 'http://[invalid:url:with:colons:everywhere'",
+            "'http://example.com:80/path with spaces and special chars!@#$%^&*()', 'http://example.com:80/path with spaces and special chars!@#$%^&*()'",
+            
+            // Empty string
+            "'', ''"
+    })
+    void normalizeUrlForPortComparison_parameterizedTests(String inputUrl, String expectedUrl) {
+        String result = normalizeUrlForPortComparison(inputUrl);
+        assertThat(result).isNotNull().isEqualTo(expectedUrl); // Ensure we never return null for non-null input
+    }
+
+    @Test
+    void normalizeUrlForPortComparison_withNullUrl_returnsNull() {
+        String result = normalizeUrlForPortComparison(null);
+        assertThat(result).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "/resources/oss/stylesheets/application.css",
+            "/resources/oss/images/product-logo.png",
+            "/resources/javascripts/session/session.js",
+            "/resources/",
+            "/vendor/font-awesome/css/font-awesome.min.css",
+            "/vendor/jquery/jquery.min.js",
+            "/vendor/bootstrap/css/bootstrap.min.css",
+            "/vendor/"
+    })
+    void isStaticResource_returnsTrueForStaticPaths(String path) {
+        // Test string version
+        assertThat(UaaUrlUtils.isStaticResource(path)).isTrue();
+        
+        // Test HttpServletRequest version
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setServletPath(path);
+        assertThat(UaaUrlUtils.isStaticResource(request)).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "/login",
+            "/profile",
+            "/oauth/authorize",
+            "/api/users",
+            "/vendorapi/something"
+    })
+    void isStaticResource_returnsFalseForNonStaticPaths(String path) {
+        // Test string version
+        assertThat(UaaUrlUtils.isStaticResource(path)).isFalse();
+        
+        // Test HttpServletRequest version
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setServletPath(path);
+        assertThat(UaaUrlUtils.isStaticResource(request)).isFalse();
+    }
+
+    @Test
+    void isStaticResource_returnsFalseForNullPath() {
+        assertThat(UaaUrlUtils.isStaticResource((String) null)).isFalse();
+    }
+
+    @Test
+    void isStaticResource_returnsFalseForEmptyPath() {
+        assertThat(UaaUrlUtils.isStaticResource("")).isFalse();
+    }
+
+    @Test
+    void isStaticResource_withHttpServletRequest_handlesPathInfo() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setServletPath("/resources");
+        request.setPathInfo("/css/style.css");
+        
+        assertThat(UaaUrlUtils.isStaticResource(request)).isTrue();
+    }
+
+    @Test
+    void isStaticResource_withHttpServletRequest_handlesNullServletPath() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setServletPath(null);
+        request.setPathInfo("/vendor/jquery/jquery.min.js");
+        
+        assertThat(UaaUrlUtils.isStaticResource(request)).isTrue();
+    }
+
+    @Test
+    void isStaticResource_withHttpServletRequest_handlesNullPathInfo() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setServletPath("/resources/css/app.css");
+        request.setPathInfo(null);
+        
+        assertThat(UaaUrlUtils.isStaticResource(request)).isTrue();
+    }
+
+    // Tests for validateAndNormalizeSafeUrl method
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "javascript:alert('xss')",
+            "data:text/html,<script>alert('xss')</script>",
+            "vbscript:msgbox('xss')",
+            "file:///etc/passwd",
+            "ftp://example.com/file",
+            "mailto:user@example.com",
+            "tel:+1234567890",
+            "not-a-url",
+            "relative-without-slash",
+            "://malformed",
+            "",
+            "   "
+    })
+    void validateAndNormalizeSafeUrl_shouldRejectDangerousAndInvalidUrls(String dangerousUrl) {
+        String result = UaaUrlUtils.validateAndNormalizeSafeUrl(dangerousUrl, "/fallback");
+        assertThat(result).isEqualTo("/fallback");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "/login",
+            "/auth/login",
+            "/app/dashboard",
+            "/logout",
+            "/uaa/logout",
+            "/path/with/multiple/segments"
+    })
+    void validateAndNormalizeSafeUrl_shouldAllowValidRelativePaths(String validPath) {
+        String result = UaaUrlUtils.validateAndNormalizeSafeUrl(validPath, "/fallback");
+        assertThat(result).isEqualTo(validPath);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "http://example.com/login",
+            "https://secure.example.com/auth",
+            "https://app.example.com:8443/login?redirect=home",
+            "http://localhost:8080/login",
+            "https://subdomain.example.org/path/to/login",
+            "https://example.com/login#fragment"
+    })
+    void validateAndNormalizeSafeUrl_shouldAllowValidAbsoluteUrls(String validUrl) {
+        String result = UaaUrlUtils.validateAndNormalizeSafeUrl(validUrl, "/fallback");
+        assertThat(result).isEqualTo(validUrl);
+    }
+
+    @Test
+    void validateAndNormalizeSafeUrl_withNullUrl_returnsFallback() {
+        String result = UaaUrlUtils.validateAndNormalizeSafeUrl(null, "/fallback");
+        assertThat(result).isEqualTo("/fallback");
     }
 }

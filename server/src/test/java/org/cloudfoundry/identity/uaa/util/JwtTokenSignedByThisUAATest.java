@@ -16,16 +16,15 @@ package org.cloudfoundry.identity.uaa.util;
 
 import com.google.common.collect.Lists;
 import com.nimbusds.jose.JWSSigner;
-import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.cloudfoundry.identity.uaa.client.InMemoryClientDetailsService;
 import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.oauth.KeyInfo;
 import org.cloudfoundry.identity.uaa.oauth.KeyInfoService;
-import org.cloudfoundry.identity.uaa.oauth.beans.LegacyRedirectResolver;
 import org.cloudfoundry.identity.uaa.oauth.common.exceptions.InvalidTokenException;
 import org.cloudfoundry.identity.uaa.oauth.jwt.ChainedSignatureVerifier;
 import org.cloudfoundry.identity.uaa.oauth.jwt.SignatureVerifier;
@@ -49,7 +48,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
+import org.mockito.ArgumentMatcher;
 import org.mockito.Mockito;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.security.core.GrantedAuthority;
@@ -68,9 +67,8 @@ import java.util.List;
 import java.util.Map;
 
 import static java.util.Collections.emptyList;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.oauth.client.ClientConstants.REQUIRED_USER_GROUPS;
 import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.EMAIL;
 import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.GRANTED_SCOPES;
@@ -84,7 +82,7 @@ import static org.cloudfoundry.identity.uaa.util.JwtTokenSignedByThisUAA.buildRe
 import static org.cloudfoundry.identity.uaa.util.UaaMapUtils.entry;
 import static org.cloudfoundry.identity.uaa.util.UaaMapUtils.map;
 import static org.cloudfoundry.identity.uaa.util.UaaStringUtils.DEFAULT_UAA_URL;
-import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -92,7 +90,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
-import static org.mockito.hamcrest.MockitoHamcrest.argThat;
 
 public class JwtTokenSignedByThisUAATest {
     public static final String CLIENT_ID = "app";
@@ -326,6 +323,43 @@ public class JwtTokenSignedByThisUAATest {
     }
 
     @Test
+    void getClientDetails_usesClientIdWhenCidIsMissing() {
+        String token = getToken(Lists.newArrayList("cid"));
+        ClientDetails clientDetails = JwtTokenSignedByThisUAA.buildAccessTokenValidator(token, new KeyInfoService("https://localhost"))
+                .getClientDetails(inMemoryMultitenantClientServices);
+        assertThat(clientDetails.getClientId()).isEqualTo(CLIENT_ID);
+    }
+
+    @Test
+    void checkClient_acceptsTokenWithOnlyClientIdNoCid() {
+        String token = getToken(Lists.newArrayList("cid"));
+        buildAccessTokenValidator(token, new KeyInfoService("https://localhost"))
+                .checkIssuer("http://localhost:8080/uaa/oauth/token")
+                .checkClient(clientId -> inMemoryMultitenantClientServices.loadClientByClientId(clientId))
+                .checkExpiry(oneSecondBeforeTheTokenExpires);
+    }
+
+    @Test
+    void checkClient_throwsWhenNeitherCidNorClientIdPresent() {
+        String token = getToken(Lists.newArrayList("cid", "client_id"));
+        assertThatThrownBy(() -> buildAccessTokenValidator(token, new KeyInfoService("https://localhost"))
+                .checkClient(clientId -> inMemoryMultitenantClientServices.loadClientByClientId(clientId)))
+                .isInstanceOf(InvalidTokenException.class)
+                .hasMessageContaining("Token bears no client ID.");
+    }
+
+    @Test
+    void checkClient_throwsWhenCidAndClientIdConflict() {
+        content.put("cid", "app");
+        content.put("client_id", "other-client");
+        String token = getToken();
+        assertThatThrownBy(() -> buildAccessTokenValidator(token, new KeyInfoService("https://localhost"))
+                .checkClient(clientId -> inMemoryMultitenantClientServices.loadClientByClientId(clientId)))
+                .isInstanceOf(InvalidTokenException.class)
+                .hasMessageContaining("Token bears conflicting client ID claims.");
+    }
+
+    @Test
     void getUserById() {
         String token = getToken();
 
@@ -374,16 +408,16 @@ public class JwtTokenSignedByThisUAATest {
 
         jwtToken.checkClientAndUser(uaaClient, uaaUser);
         verify(jwtToken, times(1))
-                .checkRequiredUserGroups((Collection<String>) argThat(containsInAnyOrder(new String[0])),
-                        (Collection<String>) argThat(containsInAnyOrder(uaaUserGroups.toArray(new String[0])))
+                .checkRequiredUserGroups(argThat(containsInAnyOrder(new String[0])),
+                        argThat(containsInAnyOrder(uaaUserGroups.toArray(new String[0])))
                 );
         Mockito.reset(jwtToken);
 
         uaaClient.addAdditionalInformation(REQUIRED_USER_GROUPS, null);
         jwtToken.checkClientAndUser(uaaClient, uaaUser);
         verify(jwtToken, times(1))
-                .checkRequiredUserGroups((Collection<String>) argThat(containsInAnyOrder(new String[0])),
-                        (Collection<String>) argThat(containsInAnyOrder(uaaUserGroups.toArray(new String[0])))
+                .checkRequiredUserGroups(argThat(containsInAnyOrder(new String[0])),
+                        argThat(containsInAnyOrder(uaaUserGroups.toArray(new String[0])))
                 );
 
         uaaClient.addAdditionalInformation(REQUIRED_USER_GROUPS, Arrays.asList("group1", "group2"));
@@ -394,9 +428,23 @@ public class JwtTokenSignedByThisUAATest {
 
         jwtToken.checkClientAndUser(uaaClient, uaaUser);
         verify(jwtToken, times(1))
-                .checkRequiredUserGroups((Collection<String>) argThat(containsInAnyOrder(new String[]{"group1", "group2"})),
-                        (Collection<String>) argThat(containsInAnyOrder(uaaUser.getAuthorities().stream().map(GrantedAuthority::getAuthority).toArray()))
+                .checkRequiredUserGroups(argThat(containsInAnyOrder(new String[]{"group1", "group2"})),
+                        argThat(containsInAnyOrder(uaaUser.getAuthorities().stream().map(GrantedAuthority::getAuthority).toArray()))
                 );
+    }
+
+    // Matches when the actual collection has exactly the same elements as expected, ignoring order,
+    // for use with Mockito's argThat.
+    private static ArgumentMatcher<Collection<String>> containsInAnyOrder(Object... expected) {
+        List<String> expectedStrings = Arrays.stream(expected).map(String::valueOf).toList();
+        return actual -> {
+            try {
+                assertThat(actual).containsExactlyInAnyOrderElementsOf(expectedStrings);
+                return true;
+            } catch (AssertionError e) {
+                return false;
+            }
+        };
     }
 
     @Test
@@ -483,8 +531,8 @@ public class JwtTokenSignedByThisUAATest {
     @Test
     void idTokenValidator_rejectsTokensWithRefreshTokenSuffix() {
         content.put(JTI, "asdfsafsa-r");
-        assertThatExceptionOfType(InvalidTokenException.class).isThrownBy(() ->
-                buildIdTokenValidator(getToken(), mock(ChainedSignatureVerifier.class), new KeyInfoService("https://localhost")).checkJti());
+        assertThatThrownBy(() ->
+                buildIdTokenValidator(getToken(), mock(ChainedSignatureVerifier.class), new KeyInfoService("https://localhost")).checkJti()).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidTokenException.class));
     }
 
     @Test
@@ -495,63 +543,63 @@ public class JwtTokenSignedByThisUAATest {
         when(validator.getDelegates()).thenReturn(List.of(verifier));
 
         List<String> scopes = buildIdTokenValidator(getToken(), validator, new KeyInfoService("https://localhost")).requestedScopes();
-        assertThat(scopes).isEqualTo(Lists.newArrayList("openid"));
+        assertThat(scopes).containsExactlyElementsOf(Lists.newArrayList("openid"));
     }
 
     @Test
     void tokenSignedWithDifferentKey() {
         signer = new UaaMacSigner(new SecretKeySpec("some_other_key".getBytes(), "HS256"));
-        assertThatExceptionOfType(InvalidTokenException.class).isThrownBy(() ->
+        assertThatThrownBy(() ->
 
                 buildAccessTokenValidator(getToken(), new KeyInfoService("https://localhost"))
-                        .checkSignature(verifier));
+                        .checkSignature(verifier)).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidTokenException.class));
     }
 
     @Test
     void invalidJwt() {
-        assertThatExceptionOfType(InvalidTokenException.class).isThrownBy(() ->
-                buildAccessTokenValidator("invalid.jwt.token", new KeyInfoService("https://localhost")));
+        assertThatThrownBy(() ->
+                buildAccessTokenValidator("invalid.jwt.token", new KeyInfoService("https://localhost"))).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidTokenException.class));
     }
 
     @Test
     void tokenWithInvalidIssuer() {
-        assertThatExceptionOfType(InvalidTokenException.class).isThrownBy(() ->
-                buildAccessTokenValidator(getToken(), new KeyInfoService("https://localhost")).checkIssuer("http://wrong.issuer/"));
+        assertThatThrownBy(() ->
+                buildAccessTokenValidator(getToken(), new KeyInfoService("https://localhost")).checkIssuer("http://wrong.issuer/")).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidTokenException.class));
     }
 
     @Test
     void emptyBodyJwt_failsCheckingIssuer() {
         content.remove("iss");
         JwtTokenSignedByThisUAA jwtToken = buildAccessTokenValidator(getToken(), new KeyInfoService("https://localhost"));
-        assertThatExceptionOfType(InvalidTokenException.class).isThrownBy(() ->
-                jwtToken.checkIssuer("http://localhost:8080/uaa/oauth/token"));
+        assertThatThrownBy(() ->
+                jwtToken.checkIssuer("http://localhost:8080/uaa/oauth/token")).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidTokenException.class));
     }
 
     @Test
     void emptyBodyJwt_failsCheckingExpiry() {
         content.remove("exp");
         JwtTokenSignedByThisUAA jwtToken = buildAccessTokenValidator(getToken(), new KeyInfoService("https://localhost"));
-        assertThatExceptionOfType(InvalidTokenException.class).isThrownBy(() ->
-                jwtToken.checkExpiry(oneSecondBeforeTheTokenExpires));
+        assertThatThrownBy(() ->
+                jwtToken.checkExpiry(oneSecondBeforeTheTokenExpires)).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidTokenException.class));
     }
 
     @Test
     void expiredToken() {
         content.put("iat", 1458997132);
         content.put("exp", 1458997132);
-        assertThatExceptionOfType(InvalidTokenException.class).isThrownBy(() ->
+        assertThatThrownBy(() ->
 
                 buildAccessTokenValidator(getToken(), new KeyInfoService("https://localhost"))
-                        .checkExpiry(oneSecondAfterTheTokenExpires));
+                        .checkExpiry(oneSecondAfterTheTokenExpires)).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidTokenException.class));
     }
 
     @Test
     void nonExistentUser() {
         UaaUserDatabase userDb = new InMemoryUaaUserDatabase(Collections.emptySet());
-        assertThatExceptionOfType(InvalidTokenException.class).isThrownBy(() ->
+        assertThatThrownBy(() ->
 
                 buildAccessTokenValidator(getToken(), new KeyInfoService("https://localhost"))
-                        .checkUser(userDb::retrieveUserById));
+                        .checkUser(userDb::retrieveUserById)).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidTokenException.class));
     }
 
     @Test
@@ -561,32 +609,32 @@ public class JwtTokenSignedByThisUAATest {
                 .withId("a7f07bf6-e720-4652-8999-e980189cef54")
                 .withEmail("marissa@test.org")
                 .withAuthorities(Collections.singletonList(new SimpleGrantedAuthority("a.different.scope"))));
-        assertThatExceptionOfType(InvalidTokenException.class).isThrownBy(() ->
+        assertThatThrownBy(() ->
                 buildAccessTokenValidator(getToken(), new KeyInfoService("https://localhost"))
-                        .checkUser(userDb::retrieveUserById));
+                        .checkUser(userDb::retrieveUserById)).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidTokenException.class));
     }
 
     @Test
     void tokenHasInsufficientScope() {
-        assertThatExceptionOfType(InvalidTokenException.class).isThrownBy(() ->
+        assertThatThrownBy(() ->
                 buildAccessTokenValidator(getToken(), new KeyInfoService("https://localhost"))
-                        .checkRequestedScopesAreGranted("a.different.scope"));
+                        .checkRequestedScopesAreGranted("a.different.scope")).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidTokenException.class));
     }
 
     @Test
     void tokenContainsRevokedScope() {
-        assertThatExceptionOfType(InvalidTokenException.class).isThrownBy(() ->
+        assertThatThrownBy(() ->
                 buildAccessTokenValidator(getToken(), new KeyInfoService("https://localhost"))
-                        .checkRequestedScopesAreGranted("a.different.scope"));
+                        .checkRequestedScopesAreGranted("a.different.scope")).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidTokenException.class));
     }
 
     @Test
     void nonExistentClient() {
         InMemoryClientDetailsService clientDetailsService = new InMemoryClientDetailsService();
         clientDetailsService.setClientDetailsStore(Collections.emptyMap());
-        assertThatExceptionOfType(InvalidTokenException.class).isThrownBy(() ->
+        assertThatThrownBy(() ->
                 buildAccessTokenValidator(getToken(), new KeyInfoService("https://localhost"))
-                        .checkClient(clientDetailsService::loadClientByClientId));
+                        .checkClient(clientDetailsService::loadClientByClientId)).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidTokenException.class));
     }
 
     @Test
@@ -598,16 +646,16 @@ public class JwtTokenSignedByThisUAATest {
                         new UaaClientDetails("app", "acme", "a.different.scope", GRANT_TYPE_AUTHORIZATION_CODE, "")
                 )
         );
-        assertThatExceptionOfType(InvalidTokenException.class).isThrownBy(() ->
+        assertThatThrownBy(() ->
                 buildAccessTokenValidator(getToken(), new KeyInfoService("https://localhost"))
-                        .checkClient(clientDetailsService::loadClientByClientId));
+                        .checkClient(clientDetailsService::loadClientByClientId)).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidTokenException.class));
     }
 
     @Test
     void clientRevocationHashChanged() {
-        assertThatExceptionOfType(InvalidTokenException.class).isThrownBy(() ->
+        assertThatThrownBy(() ->
                 buildAccessTokenValidator(getToken(), new KeyInfoService("https://localhost"))
-                        .checkRevocationSignature(Collections.singletonList("New-Hash")));
+                        .checkRevocationSignature(Collections.singletonList("New-Hash"))).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidTokenException.class));
     }
 
     @Test
@@ -621,16 +669,16 @@ public class JwtTokenSignedByThisUAATest {
 
     @Test
     void incorrectAudience() {
-        assertThatExceptionOfType(InvalidTokenException.class).isThrownBy(() ->
+        assertThatThrownBy(() ->
                 buildAccessTokenValidator(getToken(), new KeyInfoService("https://localhost"))
-                        .checkAudience("app", "somethingelse"));
+                        .checkAudience("app", "somethingelse")).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidTokenException.class));
     }
 
     @Test
     void emptyAudience() {
-        assertThatExceptionOfType(InvalidTokenException.class).isThrownBy(() ->
+        assertThatThrownBy(() ->
                 buildAccessTokenValidator(getToken(), new KeyInfoService("https://localhost"))
-                        .checkAudience(""));
+                        .checkAudience("")).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidTokenException.class));
     }
 
     @Test
@@ -641,9 +689,9 @@ public class JwtTokenSignedByThisUAATest {
                 IdentityZoneHolder.get().getId()
         )).thenThrow(new EmptyResultDataAccessException(1));
 
-        assertThatExceptionOfType(InvalidTokenException.class).isThrownBy(() ->
+        assertThatThrownBy(() ->
                 buildAccessTokenValidator(getToken(), new KeyInfoService("https://localhost"))
-                        .checkRevocableTokenStore(revocableTokenProvisioning));
+                        .checkRevocableTokenStore(revocableTokenProvisioning)).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidTokenException.class));
     }
 
     @Test
@@ -751,8 +799,8 @@ public class JwtTokenSignedByThisUAATest {
 
     @Test
     void nullUserIsCaught() {
-        assertThatExceptionOfType(InvalidTokenException.class).isThrownBy(() ->
+        assertThatThrownBy(() ->
                 buildAccessTokenValidator(getToken(), new KeyInfoService("https://localhost"))
-                        .checkUser(uid -> null));
+                        .checkUser(_ -> null)).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidTokenException.class));
     }
 }

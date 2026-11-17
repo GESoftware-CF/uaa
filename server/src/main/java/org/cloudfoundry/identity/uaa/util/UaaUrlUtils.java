@@ -2,6 +2,7 @@ package org.cloudfoundry.identity.uaa.util;
 
 import jakarta.servlet.http.Cookie;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
+import org.cloudfoundry.identity.uaa.zone.ZonePathContextRewritingFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.AntPathMatcher;
@@ -12,9 +13,10 @@ import org.springframework.web.util.InvalidUrlException;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import jakarta.servlet.http.HttpServletRequest;
-
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -26,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.regex.Pattern;
 
@@ -47,6 +50,12 @@ public abstract class UaaUrlUtils {
             UaaUrlUtils.class);
 
     private static final int MAX_URI_DECODES = 5;
+
+    /**
+     * Static resource path prefixes that should be treated as static assets.
+     * These paths typically serve CSS, JavaScript, images, and font files.
+     */
+    private static final Set<String> STATIC_RESOURCE_PREFIXES = Set.of("/resources/", "/vendor/");
 
     public static String getUaaUrl(String path, IdentityZone currentIdentityZone) {
         return getUaaUrl(path, false, currentIdentityZone);
@@ -70,6 +79,10 @@ public abstract class UaaUrlUtils {
             IdentityZone currentIdentityZone, UriComponentsBuilder baseBuilder) {
         UriComponentsBuilder builder = baseBuilder != null ? baseBuilder : ServletUriComponentsBuilder.fromCurrentContextPath().path(path);
         if (zoneSwitchPossible) {
+            // When zone is in the path (context path contains /z/subdomain), do not add subdomain to host
+            if (isZoneInRequestPath()) {
+                return builder;
+            }
             String host = builder.build().getHost();
             if (host != null && !currentIdentityZone.isUaa() &&
                     !host.startsWith(currentIdentityZone.getSubdomain() + ".")) {
@@ -80,17 +93,42 @@ public abstract class UaaUrlUtils {
         return builder;
     }
 
+    private static boolean isZoneInRequestPath() {
+        try {
+            if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs
+                    && attrs.getRequest() != null) {
+                HttpServletRequest request = attrs.getRequest();
+                Object origAttr = request.getAttribute(ZonePathContextRewritingFilter.ZONE_ORIGINAL_CONTEXT_PATH);
+                if (origAttr instanceof String originalContextPath) {
+                    String contextPath = request.getContextPath();
+                    return contextPath != null
+                            && contextPath.startsWith(originalContextPath + ZonePathContextRewritingFilter.ZONE_PATH_PREFIX);
+                }
+            }
+        } catch (IllegalStateException _) {
+            // No request bound
+        }
+        return false;
+    }
+
+    /**
+     * Maximum length accepted for a registered redirect URI. Inputs longer than this are rejected
+     * before regex evaluation as a defence against polynomial backtracking on pathological inputs.
+     * RFC 7230 recommends support for request-line lengths of at least 8000 octets.
+     */
+    private static final int MAX_REDIRECT_URI_LENGTH = 8000;
+
     private static final Pattern allowedRedirectUriPattern = Pattern.compile(
             "^([a-zA-Z][a-zA-Z0-9+\\*\\-.]*)://" + //URL starts with 'some-scheme://' or 'https://' or 'http*://
-                    "(.*:.*@)?" +                    //username/password in URL
+                    "([^:/@]{0,255}:[^/@]{0,255}@)?" + //username/password in URL — bounded, no `/`/`@` to avoid ReDoS
                     "(([a-zA-Z0-9\\-\\*\\_]+\\.){0,255}" + //subdomains (RFC1035) limited, regex backtracking disabled
                     "[a-zA-Z0-9\\-\\_]+\\.)?" +      //hostname
                     "[a-zA-Z0-9\\-]+" +              //tld
-                    "((:([0-9]+|\\*))|(:\\*))?(/.*|$)"        //port and path
+                    "((:[0-9]+)|(:\\*))?(/.*|$)"              //port and path
     );
 
     public static boolean isValidRegisteredRedirectUrl(String url) {
-        if (hasText(url)) {
+        if (hasText(url) && url.length() <= MAX_REDIRECT_URI_LENGTH) {
             return allowedRedirectUriPattern.matcher(url).matches();
         }
         return false;
@@ -147,7 +185,7 @@ public abstract class UaaUrlUtils {
             }
             hostnameFromRequestedUri = uri.getHost();
         }
-        catch (URISyntaxException ex) {
+        catch (URISyntaxException _) {
             return false;
         }
 
@@ -229,9 +267,46 @@ public abstract class UaaUrlUtils {
         try {
             new URL(url).toURI();
             return true;
-        } catch (MalformedURLException | URISyntaxException e) {
+        } catch (MalformedURLException | URISyntaxException _) {
             return false;
         }
+    }
+
+    /**
+     * Validates and normalizes a URL for safe use in web contexts to prevent XSS attacks.
+     * Only allows:
+     * - Context-relative paths starting with /
+     * - Absolute HTTP/HTTPS URLs
+     * 
+     * @param url the URL to validate
+     * @param fallbackUrl the fallback URL to use for invalid URLs (should be safe, e.g., "/login")
+     * @return the validated URL, or fallbackUrl for invalid URLs
+     */
+    public static String validateAndNormalizeSafeUrl(String url, String fallbackUrl) {
+        if (url == null || url.trim().isEmpty()) {
+            return fallbackUrl;
+        }
+        
+        String trimmed = url.trim();
+        
+        // Allow context-relative paths starting with /
+        if (trimmed.startsWith("/")) {
+            return trimmed;
+        }
+        
+        // Allow absolute HTTP/HTTPS URLs
+        try {
+            URI uri = new URI(trimmed);
+            String scheme = uri.getScheme();
+            if ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme)) {
+                return trimmed;
+            }
+        } catch (URISyntaxException _) {
+            // Invalid URI syntax, fall back to default
+        }
+        
+        // For any other scheme (javascript:, data:, etc.) or invalid URLs, fall back to safe default
+        return fallbackUrl;
     }
 
     public static String addQueryParameter(String url, String name, String value) {
@@ -293,6 +368,29 @@ public abstract class UaaUrlUtils {
         return "%s%s".formatted(servletPath, pathInfo);
     }
 
+    /**
+     * Checks if the given request path represents a static resource.
+     *
+     * @param requestPath the request path to check
+     * @return true if the path starts with any of the static resource prefixes
+     */
+    public static boolean isStaticResource(String requestPath) {
+        if (requestPath == null) {
+            return false;
+        }
+        return STATIC_RESOURCE_PREFIXES.stream().anyMatch(requestPath::startsWith);
+    }
+
+    /**
+     * Checks if the given request represents a static resource by extracting and checking its path.
+     *
+     * @param request the HTTP servlet request
+     * @return true if the request path starts with any of the static resource prefixes
+     */
+    public static boolean isStaticResource(HttpServletRequest request) {
+        return isStaticResource(getRequestPath(request));
+    }
+
     public static boolean uriHasMatchingHost(String uri, String hostname) {
         if (uri == null) {
             return false;
@@ -301,7 +399,7 @@ public abstract class UaaUrlUtils {
         try {
             URL url = new URL(uri);
             return hostname.equals(url.getHost());
-        } catch (MalformedURLException e) {
+        } catch (MalformedURLException _) {
             return false;
         }
     }
@@ -355,5 +453,32 @@ public abstract class UaaUrlUtils {
         }
 
         throw new IllegalArgumentException("Aborted url decoding for repeatedly encoded path");
+    }
+
+    /**
+     * Normalizes a URL for port comparison by removing standard ports (80 for HTTP, 443 for HTTPS).
+     * This ensures that URLs like "http://example.com" and "http://example.com:80" are treated as equivalent.
+     *
+     * @param url the URL to normalize
+     * @return the normalized URL with standard ports removed, or the original URL if malformed
+     */
+    public static String normalizeUrlForPortComparison(String url) {
+        if (url == null) {
+            return null;
+        }
+        try {
+            URI uri = new URI(url);
+            int port = uri.getPort();
+            String scheme = uri.getScheme();
+
+            if (("http".equalsIgnoreCase(scheme) && port == 80) || 
+                ("https".equalsIgnoreCase(scheme) && port == 443)) {
+                return new URI(scheme, uri.getUserInfo(), uri.getHost(), -1, 
+                              uri.getPath(), uri.getQuery(), uri.getFragment()).toString();
+            }
+        } catch (Exception _) {
+            // ignore
+        }
+        return url;
     }
 }

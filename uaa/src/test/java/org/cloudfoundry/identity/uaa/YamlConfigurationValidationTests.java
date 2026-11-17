@@ -2,6 +2,7 @@ package org.cloudfoundry.identity.uaa;
 
 import org.cloudfoundry.identity.uaa.impl.config.YamlConfigurationValidator;
 import org.cloudfoundry.identity.uaa.impl.config.YamlServletProfileInitializer;
+import org.cloudfoundry.identity.uaa.provider.saml.SamlConfiguration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.BeansException;
@@ -31,7 +32,7 @@ class YamlConfigurationValidationTests {
 
     @Test
     void validConfiguration() {
-        System.setProperty("UAA_CONFIG_URL", "classpath:integration_test_properties.yml");
+        System.setProperty("UAA_CONFIG_URL", "classpath:mockmvc_unittest_properties.yml");
         var applicationContext = createApplicationContext();
         assertThatNoException().isThrownBy(applicationContext::refresh);
     }
@@ -48,6 +49,7 @@ class YamlConfigurationValidationTests {
     }
 
     private static TestApplicationContext createApplicationContext() {
+        SamlConfiguration.setupOpenSaml();
         var applicationContext = new TestApplicationContext();
         var servletContext = new TestMockContext();
         applicationContext.setServletContext(servletContext);
@@ -70,15 +72,10 @@ class YamlConfigurationValidationTests {
         }
     }
 
-    ;
-
     static class TestMockContext extends MockServletContext {
         @Override
         public <T extends EventListener> void addListener(@Nullable T t) {
             //no op
         }
     }
-
-    ;
-
 }

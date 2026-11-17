@@ -19,12 +19,14 @@ import org.cloudfoundry.identity.uaa.provider.JdbcIdentityProviderProvisioning;
 import org.cloudfoundry.identity.uaa.provider.SamlIdentityProviderDefinition;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManagerImpl;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.config.YamlMapFactoryBean;
 import org.springframework.beans.factory.config.YamlProcessor;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -35,7 +37,11 @@ import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class BootstrapSamlIdentityProviderDataTests {
 
@@ -99,7 +105,6 @@ public class BootstrapSamlIdentityProviderDataTests {
     private BootstrapSamlIdentityProviderData bootstrap;
     private SamlIdentityProviderDefinition singleAdd;
     private static final String SINGLE_ADD_ALIAS = "sample-alias";
-    RequestScopedIdpDefinitionsCache requestScopedIdpDefinitionsCache = mock(RequestScopedIdpDefinitionsCache.class);
 
     public static String sampleYaml = "  providers:\n" +
             "    okta-local:\n" +
@@ -154,7 +159,8 @@ public class BootstrapSamlIdentityProviderDataTests {
 
     @BeforeEach
     void beforeEach() {
-        bootstrap = new BootstrapSamlIdentityProviderData(new SamlIdentityProviderConfigurator(mock(JdbcIdentityProviderProvisioning.class), new IdentityZoneManagerImpl(), mock(FixedHttpMetaDataProvider.class), requestScopedIdpDefinitionsCache));
+        SamlConfiguration.setupOpenSaml();
+        bootstrap = new BootstrapSamlIdentityProviderData(new SamlIdentityProviderConfigurator(mock(JdbcIdentityProviderProvisioning.class), new IdentityZoneManagerImpl(), mock(FixedHttpMetaDataProvider.class)));
         singleAdd = new SamlIdentityProviderDefinition()
                 .setMetaDataLocation(BootstrapSamlIdentityProviderDataTests.XML_WITHOUT_ID.formatted(new RandomValueStringGenerator().generate()))
                 .setIdpEntityAlias(SINGLE_ADD_ALIAS)
@@ -217,6 +223,19 @@ public class BootstrapSamlIdentityProviderDataTests {
         testGetIdentityProviderDefinitions(4);
     }
 
+    @Test
+    void caCertificatesFromYaml() {
+        sampleData.get("okta-local").put("caCertificates", List.of("-----BEGIN CERTIFICATE-----FAKE-----END CERTIFICATE-----"));
+        bootstrap.setIdentityProviders(sampleData);
+        bootstrap.afterPropertiesSet();
+
+        SamlIdentityProviderDefinition def = bootstrap.getIdentityProviderDefinitions().stream()
+                .filter(p -> "okta-local".equals(p.getIdpEntityAlias()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(def.getCaCertificates()).containsExactly("-----BEGIN CERTIFICATE-----FAKE-----END CERTIFICATE-----");
+    }
+
     private void testGetIdentityProviderDefinitions(int count) {
         testGetIdentityProviderDefinitions(count, true);
     }
@@ -240,8 +259,8 @@ public class BootstrapSamlIdentityProviderDataTests {
                     Map<String, Object> attributeMappings = new HashMap<>();
                     attributeMappings.put("given_name", "first_name");
                     attributeMappings.put("external_groups", Collections.singletonList("roles"));
-                    assertThat(idp.getAttributeMappings()).isEqualTo(attributeMappings);
-                    assertThat(idp.getExternalGroupsWhitelist()).isEqualTo(asList("admin", "user"));
+                    assertThat(idp.getAttributeMappings()).containsExactlyInAnyOrderEntriesOf(attributeMappings);
+                    assertThat(idp.getExternalGroupsWhitelist()).containsExactlyElementsOf(asList("admin", "user"));
                     assertThat(idp.isShowSamlLink()).isTrue();
                     assertThat(idp.isMetadataTrustCheck()).isTrue();
                     assertThat(idp.getEmailDomain()).contains("test.com", "test.org");
@@ -282,7 +301,7 @@ public class BootstrapSamlIdentityProviderDataTests {
                 }
                 case "custom-authncontext": {
                     assertThat(idp.getAuthnContext()).hasSize(2);
-                    assertThat(idp.getAuthnContext().getFirst()).isEqualTo("custom-context");
+                    assertThat(idp.getAuthnContext()).first().isEqualTo("custom-context");
                     assertThat(idp.getAuthnContext().get(1)).isEqualTo("another-context");
                     break;
                 }
@@ -409,6 +428,86 @@ public class BootstrapSamlIdentityProviderDataTests {
                 default:
                     fail("Unknown provider %s".formatted(def.getIdpEntityAlias()));
             }
+        }
+    }
+
+    /**
+     * Tests for the bootstrap-time entity ID resolution for URL-type SAML IDPs.
+     *
+     * <p>When {@code idpMetadata} is a URL, {@code BootstrapSamlIdentityProviderData} must attempt
+     * to fetch the metadata and store the entity ID in {@code idpEntityId} (persisted as
+     * {@code external_key}). If the fetch fails the server must still start — the error is logged
+     * and {@code idpEntityId} stays {@code null}.
+     */
+    @Nested
+    class UrlTypeEntityIdResolution {
+
+        private static final String URL_IDP_ALIAS = "url-type-idp";
+        private static final String URL_IDP_METADATA_URL = "https://idp.example.org/saml/metadata";
+        private static final String EXPECTED_ENTITY_ID = "https://idp.example.org/metadata";
+
+        // Use the shared XML template that contains a valid signing certificate so that
+        // RelyingPartyRegistrations.fromMetadata can parse the metadata without errors.
+        private static final String URL_IDP_METADATA_XML = XML_WITHOUT_ID.formatted(EXPECTED_ENTITY_ID);
+
+        private static final String URL_IDP_YAML = """
+                providers:
+                  %s:
+                    idpMetadata: %s
+                    metadataTrustCheck: false
+                    skipSslValidation: true
+                """.formatted(URL_IDP_ALIAS, URL_IDP_METADATA_URL);
+
+        private BootstrapSamlIdentityProviderData urlBootstrap(FixedHttpMetaDataProvider httpProvider) {
+            return new BootstrapSamlIdentityProviderData(
+                    new SamlIdentityProviderConfigurator(
+                            mock(JdbcIdentityProviderProvisioning.class),
+                            new IdentityZoneManagerImpl(),
+                            httpProvider));
+        }
+
+        @Test
+        void urlIdp_resolvesEntityIdFromMetadataAtBootstrap() throws Exception {
+            FixedHttpMetaDataProvider httpProvider = mock(FixedHttpMetaDataProvider.class);
+            when(httpProvider.fetchMetadata(anyString(), anyBoolean(), any(), any()))
+                    .thenReturn(URL_IDP_METADATA_XML.getBytes(StandardCharsets.UTF_8));
+
+            BootstrapSamlIdentityProviderData subject = urlBootstrap(httpProvider);
+            subject.setIdentityProviders(parseYaml(URL_IDP_YAML));
+
+            SamlIdentityProviderDefinition def = subject.getIdentityProviderDefinitions()
+                    .stream()
+                    .filter(d -> URL_IDP_ALIAS.equals(d.getIdpEntityAlias()))
+                    .findFirst()
+                    .orElseThrow();
+
+            assertThat(def.getType()).isEqualTo(SamlIdentityProviderDefinition.MetadataLocation.URL);
+            assertThat(def.getIdpEntityId())
+                    .as("entity ID must be resolved from URL metadata so external_key is stored in DB")
+                    .isEqualTo(EXPECTED_ENTITY_ID);
+        }
+
+        @Test
+        void urlIdp_logsErrorAndContinuesWhenMetadataFetchFails() {
+            FixedHttpMetaDataProvider httpProvider = mock(FixedHttpMetaDataProvider.class);
+            when(httpProvider.fetchMetadata(anyString(), anyBoolean(), any(), any()))
+                    .thenThrow(new RuntimeException("connection refused: idp.example.org:443"));
+
+            BootstrapSamlIdentityProviderData subject = urlBootstrap(httpProvider);
+
+            assertThatNoException()
+                    .as("server startup must survive a metadata fetch failure")
+                    .isThrownBy(() -> subject.setIdentityProviders(parseYaml(URL_IDP_YAML)));
+
+            SamlIdentityProviderDefinition def = subject.getIdentityProviderDefinitions()
+                    .stream()
+                    .filter(d -> URL_IDP_ALIAS.equals(d.getIdpEntityAlias()))
+                    .findFirst()
+                    .orElseThrow();
+
+            assertThat(def.getIdpEntityId())
+                    .as("entity ID must be null when fetch failed; ConfiguratorRelyingPartyRegistrationRepository fallback handles it at request time")
+                    .isNull();
         }
     }
 }

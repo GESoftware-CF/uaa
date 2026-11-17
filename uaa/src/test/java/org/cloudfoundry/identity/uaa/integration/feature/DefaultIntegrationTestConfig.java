@@ -13,7 +13,9 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.integration.feature;
 
-import com.dumbster.smtp.SimpleSmtpServer;
+import com.icegreen.greenmail.util.GreenMail;
+import com.icegreen.greenmail.util.ServerSetup;
+import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
 import org.cloudfoundry.identity.uaa.oauth.client.test.TestAccounts;
 import org.cloudfoundry.identity.uaa.test.UaaTestAccounts;
 import org.cloudfoundry.identity.uaa.test.UaaWebDriver;
@@ -72,50 +74,59 @@ public class DefaultIntegrationTestConfig {
     private static ChromeOptions getChromeOptions() {
         ChromeOptions options = new ChromeOptions();
         options.addArguments(
-                "--verbose",
                 // Comment the following line to run selenium test browser in Headed Mode
-                "--headless",
+                "--headless=new", // Use new headless mode (more stable)
                 "--guest", //attempt to disable password checkups that disrupt the flow
                 "--disable-web-security",
                 "--ignore-certificate-errors",
                 "--allow-running-insecure-content",
                 "--allow-insecure-localhost",
-                "--allow-insecure-example.com",
-                "--no-sandbox",
+                "--no-sandbox", // Required for Docker/CI environments
                 "--disable-gpu",
                 "--remote-allow-origins=*",
-                // Additional flags to prevent tab crashes in CI environments
-                "--disable-dev-shm-usage", // Overcome limited resource problems in Docker/Jenkins
+                "--disable-dev-shm-usage", // Overcome limited resource problems in Docker
+                // Additional stability flags
                 "--disable-extensions",
                 "--disable-software-rasterizer",
-                "--disable-background-networking",
                 "--disable-background-timer-throttling",
                 "--disable-backgrounding-occluded-windows",
-                "--disable-breakpad",
-                "--disable-component-extensions-with-background-pages",
-                "--disable-features=TranslateUI,BlinkGenPropertyTrees",
-                "--disable-ipc-flooding-protection",
                 "--disable-renderer-backgrounding",
-                "--enable-features=NetworkService,NetworkServiceInProcess",
+                "--disable-blink-features=AutomationControlled",
+                "--disable-features=TranslateUI",
+                // Hang detection and renderer stability flags
+                "--disable-hang-monitor", // Prevents Chrome from killing "hung" renderer processes (useful for slow backend responses)
+                "--disable-background-networking", // Reduces background network activity that could interfere with test requests
+                "--disable-features=RendererScheduling", // Disables aggressive renderer scheduling that might cause timeouts
+                "--run-all-compositor-stages-before-draw", // Ensures all rendering stages complete before drawing (prevents partial renders)
+                "--disable-prompt-on-repost",
+                "--disable-sync",
+                "--disable-component-extensions-with-background-pages",
                 "--force-color-profile=srgb",
-                "--hide-scrollbars",
-                "--metrics-recording-only",
-                "--mute-audio",
-                "--disable-crash-reporter"
+                "--no-first-run",
+                "--no-default-browser-check",
+                "--disable-default-apps",
+                "--disable-popup-blocking",
+                "--test-type",
+                "--disable-infobars"
         );
         options.setAcceptInsecureCerts(true);
+        
+        // Set page load strategy to 'normal' to ensure proper page load detection
+        options.setPageLoadStrategy(org.openqa.selenium.PageLoadStrategy.NORMAL);
 
         return options;
     }
 
     @Bean(destroyMethod = "stop")
-    public SimpleSmtpServer simpleSmtpServer(@Value("${smtp.port}") int port) {
-        return SimpleSmtpServer.start(port);
+    public GreenMail greenMail(@Value("${smtp.port}") int port) {
+        GreenMail greenMail = new GreenMail(new ServerSetup(port, null, ServerSetup.PROTOCOL_SMTP));
+        greenMail.start();
+        return greenMail;
     }
 
     @Bean
     public RestTemplate restTemplate() {
-        return new RestTemplate();
+        return IntegrationTestUtils.createConfiguredRestTemplate();
     }
 
     @Bean

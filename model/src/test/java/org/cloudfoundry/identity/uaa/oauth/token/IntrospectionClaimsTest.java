@@ -36,10 +36,24 @@ class IntrospectionClaimsTest {
     @Test
     void serialize() {
         assertThat(JsonUtils.writeValueAsString(introspectionPayload)).contains(TokenConstants.CLIENT_AUTH_NONE);
-        assertThat(introspectionPayload.getClaimMap()).isNotNull()
+        assertThat(introspectionPayload.getClaimMap())
                 .containsEntry("grant_type", "authorization_code")
                 .containsEntry("client_id", "login")
                 .containsEntry("aud", Arrays.asList("openid", "login"))
                 .containsEntry("scope", Arrays.asList("openid"));
+    }
+
+    @Test
+    void unrecognizedClaimsAreCapturedAndFlattenedBackOut() {
+        IntrospectionClaims claims = JsonUtils.readValue(
+                "{\"jti\":\"abc\",\"unknown\":\"some-value\"}", IntrospectionClaims.class);
+
+        assertThat(claims.getJti()).isEqualTo("abc");
+        assertThat(claims.getAdditionalClaims()).containsEntry("unknown", "some-value");
+
+        String serialized = JsonUtils.writeValueAsString(claims);
+        assertThat(JsonUtils.readValue(serialized, java.util.Map.class))
+                .containsEntry("unknown", "some-value")
+                .doesNotContainKey("additionalClaims");
     }
 }

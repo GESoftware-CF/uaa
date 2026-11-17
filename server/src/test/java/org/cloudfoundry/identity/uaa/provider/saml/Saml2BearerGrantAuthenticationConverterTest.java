@@ -1,11 +1,13 @@
 package org.cloudfoundry.identity.uaa.provider.saml;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import net.shibboleth.utilities.java.support.xml.SerializeSupport;
+import net.shibboleth.shared.xml.SerializeSupport;
+import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 import org.cloudfoundry.identity.uaa.impl.config.RestTemplateConfig;
 import org.cloudfoundry.identity.uaa.provider.JdbcIdentityProviderProvisioning;
+import org.cloudfoundry.identity.uaa.security.IdpOutboundTrustCache;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
 import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManagerImpl;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.opensaml.core.xml.XMLObject;
@@ -46,8 +48,8 @@ import org.springframework.util.StringUtils;
 import org.w3c.dom.Element;
 
 import javax.xml.namespace.QName;
+import java.security.Security;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -62,7 +64,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
 /**
- * This is based on OpenSaml4AuthenticationProviderTest from Spring Security
+ * This is based on OpenSaml5AuthenticationProviderTest from Spring Security
  */
 class Saml2BearerGrantAuthenticationConverterTest {
 
@@ -74,7 +76,10 @@ class Saml2BearerGrantAuthenticationConverterTest {
 
     private Saml2BearerGrantAuthenticationConverter provider;
 
-    RequestScopedIdpDefinitionsCache requestScopedIdpDefinitionsCache = mock(RequestScopedIdpDefinitionsCache.class);
+    @BeforeAll
+    static void beforeAll() {
+        Security.addProvider(new BouncyCastleFipsProvider());
+    }
 
     @BeforeEach
     void beforeEach() {
@@ -82,9 +87,10 @@ class Saml2BearerGrantAuthenticationConverterTest {
         SamlConfiguration samlConfiguration = new SamlConfiguration();
         JdbcIdentityProviderProvisioning providerProvisioning = mock(JdbcIdentityProviderProvisioning.class);
 
-        SamlIdentityProviderConfigurator identityProviderConfigurator = new SamlIdentityProviderConfigurator
-                (providerProvisioning, identityZoneManager, samlConfiguration.fixedHttpMetaDataProvider
-                        (RestTemplateConfig.createDefaults(), null), requestScopedIdpDefinitionsCache);
+        SamlIdentityProviderConfigurator identityProviderConfigurator = new SamlIdentityProviderConfigurator(
+                providerProvisioning, identityZoneManager,
+                samlConfiguration.fixedHttpMetaDataProvider(RestTemplateConfig.createDefaults(), null, new IdpOutboundTrustCache())
+        );
         SamlRelyingPartyRegistrationRepositoryConfig samlRelyingPartyRegistrationRepositoryConfig =
                 new SamlRelyingPartyRegistrationRepositoryConfig(
                         "integration-saml-entity-id", Saml2TestUtils.createTestSamlProperties(),
@@ -93,7 +99,7 @@ class Saml2BearerGrantAuthenticationConverterTest {
                         List.of(SignatureAlgorithm.SHA256, SignatureAlgorithm.SHA512));
 
         RelyingPartyRegistrationRepository relyingPartyRegistrationRepository = samlRelyingPartyRegistrationRepositoryConfig.relyingPartyRegistrationRepository(identityProviderConfigurator);
-        RelyingPartyRegistrationResolver relyingPartyRegistrationResolver = samlRelyingPartyRegistrationRepositoryConfig.relyingPartyRegistrationResolver(relyingPartyRegistrationRepository, null);
+        RelyingPartyRegistrationResolver relyingPartyRegistrationResolver = samlRelyingPartyRegistrationRepositoryConfig.relyingPartyRegistrationResolver(relyingPartyRegistrationRepository, null, "http://localhost:8080/uaa");
 
         provider = new Saml2BearerGrantAuthenticationConverter(relyingPartyRegistrationResolver, identityZoneManager,
                null);
@@ -139,6 +145,29 @@ class Saml2BearerGrantAuthenticationConverterTest {
     }
 
     @Test
+    void authenticateWhenUnsignedAssertionThenThrowInvalidSignature() {
+        Assertion assertion = assertion();
+        Saml2AuthenticationToken token = token(assertion, verifying(registration()));
+        assertThatExceptionOfType(Saml2AuthenticationException.class)
+                .isThrownBy(() -> this.provider.authenticate(token))
+                .satisfies(errorOf(Saml2ErrorCodes.INVALID_SIGNATURE));
+    }
+
+    @Test
+    void authenticateWhenUnsignedButEncryptedAssertionThenInvalidSignature() {
+        Assertion assertion = assertion();
+        EncryptedAttribute attribute = TestOpenSamlObjects.encrypted("name", "value",
+                TestSaml2X509Credentials.assertingPartyEncryptingCredential());
+        AttributeStatement statement = build(AttributeStatement.DEFAULT_ELEMENT_NAME);
+        statement.getEncryptedAttributes().add(attribute);
+        assertion.getAttributeStatements().add(statement);
+        Saml2AuthenticationToken token = token(assertion, decrypting(verifying(registration())));
+        assertThatExceptionOfType(Saml2AuthenticationException.class)
+                .isThrownBy(() -> this.provider.authenticate(token))
+                .satisfies(errorOf(Saml2ErrorCodes.INVALID_SIGNATURE, "Assertion is missing a signature."));
+    }
+
+    @Test
     void authenticateWhenOpenSAMLValidationErrorThenThrowAuthenticationException() {
         Assertion assertion = assertion();
         assertion.getSubject()
@@ -147,7 +176,7 @@ class Saml2BearerGrantAuthenticationConverterTest {
                 .getSubjectConfirmationData()
                 .setNotOnOrAfter(Instant.now().minus(Duration.ofDays(3)));
 
-        Saml2AuthenticationToken token = token(assertion, verifying(registration()));
+        Saml2AuthenticationToken token = token(signed(assertion), verifying(registration()));
         assertThatExceptionOfType(Saml2AuthenticationException.class)
                 .isThrownBy(() -> this.provider.authenticate(token))
                 .satisfies(errorOf(Saml2ErrorCodes.INVALID_ASSERTION));
@@ -158,7 +187,7 @@ class Saml2BearerGrantAuthenticationConverterTest {
         Assertion assertion = assertion();
         assertion.setSubject(null);
 
-        Saml2AuthenticationToken token = token(assertion, verifying(registration()));
+        Saml2AuthenticationToken token = token(signed(assertion), verifying(registration()));
         assertThatExceptionOfType(Saml2AuthenticationException.class)
                 .isThrownBy(() -> this.provider.authenticate(token))
                 .satisfies(errorOf(Saml2ErrorCodes.SUBJECT_NOT_FOUND));
@@ -168,7 +197,7 @@ class Saml2BearerGrantAuthenticationConverterTest {
     void authenticateWhenUsernameMissingThenThrowAuthenticationException() {
         Assertion assertion = assertion();
         assertion.getSubject().getNameID().setValue(null);
-        Saml2AuthenticationToken token = token(assertion, verifying(registration()));
+        Saml2AuthenticationToken token = token(signed(assertion), verifying(registration()));
         assertThatExceptionOfType(Saml2AuthenticationException.class)
                 .isThrownBy(() -> this.provider.authenticate(token))
                 .satisfies(errorOf(Saml2ErrorCodes.SUBJECT_NOT_FOUND));
@@ -180,7 +209,7 @@ class Saml2BearerGrantAuthenticationConverterTest {
         assertion.getSubject()
                 .getSubjectConfirmations()
                 .forEach(sc -> sc.getSubjectConfirmationData().setAddress("10.10.10.10"));
-        Saml2AuthenticationToken token = token(assertion, verifying(registration()));
+        Saml2AuthenticationToken token = token(signed(assertion), verifying(registration()));
         this.provider.authenticate(token);
     }
 
@@ -189,7 +218,7 @@ class Saml2BearerGrantAuthenticationConverterTest {
         Assertion assertion = assertion();
         AbstractSaml2AuthenticationRequest mockAuthenticationRequest = mockedStoredAuthenticationRequest("SAML2",
                 Saml2MessageBinding.POST, false);
-        Saml2AuthenticationToken token = token(assertion, verifying(registration()), mockAuthenticationRequest);
+        Saml2AuthenticationToken token = token(signed(assertion), verifying(registration()), mockAuthenticationRequest);
         this.provider.authenticate(token);
     }
 
@@ -198,7 +227,7 @@ class Saml2BearerGrantAuthenticationConverterTest {
         Assertion assertion = assertion("saml2");
         AbstractSaml2AuthenticationRequest mockAuthenticationRequest = mockedStoredAuthenticationRequest("SAML2",
                 Saml2MessageBinding.POST, false);
-        Saml2AuthenticationToken token = token(assertion, verifying(registration()), mockAuthenticationRequest);
+        Saml2AuthenticationToken token = token(signed(assertion), verifying(registration()), mockAuthenticationRequest);
         assertThatExceptionOfType(Saml2AuthenticationException.class)
                 .isThrownBy(() -> this.provider.authenticate(token))
                 .withStackTraceContaining("invalid_assertion");
@@ -209,7 +238,7 @@ class Saml2BearerGrantAuthenticationConverterTest {
         Assertion assertion = assertion();
         List<AttributeStatement> attributes = attributeStatements();
         assertion.getAttributeStatements().addAll(attributes);
-        Saml2AuthenticationToken token = token(assertion, verifying(registration()));
+        Saml2AuthenticationToken token = token(signed(assertion), verifying(registration()));
         Authentication authentication = this.provider.authenticate(token);
         Saml2AuthenticatedPrincipal principal = (Saml2AuthenticatedPrincipal) authentication.getPrincipal();
 
@@ -230,15 +259,15 @@ class Saml2BearerGrantAuthenticationConverterTest {
     // gh-11785
     @Test
     void deserializeWhenAssertionContainsAttributesThenWorks() throws Exception {
-        ObjectMapper mapper = new ObjectMapper();
         ClassLoader loader = getClass().getClassLoader();
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         mapper.registerModules(SecurityJackson2Modules.getModules(loader));
         Assertion assertion = assertion();
         List<AttributeStatement> attributes = TestOpenSamlObjects.attributeStatements();
         attributes.subList(2, attributes.size()).clear();
 
         assertion.getAttributeStatements().addAll(attributes);
-        Saml2AuthenticationToken token = token(assertion, verifying(registration()));
+        Saml2AuthenticationToken token = token(signed(assertion), verifying(registration()));
         Authentication authentication = this.provider.authenticate(token);
         String result = mapper.writeValueAsString(authentication);
         mapper.readValue(result, Authentication.class);
@@ -252,7 +281,7 @@ class Saml2BearerGrantAuthenticationConverterTest {
                 TestCustomOpenSamlObjects.instance());
         assertion.getAttributeStatements().add(attribute);
         response.getAssertions().add(signed(assertion));
-        Saml2AuthenticationToken token = token(assertion, verifying(registration()));
+        Saml2AuthenticationToken token = token(signed(assertion), verifying(registration()));
         Authentication authentication = this.provider.authenticate(token);
         Saml2AuthenticatedPrincipal principal = (Saml2AuthenticatedPrincipal) authentication.getPrincipal();
         TestCustomOpenSamlObjects.CustomOpenSamlObject address = (TestCustomOpenSamlObjects.CustomOpenSamlObject) principal.getAttribute("Address").getFirst();
@@ -345,14 +374,14 @@ class Saml2BearerGrantAuthenticationConverterTest {
                 .getSubjectConfirmations()
                 .forEach(sc -> sc.getSubjectConfirmationData().setAddress("10.10.10.10"));
         response.getAssertions().add(signed(assertion));
-        Saml2AuthenticationToken token = token(assertion, verifying(registration()));
+        Saml2AuthenticationToken token = token(signed(assertion), verifying(registration()));
         token.setDetails("some-details");
         Authentication authentication = this.provider.authenticate(token);
         assertThat(authentication.getDetails()).isEqualTo("some-details");
     }
 
     @Test
-    void writeObjectWhenTypeIsSaml2AuthenticationThenNoException() throws IOException {
+    void writeObjectWhenTypeIsSaml2AuthenticationThenNoException() throws Exception {
         Assertion assertion = TestOpenSamlObjects.signed(assertion(),
                 TestSaml2X509Credentials.assertingPartySigningCredential(), RELYING_PARTY_ENTITY_ID);
         Saml2AuthenticationToken token = token(signed(assertion), decrypting(verifying(registration())));
@@ -367,7 +396,7 @@ class Saml2BearerGrantAuthenticationConverterTest {
     @Test
     void createDefaultAssertionValidatorWhenAssertionThenValidates() {
         Assertion assertion = signed(assertion());
-        OpenSaml4AuthenticationProvider.AssertionToken assertionToken = new OpenSaml4AuthenticationProvider.AssertionToken(
+        OpenSaml5AuthenticationProvider.AssertionToken assertionToken = new OpenSaml5AuthenticationProvider.AssertionToken(
                 assertion, token());
         assertThat(
                 Saml2BearerGrantAuthenticationConverter.createDefaultAssertionValidator().convert(assertionToken).hasErrors())
@@ -388,7 +417,7 @@ class Saml2BearerGrantAuthenticationConverterTest {
     void createDefaultResponseAuthenticationConverterWhenResponseThenConverts() {
         Assertion assertion = assertion();
         Saml2AuthenticationToken token = token(assertion, verifying(registration()));
-        OpenSaml4AuthenticationProvider.AssertionToken assertionToken = new OpenSaml4AuthenticationProvider.AssertionToken(assertion, token);
+        OpenSaml5AuthenticationProvider.AssertionToken assertionToken = new OpenSaml5AuthenticationProvider.AssertionToken(assertion, token);
         AbstractAuthenticationToken authentication = Saml2BearerGrantAuthenticationConverter
                 .createDefaultAssertionAuthenticationConverter()
                 .convert(assertionToken);
@@ -528,11 +557,11 @@ class Saml2BearerGrantAuthenticationConverterTest {
         return TestRelyingPartyRegistrations.noCredentials()
                 .entityId(RELYING_PARTY_ENTITY_ID)
                 .assertionConsumerServiceLocation(DESTINATION)
-                .assertingPartyDetails(party -> party.entityId(ASSERTING_PARTY_ENTITY_ID));
+                .assertingPartyMetadata(party -> party.entityId(ASSERTING_PARTY_ENTITY_ID));
     }
 
     private RelyingPartyRegistration.Builder verifying(RelyingPartyRegistration.Builder builder) {
-        return builder.assertingPartyDetails(party -> party
+        return builder.assertingPartyMetadata(party -> party
                 .verificationX509Credentials(c -> c.add(TestSaml2X509Credentials.relyingPartyVerifyingCredential())));
     }
 

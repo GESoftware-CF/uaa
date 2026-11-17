@@ -88,6 +88,11 @@ public class UaaResetPasswordService implements ResetPasswordService, Applicatio
     }
 
     private ResetPasswordResponse changePasswordCodeAuthenticated(ExpiringCode expiringCode, String newPassword) {
+        final String invalidCodeMessage = "Sorry, your reset password link is no longer valid. Please request a new one";
+        String intent = expiringCode.getIntent();
+        if (intent == null || !intent.startsWith(FORGOT_PASSWORD_INTENT_PREFIX)) {
+            throw new InvalidCodeException("invalid_code", invalidCodeMessage, UNPROCESSABLE_ENTITY.value());
+        }
         String userId;
         String userName;
         Date passwordLastModified;
@@ -96,10 +101,13 @@ public class UaaResetPasswordService implements ResetPasswordService, Applicatio
         PasswordChange change;
         try {
             change = JsonUtils.readValue(expiringCode.getData(), PasswordChange.class);
-        } catch (JsonUtils.JsonUtilException x) {
-            throw new InvalidCodeException("invalid_code", "Sorry, your reset password link is no longer valid. Please request a new one", 422);
+        } catch (JsonUtils.JsonUtilException _) {
+            throw new InvalidCodeException("invalid_code", invalidCodeMessage, UNPROCESSABLE_ENTITY.value());
         }
         userId = change.getUserId();
+        if (!intent.equals(FORGOT_PASSWORD_INTENT_PREFIX + userId)) {
+            throw new InvalidCodeException("invalid_code", invalidCodeMessage, UNPROCESSABLE_ENTITY.value());
+        }
         userName = change.getUsername();
         passwordLastModified = change.getPasswordModifiedTime();
         clientId = change.getClientId();
@@ -131,7 +139,8 @@ public class UaaResetPasswordService implements ResetPasswordService, Applicatio
                     if (matchingRedirectUri != null) {
                         redirectLocation = matchingRedirectUri;
                     }
-                } catch (NoSuchClientException nsce) {
+                } catch (NoSuchClientException _) {
+                    // ignore
                 }
             }
             return new ResetPasswordResponse(user, redirectLocation, clientId);

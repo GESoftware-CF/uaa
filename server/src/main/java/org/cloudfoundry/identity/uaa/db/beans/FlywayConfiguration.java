@@ -1,7 +1,9 @@
 package org.cloudfoundry.identity.uaa.db.beans;
 
+import lombok.extern.slf4j.Slf4j;
 import org.cloudfoundry.identity.uaa.db.FixFailedBackportMigrations_4_0_4;
 import org.flywaydb.core.Flyway;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Condition;
 import org.springframework.context.annotation.ConditionContext;
@@ -10,8 +12,14 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.type.AnnotatedTypeMetadata;
 
 import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 @Configuration
+@Slf4j
 public class FlywayConfiguration {
 
     /**
@@ -22,9 +30,12 @@ public class FlywayConfiguration {
      * We need to maintain backwards compatibility due to {@link FixFailedBackportMigrations_4_0_4}
      */
     static final String VERSION_TABLE = "schema_version";
+    static final String FLYWAY_CLEAN_DISABLED = "spring.flyway.clean-disabled";
 
     @Bean
-    public Flyway baseFlyway(DataSource dataSource, DatabaseProperties databaseProperties) {
+    public Flyway baseFlyway(ApplicationContext context, DataSource dataSource, DatabaseProperties databaseProperties) {
+        boolean cleanDisabled = context.getEnvironment().getProperty(FLYWAY_CLEAN_DISABLED, "true").equalsIgnoreCase("true");
+
         return Flyway.configure()
                 .baselineOnMigrate(true)
                 .dataSource(dataSource)
@@ -32,6 +43,7 @@ public class FlywayConfiguration {
                 .baselineVersion("1.5.2")
                 .validateOnMigrate(false)
                 .table(VERSION_TABLE)
+                .cleanDisabled(cleanDisabled)
                 .load();
     }
 
@@ -51,12 +63,44 @@ public class FlywayConfiguration {
 
         @Bean
         public Flyway flyway(Flyway baseFlyway) {
-            baseFlyway.repair();
-            baseFlyway.migrate();
             org.apache.tomcat.jdbc.pool.DataSource ds =
                     (org.apache.tomcat.jdbc.pool.DataSource) baseFlyway.getConfiguration().getDataSource();
+            updateSpringJdbcMigrationTypes(ds);
+            baseFlyway.repair();
+            baseFlyway.migrate();
             ds.purge();
             return baseFlyway;
+        }
+
+        /**
+         * Normalize legacy Flyway schema history rows before Flyway validates migration types.
+         */
+        static void updateSpringJdbcMigrationTypes(DataSource ds) {
+            try (Connection conn = ds.getConnection()) {
+                if (!versionTableExists(conn)) {
+                    return;
+                }
+                try (Statement stmt = conn.createStatement()) {
+                    stmt.executeUpdate("UPDATE %s SET type = 'JDBC' WHERE type = 'SPRING_JDBC'".formatted(VERSION_TABLE));
+                    if (!conn.getAutoCommit()) {
+                        conn.commit();
+                    }
+                }
+            } catch (SQLException e) {
+                log.warn("Failed to normalize SPRING_JDBC migration types in {}", VERSION_TABLE, e);
+            }
+        }
+
+        private static boolean versionTableExists(Connection conn) throws SQLException {
+            DatabaseMetaData metaData = conn.getMetaData();
+            for (String tableName : new String[]{VERSION_TABLE, VERSION_TABLE.toUpperCase()}) {
+                try (ResultSet tables = metaData.getTables(conn.getCatalog(), null, tableName, new String[]{"TABLE"})) {
+                    if (tables.next()) {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
     }
 

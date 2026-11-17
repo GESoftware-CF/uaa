@@ -6,14 +6,8 @@ updates:
     interval: daily
     time: "11:00"
   open-pull-requests-limit: 10
-- package-ecosystem: gomod
-  directory: "/k8s"
-  schedule:
-    interval: daily
-    time: "11:00"
-  open-pull-requests-limit: 10
-- package-ecosystem: gradle
-  directory: "/statsd"
+- package-ecosystem: npm
+  directory: "/uaa/slate"
   schedule:
     interval: daily
     time: "11:00"
@@ -25,29 +19,23 @@ updates:
     time: "11:00"
   open-pull-requests-limit: 10
   ignore:
-  - dependency-name: "org.apache.tomcat:*"
-    update-types: ["version-update:semver-major"] # Stay in Tomcat major version and do updates manually, based on Spring Boot version.
-  - dependency-name: org.flywaydb:flyway-core
+  - dependency-name: "org.springframework.boot:*"
     versions:
-    - ">= 8" # Version 8+ no longer supports MySQL 5.7, we're not ready to drop MySQL 5.7 support yet. Tracker story: https://www.pivotaltracker.com/story/show/180879913.
-- package-ecosystem: gradle
-  directory: "/model"
-  schedule:
-    interval: daily
-    time: "11:00"
-  open-pull-requests-limit: 10
-- package-ecosystem: gradle
-  directory: "/metrics-data"
-  schedule:
-    interval: daily
-    time: "11:00"
-  open-pull-requests-limit: 10
-- package-ecosystem: gradle
-  directory: "/server"
-  schedule:
-    interval: daily
-    time: "11:00"
-  open-pull-requests-limit: 10
+    - ">= 5"  # Stay in Spring Boot major version 4 and do updates manually.
+  groups:
+    selenium:
+      patterns:
+      - "org.seleniumhq.selenium:*"
+    guava:
+      patterns:  
+      - "com.google.guava:*"
+    bouncy-castle:
+      patterns:
+      - "org.bouncycastle:*"
+    jackson:
+      patterns:
+      - "com.fasterxml.jackson.*:*"
+      - "tools.jackson.*:*"
 - package-ecosystem: "github-actions"
   directory: "/"
   schedule:

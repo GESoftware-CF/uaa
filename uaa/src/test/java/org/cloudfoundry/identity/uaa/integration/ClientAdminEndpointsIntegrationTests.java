@@ -13,7 +13,7 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.integration;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import org.cloudfoundry.identity.uaa.ServerRunningExtension;
 import org.cloudfoundry.identity.uaa.approval.Approval;
 import org.cloudfoundry.identity.uaa.client.InvalidClientDetailsException;
@@ -63,7 +63,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.assertSupportsZoneDNS;
+import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.doesSupportZoneDNS;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
 
 /**
@@ -137,7 +137,7 @@ public class ClientAdminEndpointsIntegrationTests {
         ResponseEntity<String> result = serverRunning.getForString("/oauth/clients?count=3000", myHeaders);
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
 
-        SearchResults searchResults = new ObjectMapper().readValue(result.getBody(), SearchResults.class);
+        SearchResults searchResults = new JsonMapper().readValue(result.getBody(), SearchResults.class);
         assertThat(searchResults.getItemsPerPage()).isEqualTo(500);
         assertThat(searchResults.getResources()).hasSize(500);
         assertThat(searchResults.getTotalResults()).isGreaterThan(500);
@@ -326,7 +326,7 @@ public class ClientAdminEndpointsIntegrationTests {
 
     @Test
     void createClientWithStrictSecretPolicyTest() {
-        assertSupportsZoneDNS();
+        assertThat(doesSupportZoneDNS()).as("Expected testzone1.localhost and testzone2.localhost to resolve to 127.0.0.1").isTrue();
         String testZoneId = "testzone1";
 
         IntegrationTestUtils.getClientCredentialsTemplate(
@@ -371,7 +371,7 @@ public class ClientAdminEndpointsIntegrationTests {
 
     @Test
     void clientSecretExpiryCannotBeSet() {
-        assertSupportsZoneDNS();
+        assertThat(doesSupportZoneDNS()).as("Expected testzone1.localhost and testzone2.localhost to resolve to 127.0.0.1").isTrue();
         String testZoneId = "testzone1";
 
         IntegrationTestUtils.getClientCredentialsTemplate(
@@ -405,12 +405,12 @@ public class ClientAdminEndpointsIntegrationTests {
                     Collections.singletonList("bar")));
         }
         clients[clients.length - 1].setClientSecret(null);
-        ResponseEntity<UaaException> result =
+        ResponseEntity<UaaClientDetails[]> result =
                 serverRunning.getRestTemplate().exchange(
                         serverRunning.getUrl("/oauth/clients/tx"),
                         HttpMethod.POST,
                         new HttpEntity<>(clients, headers),
-                        UaaException.class);
+                        UaaClientDetails[].class);
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         for (String id : ids) {
             ClientDetails client = getClient(id);
@@ -616,7 +616,7 @@ public class ClientAdminEndpointsIntegrationTests {
         client.setResourceIds(Collections.singleton("foo"));
 
         ClientJwtChangeRequest def = new ClientJwtChangeRequest(null, null, null);
-        def.setJsonWebKeyUri("http://localhost:8080/uaa/token_key");
+        def.setJsonWebKeyUri("https://1.1.1.1/token_keys");
         def.setClientId("admin");
 
         ResponseEntity<Void> result = serverRunning.getRestTemplate().exchange(
@@ -627,13 +627,13 @@ public class ClientAdminEndpointsIntegrationTests {
     }
 
     @Test
-    void testChangeFederatedJwtConfig() {
+    void changeFederatedJwtConfig() {
         headers = getAuthenticatedHeaders(getClientCredentialsAccessToken("clients.read,clients.write,clients.trust,uaa.admin"));
         UaaClientDetails client = createClient("client_credentials");
 
         client.setResourceIds(Collections.singleton("foo"));
 
-        ClientJwtChangeRequest def = new ClientJwtChangeRequest("admin", "http://localhost:8080/uaa/token_key", null);
+        ClientJwtChangeRequest def = new ClientJwtChangeRequest("admin", "http://localhost:8080/uaa/token_keys", null);
         ResponseEntity<Void> result = serverRunning.getRestTemplate().exchange(
                 serverRunning.getUrl("/oauth/clients/{client}/clientjwt"),
                 HttpMethod.PUT, new HttpEntity<>(def, headers), Void.class,
@@ -653,7 +653,7 @@ public class ClientAdminEndpointsIntegrationTests {
     }
 
     @Test
-    void testChangeJwtConfigNoAuthorization() {
+    void changeJwtConfigNoAuthorization() {
         headers = getAuthenticatedHeaders(getClientCredentialsAccessToken("clients.read,clients.write,clients.trust,uaa.admin"));
         UaaClientDetails client = createClient("client_credentials");
         headers = getAuthenticatedHeaders(getClientCredentialsAccessToken("clients.read,clients.write"));
@@ -661,7 +661,7 @@ public class ClientAdminEndpointsIntegrationTests {
         client.setResourceIds(Collections.singleton("foo"));
 
         ClientJwtChangeRequest def = new ClientJwtChangeRequest(null, null, null);
-        def.setJsonWebKeyUri("http://localhost:8080/uaa/token_key");
+        def.setJsonWebKeyUri("https://login.example.com/token_keys");
         def.setClientId("admin");
 
         ResponseEntity<Void> result = serverRunning.getRestTemplate().exchange(

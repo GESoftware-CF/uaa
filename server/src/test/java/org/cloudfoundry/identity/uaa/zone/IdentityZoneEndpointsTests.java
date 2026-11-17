@@ -4,8 +4,6 @@ import org.cloudfoundry.identity.uaa.audit.event.EntityDeletedEvent;
 import org.cloudfoundry.identity.uaa.error.UaaException;
 import org.cloudfoundry.identity.uaa.extensions.PollutionPreventionExtension;
 import org.cloudfoundry.identity.uaa.provider.JdbcIdentityProviderProvisioning;
-import org.cloudfoundry.identity.uaa.provider.KeyProviderProvisioning;
-import org.cloudfoundry.identity.uaa.provider.KeyProviderValidator;
 import org.cloudfoundry.identity.uaa.saml.SamlKey;
 import org.cloudfoundry.identity.uaa.scim.ScimGroup;
 import org.cloudfoundry.identity.uaa.scim.ScimGroupProvisioning;
@@ -29,7 +27,6 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
@@ -50,13 +47,6 @@ class IdentityZoneEndpointsTests {
     private ScimGroupProvisioning mockScimGroupProvisioning;
 
     @Mock
-    private KeyProviderProvisioning keyProviderProvisioning;
-
-    @Mock
-    private KeyProviderValidator keyProviderValidator;
-
-
-    @Mock
     private IdentityZoneValidator mockIdentityZoneValidator;
 
     @Mock
@@ -74,7 +64,7 @@ class IdentityZoneEndpointsTests {
     }
 
     @Test
-    void create_zone() throws InvalidIdentityZoneDetailsException {
+    void create_zone() throws Exception {
         when(mockIdentityZoneProvisioning.create(any())).then(invocation -> invocation.getArgument(0));
         when(mockIdentityZoneValidator.validate(any(), any())).then(invocation -> invocation.getArgument(0));
 
@@ -97,7 +87,7 @@ class IdentityZoneEndpointsTests {
     }
 
     @Test
-    void group_creation_called_on_create() throws InvalidIdentityZoneDetailsException {
+    void group_creation_called_on_create() throws Exception {
         when(mockIdentityZoneProvisioning.create(any())).then(invocation -> invocation.getArgument(0));
         when(mockIdentityZoneValidator.validate(any(), any())).then(invocation -> invocation.getArgument(0));
 
@@ -108,7 +98,7 @@ class IdentityZoneEndpointsTests {
     }
 
     @Test
-    void group_creation_called_on_update() throws InvalidIdentityZoneDetailsException {
+    void group_creation_called_on_update() throws Exception {
         when(mockIdentityZoneValidator.validate(any(), any())).then(invocation -> invocation.getArgument(0));
 
         IdentityZoneEndpoints spy = Mockito.spy(endpoints);
@@ -127,7 +117,7 @@ class IdentityZoneEndpointsTests {
 
         assertThat(identityZone.getConfig().getSamlConfig().getPrivateKey()).isNull();
         assertThat(identityZone.getConfig().getSamlConfig().getPrivateKeyPassword()).isNull();
-        identityZone.getConfig().getSamlConfig().getKeys().forEach((key, value) -> {
+        identityZone.getConfig().getSamlConfig().getKeys().forEach((_, value) -> {
             assertThat(value.getKey()).isNull();
             assertThat(value.getPassphrase()).isNull();
         });
@@ -142,7 +132,7 @@ class IdentityZoneEndpointsTests {
 
         assertThat(identityZone.getConfig().getSamlConfig().getPrivateKey()).isNotNull();
         assertThat(identityZone.getConfig().getSamlConfig().getPrivateKeyPassword()).isNotNull();
-        identityZone.getConfig().getSamlConfig().getKeys().forEach((key, value) -> {
+        identityZone.getConfig().getSamlConfig().getKeys().forEach((_, value) -> {
             assertThat(value.getKey()).isNotNull();
             assertThat(value.getPassphrase()).isNotNull();
         });
@@ -150,7 +140,7 @@ class IdentityZoneEndpointsTests {
     }
 
     @Test
-    void extend_zone_allowed_groups_on_update() throws InvalidIdentityZoneDetailsException {
+    void extend_zone_allowed_groups_on_update() throws Exception {
         when(mockIdentityZoneValidator.validate(any(), any())).then(invocation -> invocation.getArgument(0));
 
         IdentityZoneEndpoints spy = Mockito.spy(endpoints);
@@ -167,7 +157,7 @@ class IdentityZoneEndpointsTests {
     }
 
     @Test
-    void reduce_zone_allowed_groups_on_update_should_fail() throws InvalidIdentityZoneDetailsException {
+    void reduce_zone_allowed_groups_on_update_should_fail() throws Exception {
         when(mockIdentityZoneValidator.validate(any(), any())).then(invocation -> invocation.getArgument(0));
 
         identityZone = createZone();
@@ -196,17 +186,10 @@ class IdentityZoneEndpointsTests {
 
         // arrange IdP with alias exists in zone
         when(mockIdentityProviderProvisioning.idpWithAliasExistsInZone(idzId)).thenReturn(true);
-        mockOrchestratorEntity();
 
         final ResponseEntity<IdentityZone> response = endpoints.deleteIdentityZone(idzId);
         assertThat(response).isNotNull();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
-    }
-
-    private void mockOrchestratorEntity() {
-        OrchestratorZoneEntity mockedOrchestratorEntity = mock(OrchestratorZoneEntity.class);
-        mockedOrchestratorEntity.setOrchestratorZoneName("test");
-        when(mockIdentityZoneProvisioning.retrieveOrchestratorZoneByIdentityZoneId(anyString())).thenReturn(mockedOrchestratorEntity);
     }
 
     @Test
@@ -220,7 +203,7 @@ class IdentityZoneEndpointsTests {
 
         // arrange no IdP with alias exists in zone
         when(mockIdentityProviderProvisioning.idpWithAliasExistsInZone(idzId)).thenReturn(false);
-        mockOrchestratorEntity();
+
         final ResponseEntity<IdentityZone> response = endpoints.deleteIdentityZone(idzId);
         assertThat(response).isNotNull();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -242,7 +225,7 @@ class IdentityZoneEndpointsTests {
 
         assertThat(zone.getConfig().getSamlConfig().getPrivateKey()).isNotNull();
         assertThat(zone.getConfig().getSamlConfig().getPrivateKeyPassword()).isNotNull();
-        zone.getConfig().getSamlConfig().getKeys().forEach((key, value) -> {
+        zone.getConfig().getSamlConfig().getKeys().forEach((_, value) -> {
             assertThat(value.getKey()).isNotNull();
             assertThat(value.getPassphrase()).isNotNull();
         });

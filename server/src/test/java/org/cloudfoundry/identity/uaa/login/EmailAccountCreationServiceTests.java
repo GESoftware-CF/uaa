@@ -1,5 +1,6 @@
 package org.cloudfoundry.identity.uaa.login;
 
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.cloudfoundry.identity.uaa.account.AccountCreationService;
 import org.cloudfoundry.identity.uaa.account.EmailAccountCreationService;
 import org.cloudfoundry.identity.uaa.codestore.ExpiringCode;
@@ -45,9 +46,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.codestore.ExpiringCodeType.REGISTRATION;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.anyInt;
@@ -174,7 +174,7 @@ class EmailAccountCreationServiceTests {
         String emailBody = captorEmailBody("Activate your account");
         assertThat(emailBody).contains("A request has been made to activate an account for:")
                 .contains("<a href=\"http://test.uaa.example.com/verify_user?code=the_secret_code\">Activate your account</a>")
-                .contains("Thank you,<br />\n    " + zoneName)
+                .containsIgnoringWhitespaces("Thank you,<br /> " + zoneName)
                 .doesNotContain("Cloud Foundry");
     }
 
@@ -200,7 +200,7 @@ class EmailAccountCreationServiceTests {
         ).thenReturn(Collections.singletonList(user));
         when(mockScimUserProvisioning.createUser(any(ScimUser.class), anyString(), eq(currentIdentityZoneId))).thenThrow(new ScimResourceAlreadyExistsException("duplicate"));
 
-        assertThatExceptionOfType(UaaException.class).isThrownBy(() -> emailAccountCreationService.beginActivation("user@example.com", "password", "login", null));
+        assertThatThrownBy(() -> emailAccountCreationService.beginActivation("user@example.com", "password", "login", null)).asInstanceOf(InstanceOfAssertFactories.throwable(UaaException.class));
     }
 
     @Test
@@ -330,7 +330,7 @@ class EmailAccountCreationServiceTests {
     void beginActivation_throwsException_ifPasswordViolatesPolicy() {
         doThrow(new InvalidPasswordException("Oh hell no")).when(mockPasswordValidator).validate(anyString());
 
-        assertThatExceptionOfType(InvalidPasswordException.class).isThrownBy(() -> emailAccountCreationService.beginActivation("user@example.com", "some password", null, null));
+        assertThatThrownBy(() -> emailAccountCreationService.beginActivation("user@example.com", "some password", null, null)).asInstanceOf(InstanceOfAssertFactories.throwable(InvalidPasswordException.class));
 
         verify(mockPasswordValidator).validate("some password");
     }
@@ -420,8 +420,9 @@ class EmailAccountCreationServiceTests {
 
         String emailBody = captorEmailBody("Activate your " + companyName + " account");
 
-        assertThat(emailBody).contains(companyName + " account");
-        assertThat(emailBody).contains("<a href=\"http://uaa.example.com/verify_user?code=the_secret_code\">Activate your account</a>");
+        assertThat(emailBody)
+                .contains(companyName + " account")
+                .contains("<a href=\"http://uaa.example.com/verify_user?code=the_secret_code\">Activate your account</a>");
     }
 
 }

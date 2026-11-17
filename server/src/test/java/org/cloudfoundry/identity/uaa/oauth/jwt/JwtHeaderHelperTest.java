@@ -1,7 +1,9 @@
 package org.cloudfoundry.identity.uaa.oauth.jwt;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.cloudfoundry.identity.uaa.test.RandomParametersJunitExtension;
 import org.cloudfoundry.identity.uaa.test.RandomParametersJunitExtension.RandomValue;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,9 +18,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.util.Base64;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Tag("https://tools.ietf.org/html/rfc7519#section-5")
 @DisplayName("JOSE Header")
@@ -33,7 +34,7 @@ class JwtHeaderHelperTest {
 
         @BeforeEach
         void setup() {
-            objectNode = new ObjectMapper().createObjectNode();
+            objectNode = new JsonMapper().createObjectNode();
             objectNode.put("kid", "key-id");
             objectNode.put("alg", "key-alg");
             objectNode.put("enc", "key-encoding");
@@ -114,7 +115,7 @@ class JwtHeaderHelperTest {
         class OptionalHeaders {
             @BeforeEach
             void setup() {
-                objectNode = new ObjectMapper().createObjectNode();
+                objectNode = new JsonMapper().createObjectNode();
             }
 
             @ParameterizedTest
@@ -180,7 +181,7 @@ class JwtHeaderHelperTest {
 
             @Test
             void invalidHeader() {
-                assertThatExceptionOfType(IllegalArgumentException.class).isThrownBy(() -> JwtHeaderHelper.create(""));
+                assertThatThrownBy(() -> JwtHeaderHelper.create("")).asInstanceOf(InstanceOfAssertFactories.throwable(IllegalArgumentException.class));
             }
         }
     }

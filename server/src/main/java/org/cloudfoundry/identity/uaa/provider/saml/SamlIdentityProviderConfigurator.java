@@ -1,5 +1,6 @@
 package org.cloudfoundry.identity.uaa.provider.saml;
 
+import org.apache.commons.io.ByteOrderMark;
 import org.apache.commons.io.IOUtils;
 import org.apache.hc.core5.net.URIBuilder;
 import org.cloudfoundry.identity.uaa.constants.OriginKeys;
@@ -18,7 +19,9 @@ import org.springframework.stereotype.Component;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -34,8 +37,8 @@ public class SamlIdentityProviderConfigurator {
     public SamlIdentityProviderConfigurator(
             final @Qualifier("identityProviderProvisioning") IdentityProviderProvisioning providerProvisioning,
             final @Qualifier("identityZoneManager") IdentityZoneManager identityZoneManager,
-            final @Qualifier("fixedHttpMetaDataProvider") FixedHttpMetaDataProvider fixedHttpMetaDataProvider, final @Qualifier(
-            "requestScopedIdpDefinitionsCache") RequestScopedIdpDefinitionsCache requestScopedIdpDefinitionsCache) {
+            final @Qualifier("fixedHttpMetaDataProvider") FixedHttpMetaDataProvider fixedHttpMetaDataProvider,
+            final @Qualifier("requestScopedIdpDefinitionsCache") RequestScopedIdpDefinitionsCache requestScopedIdpDefinitionsCache) {
         this.providerProvisioning = providerProvisioning;
         this.identityZoneManager = identityZoneManager;
         this.fixedHttpMetaDataProvider = fixedHttpMetaDataProvider;
@@ -49,7 +52,7 @@ public class SamlIdentityProviderConfigurator {
     public AbstractIdentityProviderDefinition getIdentityProviderDefinitionsForOrigin(IdentityZone zone, String origin) {
         try {
             return providerProvisioning.retrieveByOrigin(origin, zone.getId()).getConfig();
-        } catch (EmptyResultDataAccessException e) {
+        } catch (EmptyResultDataAccessException _) {
             return null;
         }
     }
@@ -57,7 +60,7 @@ public class SamlIdentityProviderConfigurator {
     public AbstractIdentityProviderDefinition getIdentityProviderDefinitionsForIssuer(IdentityZone zone, String issuer) {
         try {
             return providerProvisioning.retrieveByExternId(issuer, OriginKeys.SAML, zone.getId()).getConfig();
-        } catch (EmptyResultDataAccessException e) {
+        } catch (EmptyResultDataAccessException _) {
             return null;
         }
     }
@@ -93,6 +96,11 @@ public class SamlIdentityProviderConfigurator {
                 .filter(def -> allowedIdps == null || allowedIdps.contains(def.getIdpEntityAlias())).toList();
     }
 
+        public List<SamlIdentityProviderDefinition> getIdentityProviderDefinitions(List<String> allowedIdps, IdentityZone zone) {
+        return getIdentityProviderDefinitionsForZone(zone).stream()
+            .filter(def -> allowedIdps == null || allowedIdps.contains(def.getIdpEntityAlias())).toList();
+        }
+
     /**
      * adds or replaces a SAML identity proviider
      *
@@ -112,7 +120,7 @@ public class SamlIdentityProviderConfigurator {
         }
         SamlIdentityProviderDefinition clone = providerDefinition.clone();
         added = getExtendedMetadataDelegate(clone);
-        String entityIDToBeAdded = added.getAssertingPartyDetails().getEntityId();
+        String entityIDToBeAdded = added.getAssertingPartyMetadata().getEntityId();
         if (!hasText(entityIDToBeAdded)) {
             throw new IllegalStateException("Emtpy entityID for SAML provider with zoneId:" + providerDefinition.getZoneId() + " and origin:" + providerDefinition.getIdpEntityAlias());
         }
@@ -125,7 +133,7 @@ public class SamlIdentityProviderConfigurator {
                     continue;
                 }
                 RelyingPartyRegistration existingProvider = getExtendedMetadataDelegate(existing);
-                if (entityIDToBeAdded.equals(existingProvider.getAssertingPartyDetails().getEntityId()) && !existing.getUniqueAlias().equals(clone.getUniqueAlias())) {
+                if (entityIDToBeAdded.equals(existingProvider.getAssertingPartyMetadata().getEntityId()) && !existing.getUniqueAlias().equals(clone.getUniqueAlias())) {
                     entityIDexists = true;
                     break;
                 }
@@ -141,7 +149,7 @@ public class SamlIdentityProviderConfigurator {
     private boolean entityIdExists(String entityId, String zoneId) {
         try {
             return providerProvisioning.retrieveByExternId(entityId, OriginKeys.SAML, zoneId) != null;
-        } catch (EmptyResultDataAccessException e) {
+        } catch (EmptyResultDataAccessException _) {
             return false;
         }
     }
@@ -172,15 +180,51 @@ public class SamlIdentityProviderConfigurator {
     }
 
     protected RelyingPartyRegistration configureURLMetadata(SamlIdentityProviderDefinition def) {
-        try {
-            def = def.clone();
-            String adjustedMetadataURIForPort = adjustURIForPort(def.getMetaDataLocation());
-            byte[] metadata = fixedHttpMetaDataProvider.fetchMetadata(adjustedMetadataURIForPort, def.isSkipSslValidation());
+        SamlIdentityProviderDefinition resolved = def.clone();
+        resolved.setMetaDataLocation(resolveMetadataXml(def));
+        return configureXMLMetadata(resolved);
+    }
 
-            def.setMetaDataLocation(new String(metadata, StandardCharsets.UTF_8));
-            return configureXMLMetadata(def);
-        } catch (URISyntaxException e) {
-            throw new IllegalStateException("Invalid socket factory(invalid URI):" + def.getMetaDataLocation(), e);
+    /**
+     * Resolves a SAML IDP definition's metadata to its literal XML content. If the
+     * definition's metadata is a URL, it is fetched via the {@code skipSslValidation}-aware
+     * {@link FixedHttpMetaDataProvider} (the same trust/cache behavior used to validate an
+     * IDP on creation); otherwise the already-inline XML is returned unchanged.
+     */
+    public String resolveMetadataXml(SamlIdentityProviderDefinition def) {
+        String metadataLocation = def.getMetaDataLocation();
+        if (!hasText(metadataLocation) || SamlIdentityProviderDefinition.getType(metadataLocation) != SamlIdentityProviderDefinition.MetadataLocation.URL) {
+            return metadataLocation;
         }
+        try {
+            String adjustedMetadataURIForPort = adjustURIForPort(metadataLocation);
+            byte[] metadata = fixedHttpMetaDataProvider.fetchMetadata(adjustedMetadataURIForPort, def.isSkipSslValidation(),
+                    def.getCaCertificates(), def.getUniqueAlias());
+            return new String(metadata, detectCharset(metadata));
+        } catch (URISyntaxException e) {
+            throw new IllegalStateException("Invalid socket factory(invalid URI):" + metadataLocation, e);
+        }
+    }
+
+    /**
+     * Detects the charset of fetched metadata bytes from a leading byte order marker. Only
+     * UTF-16 needs to be sniffed explicitly here: a UTF-8 byte order marker, if present, already
+     * decodes correctly under the UTF-8 default and is stripped later by
+     * {@link SamlIdentityProviderDefinition#getType(String)}, since it decodes to the same
+     * character (U+FEFF) as a correctly-decoded UTF-16 BOM.
+     */
+    static Charset detectCharset(byte[] metadata) {
+        if (hasLeadingByteOrderMark(metadata, ByteOrderMark.UTF_16LE)) {
+            return StandardCharsets.UTF_16LE;
+        }
+        if (hasLeadingByteOrderMark(metadata, ByteOrderMark.UTF_16BE)) {
+            return StandardCharsets.UTF_16BE;
+        }
+        return StandardCharsets.UTF_8;
+    }
+
+    private static boolean hasLeadingByteOrderMark(byte[] data, ByteOrderMark byteOrderMark) {
+        byte[] bom = byteOrderMark.getBytes();
+        return data.length >= bom.length && Arrays.equals(data, 0, bom.length, bom, 0, bom.length);
     }
 }

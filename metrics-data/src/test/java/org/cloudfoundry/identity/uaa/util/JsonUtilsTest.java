@@ -1,28 +1,22 @@
 package org.cloudfoundry.identity.uaa.util;
 
-import com.fasterxml.jackson.core.JacksonException;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.annotation.JsonDeserialize;
 import org.cloudfoundry.identity.uaa.metrics.UrlGroup;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import tools.jackson.databind.ValueDeserializer;
 
-import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.assertj.core.api.Assertions.fail;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.*;
 
 class JsonUtilsTest {
     private static final String JSON_TEST_OBJECT_STRING = "{\"pattern\":\"/pattern\",\"group\":\"group\",\"limit\":1000,\"category\":\"category\"}";
@@ -70,8 +64,7 @@ class JsonUtilsTest {
     @ParameterizedTest
     @ValueSource(strings = {"{", "}", "{\"prop1\":\"abc\","})
     void readValueAsMapInvalid(final String input) {
-        assertThatExceptionOfType(JsonUtils.JsonUtilException.class)
-                .isThrownBy(() -> JsonUtils.readValueAsMap(input));
+        assertThatThrownBy(() -> JsonUtils.readValueAsMap(input)).isInstanceOf(JsonUtils.JsonUtilException.class);
     }
 
     @Test
@@ -107,8 +100,7 @@ class JsonUtilsTest {
     void serializeExcludingPropertiesInnerCallFails() {
         Map<String, String> groupProperties = JsonUtils.readValue(JSON_TEST_OBJECT_STRING, new TypeReference<>() {
         });
-        assertThatExceptionOfType(JsonUtils.JsonUtilException.class).isThrownBy(() ->
-                JsonUtils.serializeExcludingProperties(groupProperties, "limit.unknown"));
+        assertThatThrownBy(() -> JsonUtils.serializeExcludingProperties(groupProperties, "limit.unknown")).isInstanceOf(JsonUtils.JsonUtilException.class);
     }
 
     @Test
@@ -141,83 +133,64 @@ class JsonUtilsTest {
     }
 
     @Test
-
-    void throwsException_writeValueAsString() throws JsonProcessingException {
-        JsonUtils.JsonUtilException exception = assertThrows(JsonUtils.JsonUtilException.class,
-                () -> JsonUtils.writeValueAsString(new Object())
-        );
-        assertThat(exception.getMessage()).startsWith("com.fasterxml.jackson.databind.exc.InvalidDefinitionException: No serializer found for class java.lang.Object");
+    void throwsException_writeValueAsString() throws Exception {
+        JsonUtils.JsonUtilException exception = assertThatExceptionOfType(JsonUtils.JsonUtilException.class).isThrownBy(() -> JsonUtils.writeValueAsString(new Object())).actual();
+        assertThat(exception.getMessage()).startsWith("tools.jackson.databind.exc.InvalidDefinitionException: No serializer found for class java.lang.Object");
     }
 
     @Test
-    void throwsException_writeValueAsBytes() throws JsonProcessingException {
-        JsonUtils.JsonUtilException exception = assertThrows(JsonUtils.JsonUtilException.class,
-                () -> JsonUtils.writeValueAsBytes(new Object())
-        );
-        assertThat(exception.getMessage()).startsWith("com.fasterxml.jackson.databind.exc.InvalidDefinitionException: No serializer found for class java.lang.Object");
+    void throwsException_writeValueAsBytes() throws Exception {
+        JsonUtils.JsonUtilException exception = assertThatExceptionOfType(JsonUtils.JsonUtilException.class).isThrownBy(() -> JsonUtils.writeValueAsBytes(new Object())).actual();
+        assertThat(exception.getMessage()).startsWith("tools.jackson.databind.exc.InvalidDefinitionException: No serializer found for class java.lang.Object");
     }
 
     @Test
-    void throwsException_readValue() throws JsonProcessingException {
-        JsonUtils.JsonUtilException exception = assertThrows(JsonUtils.JsonUtilException.class,
-                () -> JsonUtils.readValue("invalid json", String.class)
-        );
-        assertThat(exception.getMessage()).startsWith("com.fasterxml.jackson.core.JsonParseException: Unrecognized token 'invalid'");
+    void throwsException_readValue() throws Exception {
+        JsonUtils.JsonUtilException exception = assertThatExceptionOfType(JsonUtils.JsonUtilException.class).isThrownBy(() -> JsonUtils.readValue("invalid json", String.class)).actual();
+        assertThat(exception.getMessage()).startsWith("tools.jackson.core.exc.StreamReadException: Unrecognized token 'invalid'");
 
-        exception = assertThrows(JsonUtils.JsonUtilException.class,
-                () -> JsonUtils.readValue("invalid json".getBytes(), String.class)
-        );
-        assertThat(exception.getMessage()).startsWith("com.fasterxml.jackson.core.JsonParseException: Unrecognized token 'invalid'");
+        exception = assertThatExceptionOfType(JsonUtils.JsonUtilException.class).isThrownBy(() -> JsonUtils.readValue("invalid json".getBytes(), String.class)).actual();
+        assertThat(exception.getMessage()).startsWith("tools.jackson.core.exc.StreamReadException: Unrecognized token 'invalid'");
 
-        exception = assertThrows(JsonUtils.JsonUtilException.class,
-                () -> JsonUtils.readValue("invalid json", new TypeReference<String>() {})
-        );
-        assertThat(exception.getMessage()).startsWith("com.fasterxml.jackson.core.JsonParseException: Unrecognized token 'invalid'");
+        exception = assertThatExceptionOfType(JsonUtils.JsonUtilException.class).isThrownBy(() -> JsonUtils.readValue("invalid json", new TypeReference<String>() {
+        })).actual();
+        assertThat(exception.getMessage()).startsWith("tools.jackson.core.exc.StreamReadException: Unrecognized token 'invalid'");
 
-        exception = assertThrows(JsonUtils.JsonUtilException.class,
-                () -> JsonUtils.readValue("invalid json".getBytes(), new TypeReference<String>() {})
-        );
-        assertThat(exception.getMessage()).startsWith("com.fasterxml.jackson.core.JsonParseException: Unrecognized token 'invalid'");
+        exception = assertThatExceptionOfType(JsonUtils.JsonUtilException.class).isThrownBy(() -> JsonUtils.readValue("invalid json".getBytes(), new TypeReference<String>() {
+        })).actual();
+        assertThat(exception.getMessage()).startsWith("tools.jackson.core.exc.StreamReadException: Unrecognized token 'invalid'");
     }
 
     @Test
-    void throwsException_readValueAsMap() throws JsonProcessingException {
-        JsonUtils.JsonUtilException exception = assertThrows(JsonUtils.JsonUtilException.class,
-                () -> JsonUtils.readValueAsMap("invalid json")
-        );
-        assertThat(exception.getMessage()).startsWith("com.fasterxml.jackson.core.JsonParseException: Unrecognized token 'invalid'");
+    void throwsException_readValueAsMap() throws Exception {
+        JsonUtils.JsonUtilException exception = assertThatExceptionOfType(JsonUtils.JsonUtilException.class).isThrownBy(() -> JsonUtils.readValueAsMap("invalid json")).actual();
+        assertThat(exception.getMessage()).startsWith("tools.jackson.core.exc.StreamReadException: Unrecognized token 'invalid'");
     }
 
     @Test
-    void throwsException_convertValue() throws JsonProcessingException {
-        JsonUtils.JsonUtilException exception = assertThrows(JsonUtils.JsonUtilException.class,
-                () -> JsonUtils.convertValue(Boolean.TRUE, Integer.class)
-        );
-        assertThat(exception.getMessage()).startsWith("java.lang.IllegalArgumentException: Cannot deserialize value of type `java.lang.Integer` from Boolean value");
+    void throwsException_convertValue() throws Exception {
+        JsonUtils.JsonUtilException exception = assertThatExceptionOfType(JsonUtils.JsonUtilException.class).isThrownBy(() -> JsonUtils.convertValue(Boolean.TRUE, Integer.class)).actual();
+        assertThat(exception.getMessage()).startsWith("tools.jackson.databind.exc.MismatchedInputException: Cannot deserialize value of type `java.lang.Integer` from Boolean value");
     }
 
     @Test
-    void throwsException_readTree() throws JsonProcessingException {
+    void throwsException_readTree() throws Exception {
         assertThat(JsonUtils.readTree((String)null)).isNull();
 
-        JsonUtils.JsonUtilException exception = assertThrows(JsonUtils.JsonUtilException.class,
-                () -> JsonUtils.readTree("invalid json")
-        );
-        assertThat(exception.getMessage()).startsWith("com.fasterxml.jackson.core.JsonParseException: Unrecognized token 'invalid'");
+        JsonUtils.JsonUtilException exception = assertThatExceptionOfType(JsonUtils.JsonUtilException.class).isThrownBy(() -> JsonUtils.readTree("invalid json")).actual();
+        assertThat(exception.getMessage()).startsWith("tools.jackson.core.exc.StreamReadException: Unrecognized token 'invalid'");
     }
 
     @Test
-    void throwsException_readTreeWithParserArg() throws JsonProcessingException {
+    void throwsException_readTreeWithParserArg() throws Exception {
 
 
-        JsonUtils.JsonUtilException exception = assertThrows(JsonUtils.JsonUtilException.class,
-                () -> JsonUtils.readValue("{'valid':'json'}", SerializerTestObject.class)
-        );
-        assertThat(exception.getMessage()).startsWith("com.fasterxml.jackson.core.JsonParseException: Unexpected character");
+        JsonUtils.JsonUtilException exception = assertThatExceptionOfType(JsonUtils.JsonUtilException.class).isThrownBy(() -> JsonUtils.readValue("{'valid':'json'}", SerializerTestObject.class)).actual();
+        assertThat(exception.getMessage()).startsWith("tools.jackson.core.exc.StreamReadException: Unexpected character");
     }
 
     @Test
-    void readNodes() throws JsonProcessingException {
+    void readNodes() throws Exception {
         JsonUtils.readValue("""
                         {
                             "date": "1320105600000",
@@ -253,10 +226,10 @@ class JsonUtilsTest {
     private static class SerializerTestObject {
 
     }
-    private static class TestDeserializer extends JsonDeserializer<SerializerTestObject> {
+    private static class TestDeserializer extends ValueDeserializer<SerializerTestObject> {
 
         @Override
-        public SerializerTestObject deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JacksonException {
+        public SerializerTestObject deserialize(JsonParser p, DeserializationContext ctxt) {
             JsonNode node = JsonUtils.readTree(p);
             JsonUtils.getNodeAsBoolean(node, "invalid", true);
             JsonUtils.getNodeAsInt(node, "invalid", 0);

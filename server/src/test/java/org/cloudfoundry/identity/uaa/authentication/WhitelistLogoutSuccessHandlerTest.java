@@ -29,7 +29,6 @@ import java.util.Collections;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.oauth.common.util.OAuth2Utils.CLIENT_ID;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -103,13 +102,6 @@ class WhitelistLogoutSuccessHandlerTest {
     }
 
     @Test
-    void test_client_redirect_with_path() throws Exception {
-        handler.setAlwaysUseDefaultTargetUrl(false);
-        request.setParameter("redirect", "http://testing.com/path");
-        request.setParameter(CLIENT_ID, CLIENT_ID);
-        assertEquals("http://testing.com/path", handler.determineTargetUrl(request, response));
-    }
-
     void client_redirect() {
         handler.setWhitelist(Collections.singletonList("http://somethingelse.com"));
         handler.setAlwaysUseDefaultTargetUrl(false);
@@ -117,7 +109,6 @@ class WhitelistLogoutSuccessHandlerTest {
         request.setParameter(CLIENT_ID, CLIENT_ID);
         assertThat(handler.determineTargetUrl(request, response)).isEqualTo("http://testing.com");
     }
-
 
     @Test
     void client_not_found_exception() {

@@ -11,16 +11,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockHttpSession;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.getLoginForm;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -31,6 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+@TestPropertySource(properties = "uaa.oauth.redirect_uri.allow_unsafe_matching=true")
 @DefaultTestContext
 class AuthorizationPromptNoneEntryPointMockMvcTests {
 
@@ -116,6 +116,7 @@ class AuthorizationPromptNoneEntryPointMockMvcTests {
 
             //we need to know session id when we are calculating session_state
             MockHttpSession session = new MockHttpSession(null, "12345") {
+                @Override
                 public String changeSessionId() {
                     return "12345";
                 }
@@ -226,13 +227,12 @@ class AuthorizationPromptNoneEntryPointMockMvcTests {
     }
 
     private void login(MockHttpSession session) throws Exception {
-        getLoginForm(mockMvc, session);
-
         mockMvc.perform(
                 post("/login.do")
-                        .with(csrf(session))
+                        .with(cookieCsrf())
                         .param("username", "marissa")
                         .param("password", "koala")
+                        .session(session)
         ).andExpect(redirectedUrl("/"));
     }
 }

@@ -5,13 +5,16 @@ import org.cloudfoundry.identity.uaa.resources.jdbc.SearchQueryConverter.Process
 import org.cloudfoundry.identity.uaa.resources.jdbc.SimpleSearchQueryConverter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ScimSearchQueryConverterTests {
 
@@ -53,6 +56,9 @@ class ScimSearchQueryConverterTests {
         validate(filterProcessor.convert("active eq true", null, false, zoneId), "active = :__value_0", null, 1, Boolean.class);
         validate(filterProcessor.convert("Version eq 1000000.45", null, false, zoneId), "Version = :__value_0", null, 1, Double.class);
         validate(filterProcessor.convert("meta.VerSion eq 1000000", null, false, zoneId), "VerSion = :__value_0", null, 1, Double.class);
+        validate(filterProcessor.convert("username ne \"joe\"", null, false, zoneId), "LOWER(username) <> LOWER(:__value_0)", null, 1);
+        validate(filterProcessor.convert("not (username eq \"joe\")", null, false, zoneId), "NOT (LOWER(username) = LOWER(:__value_0))", null, 1);
+        validate(filterProcessor.convert("username eq \"joe\" and not (active eq true)", null, false, zoneId), "(LOWER(username) = LOWER(:__value_0) AND NOT (active = :__value_1))", null, 2);
     }
 
     @Test
@@ -80,6 +86,8 @@ class ScimSearchQueryConverterTests {
         validate(filterProcessor.convert("active eq true", null, false, zoneId), "active = :__value_0", null, 1, Boolean.class);
         validate(filterProcessor.convert("Version eq 1000000.45", null, false, zoneId), "Version = :__value_0", null, 1, Double.class);
         validate(filterProcessor.convert("meta.VerSion eq 1000000", null, false, zoneId), "VerSion = :__value_0", null, 1, Double.class);
+        validate(filterProcessor.convert("username ne \"joe\"", null, false, zoneId), "username <> :__value_0", null, 1);
+        validate(filterProcessor.convert("not (username eq \"joe\")", null, false, zoneId), "NOT (username = :__value_0)", null, 1);
     }
 
     @Test
@@ -116,9 +124,37 @@ class ScimSearchQueryConverterTests {
         validate(filterProcessor.convert("username eq 'joe' or emails.value co '.com'", null, false, zoneId), "(LOWER(username) = LOWER(:__value_0) OR LOWER(email) LIKE LOWER(:__value_1))", null, 2);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {
+            // Unbalanced parentheses — SCIM parser must reject these
+            "id pr ) or identity_zone_id pr or ( id pr",
+            "username eq \"joe\" )",
+            "( username eq \"joe\"",
+            // Injection patterns in attribute names — attribute whitelist rejects these
+            "id/**/pr/**/or/**/1=1 pr",
+            "username/**/eq/**/\"a\"",
+    })
+    void malformedOrInjectionFiltersAreRejected(String filter) {
+        assertThatThrownBy(() -> filterProcessor.convert(filter, null, false, zoneId))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            // Values with SQL-injection content — the value is a bound parameter, not raw SQL
+            "username eq \"joe'; select * from users; --\"",
+            "username eq \"' or '1'='1\"",
+            "username eq \"\\\" or \\\"1\\\"=\\\"1\"",
+    })
+    void sqlInjectionInFilterValueIsBoundSafely(String filter) {
+        // Must parse and produce SQL with a bound parameter — not throw, not inject raw SQL
+        assertThatNoException().isThrownBy(() -> filterProcessor.convert(filter, null, false, zoneId));
+    }
+
     @Test
     void illegalUnquotedValueInFilter() {
-        assertThatExceptionOfType(IllegalArgumentException.class).isThrownBy(() -> filterProcessor.convert("username eq joe", null, false, zoneId));
+        assertThatThrownBy(() -> filterProcessor.convert("username eq joe", null, false, zoneId))
+            .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.cloudfoundry.identity.uaa.util.ObjectUtils;
+import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
 import org.springframework.util.StringUtils;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -51,6 +52,7 @@ public class SamlIdentityProviderDefinition extends ExternalIdentityProviderDefi
     private ExternalGroupMappingMode groupMappingMode = ExternalGroupMappingMode.EXPLICITLY_MAPPED;
     private boolean skipSslValidation;
     private List<String> authnContext;
+    private List<String> caCertificates;
 
     @JsonIgnore
     private String idpEntityId;
@@ -59,6 +61,7 @@ public class SamlIdentityProviderDefinition extends ExternalIdentityProviderDefi
         List<String> emailDomain = getEmailDomain() != null ? new ArrayList<>(getEmailDomain()) : null;
         List<String> externalGroupsWhitelist = getExternalGroupsWhitelist() != null ? new ArrayList<>(getExternalGroupsWhitelist()) : null;
         List<String> authnContext = getAuthnContext() != null ? new ArrayList<>(getAuthnContext()) : null;
+        List<String> caCertificates = getCaCertificates() != null ? new ArrayList<>(getCaCertificates()) : null;
         Map<String, Object> attributeMappings = getAttributeMappings() != null ? new HashMap<>(getAttributeMappings()) : null;
         SamlIdentityProviderDefinition def = new SamlIdentityProviderDefinition();
         def.setMetaDataLocation(metaDataLocation);
@@ -82,6 +85,7 @@ public class SamlIdentityProviderDefinition extends ExternalIdentityProviderDefi
         def.setSkipSslValidation(isSkipSslValidation());
         def.setStoreCustomAttributes(isStoreCustomAttributes());
         def.setAuthnContext(authnContext);
+        def.setCaCertificates(caCertificates);
         return def;
     }
 
@@ -91,7 +95,7 @@ public class SamlIdentityProviderDefinition extends ExternalIdentityProviderDefi
     }
 
     public static MetadataLocation getType(String urlOrXmlData) {
-        String trimmedValue = urlOrXmlData.trim();
+        String trimmedValue = stripLeadingCharacters(urlOrXmlData);
 
         if (trimmedValue.startsWith("<?xml") ||
                 trimmedValue.startsWith("<md:EntityDescriptor") ||
@@ -104,11 +108,25 @@ public class SamlIdentityProviderDefinition extends ExternalIdentityProviderDefi
                 // Check if it is a valid URL
                 new URL(trimmedValue);
                 return MetadataLocation.URL;
-            } catch (MalformedURLException e) {
+            } catch (MalformedURLException _) {
                 //invalid URL
             }
         }
         return MetadataLocation.UNKNOWN;
+    }
+
+    /**
+     * Trims whitespace and, if present, a leading byte order marker character. Some IdPs (e.g.
+     * Microsoft Entra ID's federation metadata endpoint) prepend a byte order marker to their
+     * XML response; whether it was originally a UTF-8, UTF-16LE, or UTF-16BE BOM, correctly
+     * decoded bytes leave this same character (U+FEFF) at the start of the resulting String,
+     * which would otherwise defeat the {@code startsWith} sniffing in {@link #getType(String)}.
+     */
+    private static String stripLeadingCharacters(String value) {
+        String trimmedValue = value.trim();
+        return trimmedValue.startsWith(UaaStringUtils.BYTE_ORDER_MARKER)
+                ? trimmedValue.substring(UaaStringUtils.BYTE_ORDER_MARKER.length()).trim()
+                : trimmedValue;
     }
 
     @JsonIgnore
@@ -128,7 +146,7 @@ public class SamlIdentityProviderDefinition extends ExternalIdentityProviderDefi
         try {
             DocumentBuilder builder = ObjectUtils.getDocumentBuilder();
             builder.parse(new InputSource(new StringReader(xml)));
-        } catch (ParserConfigurationException | SAXException | IOException e) {
+        } catch (ParserConfigurationException | SAXException | IOException _) {
             return false;
         }
 

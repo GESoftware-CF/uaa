@@ -165,45 +165,75 @@ client_secret_post and private_key_jwt.
 
 ## Authorization Code Grant
 
-<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrant/curl-request.md') %>
-<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrant/http-request.md') %>
-<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrant/http-response.md') %>
+### Form Authentication
+
+<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrantWithClientSecret/curl-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrantWithClientSecret/http-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrantWithClientSecret/http-response.md') %>
+
+_Request Parameters_
+
+<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrantWithClientSecret/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrantWithClientSecret/response-fields.md') %>
+
+### Basic Authentication
+
+<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrantWithAuthorizationHeader/curl-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrantWithAuthorizationHeader/http-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrantWithAuthorizationHeader/http-response.md') %>
 
 _Request Headers_
 
-<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrant/request-headers.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrantWithAuthorizationHeader/request-headers.md') %>
 
 _Request Parameters_
 
-<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrant/form-parameters.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrantWithAuthorizationHeader/form-parameters.md') %>
 
 _Response Fields_
 
-<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrant/response-fields.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrantWithAuthorizationHeader/response-fields.md') %>
+
+### Client Assertion
+
+<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrantWithClientAssertion/curl-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrantWithClientAssertion/http-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrantWithClientAssertion/http-response.md') %>
+
+_Request Parameters_
+
+<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrantWithClientAssertion/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('TokenEndpointDocs/getTokenUsingAuthCodeGrantWithClientAssertion/response-fields.md') %>
 
 ## Client Credentials Grant
 
-### Without Authorization
+### Form Authentication
 
-<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrant/curl-request.md') %>
-<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrant/http-request.md') %>
-<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrant/http-response.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithClientSecret/curl-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithClientSecret/http-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithClientSecret/http-response.md') %>
 
 _Request Parameters_
 
-<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrant/form-parameters.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithClientSecret/form-parameters.md') %>
 
 _Response Fields_
 
-<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrant/response-fields.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithClientSecret/response-fields.md') %>
 
-### With Authorization
+### Basic Authentication
 
 <%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithAuthorizationHeader/curl-request.md') %>
 <%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithAuthorizationHeader/http-request.md') %>
 <%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithAuthorizationHeader/http-response.md') %>
 
-_Request Header_
+_Request Headers_
 
 <%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithAuthorizationHeader/request-headers.md') %>
 
@@ -215,20 +245,147 @@ _Response Fields_
 
 <%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithAuthorizationHeader/response-fields.md') %>
 
+### Client Assertion
 
-## Password Grant
-
-<%= render('TokenEndpointDocs/getTokenUsingPasswordGrant/curl-request.md') %>
-<%= render('TokenEndpointDocs/getTokenUsingPasswordGrant/http-request.md') %>
-<%= render('TokenEndpointDocs/getTokenUsingPasswordGrant/http-response.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithClientAssertion/curl-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithClientAssertion/http-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithClientAssertion/http-response.md') %>
 
 _Request Parameters_
 
-<%= render('TokenEndpointDocs/getTokenUsingPasswordGrant/form-parameters.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithClientAssertion/form-parameters.md') %>
 
 _Response Fields_
 
-<%= render('TokenEndpointDocs/getTokenUsingPasswordGrant/response-fields.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithClientAssertion/response-fields.md') %>
+
+### Mutual TLS Client Authentication ([RFC 8705](https://www.rfc-editor.org/rfc/rfc8705))
+
+Authenticates using an X.509 certificate presented at the TLS layer, on the dedicated
+`/oauth/mtls/token` endpoint, instead of a `client_secret`, `client_assertion`, or Basic
+Authorization header. No request parameter carries the certificate itself.
+
+Two pieces of client configuration are involved, and both are required. `tls-client-auth-ca` is
+the trust anchor: the presented certificate chain must validate to it. That establishes only who
+issued the certificate, so the client must additionally register exactly one expected subject
+value, using one of the RFC 8705 section 2.1.2 parameters — `tls_client_auth_subject_dn`,
+`tls_client_auth_san_dns`, `tls_client_auth_san_uri`, `tls_client_auth_san_ip` or
+`tls_client_auth_san_email`. That value is what identifies *this* client; without it a client
+sharing a CA with others could be authenticated by any certificate that CA ever issued, and UAA
+rejects the registration. Take a subject DN from
+`openssl x509 -in cert.pem -noout -subject -nameopt RFC2253` rather than writing it by hand.
+
+See
+[UAA Client Authentication](https://github.com/cloudfoundry/uaa/blob/develop/docs/UAA-Client-Authentication.md#tls_client_auth-rfc-8705)
+for deployment and configuration details, including the connector-wide `uaa.mtls.enabled`
+requirement.
+
+The certificate and private key are TLS-layer credentials, not form parameters. Substitute paths
+and the UAA URL for your deployment:
+
+```bash
+curl --cert /path/to/client-cert.pem \
+  --key /path/to/client-key.pem \
+  --cacert /path/to/uaa-server-ca.pem \
+  --request POST \
+  --header 'Accept: application/json' \
+  --data 'grant_type=client_credentials&client_id=<client-id>&token_format=jwt' \
+  https://uaa.example.com/oauth/mtls/token
+```
+
+<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithTlsClientAuth/http-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithTlsClientAuth/http-response.md') %>
+
+_Request Parameters_
+
+<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithTlsClientAuth/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('TokenEndpointDocs/getTokenUsingClientCredentialGrantWithTlsClientAuth/response-fields.md') %>
+
+#### Certificate-bound tokens
+
+A token issued here is bound to the client certificate ([RFC 8705 section 3](https://www.rfc-editor.org/rfc/rfc8705#section-3))
+only when the client is registered with `tls_client_certificate_bound_access_tokens: true`. It then carries `cnf` with
+`x5t#S256`, the base64url (no padding) SHA-256 thumbprint of the certificate's DER encoding. When the setting is `false`
+or absent (the [RFC 8705 section 3.4](https://www.rfc-editor.org/rfc/rfc8705#section-3.4) default) the same
+certificate checks apply and the token is an ordinary bearer token without `cnf`. Every token issued here carries
+`client_auth_method: tls_client_auth`. Only `client_credentials` is issued and no refresh token is returned.
+
+**UAA does not enforce the binding.** A resource server must compute the thumbprint of the certificate presented on its
+own TLS connection and require it to equal `cnf.x5t#S256`; otherwise the token is an ordinary bearer token. The `cnf`
+claim is also returned unchanged by [Introspect Token](#introspect-token) and [Check Token](#check-token).
+
+#### Registering a client for mutual TLS
+
+Set `tls-client-auth-ca` or `tls-client-auth-ca-ref` together with exactly one of `tls_client_auth_subject_dn`, `tls_client_auth_san_dns`,
+`tls_client_auth_san_uri`, `tls_client_auth_san_ip` or `tls_client_auth_san_email` when creating or updating a
+client (see Clients, Create). The full list of `tls-client-auth-*` keys, with their descriptions, is in the client request fields. A client that
+sets `tls-client-auth-ca` authenticates only at `/oauth/mtls/token` and cannot also use a `client_secret`. These keys are
+validated on create and update whether or not mTLS is enabled; they take effect only when both the deployment's
+`uaa.mtls.enabled` and the zone's `config.mtls.enabled` are true.
+
+#### Errors from `/oauth/mtls/token`
+
+Status | Meaning
+------ | -------
+`404` | the feature is disabled, or the path is below `/oauth/mtls/token`
+`405` (`Allow: POST`) | any method other than `POST`
+`401` `invalid_client` | no certificate, a certificate that is not the one registered for the client, one that does not chain to `tls-client-auth-ca` (including expired, or a CA certificate used as the leaf), unsatisfied `tls-client-auth-required-claims`, a `client_secret` or Basic credentials sent for an mTLS-only client, or a client with no `tls-client-auth-ca` calling this endpoint
+`400` `invalid_grant` | any grant other than `client_credentials`
+`400` `invalid_target` | `resource` is outside the client's allow-list, repeated, not an absolute URI without a fragment, or the client has no allow-list
+
+See [UAA Client Authentication](https://github.com/cloudfoundry/uaa/blob/develop/docs/UAA-Client-Authentication.md#error-responses-at-oauthmtlstoken)
+for the exact messages and the upgrade notes.
+
+## Password Grant
+
+### Form Authentication
+
+<%= render('TokenEndpointDocs/getTokenUsingPasswordGrantWithClientSecret/curl-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingPasswordGrantWithClientSecret/http-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingPasswordGrantWithClientSecret/http-response.md') %>
+
+_Request Parameters_
+
+<%= render('TokenEndpointDocs/getTokenUsingPasswordGrantWithClientSecret/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('TokenEndpointDocs/getTokenUsingPasswordGrantWithClientSecret/response-fields.md') %>
+
+### Basic Authentication
+
+<%= render('TokenEndpointDocs/getTokenWithClientAuthInHeader/curl-request.md') %>
+<%= render('TokenEndpointDocs/getTokenWithClientAuthInHeader/http-request.md') %>
+<%= render('TokenEndpointDocs/getTokenWithClientAuthInHeader/http-response.md') %>
+
+_Request Headers_
+
+<%= render('TokenEndpointDocs/getTokenWithClientAuthInHeader/request-headers.md') %>
+
+_Request Parameters_
+
+<%= render('TokenEndpointDocs/getTokenWithClientAuthInHeader/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('TokenEndpointDocs/getTokenWithClientAuthInHeader/response-fields.md') %>
+
+### Client Assertion
+
+<%= render('TokenEndpointDocs/getTokenUsingPasswordGrantWithClientAssertion/curl-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingPasswordGrantWithClientAssertion/http-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingPasswordGrantWithClientAssertion/http-response.md') %>
+
+_Request Parameters_
+
+<%= render('TokenEndpointDocs/getTokenUsingPasswordGrantWithClientAssertion/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('TokenEndpointDocs/getTokenUsingPasswordGrantWithClientAssertion/response-fields.md') %>
 
 
 ### One-time Passcode
@@ -237,7 +394,7 @@ _Response Fields_
 <%= render('TokenEndpointDocs/getTokenUsingPasscode/http-request.md') %>
 <%= render('TokenEndpointDocs/getTokenUsingPasscode/http-response.md') %>
 
-_Request Header_
+_Request Headers_
 
 <%= render('TokenEndpointDocs/getTokenUsingPasscode/request-headers.md') %>
 
@@ -268,9 +425,17 @@ the approval process when the client needs the access token.
 
 The `refresh_token` that results from this grant, is opaque, and can only be exchanged by the client it was intended for.
 
+This grant is documented with **`Authorization: Bearer`** and a **user** access token (`uaa.user`). The requesting client is the one that issued that token; other token-endpoint client authentication styles (`client_secret_post`, `client_secret_basic`, `private_key_jwt`) are not shown here because they interact awkwardly with the required user bearer (for example, UAA does not apply form-based client authentication when any `Authorization` header is present).
+
+### Bearer user token
+
 <%= render('TokenEndpointDocs/getTokenUsingUserTokenGrant/curl-request.md') %>
 <%= render('TokenEndpointDocs/getTokenUsingUserTokenGrant/http-request.md') %>
 <%= render('TokenEndpointDocs/getTokenUsingUserTokenGrant/http-response.md') %>
+
+_Request Headers_
+
+<%= render('TokenEndpointDocs/getTokenUsingUserTokenGrant/request-headers.md') %>
 
 _Request Parameters_
 
@@ -282,8 +447,6 @@ _Response Fields_
 
 <aside class="notice">
   This grant type is custom to the Cloud Foundry UAA.
-</aside>
-
 </aside>
 
 ## SAML2 Bearer Grant
@@ -298,25 +461,117 @@ In addition, the requesting client must either allow the IDP in `allowedprovider
 The trust to the assertion issuer is reused from the SAML 2.0 WebSSO profiles.
 
 This grant enables an App2App mechanism with SSO. Typical scenarios are applications outside of CF, which consume a service within the CF world.
-The endpoint of the bearer assertion is `/oauth/token/alias/<endityid>` so the Recipient attribute in
-the bearer assertion must point to the corresponding URI, e.g. http://localhost:8080/uaa/oauth/token/alias/cloudfoundry-saml-login.
+The bearer assertion can be sent to either `/oauth/token` or `/oauth/token/alias/<registrationId>`.
+When using `/oauth/token`, the IdP is resolved from the SAML2 assertion's `<Issuer>` element.
+When using `/oauth/token/alias/<registrationId>`, the path segment is the relying-party registration ID (often the IdP origin key),
+and the `Recipient` attribute in the bearer assertion may point either to `/oauth/token`
+or to the corresponding alias URI, e.g. http://localhost:8080/uaa/oauth/token/alias/cloudfoundry-saml-login.
+Zone resolution uses the `Host` header (for example `mysubdomain.localhost`).
 
-<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrant/curl-request.md') %>
-<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrant/http-request.md') %>
-<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrant/http-response.md') %>
+### SAML Bearer Grant (preferred)
+
+POST to **`/oauth/token`**. Use this path for new integrations.
+
+#### Form Authentication
+
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithClientSecretOnDefaultTokenPath/curl-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithClientSecretOnDefaultTokenPath/http-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithClientSecretOnDefaultTokenPath/http-response.md') %>
 
 _Request Parameters_
 
-<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrant/form-parameters.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithClientSecretOnDefaultTokenPath/form-parameters.md') %>
 
 _Response Fields_
 
-<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrant/response-fields.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithClientSecretOnDefaultTokenPath/response-fields.md') %>
+
+#### Basic Authentication
+
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithAuthorizationHeaderOnDefaultTokenPath/curl-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithAuthorizationHeaderOnDefaultTokenPath/http-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithAuthorizationHeaderOnDefaultTokenPath/http-response.md') %>
+
+_Request Headers_
+
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithAuthorizationHeaderOnDefaultTokenPath/request-headers.md') %>
+
+_Request Parameters_
+
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithAuthorizationHeaderOnDefaultTokenPath/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithAuthorizationHeaderOnDefaultTokenPath/response-fields.md') %>
+
+#### Client Assertion
+
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithClientAssertionOnDefaultTokenPath/curl-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithClientAssertionOnDefaultTokenPath/http-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithClientAssertionOnDefaultTokenPath/http-response.md') %>
+
+_Request Parameters_
+
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithClientAssertionOnDefaultTokenPath/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithClientAssertionOnDefaultTokenPath/response-fields.md') %>
+
+### SAML Bearer Grant (legacy)
+
+POST to **`/oauth/token/alias/<registrationId>`** (the same path as the SAML assertion `Recipient`). Retained for older clients that already target this URL.
+
+#### Form Authentication
+
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithClientSecret/curl-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithClientSecret/http-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithClientSecret/http-response.md') %>
+
+_Request Parameters_
+
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithClientSecret/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithClientSecret/response-fields.md') %>
+
+#### Basic Authentication
+
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithAuthorizationHeader/curl-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithAuthorizationHeader/http-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithAuthorizationHeader/http-response.md') %>
+
+_Request Headers_
+
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithAuthorizationHeader/request-headers.md') %>
+
+_Request Parameters_
+
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithAuthorizationHeader/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithAuthorizationHeader/response-fields.md') %>
+
+#### Client Assertion
+
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithClientAssertion/curl-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithClientAssertion/http-request.md') %>
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithClientAssertion/http-response.md') %>
+
+_Request Parameters_
+
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithClientAssertion/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('TokenEndpointDocs/getTokenUsingSaml2BearerGrantWithClientAssertion/response-fields.md') %>
 
 ## JWT Bearer Token Grant
-<%# replace when jwt bearer grant documentation is complete %>
-<aside class="notice">
-  Predix UAA does not use this form of jwt bearer grant, documentation coming soon
+
+<aside class="success">
+  Added in 4.5.0
 </aside>
 
 The _JSON Web Token (JWT) Profile for OAuth 2.0 Client Authentication and Authorization Grants_
@@ -326,54 +581,225 @@ In addition, the requesting client must either allow the IDP in `allowedprovider
 The trust to the assertion, the issuer claim is used to select an OIDC provider (IDP) configured in the
 UAA database. If multiple providers exists that have the same issuer, the grant will fail.
 
-<%# only good way to block comment %>
-<% if false %>
-  <%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant/curl-request.md') %>
-  <%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant/http-request.md') %>
-  <%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant/http-response.md') %>
+### Form Authentication
 
-  _Request Headers_
-
-  <%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant/request-headers.md') %>
-
-  _Request Parameters_
-
-  <%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant/form-parameters.md') %>
-
-  _Response Fields_
-
-  <%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant/response-fields.md') %>
-<% end %>
-
-## Refresh Token
-
-<%= render('TokenEndpointDocs/refreshToken/curl-request.md') %>
-<%= render('TokenEndpointDocs/refreshToken/http-request.md') %>
-<%= render('TokenEndpointDocs/refreshToken/http-response.md') %>
+<%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant_with_client_secret/curl-request.md') %>
+<%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant_with_client_secret/http-request.md') %>
+<%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant_with_client_secret/http-response.md') %>
 
 _Request Parameters_
 
-<%= render('TokenEndpointDocs/refreshToken/form-parameters.md') %>
+<%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant_with_client_secret/form-parameters.md') %>
 
 _Response Fields_
 
-<%= render('TokenEndpointDocs/refreshToken/response-fields.md') %>
+<%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant_with_client_secret/response-fields.md') %>
+
+### Basic Authentication
+
+<%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant_with_basic_authentication/curl-request.md') %>
+<%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant_with_basic_authentication/http-request.md') %>
+<%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant_with_basic_authentication/http-response.md') %>
+
+_Request Headers_
+
+<%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant_with_basic_authentication/request-headers.md') %>
+
+_Request Parameters_
+
+<%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant_with_basic_authentication/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant_with_basic_authentication/response-fields.md') %>
+
+### Client Assertion
+
+<%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant_with_client_assertion/curl-request.md') %>
+<%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant_with_client_assertion/http-request.md') %>
+<%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant_with_client_assertion/http-response.md') %>
+
+_Request Headers_
+
+<%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant_with_client_assertion/request-headers.md') %>
+
+_Request Parameters_
+
+<%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant_with_client_assertion/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('JwtBearerGrantEndpointDocs/document_jwt_bearer_grant_with_client_assertion/response-fields.md') %>
+
+## Token Exchange Grant
+
+<aside class="success">
+  Added in 78.0
+</aside>
+
+The _Token Exchange Grant_ is a partial implementation of [RFC 8693](https://www.rfc-editor.org/rfc/rfc8693.html)
+and is a HTTP- and JSON-based Security Token Service (STS) that allows impersonation of clients and users
+via a JWT token exchange. The subject_token must be a JWT token and may be an access token or an id_token
+The requesting client, must have `grant_type=urn:ietf:params:oauth:grant-type:token-exchange`.
+In addition, the requesting client must either allow the IDP in `allowedproviders` or omit the property so that any trusted IDP is allowed.
+The trust to the assertion, the issuer claim is used to select an OIDC provider (IDP) configured in the
+UAA database. If multiple providers exists that have the same issuer, the grant will fail. If
+the IDP has `addShadowUserOnLogin` set to false and the user does not exist, the grant will fail.
+If the IDP has `addShadowUserOnLogin` set to true, the origin of the newly created user will be the same
+as that of the IDP.
+
+### Basic Client Authentication
+
+<%= render('TokenExchangeGrantEndpointDocs/document_token_exchange_grant_using_basic_auth/curl-request.md') %>
+<%= render('TokenExchangeGrantEndpointDocs/document_token_exchange_grant_using_basic_auth/http-request.md') %>
+<%= render('TokenExchangeGrantEndpointDocs/document_token_exchange_grant_using_basic_auth/http-response.md') %>
+
+_Request Headers_
+
+<%= render('TokenExchangeGrantEndpointDocs/document_token_exchange_grant_using_basic_auth/request-headers.md') %>
+
+_Request Parameters_
+
+<%= render('TokenExchangeGrantEndpointDocs/document_token_exchange_grant_using_basic_auth/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('TokenExchangeGrantEndpointDocs/document_token_exchange_grant_using_basic_auth/response-fields.md') %>
+
+### Form Client Authentication
+
+<%= render('TokenExchangeGrantEndpointDocs/document_token_exchange_grant_using_form_auth/curl-request.md') %>
+<%= render('TokenExchangeGrantEndpointDocs/document_token_exchange_grant_using_form_auth/http-request.md') %>
+<%= render('TokenExchangeGrantEndpointDocs/document_token_exchange_grant_using_form_auth/http-response.md') %>
+
+_Request Headers_
+
+<%= render('TokenExchangeGrantEndpointDocs/document_token_exchange_grant_using_form_auth/request-headers.md') %>
+
+_Request Parameters_
+
+<%= render('TokenExchangeGrantEndpointDocs/document_token_exchange_grant_using_form_auth/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('TokenExchangeGrantEndpointDocs/document_token_exchange_grant_using_form_auth/response-fields.md') %>
+
+### Client Assertion Authentication
+
+<%= render('TokenExchangeGrantEndpointDocs/document_token_exchange_grant_using_client_assertion/curl-request.md') %>
+<%= render('TokenExchangeGrantEndpointDocs/document_token_exchange_grant_using_client_assertion/http-request.md') %>
+<%= render('TokenExchangeGrantEndpointDocs/document_token_exchange_grant_using_client_assertion/http-response.md') %>
+
+_Request Headers_
+
+<%= render('TokenExchangeGrantEndpointDocs/document_token_exchange_grant_using_client_assertion/request-headers.md') %>
+
+_Request Parameters_
+
+<%= render('TokenExchangeGrantEndpointDocs/document_token_exchange_grant_using_client_assertion/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('TokenExchangeGrantEndpointDocs/document_token_exchange_grant_using_client_assertion/response-fields.md') %>
+
+
+## Refresh Token
+
+### Form Authentication
+
+<%= render('TokenEndpointDocs/refreshTokenWithClientSecret/curl-request.md') %>
+<%= render('TokenEndpointDocs/refreshTokenWithClientSecret/http-request.md') %>
+<%= render('TokenEndpointDocs/refreshTokenWithClientSecret/http-response.md') %>
+
+_Request Parameters_
+
+<%= render('TokenEndpointDocs/refreshTokenWithClientSecret/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('TokenEndpointDocs/refreshTokenWithClientSecret/response-fields.md') %>
+
+### Basic Authentication
+
+<%= render('TokenEndpointDocs/refreshTokenWithAuthorizationHeader/curl-request.md') %>
+<%= render('TokenEndpointDocs/refreshTokenWithAuthorizationHeader/http-request.md') %>
+<%= render('TokenEndpointDocs/refreshTokenWithAuthorizationHeader/http-response.md') %>
+
+_Request Headers_
+
+<%= render('TokenEndpointDocs/refreshTokenWithAuthorizationHeader/request-headers.md') %>
+
+_Request Parameters_
+
+<%= render('TokenEndpointDocs/refreshTokenWithAuthorizationHeader/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('TokenEndpointDocs/refreshTokenWithAuthorizationHeader/response-fields.md') %>
+
+### Client Assertion
+
+<%= render('TokenEndpointDocs/refreshTokenWithClientAssertion/curl-request.md') %>
+<%= render('TokenEndpointDocs/refreshTokenWithClientAssertion/http-request.md') %>
+<%= render('TokenEndpointDocs/refreshTokenWithClientAssertion/http-response.md') %>
+
+_Request Parameters_
+
+<%= render('TokenEndpointDocs/refreshTokenWithClientAssertion/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('TokenEndpointDocs/refreshTokenWithClientAssertion/response-fields.md') %>
 
 ## OpenID Connect
 
 The token endpoint can provide an ID token as defined by OpenID Connect.
 
-<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrant/curl-request.md') %>
-<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrant/http-request.md') %>
-<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrant/http-response.md') %>
+### Form Authentication
+
+<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrantWithClientSecret/curl-request.md') %>
+<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrantWithClientSecret/http-request.md') %>
+<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrantWithClientSecret/http-response.md') %>
 
 _Request Parameters_
 
-<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrant/form-parameters.md') %>
+<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrantWithClientSecret/form-parameters.md') %>
 
 _Response Fields_
 
-<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrant/response-fields.md') %>
+<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrantWithClientSecret/response-fields.md') %>
+
+### Basic Authentication
+
+<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrantWithAuthorizationHeader/curl-request.md') %>
+<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrantWithAuthorizationHeader/http-request.md') %>
+<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrantWithAuthorizationHeader/http-response.md') %>
+
+_Request Headers_
+
+<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrantWithAuthorizationHeader/request-headers.md') %>
+
+_Request Parameters_
+
+<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrantWithAuthorizationHeader/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrantWithAuthorizationHeader/response-fields.md') %>
+
+### Client Assertion
+
+<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrantWithClientAssertion/curl-request.md') %>
+<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrantWithClientAssertion/http-request.md') %>
+<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrantWithClientAssertion/http-response.md') %>
+
+_Request Parameters_
+
+<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrantWithClientAssertion/form-parameters.md') %>
+
+_Response Fields_
+
+<%= render('TokenEndpointDocs/getIdTokenUsingAuthCodeGrantWithClientAssertion/response-fields.md') %>
 
 ## Revoke tokens
 
@@ -876,104 +1302,6 @@ _Error Codes_
 | 404        | Not Found - Zone does not exist                                             |
 | 422        | Unprocessable Entity - at least one IdP with alias exists in the zone       |
 
-## Creating a Key Provider Config
-
-A key provider config is used during the jwt bearer flow to authenticate devices. It provides DCS client and tenant information so that a public key can be obtained from DCS to validate device jwt signatures. A key provider config is created using a `POST` with a `KeyProviderConfig` object. An identifier will be generated for this object. Currently, only one can be created per zone.
-
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/createKeyProviderConfig/curl-request.md")).result(binding) %>
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/createKeyProviderConfig/http-request.md")).result(binding) %>
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/createKeyProviderConfig/http-response.md")).result(binding) %>
-
-_Request Headers_
-
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/createKeyProviderConfig/request-headers.md")).result(binding) %>
-
-_Request Fields_
-
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/createKeyProviderConfig/request-fields.md")).result(binding) %>
-
-_Response Fields_
-
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/createKeyProviderConfig/response-fields.md")).result(binding) %>
-
-_Error Codes_
-
-| Error Code | Description                                                                                            |
-|------------|--------------------------------------------------------------------------------------------------------|
-| 400        | Bad Request                                                                                            |
-| 401        | Unauthorized - Invalid token                                                                           |
-| 403        | Forbidden - Insufficient scope (KeyProviderConfig can only be created with zones.write or zones.zone_id.admin permissions for a given zone.) |
-| 404        | Not Found - The KeyProviderConfig does not exist                                                                         |
-| 422        | Unprocessable Entity - Invalid KeyProviderConfig |
-
-## Retrieving a Key Provider Config
-
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/retrieveKeyProviderConfig/curl-request.md")).result(binding) %>
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/retrieveKeyProviderConfig/http-request.md")).result(binding) %>
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/retrieveKeyProviderConfig/http-response.md")).result(binding) %>
-
-_Request Headers_
-
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/retrieveKeyProviderConfig/request-headers.md")).result(binding) %>
-
-_Response Fields_
-
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/retrieveKeyProviderConfig/response-fields.md")).result(binding) %>
-
-_Error Codes_
-
-| Error Code | Description                                                                                            |
-|------------|--------------------------------------------------------------------------------------------------------|
-| 400        | Bad Request                                                                                            |
-| 401        | Unauthorized - Invalid token                                                                           |
-| 403        | Forbidden - Insufficient scope                                                                         |
-| 404        | Not Found - The KeyProviderConfig does not exist                                                                         |
-
-## Finding all Key Provider Configs
-
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/findAllKeyProviderConfigs/curl-request.md")).result(binding) %>
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/findAllKeyProviderConfigs/http-request.md")).result(binding) %>
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/findAllKeyProviderConfigs/http-response.md")).result(binding) %>
-
-_Request Headers_
-
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/findAllKeyProviderConfigs/request-headers.md")).result(binding) %>
-
-_Response Fields_
-
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/findAllKeyProviderConfigs/response-fields.md")).result(binding) %>
-
-_Error Codes_
-
-| Error Code | Description                                                                                            |
-|------------|--------------------------------------------------------------------------------------------------------|
-| 400        | Bad Request                                                                                            |
-| 401        | Unauthorized - Invalid token                                                                           |
-| 403        | Forbidden - Insufficient scope                                                                         |
-| 404        | Not Found - The KeyProviderConfig does not exist                                                                         |
-
-## Deleting a Key Provider Config
-
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/deleteKeyProviderConfig/curl-request.md")).result(binding) %>
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/deleteKeyProviderConfig/http-request.md")).result(binding) %>
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/deleteKeyProviderConfig/http-response.md")).result(binding) %>
-
-_Path Parameters_
-
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/deleteKeyProviderConfig/path-parameters.md")).result(binding) %>
-
-_Request Headers_
-
-<%= ERB.new(File.read("../../build/generated-snippets/IdentityZoneEndpointDocs/deleteKeyProviderConfig/request-headers.md")).result(binding) %>
-
-_Error Codes_
-
-| Error Code | Description                                                                 |
-|------------|-----------------------------------------------------------------------------|
-| 400        | Bad Request                                                                 |
-| 401        | Unauthorized - Invalid token                                                |
-| 403        | Forbidden - Insufficient scope  |
-| 404        | Not Found - The KeyProviderConfig does not exist                                             |
 
 # Identity Providers
 
@@ -1614,33 +1942,6 @@ uaac token client get admin -s adminsecret
 uaac user delete testuser
 ```
 
-## Batch Create
-
-<%= ERB.new(File.read("../../build/generated-snippets/ScimUserEndpointDocs/test_Create_Batch_User/curl-request.md")).result(binding) %>
-<%= ERB.new(File.read("../../build/generated-snippets/ScimUserEndpointDocs/test_Create_Batch_User/http-request.md")).result(binding) %>
-<%= ERB.new(File.read("../../build/generated-snippets/ScimUserEndpointDocs/test_Create_Batch_User/http-response.md")).result(binding) %>
-
-_Request Headers_
-
-<%= ERB.new(File.read("../../build/generated-snippets/ScimUserEndpointDocs/test_Create_Batch_User/request-headers.md")).result(binding) %>
-
-_Request Fields_
-
-<%= ERB.new(File.read("../../build/generated-snippets/ScimUserEndpointDocs/test_Create_Batch_User/request-fields.md")).result(binding) %>
-
-_Response Fields_
-
-<%= ERB.new(File.read("../../build/generated-snippets/ScimUserEndpointDocs/test_Create_Batch_User/response-fields.md")).result(binding) %>
-
-_Error Codes_
-
-| Error Code | Description                                                                                            |
-|------------|--------------------------------------------------------------------------------------------------------|
-| 400        | Bad Request - invalid JSON format or missing fields                                                    |
-| 401        | Unauthorized - Invalid token                                                                           |
-| 403        | Forbidden - Insufficient scope (scim.write is required to create a user)                               |
-| 409        | Username already exists                                                                                |
-
 ## User Info
 
 An OAuth2 protected resource and an OpenID Connect endpoint. Given an appropriate access_token, returns information about a user. Defined fields include various standard user profile fields. The response may include other user information such as group membership.
@@ -2240,6 +2541,25 @@ _Response Fields_
 
 # Clients
 
+## List mTLS trust bundles
+
+`GET /oauth/mtls/trust-bundles` lists only the names of CA trust bundles in the current identity zone.
+The request needs `clients.read`, `clients.admin`, or zone/UAA admin authority. PEM contents are never returned.
+This endpoint is unavailable when deployment or current-zone mTLS is disabled.
+
+<%= render('MtlsTrustBundleEndpointDocs/listTrustBundleNames/curl-request.md') %>
+<%= render('MtlsTrustBundleEndpointDocs/listTrustBundleNames/http-response.md') %>
+
+_Request Headers_
+
+<%= render('MtlsTrustBundleEndpointDocs/listTrustBundleNames/request-headers.md') %>
+
+_Response Fields_
+
+<%= render('MtlsTrustBundleEndpointDocs/listTrustBundleNames/response-fields.md') %>
+
+A client can carry JWT trust for `private_key_jwt` (client assertion) in several shapes. The **preferred** approach is a single top-level `client_jwt_config` string (one JSON value in the `client_jwt_config` column) that can contain `jwks`, `jwks_uri`, and/or an embedded `jwt_creds` array, as needed. For **backward compatibility**, a separate top-level `jwt_creds` field is still accepted and is **merged** with `client_jwt_config` to form the effective `ClientJwtConfiguration` the UAA uses for `private_key_jwt` and for the admin **GET** response. **At authentication time** (`private_key_jwt`), a client assertion is accepted if it **matches and verifies** against the merged trust (e.g. federated claims match a configured credential, or OIDC-style keys verify against the configured JWKS). A nested `client_jwt_config` object under extra keys may also be merged; **still prefer** one `client_jwt_config` string at the top level for clarity. The **decomposed** top-level `jwks` / `jwks_uri` / `jwt_creds` fields in **responses** (retrieve/list) are a convenience view derived from the stored `client_jwt_config` JSON.
+
 ## Create
 
 <%= render('ClientAdminEndpointDocs/createClient/curl-request.md') %>
@@ -2590,6 +2910,28 @@ An OpenID Discovery Configuration Document MUST be queried using an HTTP GET req
 _Response Fields_
 
 <%= render('OpenIdConnectEndpointDocs/getWellKnownOpenidConf/response-fields.md') %>
+
+## Rate Limiting Status
+
+The `/RateLimitingStatus` endpoint provides information about the current state of rate limiting in the UAA.
+This endpoint cannot be configured with a rate limit.
+
+<aside class="warning">
+  This endpoint requires authentication with a bearer token that has the `uaa.admin` scope in the default 
+authentication zone. (token claim `zid: uaa`) 
+</aside>
+
+<%= render('RateLimitingStatusEndpointDocs/getRateLimitingStatus/curl-request.md') %>
+<%= render('RateLimitingStatusEndpointDocs/getRateLimitingStatus/http-request.md') %>
+<%= render('RateLimitingStatusEndpointDocs/getRateLimitingStatus/http-response.md') %>
+
+_Request Headers_
+
+<%= render('RateLimitingStatusEndpointDocs/getRateLimitingStatus/request-headers.md') %>
+
+_Response Fields_
+
+<%= render('RateLimitingStatusEndpointDocs/getRateLimitingStatus/response-fields.md') %>
 
 ## Passcode
 

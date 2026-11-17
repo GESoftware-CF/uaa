@@ -39,6 +39,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestOperations;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.URI;
 import java.util.Collections;
 import java.util.Map;
 
@@ -89,7 +90,7 @@ class PasswordChangeEndpointIntegrationTests {
             }
 
             @Override
-            public void handleError(ClientHttpResponse response) {
+            public void handleError(URI url, HttpMethod method, ClientHttpResponse response) {
                 // pass through
             }
         });
@@ -133,7 +134,7 @@ class PasswordChangeEndpointIntegrationTests {
                 .exchange(serverRunning.getUrl(userEndpoint) + "/{id}/password",
                         HttpMethod.PUT, new HttpEntity<>(change, headers),
                         Void.class, joe.getId());
-        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
     }
 
     @Test

@@ -13,12 +13,11 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.integration.feature;
 
-import com.dumbster.smtp.SimpleSmtpServer;
+import com.icegreen.greenmail.util.GreenMail;
 import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
 import org.cloudfoundry.identity.uaa.test.UaaWebDriver;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.openqa.selenium.By;
@@ -32,7 +31,6 @@ import java.security.SecureRandom;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-//Some tests are Ignored to accomodate Predix Branding changes
 @SpringJUnitConfig(classes = DefaultIntegrationTestConfig.class)
 public class ChangePasswordIT {
 
@@ -47,7 +45,7 @@ public class ChangePasswordIT {
     UaaWebDriver webDriver;
 
     @Autowired
-    SimpleSmtpServer simpleSmtpServer;
+    GreenMail greenMail;
 
     @Autowired
     TestClient testClient;
@@ -65,7 +63,7 @@ public class ChangePasswordIT {
     void logout_and_clear_cookies() {
         try {
             webDriver.get(baseUrl + "/logout.do");
-        } catch (org.openqa.selenium.TimeoutException x) {
+        } catch (org.openqa.selenium.TimeoutException _) {
             //try again - this should not be happening - 20 second timeouts
             webDriver.get(baseUrl + "/logout.do");
         }
@@ -88,13 +86,12 @@ public class ChangePasswordIT {
     }
 
     @Test
-    @Disabled
     void testChangePassword() {
         webDriver.get(baseUrl + "/change_password");
         signIn(userEmail, PASSWORD);
 
         changePassword(PASSWORD, NEW_PASSWORD, "new");
-        WebElement errorMessage = webDriver.findElement(By.className("toast__description"));
+        WebElement errorMessage = webDriver.findElement(By.className("error-message"));
         assertThat(errorMessage.isDisplayed()).isTrue();
         assertThat(errorMessage.getText()).isEqualTo("Passwords must match and not be empty.");
 
@@ -105,7 +102,6 @@ public class ChangePasswordIT {
     }
 
     @Test
-    @Disabled
     void displaysErrorWhenPasswordContravenesPolicy() {
         //the only policy we can contravene by default is the length
 
@@ -114,7 +110,7 @@ public class ChangePasswordIT {
         signIn(userEmail, PASSWORD);
 
         changePassword(PASSWORD, newPassword, newPassword);
-        WebElement errorMessage = webDriver.findElement(By.className("toast__description"));
+        WebElement errorMessage = webDriver.findElement(By.className("error-message"));
         assertThat(errorMessage.isDisplayed()).isTrue();
         assertThat(errorMessage.getText()).isEqualTo("Password must be no more than 255 characters in length.");
     }

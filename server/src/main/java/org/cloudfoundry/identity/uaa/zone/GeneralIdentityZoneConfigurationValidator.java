@@ -1,6 +1,11 @@
 package org.cloudfoundry.identity.uaa.zone;
 
+import org.cloudfoundry.identity.uaa.oauth.token.TokenConstants;
+import org.cloudfoundry.identity.uaa.oauth.tls.MtlsTrustBundles;
+import org.cloudfoundry.identity.uaa.client.InvalidClientDetailsException;
 import org.cloudfoundry.identity.uaa.saml.SamlKey;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.cloudfoundry.identity.uaa.util.KeyWithCert;
 import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
 import org.springframework.stereotype.Component;
@@ -15,6 +20,8 @@ import java.util.regex.PatternSyntaxException;
 @Component
 public class GeneralIdentityZoneConfigurationValidator implements IdentityZoneConfigurationValidator {
 
+    private static final Logger logger = LoggerFactory.getLogger(GeneralIdentityZoneConfigurationValidator.class);
+
     public GeneralIdentityZoneConfigurationValidator() {
     }
 
@@ -22,10 +29,15 @@ public class GeneralIdentityZoneConfigurationValidator implements IdentityZoneCo
     public IdentityZoneConfiguration validate(IdentityZone zone, IdentityZoneValidator.Mode mode) throws InvalidIdentityZoneConfigurationException {
         IdentityZoneConfiguration config = zone.getConfig();
         if (mode == IdentityZoneValidator.Mode.CREATE || mode == IdentityZoneValidator.Mode.MODIFY) {
+            try {
+                MtlsTrustBundles.validate(config.getMtls().getTrustBundles());
+            } catch (InvalidClientDetailsException e) {
+                throw new InvalidIdentityZoneConfigurationException(e.getMessage(), e);
+            }
             String currentKeyId = null;
             try {
                 SamlConfig samlConfig;
-                if ((samlConfig = config.getSamlConfig()) != null && samlConfig.getKeys().size() > 0) {
+                if ((samlConfig = config.getSamlConfig()) != null && !samlConfig.getKeys().isEmpty()) {
                     String activeKeyId = samlConfig.getActiveKeyId();
                     if (activeKeyId == null || samlConfig.getKeys().get(activeKeyId) == null) {
 
@@ -49,6 +61,12 @@ public class GeneralIdentityZoneConfigurationValidator implements IdentityZoneCo
 
             TokenPolicy tokenPolicy = config.getTokenPolicy();
             if (tokenPolicy != null) {
+                if (tokenPolicy.isRefreshTokenRotate() &&
+                        TokenConstants.TokenFormat.JWT.getStringValue().equalsIgnoreCase(tokenPolicy.getRefreshTokenFormat()) &&
+                        !tokenPolicy.isJwtRevocable()) {
+                    logger.warn("Invalid identity zone configuration: JWT-format refresh tokens with rotation enabled must be revocable. Auto-correcting to set jwtRevocable=true.");
+                    tokenPolicy.setJwtRevocable(true);
+                }
                 String activeKeyId = tokenPolicy.getActiveKeyId();
                 if (StringUtils.hasText(activeKeyId)) {
                     Map<String, TokenPolicy.KeyInformation> jwtKeys = tokenPolicy.getKeys();
@@ -62,7 +80,7 @@ public class GeneralIdentityZoneConfigurationValidator implements IdentityZoneCo
                     }
                 }
             }
-            if (UaaStringUtils.isNotEmpty(config.getIssuer()) && (tokenPolicy == null || UaaStringUtils.isNullOrEmpty(tokenPolicy.getActiveKeyId()))) {
+            if (!zone.isUaa() && UaaStringUtils.isNotEmpty(config.getIssuer()) && (tokenPolicy == null || UaaStringUtils.isNullOrEmpty(tokenPolicy.getActiveKeyId()))) {
                 throw new InvalidIdentityZoneConfigurationException("You cannot set issuer value unless you have set your own signing key for this identity zone.");
             }
 
@@ -80,6 +98,13 @@ public class GeneralIdentityZoneConfigurationValidator implements IdentityZoneCo
 
         if (config.getBranding() != null && config.getBranding().getBanner() != null) {
             BannerValidator.validate(config.getBranding().getBanner());
+        }
+
+        if (config.getBranding() != null && config.getBranding().getLoginConsent() != null) {
+            List<String> errors = LoginConsentValidator.validate(config.getBranding().getLoginConsent());
+            if (!errors.isEmpty()) {
+                throw new InvalidIdentityZoneConfigurationException("Invalid login consent configuration: " + String.join(", ", errors), null);
+            }
         }
 
         return config;

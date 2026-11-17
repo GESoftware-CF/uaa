@@ -10,6 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.saml2.provider.service.registration.AssertingPartyMetadata;
 import org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistration;
 import org.springframework.security.saml2.provider.service.web.RelyingPartyRegistrationResolver;
 import org.springframework.security.saml2.provider.service.web.authentication.logout.Saml2RelyingPartyInitiatedLogoutSuccessHandler;
@@ -59,13 +60,13 @@ class UaaDelegatingLogoutSuccessHandlerTest {
     }
 
     @Test
-    void fallsThruToZoneAwareWhitelistLogoutHandler() throws ServletException, IOException {
+    void fallsThruToZoneAwareWhitelistLogoutHandler() throws Exception {
         logoutSuccessHandler.onLogoutSuccess(request, response, authentication);
         verifyCorrectOnLogoutSuccessCalled(false, false, true);
     }
 
     @Test
-    void shouldPerformOAuthRpInitiatedLogout() throws ServletException, IOException {
+    void shouldPerformOAuthRpInitiatedLogout() throws Exception {
         var oauthConfig = mock(AbstractExternalOAuthIdentityProviderDefinition.class);
         when(externalOAuthLogoutHandler.getOAuthProviderForAuthentication(authentication)).thenReturn(oauthConfig);
         when(externalOAuthLogoutHandler.getLogoutUrl(oauthConfig)).thenReturn(URL);
@@ -76,14 +77,14 @@ class UaaDelegatingLogoutSuccessHandlerTest {
     }
 
     @Test
-    void shouldPerformSamlRelyingPartyLogout() throws ServletException, IOException {
+    void shouldPerformSamlRelyingPartyLogout() throws Exception {
         var mockPrincipal = mock(UaaSamlPrincipal.class);
         when(authentication.getPrincipal()).thenReturn(mockPrincipal);
         when(mockPrincipal.getRelyingPartyRegistrationId()).thenReturn(REG_ID);
         var mockRegistration = mock(RelyingPartyRegistration.class);
         when(relyingPartyRegistrationResolver.resolve(any(), eq(REG_ID))).thenReturn(mockRegistration);
-        var mockAssertingPartyDetails = mock(RelyingPartyRegistration.AssertingPartyDetails.class);
-        when(mockRegistration.getAssertingPartyDetails()).thenReturn(mockAssertingPartyDetails);
+        var mockAssertingPartyDetails = mock(AssertingPartyMetadata.class);
+        when(mockRegistration.getAssertingPartyMetadata()).thenReturn(mockAssertingPartyDetails);
         when(mockAssertingPartyDetails.getSingleLogoutServiceLocation()).thenReturn(URL);
 
         logoutSuccessHandler.onLogoutSuccess(request, response, authentication);
@@ -95,7 +96,7 @@ class UaaDelegatingLogoutSuccessHandlerTest {
      */
 
     @Test
-    void nullAuthFallsThruToZoneAwareWhitelistLogoutHandler() throws ServletException, IOException {
+    void nullAuthFallsThruToZoneAwareWhitelistLogoutHandler() throws Exception {
         logoutSuccessHandler.onLogoutSuccess(request, response, null);
         verify(zoneAwareWhitelistLogoutHandler).onLogoutSuccess(request, response, null);
         verify(externalOAuthLogoutHandler, never()).onLogoutSuccess(any(), any(), any());
@@ -103,7 +104,7 @@ class UaaDelegatingLogoutSuccessHandlerTest {
     }
 
     @Test
-    void nullRegIdFallsThruToZoneAwareWhitelistLogoutHandler() throws ServletException, IOException {
+    void nullRegIdFallsThruToZoneAwareWhitelistLogoutHandler() throws Exception {
         var mockPrincipal = mock(UaaSamlPrincipal.class);
         when(authentication.getPrincipal()).thenReturn(mockPrincipal);
 
@@ -112,36 +113,36 @@ class UaaDelegatingLogoutSuccessHandlerTest {
     }
 
     @Test
-    void nullRegistrationFallsThruToZoneAwareWhitelistLogoutHandler() throws ServletException, IOException {
-        var mockPrincipal = mock(UaaSamlPrincipal.class);
-        when(authentication.getPrincipal()).thenReturn(mockPrincipal);
-        when(mockPrincipal.getRelyingPartyRegistrationId()).thenReturn(REG_ID);
-
-        logoutSuccessHandler.onLogoutSuccess(request, response, authentication);
-        verifyCorrectOnLogoutSuccessCalled(false, false, true);
-    }
-
-    @Test
-    void nullAssertingPartyDetailsFallsThruToZoneAwareWhitelistLogoutHandler() throws ServletException, IOException {
+    void nullRegistrationFallsThruToZoneAwareWhitelistLogoutHandler() throws Exception {
         var mockPrincipal = mock(UaaSamlPrincipal.class);
         when(authentication.getPrincipal()).thenReturn(mockPrincipal);
         when(mockPrincipal.getRelyingPartyRegistrationId()).thenReturn(REG_ID);
-        var mockRegistration = mock(RelyingPartyRegistration.class);
-        when(relyingPartyRegistrationResolver.resolve(any(), eq(REG_ID))).thenReturn(mockRegistration);
 
         logoutSuccessHandler.onLogoutSuccess(request, response, authentication);
         verifyCorrectOnLogoutSuccessCalled(false, false, true);
     }
 
     @Test
-    void nullSingleLogoutServiceLocationFallsThruToZoneAwareWhitelistLogoutHandler() throws ServletException, IOException {
+    void nullAssertingPartyDetailsFallsThruToZoneAwareWhitelistLogoutHandler() throws Exception {
         var mockPrincipal = mock(UaaSamlPrincipal.class);
         when(authentication.getPrincipal()).thenReturn(mockPrincipal);
         when(mockPrincipal.getRelyingPartyRegistrationId()).thenReturn(REG_ID);
         var mockRegistration = mock(RelyingPartyRegistration.class);
         when(relyingPartyRegistrationResolver.resolve(any(), eq(REG_ID))).thenReturn(mockRegistration);
-        var mockAssertingPartyDetails = mock(RelyingPartyRegistration.AssertingPartyDetails.class);
-        when(mockRegistration.getAssertingPartyDetails()).thenReturn(mockAssertingPartyDetails);
+
+        logoutSuccessHandler.onLogoutSuccess(request, response, authentication);
+        verifyCorrectOnLogoutSuccessCalled(false, false, true);
+    }
+
+    @Test
+    void nullSingleLogoutServiceLocationFallsThruToZoneAwareWhitelistLogoutHandler() throws Exception {
+        var mockPrincipal = mock(UaaSamlPrincipal.class);
+        when(authentication.getPrincipal()).thenReturn(mockPrincipal);
+        when(mockPrincipal.getRelyingPartyRegistrationId()).thenReturn(REG_ID);
+        var mockRegistration = mock(RelyingPartyRegistration.class);
+        when(relyingPartyRegistrationResolver.resolve(any(), eq(REG_ID))).thenReturn(mockRegistration);
+        var mockAssertingPartyDetails = mock(AssertingPartyMetadata.class);
+        when(mockRegistration.getAssertingPartyMetadata()).thenReturn(mockAssertingPartyDetails);
 
         logoutSuccessHandler.onLogoutSuccess(request, response, authentication);
         verifyCorrectOnLogoutSuccessCalled(false, false, true);
@@ -152,7 +153,7 @@ class UaaDelegatingLogoutSuccessHandlerTest {
      */
 
     @Test
-    void nullLogoutUrlFallsThruToZoneAwareWhitelistLogoutHandler() throws ServletException, IOException {
+    void nullLogoutUrlFallsThruToZoneAwareWhitelistLogoutHandler() throws Exception {
         var oauthConfig = mock(AbstractExternalOAuthIdentityProviderDefinition.class);
         when(externalOAuthLogoutHandler.getOAuthProviderForAuthentication(authentication)).thenReturn(oauthConfig);
         when(externalOAuthLogoutHandler.getLogoutUrl(oauthConfig)).thenReturn(null);
@@ -163,7 +164,7 @@ class UaaDelegatingLogoutSuccessHandlerTest {
     }
 
     @Test
-    void falsePerformRpInitiatedLogoutFallsThruToZoneAwareWhitelistLogoutHandler() throws ServletException, IOException {
+    void falsePerformRpInitiatedLogoutFallsThruToZoneAwareWhitelistLogoutHandler() throws Exception {
         var oauthConfig = mock(AbstractExternalOAuthIdentityProviderDefinition.class);
         when(externalOAuthLogoutHandler.getOAuthProviderForAuthentication(authentication)).thenReturn(oauthConfig);
         when(externalOAuthLogoutHandler.getLogoutUrl(oauthConfig)).thenReturn(URL);

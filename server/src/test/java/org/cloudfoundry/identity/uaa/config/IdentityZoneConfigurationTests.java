@@ -50,6 +50,51 @@ class IdentityZoneConfigurationTests {
     }
 
     @Test
+    void mtlsConfigurationDefaultsToDisabledWithNoBundles() {
+        assertThat(definition.getMtls().isEnabled()).isFalse();
+        assertThat(definition.getMtls().getTrustBundles()).isEmpty();
+    }
+
+    @Test
+    void unconfiguredMtlsIsOmittedSoZoneJsonIsUnchanged() {
+        // Zones that never configure mTLS serialize exactly as they did before the feature existed.
+        assertThat(JsonUtils.convertValue(definition, java.util.Map.class))
+                .doesNotContainKey("mtls").doesNotContainKey("mtlsTrustBundles");
+    }
+
+    @Test
+    void configuredMtlsIsSerialized() {
+        definition.getMtls().setEnabled(true);
+        assertThat(JsonUtils.convertValue(definition, java.util.Map.class))
+                .containsEntry("mtls", java.util.Map.of("enabled", true, "trustBundles", java.util.Map.of()));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"{}", "{\"mtls\":{}}", "{\"mtls\":{\"trustBundles\":{}}}"})
+    void storedZoneConfigurationWithoutAnMtlsSwitchIsDisabled(String json) {
+        // Zones stored before mTLS existed, or that never set the switch, must not opt in.
+        assertThat(JsonUtils.readValue(json, IdentityZoneConfiguration.class).getMtls().isEnabled()).isFalse();
+    }
+
+    @Test
+    void nestedMtlsConfigurationSurvivesJsonRoundTrip() {
+        definition = JsonUtils.readValue("{\"mtls\":{\"enabled\":false,\"trustBundles\":{\"workload\":\"pem\"}}}",
+                IdentityZoneConfiguration.class);
+        assertThat(JsonUtils.convertValue(definition, java.util.Map.class))
+                .containsEntry("mtls", java.util.Map.of("enabled", false, "trustBundles", java.util.Map.of("workload", "pem")))
+                .doesNotContainKey("mtlsTrustBundles");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"{\"mtls\":null}", "{\"mtls\":{\"enabled\":null}}"})
+    void nullMtlsPolicyMeansTheDisabledDefault(String json) {
+        // The previous release ignored an "mtls" key entirely; a null must not turn into a 400.
+        IdentityZoneConfiguration configuration = JsonUtils.readValue(json, IdentityZoneConfiguration.class);
+        assertThat(configuration.getMtls().isEnabled()).isFalse();
+        assertThat(configuration.getMtls().getTrustBundles()).isEmpty();
+    }
+
+    @Test
     void default_user_groups_when_json_is_deserialized() {
         definition.setUserConfig(null);
         String s = JsonUtils.writeValueAsString(definition);
@@ -85,6 +130,16 @@ class IdentityZoneConfigurationTests {
     void deserializeClientSecretPolicyJSON_withUnknownProperties_doesNotFail() {
         String config = "{ \"unknown-property\": \"unknown-value\"}";
         JsonUtils.readValue(config, ClientSecretPolicy.class);
+    }
+
+    @Test
+    void clientSecretPolicy_expireSecretInMonths_isIgnoredInJson() {
+        ClientSecretPolicy policy = new ClientSecretPolicy(5, 12, 1, 1, 1, 1, 6);
+        String json = JsonUtils.writeValueAsString(policy);
+        assertThat(json).doesNotContain("expireSecretInMonths");
+
+        ClientSecretPolicy back = JsonUtils.readValue(json, ClientSecretPolicy.class);
+        assertThat(back.getExpireSecretInMonths()).isEqualTo(-1);
     }
 
     @Test
@@ -199,12 +254,12 @@ class IdentityZoneConfigurationTests {
 
     @Test
     void defaultCorsConfiguration() {
-        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedHeaders()).isEqualTo(Arrays.asList(new String[]{ACCEPT, AUTHORIZATION, CONTENT_TYPE}));
-        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedMethods()).isEqualTo(Collections.singletonList(GET.toString()));
-        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedUris()).isEqualTo(Collections.singletonList(".*"));
-        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedUriPatterns()).isEqualTo(Collections.emptyList());
-        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedOrigins()).isEqualTo(Collections.singletonList(".*"));
-        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedOriginPatterns()).isEqualTo(Collections.emptyList());
+        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedHeaders()).containsExactlyElementsOf(Arrays.asList(new String[]{ACCEPT, AUTHORIZATION, CONTENT_TYPE}));
+        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedMethods()).containsExactlyElementsOf(Collections.singletonList(GET.toString()));
+        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedUris()).containsExactlyElementsOf(Collections.singletonList(".*"));
+        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedUriPatterns()).containsExactlyElementsOf(Collections.emptyList());
+        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedOrigins()).containsExactlyElementsOf(Collections.singletonList(".*"));
+        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedOriginPatterns()).containsExactlyElementsOf(Collections.emptyList());
         assertThat(definition.getCorsPolicy().getDefaultConfiguration().getMaxAge()).isEqualTo(1728000);
     }
 
@@ -217,12 +272,12 @@ class IdentityZoneConfigurationTests {
         s = s.replace("\"allowedUris\":[\".*\"]", "\"allowedUris\":[\"^/uaa/userinfo$\",\"^/uaa/logout\\\\.do$\"]");
         definition = JsonUtils.readValue(s, IdentityZoneConfiguration.class);
 
-        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedHeaders()).isEqualTo(Arrays.asList(new String[]{ACCEPT}));
-        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedMethods()).isEqualTo(Arrays.asList(new String[]{GET.toString(), POST.toString()}));
-        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedUris()).isEqualTo(Arrays.asList(new String[]{"^/uaa/userinfo$", "^/uaa/logout\\.do$"}));
-        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedUriPatterns()).isEqualTo(Collections.emptyList());
-        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedOrigins()).isEqualTo(Arrays.asList(new String[]{"^localhost$", "^.*\\.localhost$"}));
-        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedOriginPatterns()).isEqualTo(Collections.emptyList());
+        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedHeaders()).containsExactlyElementsOf(Arrays.asList(new String[]{ACCEPT}));
+        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedMethods()).containsExactlyElementsOf(Arrays.asList(new String[]{GET.toString(), POST.toString()}));
+        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedUris()).containsExactlyElementsOf(Arrays.asList(new String[]{"^/uaa/userinfo$", "^/uaa/logout\\.do$"}));
+        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedUriPatterns()).containsExactlyElementsOf(Collections.emptyList());
+        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedOrigins()).containsExactlyElementsOf(Arrays.asList(new String[]{"^localhost$", "^.*\\.localhost$"}));
+        assertThat(definition.getCorsPolicy().getDefaultConfiguration().getAllowedOriginPatterns()).containsExactlyElementsOf(Collections.emptyList());
         assertThat(definition.getCorsPolicy().getDefaultConfiguration().getMaxAge()).isEqualTo(1728000);
     }
 

@@ -1,9 +1,8 @@
 package org.cloudfoundry.identity.uaa.mock.audit;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import org.apache.commons.codec.binary.Base64;
 import org.cloudfoundry.identity.uaa.DefaultTestContext;
 import org.cloudfoundry.identity.uaa.account.LostPasswordChangeRequest;
 import org.cloudfoundry.identity.uaa.account.event.PasswordChangeEvent;
@@ -58,6 +57,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -82,6 +83,7 @@ import org.springframework.web.context.support.GenericWebApplicationContext;
 
 import java.security.MessageDigest;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -93,9 +95,8 @@ import java.util.stream.Stream;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.audit.AuditEventType.*;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
 import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.httpBearer;
-import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.mock;
@@ -235,10 +236,9 @@ class AuditCheckMockMvcTests {
 
     @Test
     void userLoginTest() throws Exception {
-        MockHttpSession session = getLoginForm();
-
         MockHttpServletRequestBuilder loginPost = post("/login.do")
-                .with(csrf(session))
+                .with(cookieCsrf())
+                .session(new MockHttpSession())
                 .accept(MediaType.TEXT_HTML_VALUE)
                 .param("username", testUser.getUserName())
                 .param("password", testPassword);
@@ -252,59 +252,58 @@ class AuditCheckMockMvcTests {
 
         IdentityProviderAuthenticationSuccessEvent passwordEvent = testListener.getLatestEventOfType(IdentityProviderAuthenticationSuccessEvent.class);
         assertThat(passwordEvent.getUser().getUsername()).isEqualTo(testUser.getUserName());
-        assertThat(passwordEvent.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
 
         UserAuthenticationSuccessEvent userEvent = testListener.getLatestEventOfType(UserAuthenticationSuccessEvent.class);
         assertThat(userEvent.getUser().getId()).isEqualTo(passwordEvent.getUser().getId());
         assertThat(userEvent.getUser().getUsername()).isEqualTo(testUser.getUserName());
-        assertThat(userEvent.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
         assertThat(passwordEvent.getAuthenticationType()).isEqualTo(OriginKeys.UAA);
 
         String passwordLogMsg = testLogger.getFirstLogMessageOfType(IdentityProviderAuthenticationSuccess);
-        assertLogMessageWithSession(passwordLogMsg, IdentityProviderAuthenticationSuccess, testUser.getId(), testUser.getUserName());
+        assertLogMessage(passwordLogMsg, IdentityProviderAuthenticationSuccess, testUser.getId(), testUser.getUserName());
 
         String userEventLogMsg = testLogger.getFirstLogMessageOfType(UserAuthenticationSuccess);
-        assertLogMessageWithSession(userEventLogMsg, UserAuthenticationSuccess, testUser.getId(), testUser.getUserName());
+        assertLogMessage(userEventLogMsg, UserAuthenticationSuccess, testUser.getId(), testUser.getUserName());
     }
 
-    @Test
-    void userLoginAuthenticateEndpointTest() throws Exception {
-        MockHttpServletRequestBuilder loginPost = post("/authenticate")
+    @ParameterizedTest
+    @ValueSource(strings = {"/authenticate", "/authenticate/"})
+    void userLoginAuthenticateEndpointTest(String url) throws Exception {
+        MockHttpServletRequestBuilder loginPost = post(url)
                 .accept(APPLICATION_JSON_VALUE)
                 .session(new MockHttpSession())
                 .param("username", testUser.getUserName())
                 .param("password", testPassword);
 
-        mockMvc.perform(loginPost)
+        MvcResult loginResult = mockMvc.perform(loginPost)
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("\"username\":\"" + testUser.getUserName())))
-                .andExpect(content().string(containsString("\"email\":\"" + testUser.getPrimaryEmail())));
+                .andReturn();
+        assertThat(loginResult.getResponse().getContentAsString())
+                .contains(
+                        "\"username\":\"" + testUser.getUserName(),
+                        "\"email\":\"" + testUser.getPrimaryEmail());
 
         assertThatNumberOfAuditEventsReceivedIsEqualTo(2);
 
         IdentityProviderAuthenticationSuccessEvent passwordEvent = testListener.getLatestEventOfType(IdentityProviderAuthenticationSuccessEvent.class);
         assertThat(passwordEvent.getUser().getUsername()).isEqualTo(testUser.getUserName());
-        assertThat(passwordEvent.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
 
         UserAuthenticationSuccessEvent userEvent = testListener.getLatestEventOfType(UserAuthenticationSuccessEvent.class);
         assertThat(userEvent.getUser().getId()).isEqualTo(passwordEvent.getUser().getId());
         assertThat(userEvent.getUser().getUsername()).isEqualTo(testUser.getUserName());
-        assertThat(userEvent.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
         assertThat(passwordEvent.getAuthenticationType()).isEqualTo(OriginKeys.UAA);
 
         String passwordLogMsg = testLogger.getFirstLogMessageOfType(IdentityProviderAuthenticationSuccess);
-        assertLogMessageWithSession(passwordLogMsg, IdentityProviderAuthenticationSuccess, testUser.getId(), testUser.getUserName());
+        assertLogMessage(passwordLogMsg, IdentityProviderAuthenticationSuccess, testUser.getId(), testUser.getUserName());
 
         String userEventLogMsg = testLogger.getFirstLogMessageOfType(UserAuthenticationSuccess);
-        assertLogMessageWithSession(userEventLogMsg, UserAuthenticationSuccess, testUser.getId(), testUser.getUserName());
+        assertLogMessage(userEventLogMsg, UserAuthenticationSuccess, testUser.getId(), testUser.getUserName());
     }
 
     @Test
     void invalidPasswordLoginUnsuccessfulTest() throws Exception {
-        MockHttpSession session = getLoginForm();
-
         MockHttpServletRequestBuilder loginPost = post("/login.do")
-                .with(csrf(session))
+                .with(cookieCsrf())
+                .session(new MockHttpSession())
                 .accept(MediaType.TEXT_HTML_VALUE)
                 .param("username", testUser.getUserName())
                 .param("password", "");
@@ -318,24 +317,21 @@ class AuditCheckMockMvcTests {
 
         IdentityProviderAuthenticationFailureEvent idpAuthFailEvent = (IdentityProviderAuthenticationFailureEvent) testListener.getEvents().getFirst();
         assertThat(idpAuthFailEvent.getUsername()).isEqualTo(testUser.getUserName());
-        assertThat(idpAuthFailEvent.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
 
         UserAuthenticationFailureEvent userAuthFailEvent = (UserAuthenticationFailureEvent) testListener.getEvents().get(1);
         assertThat(userAuthFailEvent.getUser().getUsername()).isEqualTo(testUser.getUserName());
-        assertThat(userAuthFailEvent.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
 
         PrincipalAuthenticationFailureEvent principalAuthFailEvent = (PrincipalAuthenticationFailureEvent) testListener.getEvents().get(2);
         assertThat(principalAuthFailEvent.getName()).isEqualTo(testUser.getUserName());
-        assertThat(principalAuthFailEvent.getAuditEvent().getOrigin()).doesNotContain("sessionId"); // PrincipalAuthenticationFailureEvent should not contain sessionId at all
 
         String idpAuthFailMsg = testLogger.getMessageAtIndex(0);
-        assertLogMessageWithSession(idpAuthFailMsg, IdentityProviderAuthenticationFailure, "null", testUser.getUserName());
+        assertLogMessage(idpAuthFailMsg, IdentityProviderAuthenticationFailure, "null", testUser.getUserName());
 
         String userAuthFailMsg = testLogger.getMessageAtIndex(1);
-        assertLogMessageWithSession(userAuthFailMsg, UserAuthenticationFailure, testUser.getId(), testUser.getUserName());
+        assertLogMessage(userAuthFailMsg, UserAuthenticationFailure, testUser.getId(), testUser.getUserName());
 
         String principalAuthFailMsg = testLogger.getMessageAtIndex(2);
-        assertLogMessageWithoutSession(principalAuthFailMsg, PrincipalAuthenticationFailure, testUser.getUserName(), "null");
+        assertLogMessage(principalAuthFailMsg, PrincipalAuthenticationFailure, testUser.getUserName(), "null");
     }
 
     @Test
@@ -368,10 +364,9 @@ class AuditCheckMockMvcTests {
         verify(authSuccessListener, times(1)).onApplicationEvent(captor.capture());
         UserAuthenticationSuccessEvent event = captor.getValue();
         assertThat(event.getUser().getUsername()).isEqualTo(molly.getUserName());
-        assertThat(event.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
 
         String userAuthLogMsg = testLogger.getFirstLogMessageOfType(UserAuthenticationSuccess);
-        assertLogMessageWithSession(userAuthLogMsg, UserAuthenticationSuccess, molly.getId(), molly.getUserName());
+        assertLogMessage(userAuthLogMsg, UserAuthenticationSuccess, molly.getId(), molly.getUserName());
     }
 
     @Test
@@ -397,10 +392,9 @@ class AuditCheckMockMvcTests {
 
         UnverifiedUserAuthenticationEvent unverifiedUserAuthEvent = testListener.getLatestEventOfType(UnverifiedUserAuthenticationEvent.class);
         assertThat(unverifiedUserAuthEvent.getUser().getUsername()).isEqualTo(molly.getUserName());
-        assertThat(unverifiedUserAuthEvent.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
 
         String userAuthLogMsg = testLogger.getFirstLogMessageOfType(UnverifiedUserAuthentication);
-        assertLogMessageWithSession(userAuthLogMsg, UnverifiedUserAuthentication, molly.getId(), molly.getUserName());
+        assertLogMessage(userAuthLogMsg, UnverifiedUserAuthentication, molly.getId(), molly.getUserName());
     }
 
     @Test
@@ -424,10 +418,9 @@ class AuditCheckMockMvcTests {
 
         UnverifiedUserAuthenticationEvent event = (UnverifiedUserAuthenticationEvent) testListener.getLatestEvent();
         assertThat(event.getUser().getUsername()).isEqualTo(molly.getUserName());
-        assertThat(event.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
 
         String userAuthLogMsg = testLogger.getFirstLogMessageOfType(UnverifiedUserAuthentication);
-        assertLogMessageWithSession(userAuthLogMsg, UnverifiedUserAuthentication, molly.getId(), molly.getUserName());
+        assertLogMessage(userAuthLogMsg, UnverifiedUserAuthentication, molly.getId(), molly.getUserName());
     }
 
     @Test
@@ -450,19 +443,15 @@ class AuditCheckMockMvcTests {
         assertThat(event1.getUsername()).isEqualTo(testUser.getUserName());
         assertThat(event2.getUser().getUsername()).isEqualTo(testUser.getUserName());
         assertThat(event3.getName()).isEqualTo(testUser.getUserName());
-        assertThat(event1.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
-        assertThat(event2.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
-        // PrincipalAuthenticationFailureEvent does not contain sessionId at all
-        assertThat(event3.getAuditEvent().getOrigin()).doesNotContain("sessionId=<SESSION>");
 
         String idpAuthLogMsg = testLogger.getMessageAtIndex(0);
-        assertLogMessageWithSession(idpAuthLogMsg, IdentityProviderAuthenticationFailure, "null", testUser.getUserName());
+        assertLogMessage(idpAuthLogMsg, IdentityProviderAuthenticationFailure, "null", testUser.getUserName());
 
         String userAuthLogMsg = testLogger.getMessageAtIndex(1);
-        assertLogMessageWithSession(userAuthLogMsg, UserAuthenticationFailure, testUser.getId(), testUser.getUserName());
+        assertLogMessage(userAuthLogMsg, UserAuthenticationFailure, testUser.getId(), testUser.getUserName());
 
         String principalAuthLogMsg = testLogger.getMessageAtIndex(2);
-        assertLogMessageWithoutSession(principalAuthLogMsg, PrincipalAuthenticationFailure, testUser.getUserName(), "null");
+        assertLogMessage(principalAuthLogMsg, PrincipalAuthenticationFailure, testUser.getUserName(), "null");
     }
 
     @Test
@@ -490,19 +479,15 @@ class AuditCheckMockMvcTests {
         //after we reach our max attempts, 5, the system stops logging them until the period is over
         List<AuditEvent> events = auditService.find(jacobId, System.currentTimeMillis() - 10000, identityZoneManager.getCurrentIdentityZoneId());
         assertThat(events).hasSize(5);
-        for (AuditEvent event : events) {
-            assertThat(event.getOrigin()).contains("sessionId=<SESSION>");
-        }
     }
 
     @Test
     void userNotFoundLoginUnsuccessfulTest() throws Exception {
         String username = "test1234";
 
-        MockHttpSession session = getLoginForm();
-
         MockHttpServletRequestBuilder loginPost = post("/login.do")
-                .with(csrf(session))
+                .with(cookieCsrf())
+                .session(new MockHttpSession())
                 .accept(MediaType.TEXT_HTML_VALUE)
                 .param("username", username)
                 .param("password", testPassword);
@@ -515,23 +500,21 @@ class AuditCheckMockMvcTests {
         assertThatNumberOfAuditEventsReceivedIsGreaterThanOrEqualTo(2);
 
         UserNotFoundEvent event1 = (UserNotFoundEvent) testListener.getEvents().getFirst();
-        assertThat(event1.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
         PrincipalAuthenticationFailureEvent event2 = (PrincipalAuthenticationFailureEvent) testListener.getEvents().get(1);
         assertThat(((Authentication) event1.getSource()).getName()).isEqualTo(username);
         assertThat(event2.getName()).isEqualTo(username);
-        // PrincipalAuthenticationFailureEvent does not contain sessionId at all
-        assertThat(event2.getAuditEvent().getOrigin()).doesNotContain("sessionId=<SESSION>");
 
-        String encodedUsername = Utf8.decode(Base64.encodeBase64(MessageDigest.getInstance("SHA-1").digest(Utf8.encode(username))));
-        assertLogMessageWithSession(testLogger.getMessageAtIndex(0), UserNotFound, encodedUsername, "");
-        assertLogMessageWithoutSession(testLogger.getMessageAtIndex(1), PrincipalAuthenticationFailure, username, "null");
+        String encodedUsername = Utf8.decode(Base64.getEncoder().encode(MessageDigest.getInstance("SHA-1").digest(Utf8.encode(username))));
+        assertLogMessage(testLogger.getMessageAtIndex(0), UserNotFound, encodedUsername, "");
+        assertLogMessage(testLogger.getMessageAtIndex(1), PrincipalAuthenticationFailure, username, "null");
     }
 
     @Test
     void userChangePasswordTest() throws Exception {
-        MockHttpSession session = getLoginForm();
+        MockHttpSession session = new MockHttpSession();
         MockHttpServletRequestBuilder loginPost = post("/login.do")
-                .with(csrf(session))
+                .with(cookieCsrf())
+                .session(session)
                 .accept(APPLICATION_JSON_VALUE)
                 .param("username", testUser.getUserName())
                 .param("password", testPassword);
@@ -544,17 +527,15 @@ class AuditCheckMockMvcTests {
 
         IdentityProviderAuthenticationSuccessEvent passwordevent = testListener.getLatestEventOfType(IdentityProviderAuthenticationSuccessEvent.class);
         String userid = passwordevent.getUser().getId();
-        assertThat(passwordevent.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
         UserAuthenticationSuccessEvent userevent = testListener.getLatestEventOfType(UserAuthenticationSuccessEvent.class);
         assertThat(userevent.getUser().getId()).isEqualTo(passwordevent.getUser().getId());
-        assertThat(userevent.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
         assertThat(passwordevent.getAuthenticationType()).isEqualTo(OriginKeys.UAA);
 
         String passwordLogMsg = testLogger.getFirstLogMessageOfType(IdentityProviderAuthenticationSuccess);
-        assertLogMessageWithSession(passwordLogMsg, IdentityProviderAuthenticationSuccess, testUser.getId(), testUser.getUserName());
+        assertLogMessage(passwordLogMsg, IdentityProviderAuthenticationSuccess, testUser.getId(), testUser.getUserName());
 
         String userEventLogMsg = testLogger.getFirstLogMessageOfType(UserAuthenticationSuccess);
-        assertLogMessageWithSession(userEventLogMsg, UserAuthenticationSuccess, testUser.getId(), testUser.getUserName());
+        assertLogMessage(userEventLogMsg, UserAuthenticationSuccess, testUser.getId(), testUser.getUserName());
 
         resetAuditTestReceivers();
         String marissaToken = testClient.getUserOAuthAccessToken("app", "appclientsecret", testUser.getUserName(), testPassword, "password.write");
@@ -580,16 +561,19 @@ class AuditCheckMockMvcTests {
         PasswordChangeEvent pw = (PasswordChangeEvent) testListener.getLatestEvent();
         assertThat(pw.getUser().getUsername()).isEqualTo(testUser.getUserName());
         assertThat(pw.getMessage()).isEqualTo("Password changed");
-        assertThat(pw.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
+        assertThat(pw.getAuditEvent().getPrincipalName()).isEqualTo(testUser.getUserName());
 
-        assertLogMessageWithSession(testLogger.getLatestMessage(), PasswordChangeSuccess, testUser.getId(), "Password changed");
+        String pwLogMsg = testLogger.getLatestMessage();
+        assertLogMessage(pwLogMsg, PasswordChangeSuccess, testUser.getId(), "Password changed");
+        assertThat(pwLogMsg).contains("principalName=[%s]".formatted(testUser.getUserName()));
     }
 
     @Test
     void userChangeInvalidPasswordTest() throws Exception {
-        MockHttpSession session = getLoginForm();
+        MockHttpSession session = new MockHttpSession();
         MockHttpServletRequestBuilder loginPost = post("/login.do")
-                .with(csrf(session))
+                .with(cookieCsrf())
+                .session(session)
                 .accept(APPLICATION_JSON_VALUE)
                 .param("username", testUser.getUserName())
                 .param("password", testPassword);
@@ -603,17 +587,15 @@ class AuditCheckMockMvcTests {
 
         IdentityProviderAuthenticationSuccessEvent passwordevent = testListener.getLatestEventOfType(IdentityProviderAuthenticationSuccessEvent.class);
         String userid = passwordevent.getUser().getId();
-        assertThat(passwordevent.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
         UserAuthenticationSuccessEvent userevent = testListener.getLatestEventOfType(UserAuthenticationSuccessEvent.class);
         assertThat(userevent.getUser().getId()).isEqualTo(passwordevent.getUser().getId());
-        assertThat(userevent.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
         assertThat(passwordevent.getAuthenticationType()).isEqualTo(OriginKeys.UAA);
 
         String passwordLogMsg = testLogger.getFirstLogMessageOfType(IdentityProviderAuthenticationSuccess);
-        assertLogMessageWithSession(passwordLogMsg, IdentityProviderAuthenticationSuccess, testUser.getId(), testUser.getUserName());
+        assertLogMessage(passwordLogMsg, IdentityProviderAuthenticationSuccess, testUser.getId(), testUser.getUserName());
 
         String userEventLogMsg = testLogger.getFirstLogMessageOfType(UserAuthenticationSuccess);
-        assertLogMessageWithSession(userEventLogMsg, UserAuthenticationSuccess, testUser.getId(), testUser.getUserName());
+        assertLogMessage(userEventLogMsg, UserAuthenticationSuccess, testUser.getId(), testUser.getUserName());
 
         resetAuditTestReceivers();
         String marissaToken = testClient.getUserOAuthAccessToken("app", "appclientsecret", testUser.getUserName(), testPassword, "password.write");
@@ -641,9 +623,11 @@ class AuditCheckMockMvcTests {
         PasswordChangeFailureEvent pwfe = (PasswordChangeFailureEvent) testListener.getLatestEvent();
         assertThat(pwfe.getUser().getUsername()).isEqualTo(testUser.getUserName());
         assertThat(pwfe.getMessage()).isEqualTo("Old password is incorrect");
-        assertThat(pwfe.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
+        assertThat(pwfe.getAuditEvent().getPrincipalName()).isEqualTo(testUser.getUserName());
 
-        assertLogMessageWithSession(testLogger.getLatestMessage(), PasswordChangeFailure, testUser.getUserName(), "Old password is incorrect");
+        String pwfeLogMsg = testLogger.getLatestMessage();
+        assertLogMessage(pwfeLogMsg, PasswordChangeFailure, testUser.getId(), "Old password is incorrect");
+        assertThat(pwfeLogMsg).contains("principalName=[%s]".formatted(testUser.getUserName()));
     }
 
     @Test
@@ -659,8 +643,11 @@ class AuditCheckMockMvcTests {
         PasswordChangeEvent pw = (PasswordChangeEvent) testListener.getLatestEvent();
         assertThat(pw.getUser().getUsername()).isEqualTo(user.getUserName());
         assertThat(pw.getMessage()).isEqualTo("Password changed");
+        assertThat(pw.getAuditEvent().getPrincipalName()).isEqualTo(user.getUserName());
 
-        assertLogMessageWithoutSession(testLogger.getLatestMessage(), PasswordChangeSuccess, user.getId(), "Password changed");
+        String pwLogMsg = testLogger.getLatestMessage();
+        assertLogMessage(pwLogMsg, PasswordChangeSuccess, user.getId(), "Password changed");
+        assertThat(pwLogMsg).contains("principalName=[%s]".formatted(user.getUserName()));
     }
 
     @Test
@@ -688,15 +675,17 @@ class AuditCheckMockMvcTests {
         assertThat(pce.getUser().getUsername()).isEqualTo(testUser.getUserName());
         assertThat(pce.getMessage()).isEqualTo("Password changed");
         //PasswordChangeEvent does not contain session in this case
-        assertThat(pce.getAuditEvent().getOrigin()).doesNotContain("sessionId=<SESSION>");
+        assertThat(pce.getAuditEvent().getPrincipalName()).isEqualTo(testUser.getUserName());
 
-        assertLogMessageWithoutSession(testLogger.getLatestMessage(), PasswordChangeSuccess, testUser.getId(), "Password changed");
+        String pceLogMsg = testLogger.getLatestMessage();
+        assertLogMessage(pceLogMsg, PasswordChangeSuccess, testUser.getId(), "Password changed");
+        assertThat(pceLogMsg).contains("principalName=[%s]".formatted(testUser.getUserName()));
     }
 
     @Test
     void clientAuthenticationSuccess() throws Exception {
         String basicDigestHeaderValue = "Basic "
-                + new String(Base64.encodeBase64("login:loginsecret".getBytes()));
+                + new String(Base64.getEncoder().encode("login:loginsecret".getBytes()));
         MockHttpServletRequestBuilder oauthTokenPost = post("/oauth/token")
                 .header("Authorization", basicDigestHeaderValue)
                 .param("grant_type", "client_credentials")
@@ -710,13 +699,13 @@ class AuditCheckMockMvcTests {
         AuditEvent auditEvent = event.getAuditEvent();
         assertThat(auditEvent.getPrincipalId()).isEqualTo("login");
 
-        assertLogMessageWithoutSession(testLogger.getMessageAtIndex(0), ClientAuthenticationSuccess, "login", "Client authentication success");
+        assertLogMessage(testLogger.getMessageAtIndex(0), ClientAuthenticationSuccess, "login", "Client authentication success");
     }
 
     @Test
     void clientAuthenticationFailure() throws Exception {
         String basicDigestHeaderValue = "Basic "
-                + new String(Base64.encodeBase64("login:loginsecretwrong".getBytes()));
+                + new String(Base64.getEncoder().encode("login:loginsecretwrong".getBytes()));
         MockHttpServletRequestBuilder oauthTokenPost = post("/oauth/token")
                 .header("Authorization", basicDigestHeaderValue)
                 .param("grant_type", "client_credentials")
@@ -730,13 +719,13 @@ class AuditCheckMockMvcTests {
         AuditEvent auditEvent = event.getAuditEvent();
         assertThat(auditEvent.getPrincipalId()).isEqualTo("login");
 
-        assertLogMessageWithoutSession(testLogger.getLatestMessage(), ClientAuthenticationFailure, "login", "Bad credentials");
+        assertLogMessage(testLogger.getLatestMessage(), ClientAuthenticationFailure, "login", "Bad credentials");
     }
 
     @Test
     void clientAuthenticationFailureClientNotFound() throws Exception {
         String basicDigestHeaderValue = "Basic "
-                + new String(Base64.encodeBase64("login2:loginsecret".getBytes()));
+                + new String(Base64.getEncoder().encode("login2:loginsecret".getBytes()));
         MockHttpServletRequestBuilder oauthTokenPost = post("/oauth/token")
                 .header("Authorization", basicDigestHeaderValue)
                 .param("grant_type", "client_credentials")
@@ -751,8 +740,8 @@ class AuditCheckMockMvcTests {
         ClientAuthenticationFailureEvent event1 = (ClientAuthenticationFailureEvent) testListener.getEvents().get(1);
         assertThat(event1.getClientId()).isEqualTo("login");
 
-        assertLogMessageWithoutSession(testLogger.getMessageAtIndex(0), PrincipalAuthenticationFailure, "login2", "null");
-        assertLogMessageWithoutSession(testLogger.getMessageAtIndex(1), ClientAuthenticationFailure, "login", "Bad credentials");
+        assertLogMessage(testLogger.getMessageAtIndex(0), PrincipalAuthenticationFailure, "login2", "null");
+        assertLogMessage(testLogger.getMessageAtIndex(1), ClientAuthenticationFailure, "login", "Bad credentials");
     }
 
     @Test
@@ -783,11 +772,10 @@ class AuditCheckMockMvcTests {
 
         ApprovalModifiedEvent approvalModifiedEvent = (ApprovalModifiedEvent) testListener.getLatestEvent();
         assertThat(approvalModifiedEvent.getAuthentication().getName()).isEqualTo(testUser.getUserName());
-        assertThat(approvalModifiedEvent.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
 
         String latestMessage = testLogger.getLatestMessage();
         assertThat(latestMessage).contains(" user=" + testUser.getUserName());
-        assertLogMessageWithSession(latestMessage, ApprovalModifiedEvent, testUser.getId(), "{\"scope\":\"cloud_controller.read\",\"status\":\"APPROVED\"}");
+        assertLogMessage(latestMessage, ApprovalModifiedEvent, testUser.getId(), "{\"scope\":\"cloud_controller.read\",\"status\":\"APPROVED\"}");
     }
 
     @Test
@@ -817,14 +805,13 @@ class AuditCheckMockMvcTests {
         assertThat(userModifiedEvent.getAuthentication().getName()).isEqualTo(testAccounts.getAdminClientId());
         assertThat(userModifiedEvent.getUsername()).isEqualTo(scimUser.getUserName());
         assertThat(userModifiedEvent.getAuditEvent().getType()).isEqualTo(UserCreatedEvent);
-        assertThat(userModifiedEvent.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
 
         ScimUser createdUser = jdbcScimUserProvisioning.retrieveAll(identityZoneManager.getCurrentIdentityZoneId())
                 .stream().filter(dbUser -> dbUser.getUserName().equals(scimUser.getUserName())).findFirst().get();
         String logMessage = "[\"user_id=%s\",\"username=%s\"]".formatted(
                 createdUser.getId(),
                 scimUser.getUserName());
-        assertLogMessageWithSession(testLogger.getLatestMessage(),
+        assertLogMessage(testLogger.getLatestMessage(),
                 UserCreatedEvent, createdUser.getId(), logMessage);
     }
 
@@ -889,8 +876,7 @@ class AuditCheckMockMvcTests {
             assertThat(actualLogMessage).startsWith(UserCreatedEvent.toString())
                     .contains("principal=%s,".formatted(createdUser.getId()))
                     .contains(logMessage)
-                    .contains(", identityZoneId=[%s]".formatted(zoneSeeder.getIdentityZoneId()))
-                    .matches(".*origin=\\[.*sessionId=<SESSION>.*\\].*");
+                    .contains(", identityZoneId=[%s]".formatted(zoneSeeder.getIdentityZoneId()));
         }
 
         @Test
@@ -931,8 +917,7 @@ class AuditCheckMockMvcTests {
             assertThat(actualLogMessage).startsWith(UserDeletedEvent.toString())
                     .contains("principal=%s,".formatted(scimUser.getId()))
                     .contains(" ('%s'): ".formatted(logMessage))
-                    .contains(", identityZoneId=[%s]".formatted(zoneSeeder.getIdentityZoneId()))
-                    .matches(".*origin=\\[.*sessionId=<SESSION>.*\\].*");
+                    .contains(", identityZoneId=[%s]".formatted(zoneSeeder.getIdentityZoneId()));
         }
 
     }
@@ -949,6 +934,7 @@ class AuditCheckMockMvcTests {
         resetAuditTestReceivers();
 
         MockHttpServletRequestBuilder userPost = post("/oauth/authorize")
+                .with(cookieCsrf())
                 .accept(APPLICATION_JSON_VALUE)
                 .contentType(MediaType.APPLICATION_JSON)
                 .session(new MockHttpSession())
@@ -973,7 +959,6 @@ class AuditCheckMockMvcTests {
         assertThat(userModifiedEvent.getAuthentication().getName()).isEqualTo("login");
         assertThat(userModifiedEvent.getUsername()).isEqualTo(username);
         assertThat(userModifiedEvent.getAuditEvent().getType()).isEqualTo(UserCreatedEvent);
-        assertThat(userModifiedEvent.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
 
         ScimUser createdUser = jdbcScimUserProvisioning.retrieveAll(identityZoneManager.getCurrentIdentityZoneId())
                 .stream().filter(dbUser -> dbUser.getUserName().equals(username)).findFirst().get();
@@ -982,7 +967,7 @@ class AuditCheckMockMvcTests {
                 createdUser.getId(),
                 username);
 
-        assertLogMessageWithSession(testLogger.getMessageAtIndex(0),
+        assertLogMessage(testLogger.getMessageAtIndex(0),
                 UserCreatedEvent, createdUser.getId(), logMessage);
     }
 
@@ -1043,10 +1028,9 @@ class AuditCheckMockMvcTests {
             assertThat(userModifiedEvent.getAuthentication().getName()).isEqualTo(testAccounts.getAdminClientId());
             assertThat(userModifiedEvent.getUsername()).isEqualTo(scimUser.getUserName());
             assertThat(userModifiedEvent.getAuditEvent().getType()).isEqualTo(UserModifiedEvent);
-            assertThat(userModifiedEvent.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
 
             String logMessage = "[\"user_id=%s\",\"username=%s\"]".formatted(scimUser.getId(), scimUser.getUserName());
-            assertLogMessageWithSession(testLogger.getLatestMessage(),
+            assertLogMessage(testLogger.getLatestMessage(),
                     UserModifiedEvent,
                     scimUser.getId(),
                     logMessage);
@@ -1072,12 +1056,11 @@ class AuditCheckMockMvcTests {
             assertThat(userDeletedEvent.getAuthentication().getName()).isEqualTo(testAccounts.getAdminClientId());
             assertThat(userDeletedEvent.getUsername()).isEqualTo(scimUser.getUserName());
             assertThat(userDeletedEvent.getAuditEvent().getType()).isEqualTo(UserDeletedEvent);
-            assertThat(userDeletedEvent.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
 
             String logMessage = "[\"user_id=%s\",\"username=%s\"]".formatted(
                     scimUser.getId(),
                     scimUser.getUserName());
-            assertLogMessageWithSession(testLogger.getLatestMessage(),
+            assertLogMessage(testLogger.getLatestMessage(),
                     UserDeletedEvent, scimUser.getId(), logMessage);
         }
     }
@@ -1126,9 +1109,8 @@ class AuditCheckMockMvcTests {
         assertThat(userModifiedEvent.getAuthentication().getName()).isEqualTo(testAccounts.getAdminClientId());
         assertThat(userModifiedEvent.getUsername()).isEqualTo(username);
         assertThat(userModifiedEvent.getAuditEvent().getType()).isEqualTo(UserVerifiedEvent);
-        assertThat(userModifiedEvent.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
 
-        assertLogMessageWithSession(testLogger.getLatestMessage(),
+        assertLogMessage(testLogger.getLatestMessage(),
                 UserVerifiedEvent, user.getId(), "[\"user_id=%s\",\"username=%s\"]".formatted(user.getId(), username));
     }
 
@@ -1153,9 +1135,8 @@ class AuditCheckMockMvcTests {
         ResetPasswordRequestEvent event = (ResetPasswordRequestEvent) testListener.getLatestEvent();
         assertThat(event.getAuditEvent().getPrincipalId()).isEqualTo(testUser.getUserName());
         assertThat(event.getAuditEvent().getData()).isEqualTo(testUser.getPrimaryEmail());
-        assertThat(event.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
 
-        assertLogMessageWithSession(testLogger.getLatestMessage(),
+        assertLogMessage(testLogger.getLatestMessage(),
                 PasswordResetRequest, testUser.getUserName(), testUser.getPrimaryEmail());
     }
 
@@ -1324,7 +1305,6 @@ class AuditCheckMockMvcTests {
         assertThat(userModifiedEvent.getAuthentication().getName()).isEqualTo(testAccounts.getAdminClientId());
         assertThat(userModifiedEvent.getUsername()).isEqualTo(username);
         assertThat(userModifiedEvent.getAuditEvent().getType()).isEqualTo(UserCreatedEvent);
-        assertThat(userModifiedEvent.getAuditEvent().getOrigin()).contains("sessionId=<SESSION>");
 
         return JsonUtils.readValue(result.andReturn().getResponse().getContentAsString(), ScimUser.class);
     }
@@ -1408,21 +1388,7 @@ class AuditCheckMockMvcTests {
         assertThat(message).contains("\"authorities\":[%s]".formatted(commaSeparatedQuotedAuthorities));
     }
 
-    private void assertLogMessageWithSession(String actualLogMessage, AuditEventType expectedAuditEventType, String expectedPrincipal, String expectedUserName) {
-        assertThat(actualLogMessage).startsWith(expectedAuditEventType.toString() + " ")
-                .contains("principal=%s,".formatted(expectedPrincipal))
-                .contains(" ('%s'): ".formatted(expectedUserName))
-                .contains(", identityZoneId=[uaa]")
-                .matches(".*origin=\\[.*sessionId=<SESSION>.*\\].*");
-    }
-
-    private MockHttpSession getLoginForm() {
-        MockHttpSession session = new MockHttpSession();
-        MockMvcUtils.getLoginForm(mockMvc, session);
-        return session;
-    }
-
-    private static void assertLogMessageWithoutSession(String actualLogMessage, AuditEventType expectedAuditEventType, String expectedPrincipal, String expectedUserName) {
+    private void assertLogMessage(String actualLogMessage, AuditEventType expectedAuditEventType, String expectedPrincipal, String expectedUserName) {
         assertThat(actualLogMessage).startsWith(expectedAuditEventType.toString() + " ")
                 .contains("principal=%s,".formatted(expectedPrincipal))
                 .contains(" ('%s'): ".formatted(expectedUserName))
@@ -1439,6 +1405,6 @@ class AuditCheckMockMvcTests {
         Matcher patternMatcher = groupLogPattern.matcher(actualLogMessage);
         assertThat(patternMatcher.find()).isTrue();
         Set<String> memberIdsFromLogMessage = StringUtils.commaDelimitedListToSet(patternMatcher.group(1).replaceAll("\"", ""));
-        assertThat(memberIdsFromLogMessage).isEqualTo(Sets.newHashSet(expectedUserIds));
+        assertThat(memberIdsFromLogMessage).hasSameElementsAs(Sets.newHashSet(expectedUserIds));
     }
 }

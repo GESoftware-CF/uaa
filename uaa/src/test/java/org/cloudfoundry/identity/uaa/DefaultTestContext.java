@@ -5,12 +5,13 @@ import org.cloudfoundry.experimental.boot.UaaBootConfiguration;
 import org.cloudfoundry.identity.uaa.db.beans.JdbcUrlCustomizer;
 import org.cloudfoundry.identity.uaa.extensions.PollutionPreventionExtension;
 import org.cloudfoundry.identity.uaa.impl.config.YamlServletProfileInitializer;
+import org.cloudfoundry.identity.uaa.provider.saml.SamlConfiguration;
 import org.cloudfoundry.identity.uaa.test.TestClient;
+import org.cloudfoundry.identity.uaa.zone.ZoneContextPathSessionFilter;
+import org.cloudfoundry.identity.uaa.zone.ZonePathContextRewritingFilter;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.autoconfigure.ldap.LdapAutoConfiguration;
-import org.springframework.boot.autoconfigure.session.SessionAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.annotation.Bean;
@@ -55,12 +56,6 @@ import static org.springframework.security.config.BeanIds.SPRING_SECURITY_FILTER
         webEnvironment = SpringBootTest.WebEnvironment.MOCK
 )
 @SpringJUnitConfig(initializers = {TestPropertyInitializer.class, YamlServletProfileInitializer.class})
-@EnableAutoConfiguration(exclude = {
-        // Conflicts with UaaJdbcSessionConfig
-        SessionAutoConfiguration.class,
-        // Conflicts with LdapSearchAndCompareConfig/LdapSearchAndBindConfig/LdapSimpleBindConfig
-        LdapAutoConfiguration.class
-})
 public @interface DefaultTestContext {
 }
 
@@ -68,7 +63,8 @@ class TestPropertyInitializer implements ApplicationContextInitializer<Configura
 
     @Override
     public void initialize(ConfigurableWebApplicationContext applicationContext) {
-        System.setProperty("UAA_CONFIG_URL","classpath:integration_test_properties.yml");
+        System.setProperty("UAA_CONFIG_URL","classpath:mockmvc_unittest_properties.yml");
+        SamlConfiguration.setupOpenSaml();
     }
 }
 
@@ -76,9 +72,13 @@ class TestClientAndMockMvcTestConfig {
     @Bean
     public MockMvc mockMvc(
             WebApplicationContext webApplicationContext,
-            @Qualifier(SPRING_SECURITY_FILTER_CHAIN) FilterChainProxy securityFilterChain
+            @Qualifier(SPRING_SECURITY_FILTER_CHAIN) FilterChainProxy securityFilterChain,
+            @Qualifier(ZonePathContextRewritingFilter.REGISTRATION_BEAN_NAME) org.springframework.boot.web.servlet.FilterRegistrationBean<ZonePathContextRewritingFilter> zonePathFilterRegistration,
+            @Qualifier(ZoneContextPathSessionFilter.REGISTRATION_BEAN_NAME) org.springframework.boot.web.servlet.FilterRegistrationBean<ZoneContextPathSessionFilter> zoneContextPathSessionFilterRegistration
     ) {
         return MockMvcBuilders.webAppContextSetup(webApplicationContext)
+                .addFilter(zonePathFilterRegistration.getFilter())
+                .addFilter(zoneContextPathSessionFilterRegistration.getFilter())
                 .addFilter(securityFilterChain)
                 .build();
     }

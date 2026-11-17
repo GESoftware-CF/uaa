@@ -16,7 +16,6 @@ import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -26,7 +25,6 @@ import org.openqa.selenium.WebElement;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
-import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.web.client.RestOperations;
 import org.springframework.web.client.RestTemplate;
 
@@ -36,15 +34,12 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.constants.OriginKeys.LDAP;
-import static org.cloudfoundry.identity.uaa.integration.feature.OIDCLoginIT.doesSupportZoneDNS;
-import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.assertSupportsZoneDNS;
+import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.doesSupportZoneDNS;
 import static org.cloudfoundry.identity.uaa.provider.LdapIdentityProviderDefinition.LDAP_TLS_NONE;
 import static org.cloudfoundry.identity.uaa.provider.LdapIdentityProviderDefinition.LDAP_TLS_SIMPLE;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
-import static org.springframework.test.context.TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS;
 
-@Disabled
 @SpringJUnitConfig(classes = DefaultIntegrationTestConfig.class)
 @ExtendWith(ScreenshotOnFailExtension.class)
 @EnabledIfProfile("ldap")
@@ -104,34 +99,31 @@ class LdapLoginIT {
     }
 
     @Test
-    @Disabled
-    public void ldapLogin_with_StartTLS() throws Exception {
+    void ldapLogin_with_StartTLS() throws Exception {
         Long beforeTest = System.currentTimeMillis();
         performLdapLogin("testzone2", LDAP_URL, "marissa4", "ldap4", LDAP_TLS_SIMPLE);
         Long afterTest = System.currentTimeMillis();
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("You should not see this page. Set up your redirect URI.");
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Where to?");
         ScimUser user = IntegrationTestUtils.getUserByZone(zoneAdminToken, baseUrl, "testzone2", "marissa4");
         IntegrationTestUtils.validateUserLastLogon(user, beforeTest, afterTest);
         IntegrationTestUtils.validateAccountChooserCookie(baseUrl.replace("localhost", "testzone2.localhost"), webDriver, IdentityZoneHolder.get());
     }
 
     @Test
-    @Disabled
-    public void ldapLogin_with_TLS() throws Exception {
+    void ldapLogin_with_TLS() throws Exception {
         Long beforeTest = System.currentTimeMillis();
         performLdapLogin("testzone2", LDAPS_URL, "marissa5", "ldap5", LDAP_TLS_NONE);
         Long afterTest = System.currentTimeMillis();
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("You should not see this page. Set up your redirect URI.");
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Where to?");
         ScimUser user = IntegrationTestUtils.getUserByZone(zoneAdminToken, baseUrl, "testzone2", "marissa5");
         IntegrationTestUtils.validateUserLastLogon(user, beforeTest, afterTest);
         IntegrationTestUtils.validateAccountChooserCookie(baseUrl.replace("localhost", "testzone2.localhost"), webDriver, IdentityZoneHolder.get());
     }
 
     @Test
-    @Disabled
-    public void ldap_login_using_utf8_characters() throws Exception {
+    void ldap_login_using_utf8_characters() throws Exception {
         performLdapLogin("testzone2", LDAP_URL, "\u7433\u8D3A", "koala", LDAP_TLS_NONE);
-        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("You should not see this page. Set up your redirect URI.");
+        assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Where to?");
     }
 
     private void performLdapLogin(String subdomain, String ldapUrl, String username, String password, String tlsConfiguration) {
@@ -205,7 +197,7 @@ class LdapLoginIT {
         try {
             WebElement element = webDriver.findElement(By.className("alert-error"));
             alertError = Optional.of(element.getText());
-        } catch (NoSuchElementException e) {
+        } catch (NoSuchElementException _) {
             // do nothing
         }
     }

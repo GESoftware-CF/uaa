@@ -1,5 +1,7 @@
 package org.cloudfoundry.identity.uaa;
 
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthenticationDetailsSource;
 import org.cloudfoundry.identity.uaa.authentication.UaaExceptionTranslator;
 import org.cloudfoundry.identity.uaa.authentication.listener.AuthenticationSuccessListener;
@@ -9,9 +11,9 @@ import org.cloudfoundry.identity.uaa.cache.UrlContentCache;
 import org.cloudfoundry.identity.uaa.client.ClientAdminEndpointsValidator;
 import org.cloudfoundry.identity.uaa.client.event.ClientAdminEventPublisher;
 import org.cloudfoundry.identity.uaa.codestore.ExpiringCodeStore;
-import org.cloudfoundry.identity.uaa.constants.OriginKeys;
 import org.cloudfoundry.identity.uaa.impl.config.IdentityProviderBootstrap;
 import org.cloudfoundry.identity.uaa.impl.config.IdentityZoneConfigurationBootstrap;
+import org.cloudfoundry.identity.uaa.impl.config.RestTemplateConfig;
 import org.cloudfoundry.identity.uaa.impl.config.UaaConfiguration;
 import org.cloudfoundry.identity.uaa.impl.config.YamlConfigurationValidator;
 import org.cloudfoundry.identity.uaa.login.Prompt;
@@ -29,10 +31,9 @@ import org.cloudfoundry.identity.uaa.provider.saml.BootstrapSamlIdentityProvider
 import org.cloudfoundry.identity.uaa.resources.QueryableResourceManager;
 import org.cloudfoundry.identity.uaa.scim.jdbc.JdbcScimUserProvisioning;
 import org.cloudfoundry.identity.uaa.security.ContextSensitiveOAuth2WebSecurityExpressionHandler;
+import org.cloudfoundry.identity.uaa.security.IdpOutboundTrustCache;
 import org.cloudfoundry.identity.uaa.security.beans.SecurityContextAccessor;
-import org.cloudfoundry.identity.uaa.user.JdbcUaaUserDatabase;
-import org.cloudfoundry.identity.uaa.util.TimeService;
-import org.cloudfoundry.identity.uaa.util.TimeServiceImpl;
+import org.cloudfoundry.identity.uaa.user.UaaUserDatabase;
 import org.cloudfoundry.identity.uaa.web.beans.UaaRequestRejectedHandler;
 import org.cloudfoundry.identity.uaa.zone.ClientSecretPolicy;
 import org.cloudfoundry.identity.uaa.zone.ClientSecretValidator;
@@ -51,6 +52,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.support.ReloadableResourceBundleMessageSource;
+import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.Environment;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDecisionVoter;
@@ -82,10 +84,10 @@ public class SpringServletXmlBeansConfiguration {
     Collection<String> defaultAuthorities;
 
     @Autowired
-    UaaProperties.GlobalClientSecretPolicy globalClientSecretPolicy;
+    UaaProperties.GlobalClientSecretPolicy globalClientSecretPolicyConfig;
 
     @Autowired
-    UaaProperties.DefaultClientSecretPolicy defaultClientSecretPolicy;
+    UaaProperties.DefaultClientSecretPolicy defaultClientSecretPolicyConfig;
 
     @Autowired
     UaaProperties.Login loginProps;
@@ -94,9 +96,20 @@ public class SpringServletXmlBeansConfiguration {
     UaaProperties.Logout logoutProps;
 
     @Bean
-    YamlConfigurationValidator uaaConfigValidation(@Value("${environmentYamlKey}") String environmentYamlKey) {
+    YamlConfigurationValidator uaaConfigValidation(ConfigurableEnvironment environment) {
+        // Read the raw value from the PropertySource: environment.getProperty() resolves ${...}
+        // in the returned YAML, which fails startup when a client secret contains such a sequence.
+        String yaml = environment.getPropertySources().stream()
+                .filter(ps -> ps.containsProperty("environmentYamlKey"))
+                .map(ps -> ps.getProperty("environmentYamlKey"))
+                .filter(String.class::isInstance)
+                .map(String.class::cast)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("environmentYamlKey not found in any PropertySource"));
+
         YamlConfigurationValidator bean = new YamlConfigurationValidator(new UaaConfiguration.UaaConfigConstructor());
-        bean.setYaml(environmentYamlKey);
+        bean.setYaml(yaml);
+
         return bean;
     }
 
@@ -104,7 +117,6 @@ public class SpringServletXmlBeansConfiguration {
     @Primary
     ContentNegotiationManagerFactoryBean contentNegotiationManager() {
         ContentNegotiationManagerFactoryBean bean = new ContentNegotiationManagerFactoryBean();
-        bean.setFavorPathExtension(false);
         bean.setFavorParameter(true);
         bean.addMediaType("json", MediaType.APPLICATION_JSON);
         bean.addMediaType("xml", MediaType.APPLICATION_XML);
@@ -118,7 +130,6 @@ public class SpringServletXmlBeansConfiguration {
     ) {
         RequestMappingHandlerMapping bean = new RequestMappingHandlerMapping();
         bean.setContentNegotiationManager(contentNegotiationManagerFactoryBean.build());
-        bean.setUseSuffixPatternMatch(false);
         bean.setOrder(1);
         return bean;
     }
@@ -249,9 +260,13 @@ public class SpringServletXmlBeansConfiguration {
     OidcMetadataFetcher oidcMetadataFetcher(
             UrlContentCache contentCache,
             @Qualifier("trustingRestTemplate") RestTemplate trustingRestTemplate,
-            @Qualifier("nonTrustingRestTemplate") RestTemplate nonTrustingRestTemplate
+            @Qualifier("nonTrustingRestTemplate") RestTemplate nonTrustingRestTemplate,
+            @Qualifier("safeRestTemplate") RestTemplate safeRestTemplate,
+            IdpOutboundTrustCache idpOutboundTrustCache,
+            RestTemplateConfig restTemplateConfig
     ) {
-        return new OidcMetadataFetcher(contentCache, trustingRestTemplate, nonTrustingRestTemplate);
+        return new OidcMetadataFetcher(contentCache, trustingRestTemplate, nonTrustingRestTemplate, safeRestTemplate,
+                idpOutboundTrustCache, restTemplateConfig);
     }
 
     @Bean
@@ -338,32 +353,25 @@ public class SpringServletXmlBeansConfiguration {
     @Bean
     LdapLoginAuthenticationManager ldapLoginAuthenticationMgr(
             @Qualifier("identityProviderProvisioning") IdentityProviderProvisioning provisioning,
-            @Qualifier("userDatabase") JdbcUaaUserDatabase userDatabase
+            @Qualifier("userDatabase") UaaUserDatabase userDatabase
     ) {
         LdapLoginAuthenticationManager bean = new LdapLoginAuthenticationManager(provisioning);
         bean.setUserDatabase(userDatabase);
-        bean.setOrigin(OriginKeys.LDAP);
         return bean;
     }
 
     @Bean
-    TimeService timeService() {
-        return new TimeServiceImpl();
-    }
-
-    @Bean
     AuthenticationSuccessListener authenticationSuccessListener(
-            @Qualifier("scimUserProvisioning") JdbcScimUserProvisioning scimUserProvisioning, 
-            @Qualifier("userDatabase") JdbcUaaUserDatabase userDatabase,
-            TimeService timeService) {
-        return new AuthenticationSuccessListener(scimUserProvisioning, userDatabase, timeService);
+            @Qualifier("scimUserProvisioning") JdbcScimUserProvisioning scimUserProvisioning
+    ) {
+        return new AuthenticationSuccessListener(scimUserProvisioning);
     }
 
     @Bean
     AutologinAuthenticationManager autologinAuthenticationManager(
             @Qualifier("codeStore") ExpiringCodeStore codeStore,
             @Qualifier("jdbcClientDetailsService") MultitenantClientServices jdbcClientDetailsService,
-            @Qualifier("userDatabase") JdbcUaaUserDatabase userDatabase
+            @Qualifier("userDatabase") UaaUserDatabase userDatabase
     ) {
         AutologinAuthenticationManager bean = new AutologinAuthenticationManager();
         bean.setExpiringCodeStore(codeStore);
@@ -375,30 +383,31 @@ public class SpringServletXmlBeansConfiguration {
     @Bean
     ClientSecretPolicy globalClientSecretPolicy() {
         return new ClientSecretPolicy(
-                globalClientSecretPolicy.minLength(),
-                globalClientSecretPolicy.maxLength(),
-                globalClientSecretPolicy.requireUpperCaseCharacter(),
-                globalClientSecretPolicy.requireLowerCaseCharacter(),
-                globalClientSecretPolicy.requireDigit(),
-                globalClientSecretPolicy.requireSpecialCharacter(),
-                globalClientSecretPolicy.expireSecretInMonths()
+                globalClientSecretPolicyConfig.minLength(),
+                globalClientSecretPolicyConfig.maxLength(),
+                globalClientSecretPolicyConfig.requireUpperCaseCharacter(),
+                globalClientSecretPolicyConfig.requireLowerCaseCharacter(),
+                globalClientSecretPolicyConfig.requireDigit(),
+                globalClientSecretPolicyConfig.requireSpecialCharacter(),
+                globalClientSecretPolicyConfig.expireSecretInMonths()
         );
     }
 
     @Bean
     ClientSecretPolicy defaultUaaClientSecretPolicy() {
         return new ClientSecretPolicy(
-                defaultClientSecretPolicy.minLength(),
-                defaultClientSecretPolicy.maxLength(),
-                defaultClientSecretPolicy.requireUpperCaseCharacter(),
-                defaultClientSecretPolicy.requireLowerCaseCharacter(),
-                defaultClientSecretPolicy.requireDigit(),
-                defaultClientSecretPolicy.requireSpecialCharacter(),
-                defaultClientSecretPolicy.expireSecretInMonths()
+                defaultClientSecretPolicyConfig.minLength(),
+                defaultClientSecretPolicyConfig.maxLength(),
+                defaultClientSecretPolicyConfig.requireUpperCaseCharacter(),
+                defaultClientSecretPolicyConfig.requireLowerCaseCharacter(),
+                defaultClientSecretPolicyConfig.requireDigit(),
+                defaultClientSecretPolicyConfig.requireSpecialCharacter(),
+                defaultClientSecretPolicyConfig.expireSecretInMonths()
         );
     }
 
     @Bean
+    @SuppressWarnings("deprecation")
     IdentityZoneConfigurationBootstrap identityZoneConfigurationBootstrap(
             IdentityZoneProvisioning provisioning,
             IdentityZoneValidator identityZoneValidator,
@@ -406,14 +415,20 @@ public class SpringServletXmlBeansConfiguration {
             @Qualifier("uaaTokenPolicy") TokenPolicy uaaTokenPolicy,
             @Qualifier("links") HashMap<String, Object> links,
             @Qualifier("prompts") List<Prompt> prompts,
-            @Qualifier("defaultUserConfig") UserConfig defaultUserConfig
+            @Qualifier("defaultUserConfig") UserConfig defaultUserConfig,
+            @Value("${issuer.uri}") String issuerUri,
+            @Value("${login.entityID:}") String samlEntityID,
+            Environment environment
     ) {
         IdentityZoneConfigurationBootstrap bean = new IdentityZoneConfigurationBootstrap(provisioning);
+        bean.setMtlsEnabled(environment.getProperty("uaa.mtls.enabled", Boolean.class, false));
+        bean.setMtlsTrustBundles(Binder.get(environment)
+                .bind("uaa.mtls.trust-bundles", Bindable.mapOf(String.class, String.class))
+                .orElse(Map.of()));
         bean.setValidator(identityZoneValidator);
         bean.setClientSecretPolicy(defaultUaaClientSecretPolicy);
         bean.setTokenPolicy(uaaTokenPolicy);
-        bean.setSelfServiceCreateAccountEnabled(loginProps.selfServiceCreateAccountEnabled());
-        bean.setSelfServiceResetPasswordEnabled(loginProps.selfServiceResetPasswordEnabled());
+        bean.setSelfServiceLinksEnabled(loginProps.selfServiceLinksEnabled());
         bean.setSelfServiceLinks(links);
         if (links.containsKey("homeRedirect")) {
             bean.setHomeRedirect((String) links.get("homeRedirect"));
@@ -436,8 +451,10 @@ public class SpringServletXmlBeansConfiguration {
         bean.setDisableSamlInResponseToCheck(loginProps.saml().disableInResponseToCheck());
         bean.setSamlWantAssertionSigned(loginProps.saml().wantAssertionSigned());
         bean.setSamlRequestSigned(loginProps.saml().signRequest());
+        bean.setSamlEntityID(samlEntityID);
         bean.setDefaultUserConfig(defaultUserConfig);
         bean.setDefaultIdentityProvider(loginProps.defaultIdentityProvider());
+        bean.setIssuer(issuerUri);
         return bean;
     }
 

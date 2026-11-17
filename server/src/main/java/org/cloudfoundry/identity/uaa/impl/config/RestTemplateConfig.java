@@ -1,5 +1,6 @@
 package org.cloudfoundry.identity.uaa.impl.config;
 
+import org.cloudfoundry.identity.uaa.security.IdpOutboundTrustCache;
 import org.cloudfoundry.identity.uaa.util.UaaHttpRequestUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -28,13 +29,29 @@ public class RestTemplateConfig {
 
     @Bean
     public RestTemplate nonTrustingRestTemplate() {
-        return new RestTemplate(UaaHttpRequestUtils.createRequestFactory(false, timeout, timeout, maxTotal, maxPerRoute, maxKeepAlive, validateAfterInactivity, retryCount));
+        return new RestTemplate(UaaHttpRequestUtils.createRequestFactory(false, timeout, timeout, this));
     }
 
     @Bean
     public RestTemplate trustingRestTemplate() {
-        return new RestTemplate(UaaHttpRequestUtils.createRequestFactory(true, timeout, timeout, maxTotal, maxPerRoute, maxKeepAlive, validateAfterInactivity, retryCount));
+        return new RestTemplate(UaaHttpRequestUtils.createRequestFactory(true, timeout, timeout, this));
     }
+
+    @Bean
+    public RestTemplate safeRestTemplate() {
+        return new RestTemplate(UaaHttpRequestUtils.createSafeRequestFactory(this));
+    }
+
+    /**
+     * Shared, per-IdP outbound TLS trust cache -- consumed by OIDC/OAuth2, SAML, and LDAP connectors
+     * (as each is wired in) so a per-IdP caCertificates config builds trust material once and reuses it,
+     * rather than every consumer building its own.
+     */
+    @Bean
+    public IdpOutboundTrustCache idpOutboundTrustCache() {
+        return new IdpOutboundTrustCache();
+    }
+
 
     public static RestTemplateConfig createDefaults() {
         RestTemplateConfig restTemplateConfig = new RestTemplateConfig();

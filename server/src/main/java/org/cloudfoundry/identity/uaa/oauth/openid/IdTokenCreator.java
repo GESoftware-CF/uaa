@@ -1,17 +1,18 @@
 package org.cloudfoundry.identity.uaa.oauth.openid;
 
-import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.cloudfoundry.identity.uaa.oauth.TokenEndpointBuilder;
 import org.cloudfoundry.identity.uaa.oauth.TokenValidityResolver;
 import org.cloudfoundry.identity.uaa.oauth.client.ClientConstants;
+import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetails;
 import org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants;
+import org.cloudfoundry.identity.uaa.provider.oauth.TokenActor;
 import org.cloudfoundry.identity.uaa.user.UaaUser;
 import org.cloudfoundry.identity.uaa.user.UaaUserDatabase;
 import org.cloudfoundry.identity.uaa.util.TimeService;
 import org.cloudfoundry.identity.uaa.zone.MultitenantClientServices;
-import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetails;
+import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Date;
 import java.util.List;
@@ -20,6 +21,7 @@ import java.util.Set;
 
 import static com.google.common.collect.Lists.newArrayList;
 import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.ACR;
+import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.ACT;
 import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.AMR;
 import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.AUD;
 import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.AUTH_TIME;
@@ -73,9 +75,17 @@ public class IdTokenCreator {
         this.identityZoneManager = identityZoneManager;
     }
 
-    public IdToken create(ClientDetails clientDetails,
-            UaaUser uaaUser,
+    public IdToken create(ClientDetails clientDetails, UaaUser uaaUser,
             UserAuthenticationData userAuthenticationData) throws IdTokenCreationException {
+        return create(clientDetails, uaaUser, userAuthenticationData, null);
+    }
+
+    public IdToken create(
+            ClientDetails clientDetails,
+            UaaUser uaaUser,
+            UserAuthenticationData userAuthenticationData,
+            TokenActor tokenActor
+    ) throws IdTokenCreationException {
         Date expiryDate = tokenValidityResolver.resolve(clientDetails.getClientId());
         Date issuedAt = timeService.getCurrentDate();
 
@@ -90,7 +100,7 @@ public class IdTokenCreator {
 
         String clientTokenSalt = (String) clientDetails.getAdditionalInformation().get(ClientConstants.TOKEN_SALT);
         String revSig = getRevocableTokenSignature(uaaUser, clientTokenSalt, clientDetails.getClientId(), clientDetails.getClientSecret());
-        return new IdToken(
+        IdToken idToken = new IdToken(
                 getIfNotExcluded(uaaUser.getId(), USER_ID),
                 getIfNotExcluded(newArrayList(clientDetails.getClientId()), AUD),
                 getIfNotExcluded(issuerUrl, ISS),
@@ -115,7 +125,10 @@ public class IdTokenCreator {
                 getIfNotExcluded(identityZoneId, ZONE_ID),
                 getIfNotExcluded(uaaUser.getOrigin(), ORIGIN),
                 getIfNotExcluded(userAuthenticationData.jti, JTI),
-                getIfNotExcluded(revSig, REVOCATION_SIGNATURE));
+                getIfNotExcluded(revSig, REVOCATION_SIGNATURE)
+        );
+        idToken.setTokenActor(getIfNotExcluded(tokenActor, ACT));
+        return idToken;
     }
 
     private String getIfScopeContainsProfile(String value, Set<String> scopes) {

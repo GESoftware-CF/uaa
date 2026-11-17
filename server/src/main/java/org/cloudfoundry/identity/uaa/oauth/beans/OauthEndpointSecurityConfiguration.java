@@ -29,6 +29,7 @@ import org.cloudfoundry.identity.uaa.oauth.UaaOauth2RequestValidator;
 import org.cloudfoundry.identity.uaa.oauth.UaaTokenServices;
 import org.cloudfoundry.identity.uaa.oauth.UserManagedAuthzApprovalHandler;
 import org.cloudfoundry.identity.uaa.oauth.pkce.PkceValidationService;
+import org.cloudfoundry.identity.uaa.oauth.tls.RawPeerCertificateCaptureFilter;
 import org.cloudfoundry.identity.uaa.oauth.provider.OAuth2RequestFactory;
 import org.cloudfoundry.identity.uaa.oauth.provider.TokenGranter;
 import org.cloudfoundry.identity.uaa.oauth.provider.authentication.OAuth2AuthenticationProcessingFilter;
@@ -239,8 +240,7 @@ class OauthEndpointSecurityConfiguration {
                 .authorizeHttpRequests( auth -> {
                     auth.requestMatchers("/oauth/token/revoke/client/**").access(anyOf(true).hasScope("tokens.revoke").isUaaAdmin().isZoneAdmin());
                     auth.requestMatchers("/oauth/token/revoke/user/*/client/**").access(anyOf(true).hasScope("tokens.revoke").isUaaAdmin().isZoneAdmin()
-                            .or(SelfCheckAuthorizationManager.isUserTokenRevocationForSelf(selfCheck, 4))
-                            .or(SelfCheckAuthorizationManager.isClientTokenRevocationForSelf(selfCheck, 6))
+                            .or(SelfCheckAuthorizationManager.isClientUserTokenRevocationForSelf(selfCheck, 6, 4))
                     );
                     auth.requestMatchers("/oauth/token/revoke/user/**").access(anyOf(true)
                             .hasScope("tokens.revoke").isUaaAdmin()
@@ -462,6 +462,41 @@ class OauthEndpointSecurityConfiguration {
                 .build();
 
         return new UaaFilterChain(chain, "externalOAuthCallbackEndpointSecurity");
+    }
+
+    /**
+     * Security filter chain for the mTLS token endpoint ({@code /oauth/mtls/token}).
+     *
+     * <p>The {@code ClientCertificateMapper} servlet filter (registered separately) converts the
+     * {@code X-Forwarded-Client-Cert} header set by the Gorouter into a
+     * {@code jakarta.servlet.request.X509Certificate} request attribute before this chain runs.
+     * CSRF is disabled because this is a stateless machine-to-machine API endpoint.
+     */
+    @Bean
+    @Order(FilterChainOrder.OAUTH_11)
+    UaaFilterChain mtlsTokenEndpointSecurity(HttpSecurity http) throws Exception {
+        SecurityFilterChain chain = http
+                .securityMatcher(RawPeerCertificateCaptureFilter.MTLS_TOKEN_PATH,
+                        RawPeerCertificateCaptureFilter.MTLS_TOKEN_PATH + "/**")
+                .authenticationManager(clientAuthenticationManager)
+                .authorizeHttpRequests(auth -> {
+                    auth.requestMatchers("/**").access(anyOf().fullyAuthenticated());
+                    auth.anyRequest().denyAll();
+                })
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(getClientParameterAuthenticationFilter(), BasicAuthenticationFilter.class)
+                .addFilterAt(clientAuthenticationFilter.getFilter(), BasicAuthenticationFilter.class)
+                .addFilterAfter(tokenEndpointAuthenticationFilter.getFilter(), BasicAuthenticationFilter.class)
+                .anonymous(AnonymousConfigurer::disable)
+                .csrf(CsrfConfigurer::disable)
+                .exceptionHandling(exception ->
+                        exception.authenticationEntryPoint(basicAuthenticationEntryPoint)
+                                .accessDeniedHandler(oauthAccessDeniedHandler)
+                )
+                .securityContext(sc -> sc.requireExplicitSave(false))
+                .build();
+
+        return new UaaFilterChain(chain, "mtlsTokenEndpointSecurity");
     }
 
     @Bean

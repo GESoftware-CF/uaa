@@ -13,6 +13,9 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.oauth;
 
+import org.cloudfoundry.identity.uaa.constants.ClientAuthentication;
+import org.cloudfoundry.identity.uaa.zone.beans.IdentityZoneManagerImpl;
+import org.cloudfoundry.identity.uaa.oauth.tls.MtlsFeaturePolicy;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.cloudfoundry.identity.uaa.approval.ApprovalService;
@@ -20,46 +23,57 @@ import org.cloudfoundry.identity.uaa.audit.event.TokenIssuedEvent;
 import org.cloudfoundry.identity.uaa.authentication.Origin;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthentication;
 import org.cloudfoundry.identity.uaa.authentication.UaaPrincipal;
+import org.cloudfoundry.identity.uaa.client.InvalidClientDetailsException;
+import org.cloudfoundry.identity.uaa.client.TlsClientAuthConfiguration;
 import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
+import org.cloudfoundry.identity.uaa.oauth.client.ClientConstants;
+import org.cloudfoundry.identity.uaa.oauth.event.TokenRevocationEvent;
 import org.cloudfoundry.identity.uaa.oauth.common.DefaultOAuth2RefreshToken;
 import org.cloudfoundry.identity.uaa.oauth.common.OAuth2AccessToken;
 import org.cloudfoundry.identity.uaa.oauth.common.OAuth2RefreshToken;
+import org.cloudfoundry.identity.uaa.oauth.common.exceptions.InvalidGrantException;
+import org.cloudfoundry.identity.uaa.oauth.common.exceptions.InvalidScopeException;
+import org.cloudfoundry.identity.uaa.oauth.common.exceptions.InvalidTokenException;
 import org.cloudfoundry.identity.uaa.oauth.jwt.JwtHelper;
 import org.cloudfoundry.identity.uaa.oauth.openid.IdToken;
 import org.cloudfoundry.identity.uaa.oauth.openid.IdTokenCreationException;
+import org.cloudfoundry.identity.uaa.oauth.openid.IdTokenClaimEnhancer;
 import org.cloudfoundry.identity.uaa.oauth.openid.IdTokenCreator;
 import org.cloudfoundry.identity.uaa.oauth.openid.IdTokenGranter;
 import org.cloudfoundry.identity.uaa.oauth.openid.UserAuthenticationData;
 import org.cloudfoundry.identity.uaa.oauth.provider.AuthorizationRequest;
+import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetails;
 import org.cloudfoundry.identity.uaa.oauth.provider.OAuth2Authentication;
 import org.cloudfoundry.identity.uaa.oauth.provider.OAuth2Request;
 import org.cloudfoundry.identity.uaa.oauth.provider.TokenRequest;
+import org.cloudfoundry.identity.uaa.oauth.provider.token.AuthorizationServerTokenServices;
+import org.cloudfoundry.identity.uaa.oauth.provider.token.ResourceServerTokenServices;
 import org.cloudfoundry.identity.uaa.oauth.refresh.CompositeExpiringOAuth2RefreshToken;
 import org.cloudfoundry.identity.uaa.oauth.refresh.RefreshTokenCreator;
 import org.cloudfoundry.identity.uaa.oauth.refresh.RefreshTokenRequestData;
-import org.cloudfoundry.identity.uaa.oauth.provider.token.AuthorizationServerTokenServices;
 import org.cloudfoundry.identity.uaa.oauth.token.Claims;
 import org.cloudfoundry.identity.uaa.oauth.token.CompositeToken;
-import org.cloudfoundry.identity.uaa.oauth.provider.token.ResourceServerTokenServices;
 import org.cloudfoundry.identity.uaa.oauth.token.RevocableToken;
 import org.cloudfoundry.identity.uaa.oauth.token.RevocableTokenProvisioning;
-import org.cloudfoundry.identity.uaa.provider.oauth.ExternalOAuthUserAuthority;
+import org.cloudfoundry.identity.uaa.provider.oauth.TokenActor;
 import org.cloudfoundry.identity.uaa.user.UaaAuthority;
 import org.cloudfoundry.identity.uaa.user.UaaUser;
 import org.cloudfoundry.identity.uaa.user.UaaUserDatabase;
 import org.cloudfoundry.identity.uaa.user.UaaUserPrototype;
 import org.cloudfoundry.identity.uaa.user.UserInfo;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
-import org.cloudfoundry.identity.uaa.util.TimeService;
 import org.cloudfoundry.identity.uaa.util.JwtTokenSignedByThisUAA;
+import org.cloudfoundry.identity.uaa.util.TimeService;
 import org.cloudfoundry.identity.uaa.util.UaaSecurityContextUtils;
 import org.cloudfoundry.identity.uaa.util.UaaStringUtils;
 import org.cloudfoundry.identity.uaa.util.UaaTokenUtils;
-import org.cloudfoundry.identity.uaa.zone.MultitenantClientServices;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
+import org.cloudfoundry.identity.uaa.zone.MultitenantClientServices;
 import org.cloudfoundry.identity.uaa.zone.TokenPolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.security.authentication.InternalAuthenticationServiceException;
@@ -67,21 +81,18 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.cloudfoundry.identity.uaa.oauth.common.exceptions.InvalidGrantException;
-import org.cloudfoundry.identity.uaa.oauth.common.exceptions.InvalidScopeException;
-import org.cloudfoundry.identity.uaa.oauth.common.exceptions.InvalidTokenException;
-import org.cloudfoundry.identity.uaa.oauth.provider.ClientDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.util.StringUtils;
 import org.springframework.util.ObjectUtils;
-
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -89,51 +100,32 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
+import static java.util.Collections.singletonList;
 import static java.util.Optional.ofNullable;
 import static org.cloudfoundry.identity.uaa.oauth.client.ClientConstants.REQUIRED_USER_GROUPS;
 import static org.cloudfoundry.identity.uaa.oauth.openid.IdToken.ACR_VALUES_KEY;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.ACR;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.ADDITIONAL_AZ_ATTR;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.AMR;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.AUD;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.AUTHORITIES;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.AUTH_TIME;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.AZP;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.CID;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.CLIENT_AUTH_METHOD;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.CLIENT_ID;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.EMAIL;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.EXPIRY_IN_SECONDS;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.GRANTED_SCOPES;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.GRANT_TYPE;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.IAT;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.ISS;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.JTI;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.NONCE;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.ORIGIN;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.REVOCABLE;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.REVOCATION_SIGNATURE;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.SCOPE;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.SUB;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.USER_ID;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.USER_NAME;
-import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.ZONE_ID;
+import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.*;
 import static org.cloudfoundry.identity.uaa.oauth.token.RevocableToken.TokenType.ACCESS_TOKEN;
 import static org.cloudfoundry.identity.uaa.oauth.token.RevocableToken.TokenType.REFRESH_TOKEN;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.CLIENT_AUTH_EMPTY;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.CLIENT_AUTH_NONE;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_CLIENT_CREDENTIALS;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_REFRESH_TOKEN;
+import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_TOKEN_EXCHANGE;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_USER_TOKEN;
+import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.ISSUED_TOKEN_TYPE;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.REQUEST_AUTHORITIES;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.REQUEST_TOKEN_FORMAT;
+import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.SUBJECT_TOKEN;
+import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.TOKEN_TYPE_ACCESS;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.TokenFormat.JWT;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.TokenFormat.OPAQUE;
 import static org.springframework.util.StringUtils.hasText;
@@ -152,7 +144,12 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
             CLIENT_ID, CID, AZP, REVOCABLE,
             GRANT_TYPE, USER_ID, ORIGIN, USER_NAME,
             EMAIL, AUTH_TIME, REVOCATION_SIGNATURE, IAT,
-            EXPIRY_IN_SECONDS, ISS, ZONE_ID, AUD
+            EXPIRY_IN_SECONDS, ISS, ZONE_ID, AUD,
+            // granted_scopes belongs to the refresh token only: it records the full consented set,
+            // while an access token's `scope` may deliberately be a narrower subset the caller asked
+            // for. getAdditionalRootClaims() removes it only after the copy loop, so it must be
+            // filtered here.
+            GRANTED_SCOPES
     );
     private static final long MILLIS_PER_SECOND = 1000L;
     private final Logger logger = LoggerFactory.getLogger(UaaTokenServices.class);
@@ -162,8 +159,15 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
     private ApplicationEventPublisher applicationEventPublisher;
     private final TokenPolicy tokenPolicy;
     private final RevocableTokenProvisioning tokenProvisioning;
+    private static final String CNF = "cnf";
+
     private Set<String> excludedClaims;
-    private UaaTokenEnhancer uaaTokenEnhancer;
+    private List<UaaTokenEnhancer> uaaTokenEnhancers = new ArrayList<>();
+    @Autowired
+    private MtlsFeaturePolicy mtlsFeaturePolicy =
+            new MtlsFeaturePolicy(true,
+                    new IdentityZoneManagerImpl());
+    private IdTokenClaimEnhancer idTokenClaimEnhancer = IdTokenClaimEnhancer.noOp();
     private final IdTokenCreator idTokenCreator;
     private final RefreshTokenCreator refreshTokenCreator;
     private TokenEndpointBuilder tokenEndpointBuilder;
@@ -211,8 +215,24 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
         this.excludedClaims = new HashSet<>(excludedClaims);
     }
 
+    @Autowired(required = false)
+    public void setUaaTokenEnhancers(List<UaaTokenEnhancer> uaaTokenEnhancers) {
+        if (uaaTokenEnhancers != null) {
+            this.uaaTokenEnhancers = uaaTokenEnhancers.stream()
+                    .filter(Objects::nonNull)
+                    .toList();
+        } else {
+            this.uaaTokenEnhancers = new ArrayList<>();
+        }
+    }
+
+    @Deprecated
     public void setUaaTokenEnhancer(UaaTokenEnhancer uaaTokenEnhancer) {
-        this.uaaTokenEnhancer = uaaTokenEnhancer;
+        this.setUaaTokenEnhancers(uaaTokenEnhancer == null ? emptyList() : singletonList(uaaTokenEnhancer));
+    }
+
+    public void setIdTokenClaimEnhancer(IdTokenClaimEnhancer idTokenClaimEnhancer) {
+        this.idTokenClaimEnhancer = idTokenClaimEnhancer == null ? IdTokenClaimEnhancer.noOp() : idTokenClaimEnhancer;
     }
 
     @Override
@@ -236,20 +256,21 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
 
         Claims claims = getClaims(refreshTokenClaims);
 
+        // Token client id: prefer cid, fall back to client_id for legacy or external tokens
+        String tokenClientId = claims.getCid() != null ? claims.getCid() : claims.getClientId();
+        if (tokenClientId == null || !tokenClientId.equals(request.getClientId())) {
+            throw new InvalidGrantException("Wrong client for this refresh token: " + tokenClientId);
+        }
+
         // default request scopes to what is in the refresh token
         Set<String> requestedScopes = request.getScope().isEmpty() ? Sets.newHashSet(tokenScopes) : request.getScope();
         Map<String, String> requestParams = request.getRequestParameters();
         String requestedTokenFormat = requestParams.get(REQUEST_TOKEN_FORMAT);
-        String requestedClientId = request.getClientId();
-
-        if (claims.getCid() == null || !claims.getCid().equals(requestedClientId)) {
-            throw new InvalidGrantException("Wrong client for this refresh token: " + claims.getCid());
-        }
         boolean isOpaque = OPAQUE.getStringValue().equals(requestedTokenFormat);
         boolean isRevocable = isRevocable(claims, isOpaque);
 
         UaaUser user = new UaaUser(userDatabase.retrieveUserPrototypeById(claims.getUserId()));
-        UaaClientDetails client = (UaaClientDetails) clientDetailsService.loadClientByClientId(claims.getCid());
+        UaaClientDetails client = (UaaClientDetails) clientDetailsService.loadClientByClientId(tokenClientId);
 
         long refreshTokenExpireMillis = claims.getExp().longValue() * MILLIS_PER_SECOND;
         if (new Date(refreshTokenExpireMillis).before(timeService.getCurrentDate())) {
@@ -298,14 +319,16 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
                         user,
                         AuthTimeDateConverter.authTimeToDate(claims.getAuthTime()),
                         getClientPermissions(client),
-                        claims.getCid(),
+                        tokenClientId,
                         Set.copyOf(claims.getAud()),
                         refreshTokenValue,
                         claims.getAzAttr(),
                         additionalRootClaims,
+                        Map.of(),
                         claims.getRevSig(),
                         isRevocable,
-                        authenticationData
+                        authenticationData,
+                        null
                 );
 
         CompositeExpiringOAuth2RefreshToken expiringRefreshToken = new CompositeExpiringOAuth2RefreshToken(
@@ -316,7 +339,7 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
         if (isRevocable && refreshTokenCreator.shouldRotateRefreshTokens(clientAuth)) {
             tokenIdToBeDeleted = (String) jwtToken.getClaims().get(JTI);
         }
-        return persistRevocableToken(accessTokenId, compositeToken, expiringRefreshToken, claims.getClientId(), user.getId(), isOpaque, isRevocable, tokenIdToBeDeleted);
+        return persistRevocableToken(accessTokenId, compositeToken, expiringRefreshToken, client, tokenClientId, user.getId(), isOpaque, isRevocable, tokenIdToBeDeleted);
     }
 
     private static String getAuthenticationMethod(OAuth2Request oAuth2Request) {
@@ -333,6 +356,18 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
             }
             addRootClaimEntry(additionalRootClaims, CLIENT_AUTH_METHOD, authenticationData.clientAuth);
         }
+    }
+
+    private Map<String, Object> addTokenExchangeClaims(Map<String, Object> additionalRootClaims, OAuth2Request oAuth2Request) {
+        String subjectToken = oAuth2Request.getRequestParameters().get(SUBJECT_TOKEN);
+        if (!hasText(subjectToken) || oAuth2Request.getTokenActor() == null) {
+            return additionalRootClaims;
+        }
+        if (additionalRootClaims == null) {
+            additionalRootClaims = new HashMap<>();
+        }
+        additionalRootClaims.put(ACT, oAuth2Request.getTokenActor().getClaims());
+        return additionalRootClaims;
     }
 
     private static Map<String, Object> addAuthenticationMethod(Map<String, Object> additionalRootClaims, String clientAuthentication) {
@@ -353,7 +388,8 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
 
     private Map<String, Object> getAdditionalRootClaims(Map<String, Object> refreshTokenClaims) {
         Map<String, Object> additionalRootClaims = new HashMap<>();
-        if (uaaTokenEnhancer != null) {
+        if (uaaTokenEnhancers.stream()
+                .anyMatch(enhancer -> enhancer.isEnabled() && enhancer.contributesToRefreshedTokens())) {
             refreshTokenClaims.entrySet()
                     .stream()
                     .filter(entry -> !NON_ADDITIONAL_ROOT_CLAIMS.contains(entry.getKey()))
@@ -414,9 +450,11 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
             String refreshToken,
             Map<String, String> additionalAuthorizationAttributes,
             Map<String, Object> additionalRootClaims,
+            Map<String, Object> lateOverrideClaims,
             String revocableHashSignature,
             boolean isRevocable,
-            UserAuthenticationData userAuthenticationData) throws AuthenticationException {
+            UserAuthenticationData userAuthenticationData,
+            OAuth2Authentication authentication) throws AuthenticationException {
         CompositeToken compositeToken = new CompositeToken(tokenId);
         compositeToken.setExpiration(accessTokenValidityResolver.resolve(clientId));
         compositeToken.setRefreshToken(refreshToken == null ? null : new DefaultOAuth2RefreshToken(refreshToken));
@@ -442,6 +480,14 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
             info.put(NONCE, nonce);
         }
 
+        TokenActor tokenActor = null;
+        if (GRANT_TYPE_TOKEN_EXCHANGE.equals(userAuthenticationData.grantType)) {
+            info.put(ISSUED_TOKEN_TYPE, TOKEN_TYPE_ACCESS);
+            if (additionalRootClaims != null) {
+                tokenActor = new TokenActor((Map<String, Object>) additionalRootClaims.get(ACT));
+            }
+        }
+
         compositeToken.setAdditionalInformation(info);
 
         Map<String, Object> jwtAccessToken = createJWTAccessToken(
@@ -455,25 +501,66 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
                 grantType,
                 revocableHashSignature,
                 isRevocable,
-                additionalRootClaims);
+                additionalRootClaims,
+                lateOverrideClaims);
+        UaaClientDetails clientDetails = (UaaClientDetails) clientDetailsService.loadClientByClientId(clientId);
+        if (ClientAuthentication.TLS_CLIENT_AUTH.equals(
+                jwtAccessToken.get(CLIENT_AUTH_METHOD)) && !mtlsFeaturePolicy.isEnabled()) {
+            throw new InvalidClientDetailsException("mTLS is disabled for this identity zone or deployment");
+        }
+        // The signing boundary also covers flows that do not use client authentication and deployments
+        // with no mTLS enhancer. Never sign an unbound token for a client that requires certificate binding.
+        Boolean boundAccessTokens = TlsClientAuthConfiguration.parseBoundAccessTokens(
+                clientDetails.getAdditionalInformation().get(
+                        TlsClientAuthConfiguration.TLS_CLIENT_CERTIFICATE_BOUND_ACCESS_TOKENS));
+        if (boundAccessTokens == null || (boundAccessTokens
+                && !(jwtAccessToken.get(CNF) instanceof Map<?, ?> confirmation
+                        && confirmation.get("x5t#S256") instanceof String thumbprint && !thumbprint.isBlank()))) {
+            throw new InvalidClientDetailsException(
+                    TlsClientAuthConfiguration.TLS_CLIENT_CERTIFICATE_BOUND_ACCESS_TOKENS
+                            + " for client_id=" + clientId + " requires a valid certificate-bound access token");
+        }
         String token = JwtHelper.encode(jwtAccessToken, getActiveKeyInfo()).getEncoded();
         compositeToken.setValue(token);
-        UaaClientDetails clientDetails = (UaaClientDetails) clientDetailsService.loadClientByClientId(clientId);
 
         if (idTokenGranter.shouldSendIdToken(user, clientDetails, requestedScopes, grantType)) {
             IdToken idTokenContent;
             try {
-                idTokenContent = idTokenCreator.create(clientDetails, user, userAuthenticationData);
-            } catch (RuntimeException | IdTokenCreationException ignored) {
+                idTokenContent = idTokenCreator.create(clientDetails, user, userAuthenticationData, tokenActor);
+            } catch (RuntimeException | IdTokenCreationException _) {
                 throw new IllegalStateException("Cannot convert id token to JSON");
             }
-            String encodedIdTokenContent = JwtHelper.encode(idTokenContent.getClaimMap(), keyInfoService.getActiveKey()).getEncoded();
+            Map<String, Object> idTokenClaims = idTokenClaimEnhancer.enhance(
+                    idTokenContent.getClaimMap(), authentication, jwtAccessToken,
+                    decodeRefreshTokenClaims(refreshToken, additionalRootClaims));
+            String encodedIdTokenContent = JwtHelper.encode(idTokenClaims, keyInfoService.getActiveKey()).getEncoded();
             compositeToken.setIdTokenValue(encodedIdTokenContent);
         }
 
         publish(new TokenIssuedEvent(compositeToken, SecurityContextHolder.getContext().getAuthentication(), IdentityZoneHolder.getCurrentZoneId()));
 
         return compositeToken;
+    }
+
+    /**
+     * Resolve the claims of the refresh token issued in the same response, for use as the
+     * {@code refreshTokenClaims} argument to {@link IdTokenClaimEnhancer#enhance}.
+     *
+     * <p>The refresh token value handed to {@link #createCompositeToken} is always the
+     * internally-issued JWT (opaque refresh tokens are only substituted in the response
+     * returned to the caller), so this decodes it directly. Falls back to
+     * {@code additionalRootClaims} when no refresh token was issued or it cannot be decoded
+     * as a JWT.</p>
+     */
+    private static Map<String, Object> decodeRefreshTokenClaims(String refreshToken, Map<String, Object> additionalRootClaims) {
+        if (refreshToken != null) {
+            try {
+                return JsonUtils.readValueAsMap(JwtHelper.decode(refreshToken).getClaims());
+            } catch (RuntimeException e) {
+                // not a JWT (e.g. an opaque refresh token); fall through to the default below
+            }
+        }
+        return Collections.emptyMap();
     }
 
     private static Map<String, Object> addRootClaimEntry(Map<String, Object> additionalRootClaims, String entry, String value) {
@@ -498,7 +585,8 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
             String grantType,
             String revocableHashSignature,
             boolean isRevocable,
-            Map<String, Object> additionalRootClaims) {
+            Map<String, Object> additionalRootClaims,
+            Map<String, Object> lateOverrideClaims) {
 
         Map<String, Object> claims = new LinkedHashMap<>();
 
@@ -539,8 +627,16 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
 
         claims.put(AUD, UaaStringUtils.getValuesOrDefaultValue(resourceIds, clientId));
 
+        // Claims an enhancer has opted in to applying after UAA's defaults (UaaTokenEnhancer#getLateOverrideClaims).
+        // Every other enhancer is untouched: its claims were applied above and UAA's defaults take precedence.
+        claims.putAll(lateOverrideClaims);
+
         for (String excludedClaim : getExcludedClaims()) {
-            claims.remove(excludedClaim);
+            // cnf is the RFC 8705 section 3.1 certificate binding. Excluding it would silently turn a token the client
+            // registered as certificate-bound into a bearer token, so the exclusion list does not apply to it.
+            if (!CNF.equals(excludedClaim)) {
+                claims.remove(excludedClaim);
+            }
         }
 
         return claims;
@@ -611,12 +707,29 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
         boolean isRefreshTokenRevocable = isAccessTokenRevocable || OPAQUE.getStringValue().equals(getActiveTokenPolicy().getRefreshTokenFormat());
 
         Map<String, Object> additionalRootClaims = null;
-        if (uaaTokenEnhancer != null) {
-            additionalRootClaims = new HashMap<>(uaaTokenEnhancer.enhance(emptyMap(), authentication));
+        Map<String, Object> lateOverrideClaims = new HashMap<>();
+        List<UaaTokenEnhancer> activeEnhancers = uaaTokenEnhancers.stream().filter(UaaTokenEnhancer::isEnabled).toList();
+        if (!activeEnhancers.isEmpty()) {
+            additionalRootClaims = new HashMap<>();
+            for (UaaTokenEnhancer enhancer : activeEnhancers) {
+                Map<String, Object> claims = enhancer.enhance(additionalRootClaims, authentication);
+                if (claims != null) {
+                    additionalRootClaims.putAll(claims);
+                    for (String lateOverride : enhancer.getLateOverrideClaims()) {
+                        if (claims.containsKey(lateOverride)) {
+                            lateOverrideClaims.put(lateOverride, claims.get(lateOverride));
+                        }
+                    }
+                }
+            }
         }
 
         String clientAuthentication = getAuthenticationMethod(oAuth2Request);
         additionalRootClaims = addAuthenticationMethod(additionalRootClaims, clientAuthentication);
+
+        if (GRANT_TYPE_TOKEN_EXCHANGE.equals(oAuth2Request.getGrantType())) {
+            additionalRootClaims = addTokenExchangeClaims(additionalRootClaims, oAuth2Request);
+        }
 
         CompositeExpiringOAuth2RefreshToken refreshToken = null;
         if (client.getAuthorizedGrantTypes().contains(GRANT_TYPE_REFRESH_TOKEN)) {
@@ -663,7 +776,8 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
                 nonce,
                 grantType,
                 clientAuthentication,
-                tokenId);
+                tokenId
+        );
 
         String refreshTokenValue = refreshToken != null ? refreshToken.getValue() : null;
 
@@ -678,11 +792,13 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
                         refreshTokenValue,
                         additionalAuthorizationAttributes,
                         additionalRootClaims,
+                        lateOverrideClaims,
                         revocableHashSignature,
                         isAccessTokenRevocable,
-                        authenticationData);
+                        authenticationData,
+                        authentication);
 
-        return persistRevocableToken(tokenId, accessToken, refreshToken, clientId, userId, isOpaque, isAccessTokenRevocable, null);
+        return persistRevocableToken(tokenId, accessToken, refreshToken, client, clientId, userId, isOpaque, isAccessTokenRevocable, null);
     }
 
     private static String getClientSecretForHash(String clientSecret) {
@@ -701,7 +817,7 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
         Collection<GrantedAuthority> clientScopes;
         clientScopes = new ArrayList<>();
         for (String scope : client.getScope()) {
-            clientScopes.add(new ExternalOAuthUserAuthority(scope));
+            clientScopes.add(new SimpleGrantedAuthority(scope));
         }
         return clientScopes;
     }
@@ -716,6 +832,18 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
     CompositeToken persistRevocableToken(String tokenId,
             CompositeToken token,
             CompositeExpiringOAuth2RefreshToken refreshToken,
+            String clientId,
+            String userId,
+            boolean isOpaque,
+            boolean isRevocable,
+            String tokenIdToBeDeleted) {
+        return persistRevocableToken(tokenId, token, refreshToken, null, clientId, userId, isOpaque, isRevocable, tokenIdToBeDeleted);
+    }
+
+    CompositeToken persistRevocableToken(String tokenId,
+            CompositeToken token,
+            CompositeExpiringOAuth2RefreshToken refreshToken,
+            UaaClientDetails client,
             String clientId,
             String userId,
             boolean isOpaque,
@@ -741,8 +869,8 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
 
         boolean isRefreshTokenOpaque = isOpaque || OPAQUE.getStringValue().equals(getActiveTokenPolicy().getRefreshTokenFormat());
         boolean refreshTokenRevocable = isRefreshTokenOpaque || getActiveTokenPolicy().isJwtRevocable();
-        boolean refreshTokenUnique = getActiveTokenPolicy().isRefreshTokenUnique();
         if (refreshToken != null && refreshTokenRevocable) {
+            String zoneId = IdentityZoneHolder.get().getId();
             RevocableToken revocableRefreshToken = new RevocableToken()
                     .setTokenId(refreshToken.getJti())
                     .setClientId(clientId)
@@ -750,14 +878,12 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
                     .setIssuedAt(now)
                     .setFormat(isRefreshTokenOpaque ? OPAQUE.getStringValue() : JWT.getStringValue())
                     .setResponseType(REFRESH_TOKEN)
-                    .setZoneId(IdentityZoneHolder.get().getId())
+                    .setZoneId(zoneId)
                     .setUserId(userId)
                     .setScope(scope)
                     .setValue(refreshToken.getValue());
-            if (refreshTokenUnique) {
-                tokenProvisioning.deleteRefreshTokensForClientAndUserId(clientId, userId, IdentityZoneHolder.get().getId());
-            }
-            tokenProvisioning.createIfNotExists(revocableRefreshToken, IdentityZoneHolder.get().getId());
+            enforceConcurrentSessionLimit(userId, clientId, resolveRefreshTokenUniqueLimit(client, clientId, zoneId), zoneId, refreshToken.getJti(), tokenIdToBeDeleted);
+            tokenProvisioning.createIfNotExists(revocableRefreshToken, zoneId);
             if (tokenIdToBeDeleted != null) {
                 tokenProvisioning.delete(tokenIdToBeDeleted, -1, IdentityZoneHolder.getCurrentZoneId());
             }
@@ -917,10 +1043,85 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
         this.clientDetailsService = clientDetailsService;
     }
 
-    private void publish(TokenIssuedEvent event) {
+    private void publish(ApplicationEvent event) {
         if (applicationEventPublisher != null) {
             applicationEventPublisher.publishEvent(event);
         }
+    }
+
+    /**
+     * Resolves the effective concurrent session limit (the {@code refreshTokenUnique} value) for the given client.
+     * A client-level override stored in the client's additional information takes precedence over the identity
+     * zone's token policy. The value is interpreted as: {@code -1} (or any non-positive number) means unlimited,
+     * while a positive number caps the active refresh tokens per user and client at that count.
+     * <p>
+     * The caller may supply an already-loaded {@link UaaClientDetails} to avoid a redundant lookup; when
+     * {@code null} the client is loaded by id.
+     */
+    private int resolveRefreshTokenUniqueLimit(UaaClientDetails client, String clientId, String zoneId) {
+        int limit = getActiveTokenPolicy().getMaxSessionLimit();
+        try {
+            UaaClientDetails resolvedClient = client != null
+                    ? client
+                    : (UaaClientDetails) clientDetailsService.loadClientByClientId(clientId, zoneId);
+            if (resolvedClient != null) {
+                Object override = resolvedClient.getAdditionalInformation().get(ClientConstants.REFRESH_TOKEN_UNIQUE);
+                if (override instanceof Number clientLimit) {
+                    limit = clientLimit.intValue();
+                } else if (override instanceof Boolean clientLimit) {
+                    limit = clientLimit ? 1 : -1;
+                } else if (override instanceof String clientLimit) {
+                    limit = TokenPolicy.parseRefreshTokenUnique(clientLimit);
+                }
+            }
+        } catch (RuntimeException e) {
+            logger.warn("Failed to read client-level {} override for client {}", ClientConstants.REFRESH_TOKEN_UNIQUE, clientId, e);
+        }
+        return limit;
+    }
+
+    /**
+     * Enforces the per-user, per-client concurrent session limit by revoking the oldest refresh tokens.
+     * It ensures that the number of active refresh tokens does not exceed the limit, accounting for whether
+     * the new token replaces an existing one or increases the active count. A non-positive limit means
+     * unlimited and disables enforcement. This only takes effect when refresh tokens are revocable/stored
+     * (opaque refresh tokens are always stored; JWT refresh tokens require
+     * {@code jwt.token.revocable=true}), which is guaranteed by the caller.
+     */
+    private void enforceConcurrentSessionLimit(String userId, String clientId, int limit, String zoneId, String newTokenId, String tokenIdToBeDeleted) {
+        if (limit <= 0) {
+            return;
+        }
+        List<RevocableToken> allRefreshTokens = ofNullable(tokenProvisioning.getUserTokens(userId, clientId, zoneId))
+                .orElseGet(Collections::emptyList)
+                .stream()
+                .filter(token -> REFRESH_TOKEN.equals(token.getResponseType()))
+                .toList();
+
+        boolean reusingExistingToken = allRefreshTokens.stream().anyMatch(t -> t.getTokenId().equals(newTokenId));
+        boolean deletingOldToken = tokenIdToBeDeleted != null && allRefreshTokens.stream().anyMatch(t -> t.getTokenId().equals(tokenIdToBeDeleted));
+
+        int netIncrease = 1;
+        if (reusingExistingToken || deletingOldToken) {
+            netIncrease = 0;
+        }
+
+        int numberToRevoke = allRefreshTokens.size() + netIncrease - limit;
+        if (numberToRevoke <= 0) {
+            return;
+        }
+
+        List<RevocableToken> candidatesToRevoke = allRefreshTokens.stream()
+                .filter(t -> !t.getTokenId().equals(newTokenId))
+                .filter(t -> tokenIdToBeDeleted == null || !t.getTokenId().equals(tokenIdToBeDeleted))
+                .sorted(Comparator.comparingLong(RevocableToken::getIssuedAt))
+                .toList();
+
+        for (int i = 0; i < numberToRevoke && i < candidatesToRevoke.size(); i++) {
+            tokenProvisioning.delete(candidatesToRevoke.get(i).getTokenId(), -1, zoneId);
+        }
+
+        publish(new TokenRevocationEvent(userId, clientId, zoneId, SecurityContextHolder.getContext().getAuthentication()));
     }
 
     public TokenPolicy getTokenPolicy() {

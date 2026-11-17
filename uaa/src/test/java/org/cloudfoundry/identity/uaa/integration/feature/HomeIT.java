@@ -20,7 +20,6 @@ import org.cloudfoundry.identity.uaa.oauth.client.test.TestAccounts;
 import org.cloudfoundry.identity.uaa.test.UaaWebDriver;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -33,8 +32,6 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
-
-import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assumptions.assumeThat;
@@ -61,7 +58,7 @@ class HomeIT {
     void logout_and_clear_cookies() {
         try {
             webDriver.get(baseUrl + "/logout.do");
-        } catch (org.openqa.selenium.TimeoutException x) {
+        } catch (org.openqa.selenium.TimeoutException _) {
             //try again - this should not be happening - 20 second timeouts
             webDriver.get(baseUrl + "/logout.do");
         }
@@ -79,47 +76,46 @@ class HomeIT {
     void message() {
         LoginPage.go(webDriver, baseUrl)
                 .sendLoginCredentials(testAccounts.getUserName(), testAccounts.getPassword());
-        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("You should not see this page. Set up your redirect URI.");
+        assertThat(webDriver.findElement(By.tagName("h1")).getText()).isEqualTo("Where to?");
     }
 
     @Test
-    @Disabled
     void profilePage() {
         HomePage homePage = LoginPage.go(webDriver, baseUrl)
                 .sendLoginCredentials(testAccounts.getUserName(), testAccounts.getPassword());
         try {
-            homePage.goHome().assertThatPageSource().contains("You should not see this page. Set up your redirect URI.");
+            homePage.goHome().assertThatPageSource().contains("Where to?");
             webDriver.pressUaaNavigation("nav-dropdown-button", "nav-dropdown-content-profile");
-        } catch (TimeoutException e) {
+        } catch (TimeoutException _) {
             webDriver.get(baseUrl + "/profile");
         }
+        WebDriverWait wait = webDriver.createWebDriverWait();
+        wait.until(ExpectedConditions.textToBePresentInElementLocated(By.cssSelector("h1"), "Account Settings"));
         assertThat(webDriver.findElement(By.cssSelector("h1")).getText()).contains("Account Settings");
     }
 
     @Test
-    @Disabled
     void defaultNoDropDown() {
         LoginPage.go(webDriver, baseUrl)
                 .sendLoginCredentials(testAccounts.getUserName(), testAccounts.getPassword())
-                .assertThatPageSource().contains("You should not see this page. Set up your redirect URI.");
+                .assertThatPageSource().contains("Where to?");
         assertThat(asOnHomePage.getUsernameElement()).isNotNull();
         assertThat(asOnHomePage.getAccountSettingsElement().isDisplayed()).isFalse();
         assertThat(asOnHomePage.getSignOutElement().isDisplayed()).isFalse();
     }
 
     @Test
-    @Disabled
     void theHeaderDropdown() {
         LoginPage.go(webDriver, baseUrl)
                 .sendLoginCredentials(testAccounts.getUserName(), testAccounts.getPassword())
-                .assertThatPageSource().contains("You should not see this page. Set up your redirect URI.");
+                .assertThatPageSource().contains("Where to?");
         try {
-            WebDriverWait wait = new WebDriverWait(webDriver, Duration.ofSeconds(30));
+            WebDriverWait wait = webDriver.createWebDriverWait();
             wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("nav-dropdown-button"))).click();
             assertThat(wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("nav-dropdown-content-profile"))).isDisplayed()).isTrue();
             assertThat(wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("nav-dropdown-content-logout"))).isDisplayed()).isTrue();
         } catch (TimeoutException e) {
-            // If the dropdown is not visible ignore
+            // If the dropdown is not visible, ignore
             assumeThat(e.getMessage()).contains("waiting for visibility");
         }
 

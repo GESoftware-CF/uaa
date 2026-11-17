@@ -1,107 +1,38 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layouts/main}">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layouts/main}" lang="en">
 <head>
-    <meta http-equiv="refresh" th:content="86400"/>
-    <script th:src="@{/resources/predix/js/toast-notifications.js}" defer="defer"></script>
+    <meta http-equiv="refresh" th:content="${@cookieBasedCsrfTokenRepository.getCookieMaxAge()}" />
+    <link th:if="${loginConsent != null}" href="/resources/oss/stylesheets/login-consent.css" th:href="@{${assetBaseUrl}+'/stylesheets/login-consent.css'}" rel="stylesheet"/>
+    <script th:if="${loginConsent != null}" type="text/javascript" src="/resources/javascripts/login_consent/consent.js" th:src="@{'/resources/javascripts/login_consent/consent.js'}"></script>
 </head>
-<div class="login island" layout:fragment="page-content">
+<div class="island" layout:fragment="page-content">
     <h1 th:text="${T(org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder).uaa ? 'Welcome!':'Welcome to '+zone_name+'!'}">Welcome!</h1>
-    <div class="island-content predix-uaa__login">
+    <div class="island-content">
 
-        <!-- Error Toast Notification with enhanced structure -->
-        <section th:if="${error}" class="toast inline toast--error" role="alert" aria-live="polite">
-            <span class="toast__icon">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" width="1.5em" height="auto">
-                    <path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-384c13.3 0 24 10.7 24 24V264c0 13.3-10.7 24-24 24s-24-10.7-24-24V152c0-13.3 10.7-24 24-24zM232 368a24 24 0 1 1 48 0 24 24 0 1 1 -48 0z"/>
-                </svg>
-            </span>
-            <span class="toast__content">
-                <span class="toast__message">
-                    <span class="toast__description" th:text="${#messages.msgOrNull('login.' + error) ?: 'An error occurred!'}">An error occurred!</span>
-                </span>
-            </span>
-            <span class="toast__close" aria-label="Close notification">
-                <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 384 512">
-                    <path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/>
-                </svg>
-            </span>
-        </section>
+        <div th:if="${error}"
+             class="alert alert-error">
+            <p th:text="${#messages.msgOrNull('login.' + error) ?: 'Error!'}"></p>
+        </div>
 
-        <!-- Parameter Error Toast Notification -->
-        <section th:unless="${error}" th:if="${param.error}" class="toast inline toast--error" role="alert" aria-live="polite">
-            <span class="toast__icon">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" width="1.5em" height="auto">
-                    <path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-384c13.3 0 24 10.7 24 24V264c0 13.3-10.7 24-24 24s-24-10.7-24-24V152c0-13.3 10.7-24 24-24zM232 368a24 24 0 1 1 48 0 24 24 0 1 1 -48 0z"/>
-                </svg>
-            </span>
-            <span class="toast__content">
-                <span class="toast__message">
-                    <span class="toast__description" th:text="${#messages.msgOrNull('login.' + param.error[0]) ?: 'An error occurred!'}">An error occurred!</span>
-                </span>
-            </span>
-            <span class="toast__close" aria-label="Close notification">
-                <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 384 512">
-                    <path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/>
-                </svg>
-            </span>
-        </section>
+        <div th:unless="${error}"
+             th:if="${param.error}"
+             class="alert alert-error">
+            <p th:text="${#messages.msgOrNull('login.' + param.error[0]) ?: 'Error!'}"></p>
+        </div>
 
-        <!-- Toast Notification with enhanced structure -->
-        <section th:if="${param.success}" class="toast inline toast--success" role="alert" aria-live="polite">
-            <span class="toast__icon">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" width="1.5em" height="auto">
-                    <path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM369 209L241 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L335 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z"/>
-                </svg>
-            </span>
-            <span class="toast__content">
-                <span class="toast__message">
-                    <span class="toast__description" th:text="${#messages.msgOrNull('login.' + param.success[0]) ?: 'Operation completed successfully!'}">Operation completed successfully!</span>
-                </span>
-            </span>
-            <span class="toast__close" aria-label="Close notification">
-                <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 384 512">
-                    <path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/>
-                </svg>
-            </span>
-        </section>
-
-        <!-- Customer IDP Login Button -->
-        <th:block th:if="${idpDefinitions != null and !#lists.isEmpty(idpDefinitions)}" th:each="idp : ${idpDefinitions}">
-            <th:block th:if="${idp.showSamlLink}">
-                <th:block th:if="${@externalIdpService.hasExternalIdpWebDomains()}">
-                    <th:block th:each="domain : ${@externalIdpService.getExternalIdpWebDomains()}">
-                        <div class="u-p--" style="margin-bottom: 20px;" th:if="${!#strings.contains(idp.metaDataLocation, domain)}">
-                            <a href="" class="customer-idp-login-button" th:href="${forceIdpReauthentication} ? @{saml2/authenticate/{entityAlias}(entityAlias=${idp.idpEntityAlias},force_authn=true)} : @{saml2/authenticate/{entityAlias}(entityAlias=${idp.idpEntityAlias})}" th:text="${idp.linkText}">Login with customer IDP</a>
-                        </div>
-                    </th:block>
-                </th:block>
-            </th:block>
-        </th:block>
-        <th:block th:if="${oauthLinks != null and !oauthLinks.isEmpty()}" th:each="oauthLink : ${oauthLinks}">
-            <th:block th:if="${@externalIdpService.hasExternalIdpWebDomains()}">
-                <th:block th:each="domain : ${@externalIdpService.getExternalIdpWebDomains()}">
-                    <div class="u-p--" style="margin-bottom: 20px;" th:if="${!#strings.contains(oauthLink.key, domain)}">
-                        <a href="" class="customer-idp-login-button" th:href="${oauthLink.key}" th:text="${oauthLink.value}">Login with customer IDP</a>
-                    </div>
-                </th:block>
-            </th:block>
-        </th:block>
-        
-        <th:block th:if="${@externalIdpService.hasCustomerIdps(idpDefinitions, oauthLinks)}">
-            <p>Or sign in with: </p>
-        </th:block>
+        <div th:if="${param.success}" class="alert alert-success">
+            <p th:text="${#messages.msgOrNull('login.' + param.success[0]) ?: 'Success!'}"></p>
+        </div>
 
         <th:block th:if="${fieldUsernameShow}">
         <form th:action="@{/login.do}" method="post" novalidate="novalidate" accept-charset="UTF-8">
-
-            <div style="text-align: left;" th:each="prompt,iter : ${prompts}">
-                <label>[[${prompt.value[1]}]]</label>
-                <input th:name="${prompt.key}"
-                    th:type="${prompt.value[0]}"
-                    th:attr="autocomplete=${(prompt.value[0] == 'password') ? 'off' : null}"
-                    th:autofocus="${iter.index} == 0"
-                    class="form-control"/>
-            </div>
+            <input th:each="prompt,iter : ${prompts}"
+                   th:name="${prompt.key}"
+                   th:type="${prompt.value[0]}"
+                   th:placeholder="${prompt.value[1]}"
+                   th:attr="autocomplete=${(prompt.value[0] == 'password') ? 'off' : null}"
+                   th:aria-label="${prompt.value[1]}"
+                   class="form-control"/>
             <input type="submit" value="Sign in" class="island-button"/>
             <input th:if="${session.SPRING_SECURITY_SAVED_REQUEST}"
                    th:unless="${form_redirect_uri}"
@@ -124,47 +55,52 @@
         </form>
         </th:block>
         <div class="saml-login">
-            <!-- Dynamic providers from configuration -->
-            <th:block th:if="${idpDefinitions != null and !#lists.isEmpty(idpDefinitions)}" th:each="idp : ${idpDefinitions}">
-                <th:block th:if="${idp.showSamlLink}">
-                    <th:block th:if="${@externalIdpService.hasExternalIdpWebDomains()}">
-                        <th:block th:each="domain : ${@externalIdpService.getExternalIdpWebDomains()}">
-                            <div class="u-p--" th:if="${#strings.contains(idp.metaDataLocation, domain)}">
-                                <svg width="21" height="20" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: inline-block; vertical-align: middle;">
-                                        <path d="M16.3333 15.8333H4.66667V4.16667H10.5V2.5H4.66667C3.74167 2.5 3 3.25 3 4.16667V15.8333C3 16.75 3.74167 17.5 4.66667 17.5H16.3333C17.25 17.5 18 16.75 18 15.8333V10H16.3333V15.8333ZM12.1667 2.5V4.16667H15.1583L6.96667 12.3583L8.14167 13.5333L16.3333 5.34167V8.33333H18V2.5H12.1667Z" fill="currentColor"/>
-                                    </svg>
-                                <a href="" th:class="${fieldUsernameShow} ? 'saml-login-link' : ''" th:href="${forceIdpReauthentication} ? @{saml2/authenticate/{entityAlias}(entityAlias=${idp.idpEntityAlias},force_authn=true)} : @{saml2/authenticate/{entityAlias}(entityAlias=${idp.idpEntityAlias})}" th:text="${idp.linkText}">
-                                </a>
-                            </div>
-                        </th:block>
-                    </th:block>
-                </th:block>
-            </th:block>
-            <th:block th:if="${oauthLinks != null and !oauthLinks.isEmpty()}" th:each="oauthLink : ${oauthLinks}">
-                <th:block th:if="${@externalIdpService.hasExternalIdpWebDomains()}">
-                    <th:block th:each="domain : ${@externalIdpService.getExternalIdpWebDomains()}">
-                        <div class="u-p--" th:if="${#strings.contains(oauthLink.key, domain)}">
-                            <svg width="21" height="20" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: inline-block; vertical-align: middle;">
-                                    <path d="M16.3333 15.8333H4.66667V4.16667H10.5V2.5H4.66667C3.74167 2.5 3 3.25 3 4.16667V15.8333C3 16.75 3.74167 17.5 4.66667 17.5H16.3333C17.25 17.5 18 16.75 18 15.8333V10H16.3333V15.8333ZM12.1667 2.5V4.16667H15.1583L6.96667 12.3583L8.14167 13.5333L16.3333 5.34167V8.33333H18V2.5H12.1667Z" fill="currentColor"/>
-                                </svg>
-                            <a href="" th:class="${fieldUsernameShow} ? 'saml-login-link' : ''" th:href="${oauthLink.key}" th:text="${oauthLink.value}">
-                            </a>
-                        </div>
-                    </th:block>
-                </th:block>
-            </th:block>
+            <p th:if="${showLoginLinks==true and fieldUsernameShow}">or sign in with: </p>
+            <div th:each="idp : ${idpDefinitions}" th:if="${idp.showSamlLink}">
+                <a href="" th:href="@{saml2/authenticate/{entityAlias}(entityAlias=${idp.idpEntityAlias})}" th:text="${idp.linkText}" class="saml-login-link">Use your corporate credentials</a>
+            </div>
+            <div th:each="oauthLink : ${oauthLinks}" >
+                <div>
+                    <a href="" th:href="${oauthLink.key}" th:text="${oauthLink.value}" class="saml-login-link">Use your corporate credentials</a>
+                </div>
+            </div>
         </div>
-        <div class="island-footer" th:style="${#strings.isEmpty(links['createAccountLink'])?'display:inline-block':''}">
-          <th:block th:if="${linkCreateAccountShow} and not ${disableInternalUserManagement}">
-          <div class="footer-links">
-            <div class="footer-link-item create-account" th:unless="${#strings.isEmpty(links['createAccountLink'])}">
-              <a href="/create_account" th:href="@{${links['createAccountLink']}}" class="link-lowlight">Create account</a>
+        <th:block th:if="${linkCreateAccountShow}">
+        <span class="left">
+            <a th:unless="${#strings.isEmpty(links['createAccountLink'])}" href="/create_account" th:href="@{${links['createAccountLink']}}" class="link-lowlight">Create account</a>
+        </span><span class="right" th:unless="${#strings.isEmpty(links['forgotPasswordLink'])}">
+            <a href="/forgot_password" th:href="@{${links['forgotPasswordLink']}}" class="link-lowlight">Reset password</a>
+        </span>
+        </th:block>
+    </div>
+
+    <!-- Optional: Login Consent Modal -->
+    <div th:if="${loginConsent != null}" 
+         id="loginConsentModal" 
+         class="consent-modal-overlay" 
+         role="dialog"
+         aria-labelledby="consentModalTitle"
+         aria-modal="true"
+         th:attr="data-consent-hash=${loginConsentHash},data-consent-duration=${loginConsentDurationSeconds}">
+        <div class="consent-modal">
+            <div class="consent-modal-header">
+                <h2 id="consentModalTitle" th:text="${loginConsent.title}">Notice and Consent</h2>
             </div>
-            <div class="footer-link-item reset-password" th:unless="${#strings.isEmpty(links['forgotPasswordLink'])}">
-              <a href="/forgot_password" th:href="@{${links['forgotPasswordLink']}}" class="link-lowlight">Reset password</a>
+            <div class="consent-modal-body">
+                <div class="consent-modal-content" th:utext="${loginConsent.text}">
+                    <!-- Consent text will be inserted here -->
+                </div>
             </div>
-          </div>
-          </th:block>
+            <div class="consent-modal-footer">
+                <button type="button" 
+                        id="consentAcceptButton" 
+                        class="consent-button consent-button-accept"
+                        th:text="${loginConsent.acceptButtonText}">I Accept</button>
+                <a th:unless="${#strings.isEmpty(loginConsent.declineLink)}"
+                   th:href="${loginConsent.declineLink}" 
+                   class="consent-button consent-button-decline" 
+                   th:text="${loginConsent.declineButtonText}">Decline</a>
+            </div>
         </div>
     </div>
 </div>

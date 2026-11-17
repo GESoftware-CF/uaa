@@ -13,7 +13,6 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.integration.feature;
 
-import org.apache.commons.codec.binary.Base64;
 import org.apache.hc.client5.http.cookie.BasicCookieStore;
 import org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils;
 import org.cloudfoundry.identity.uaa.oauth.client.resource.ClientCredentialsResourceDetails;
@@ -48,6 +47,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -57,9 +57,9 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.cloudfoundry.identity.uaa.integration.util.IntegrationTestUtils.getHeaders;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.CSRF_PARAMETER_NAME;
 import static org.cloudfoundry.identity.uaa.oauth.common.util.OAuth2Utils.USER_OAUTH_APPROVAL;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
+import static org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository.DEFAULT_CSRF_COOKIE_NAME;
 
 @SpringJUnitConfig(classes = DefaultIntegrationTestConfig.class)
 @OAuth2ContextConfiguration(OAuth2ContextConfiguration.ClientCredentials.class)
@@ -106,7 +106,7 @@ class OpenIdTokenGrantsIT {
     void logout_and_clear_cookies() {
         try {
             webDriver.get(baseUrl + "/logout.do");
-        } catch (org.openqa.selenium.TimeoutException x) {
+        } catch (org.openqa.selenium.TimeoutException _) {
             //try again - this should not be happening - 20 second timeouts
             webDriver.get(baseUrl + "/logout.do");
         }
@@ -176,7 +176,7 @@ class OpenIdTokenGrantsIT {
     @Test
     void passwordGrant() {
         String basicDigestHeaderValue = "Basic "
-                + new String(Base64.encodeBase64("cf:".getBytes()));
+                + new String(Base64.getEncoder().encode("cf:".getBytes()));
 
         HttpHeaders headers = new HttpHeaders();
         headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
@@ -272,13 +272,13 @@ class OpenIdTokenGrantsIT {
         assertThat(response.getBody()).contains("/login.do")
                 .contains("username")
                 .contains("password");
-        String csrf = IntegrationTestUtils.extracCsrfToken(response.getBody());
+        String csrf = IntegrationTestUtils.extractCookieCsrf(response.getBody());
         IntegrationTestUtils.extractCookies(response, cookies);
 
         MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
         formData.add("username", user.getUserName());
         formData.add("password", secret);
-        formData.add(CSRF_PARAMETER_NAME, csrf);
+        formData.add(DEFAULT_CSRF_COOKIE_NAME, csrf);
 
         // Should be redirected to the original URL, but now authenticated
         result = restOperations.exchange(baseUrl + "/login.do", HttpMethod.POST, new HttpEntity<>(formData, getHeaders(cookies)), Void.class);
@@ -301,7 +301,7 @@ class OpenIdTokenGrantsIT {
 
             formData.clear();
             formData.add(USER_OAUTH_APPROVAL, "true");
-            formData.add(CSRF_PARAMETER_NAME, IntegrationTestUtils.extracCsrfToken(response.getBody()));
+            formData.add(DEFAULT_CSRF_COOKIE_NAME, IntegrationTestUtils.extractCookieCsrf(response.getBody()));
             result = restOperations.exchange(baseUrl + "/oauth/authorize", HttpMethod.POST, new HttpEntity<>(formData, getHeaders(cookies)), Void.class);
             assertThat(result.getStatusCode()).isEqualTo(HttpStatus.FOUND);
             location = UriUtils.decode(result.getHeaders().getLocation().toString(), "UTF-8");
@@ -319,7 +319,7 @@ class OpenIdTokenGrantsIT {
         formData.add("code", location.split("code=")[1].split("&")[0]);
         HttpHeaders tokenHeaders = new HttpHeaders();
         String basicDigestHeaderValue = "Basic "
-                + new String(Base64.encodeBase64((clientId + ":" + clientSecret).getBytes()));
+                + new String(Base64.getEncoder().encode((clientId + ":" + clientSecret).getBytes()));
         tokenHeaders.set("Authorization", basicDigestHeaderValue);
 
         @SuppressWarnings("rawtypes")

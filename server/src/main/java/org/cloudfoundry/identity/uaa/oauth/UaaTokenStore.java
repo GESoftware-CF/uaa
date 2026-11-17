@@ -14,7 +14,7 @@
 
 package org.cloudfoundry.identity.uaa.oauth;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthentication;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthenticationDetails;
 import org.cloudfoundry.identity.uaa.authentication.UaaPrincipal;
@@ -50,7 +50,6 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -144,18 +143,20 @@ public class UaaTokenStore implements AuthorizationCodeServices {
         try {
             TokenCode tokenCode = (TokenCode) template.queryForObject(SQL_SELECT_STATEMENT, rowMapper, code);
             if (tokenCode != null) {
-                try {
-                    if (tokenCode.isExpired()) {
-                        logger.debug("[oauth_code] Found code, but it expired:{}", tokenCode);
-                        throw new InvalidGrantException("Authorization code expired: " + code);
-                    } else {
-                        return tokenCode.deserialize();
-                    }
-                } finally {
-                    template.update(SQL_DELETE_STATEMENT, code);
+                int deletedRows = template.update(SQL_DELETE_STATEMENT, code);
+                if (deletedRows != 1) {
+                    throw new InvalidGrantException("Invalid authorization code: " + code);
+                }
+
+                if (tokenCode.isExpired()) {
+                    logger.debug("[oauth_code] Found code, but it expired:{}", tokenCode);
+                    throw new InvalidGrantException("Authorization code expired: " + code);
+                } else {
+                    return tokenCode.deserialize();
                 }
             }
-        } catch (EmptyResultDataAccessException ignored) {
+        } catch (EmptyResultDataAccessException _) {
+            // ignore
         }
         throw new InvalidGrantException("Invalid authorization code: " + code);
     }
@@ -250,7 +251,7 @@ public class UaaTokenStore implements AuthorizationCodeServices {
             logger.debug("[oauth_code] Removed {} expired entries.", expired);
             expired = template.update(SQL_CLEAN_STATEMENT, Timestamp.from(now.minus(LEGACY_CODE_EXPIRATION_TIME)));
             logger.debug("[oauth_code] Removed {} old entries.", expired);
-        } catch (DeadlockLoserDataAccessException e) {
+        } catch (DeadlockLoserDataAccessException _) {
             logger.debug("[oauth code] Deadlock trying to expire entries, ignored.");
         }
     }

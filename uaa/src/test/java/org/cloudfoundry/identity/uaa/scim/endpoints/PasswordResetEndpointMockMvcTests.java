@@ -1,6 +1,6 @@
 package org.cloudfoundry.identity.uaa.scim.endpoints;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import org.cloudfoundry.identity.uaa.DefaultTestContext;
 import org.cloudfoundry.identity.uaa.codestore.ExpiringCode;
 import org.cloudfoundry.identity.uaa.codestore.ExpiringCodeType;
@@ -19,7 +19,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -35,13 +34,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CsrfPostProcessor.csrf;
+import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
 import static org.cloudfoundry.identity.uaa.zone.IdentityZoneSwitchingFilter.HEADER;
-import static org.hamcrest.Matchers.containsString;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -104,7 +101,6 @@ class PasswordResetEndpointMockMvcTests {
         Map<String, String> data = JsonUtils.readValue(expiringCode.getData(), new TypeReference<Map<String, String>>() {
         });
         assertThat(data)
-                .isNotNull()
                 .containsEntry("user_id", scimUser.getId())
                 .containsEntry("username", scimUser.getUserName())
                 .containsEntry(OAuth2Utils.CLIENT_ID, "login")
@@ -135,7 +131,6 @@ class PasswordResetEndpointMockMvcTests {
         Map<String, String> data = JsonUtils.readValue(expiringCode.getData(), new TypeReference<Map<String, String>>() {
         });
         assertThat(data)
-                .isNotNull()
                 .containsEntry(OAuth2Utils.CLIENT_ID, "another-client");
     }
 
@@ -150,8 +145,9 @@ class PasswordResetEndpointMockMvcTests {
 
         MvcResult result = mockMvc.perform(get)
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("<input type=\"hidden\" name=\"email\" value=\"%s\"/>".formatted(email))))
                 .andReturn();
+        assertThat(result.getResponse().getContentAsString())
+                .contains("<input type=\"hidden\" name=\"email\" value=\"%s\"/>".formatted(email));
 
         String resultingCodeString = getCodeFromPage(result);
         ExpiringCode resultingCode = jdbcExpiringCodeStore.retrieveCode(resultingCodeString, IdentityZoneHolder.get().getId());
@@ -160,7 +156,6 @@ class PasswordResetEndpointMockMvcTests {
         });
 
         assertThat(resultingCodeData)
-                .isNotNull()
                 .containsEntry("client_id", "app")
                 .containsEntry("username", email)
                 .containsEntry("user_id", scimUser.getId())
@@ -172,17 +167,15 @@ class PasswordResetEndpointMockMvcTests {
         String code = getExpiringCode(mockMvc, "app", "http://localhost:8080/app/", loginToken, scimUser);
         String email = scimUser.getUserName();
 
-        MockHttpSession session = new MockHttpSession();
-
         MockHttpServletRequestBuilder get = get("/reset_password")
-                .session(session)
-            .param("code", code)
+                .param("code", code)
                 .param("email", email);
 
         MvcResult result = mockMvc.perform(get)
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("<input type=\"hidden\" name=\"email\" value=\"%s\"/>".formatted(email))))
                 .andReturn();
+        assertThat(result.getResponse().getContentAsString())
+                .contains("<input type=\"hidden\" name=\"email\" value=\"%s\"/>".formatted(email));
 
         String resultingCodeString = getCodeFromPage(result);
 
@@ -191,7 +184,7 @@ class PasswordResetEndpointMockMvcTests {
                 .param("email", email)
                 .param("password", "newpass")
                 .param("password_confirmation", "newpass")
-                .with(csrf(session));
+                .with(cookieCsrf());
 
         mockMvc.perform(post)
                 .andExpect(status().is3xxRedirection())
@@ -201,7 +194,7 @@ class PasswordResetEndpointMockMvcTests {
                 .param("username", scimUser.getUserName())
                 .param("password", "newpass")
                 .param("form_redirect_uri", "http://localhost:8080/app/")
-                .with(csrf(session));
+                .with(cookieCsrf());
 
         mockMvc.perform(post)
                 .andExpect(status().is3xxRedirection())

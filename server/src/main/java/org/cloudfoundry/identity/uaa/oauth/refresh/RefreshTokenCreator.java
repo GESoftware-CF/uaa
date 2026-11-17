@@ -54,7 +54,7 @@ public class RefreshTokenCreator {
 
         Map<String, String> additionalAuthorizationAttributes = new AuthorizationAttributesParser().getAdditionalAuthorizationAttributes(tokenRequestData.authorities);
 
-        Date expirationDate = refreshTokenValidityResolver.resolve(tokenRequestData.clientId);
+        Date expirationDate = refreshTokenValidityResolver.resolve(tokenRequestData.clientId, tokenRequestData);
         String tokenId = UUID.randomUUID().toString().replace("-", "") + REFRESH_TOKEN_SUFFIX;
 
         String jwtToken = buildJwtToken(user,
@@ -75,45 +75,43 @@ public class RefreshTokenCreator {
             Map<String, String> additionalAuthorizationAttributes,
             Date expirationDate,
             String tokenId) {
-
-            Map<String, Object> claims = new LinkedHashMap<>();
-
-            claims.put(JTI, tokenId);
-            claims.put(IAT, timeService.getCurrentTimeMillis() / 1000);
-            claims.put(EXPIRY_IN_SECONDS, expirationDate.getTime() / 1000);
-            claims.put(CID, tokenRequestData.clientId);
-            claims.put(CLIENT_ID, tokenRequestData.clientId);
-            claims.put(ISS, tokenEndpointBuilder.getTokenEndpoint(IdentityZoneHolder.get()));
-            claims.put(ZONE_ID, IdentityZoneHolder.get().getId());
-            claims.put(AUD, UaaStringUtils.getValuesOrDefaultValue(tokenRequestData.resourceIds, tokenRequestData.clientId));
+        Map<String, Object> claims = new LinkedHashMap<>();
+        claims.put(JTI, tokenId);
+        claims.put(IAT, timeService.getCurrentTimeMillis() / 1000);
+        claims.put(EXPIRY_IN_SECONDS, expirationDate.getTime() / 1000);
+        claims.put(CID, tokenRequestData.clientId);
+        claims.put(CLIENT_ID, tokenRequestData.clientId);
+        claims.put(ISS, tokenEndpointBuilder.getTokenEndpoint(IdentityZoneHolder.get()));
+        claims.put(ZONE_ID, IdentityZoneHolder.get().getId());
+        claims.put(AUD, UaaStringUtils.getValuesOrDefaultValue(tokenRequestData.resourceIds, tokenRequestData.clientId));
         claims.put(GRANTED_SCOPES, tokenRequestData.scopes);
 
-            if (null != tokenRequestData.authenticationMethods && !tokenRequestData.authenticationMethods.isEmpty()) {
-                claims.put(AMR, tokenRequestData.authenticationMethods);
-            }
-            if (null != tokenRequestData.authTime) {
-                claims.put(AUTH_TIME, AuthTimeDateConverter.dateToAuthTime(tokenRequestData.authTime));
-            }
-            if (null != tokenRequestData.acr && !tokenRequestData.acr.isEmpty()) {
-                HashMap<Object, Object> acrMap = Maps.newHashMap();
-                acrMap.put(ACR_VALUES_KEY, tokenRequestData.acr);
-                claims.put(ACR, acrMap);
-            }
-            if (null != additionalAuthorizationAttributes) {
-                claims.put(ADDITIONAL_AZ_ATTR, additionalAuthorizationAttributes);
-            }
-            if (null != tokenRequestData.externalAttributes) {
-                claims.putAll(tokenRequestData.externalAttributes);
-            }
-            if (null != grantType) {
-                claims.put(GRANT_TYPE, grantType);
-            }
-            if (null != user) {
-                claims.put(USER_NAME, user.getUsername());
-                claims.put(ORIGIN, user.getOrigin());
-                claims.put(USER_ID, user.getId());
-                claims.put(SUB, user.getId());
-            }
+        if (null != tokenRequestData.authenticationMethods && !tokenRequestData.authenticationMethods.isEmpty()) {
+            claims.put(AMR, tokenRequestData.authenticationMethods);
+        }
+        if (null != tokenRequestData.authTime) {
+            claims.put(AUTH_TIME, AuthTimeDateConverter.dateToAuthTime(tokenRequestData.authTime));
+        }
+        if (null != tokenRequestData.acr && !tokenRequestData.acr.isEmpty()) {
+            HashMap<Object, Object> acrMap = Maps.newHashMap();
+            acrMap.put(ACR_VALUES_KEY, tokenRequestData.acr);
+            claims.put(ACR, acrMap);
+        }
+        if (null != additionalAuthorizationAttributes) {
+            claims.put(ADDITIONAL_AZ_ATTR, additionalAuthorizationAttributes);
+        }
+        if (null != tokenRequestData.externalAttributes) {
+            claims.putAll(tokenRequestData.externalAttributes);
+        }
+        if (null != grantType) {
+            claims.put(GRANT_TYPE, grantType);
+        }
+        if (null != user) {
+            claims.put(USER_NAME, user.getUsername());
+            claims.put(ORIGIN, user.getOrigin());
+            claims.put(USER_ID, user.getId());
+            claims.put(SUB, user.getId());
+        }
 
         if (tokenRequestData.revocable) {
             claims.put(REVOCABLE, true);
@@ -146,7 +144,8 @@ public class RefreshTokenCreator {
                     GRANT_TYPE_USER_TOKEN.equals(grantType) ||
                     GRANT_TYPE_REFRESH_TOKEN.equals(grantType) ||
                     GRANT_TYPE_SAML2_BEARER.equals(grantType) ||
-                    GRANT_TYPE_JWT_BEARER.equals(grantType);
+                    GRANT_TYPE_JWT_BEARER.equals(grantType) ||
+                    GRANT_TYPE_TOKEN_EXCHANGE.equals(grantType);
         } else {
             return scope.contains(UAA_REFRESH_TOKEN);
         }

@@ -16,7 +16,7 @@
 
 package org.cloudfoundry.identity.uaa.provider.saml;
 
-import net.shibboleth.utilities.java.support.resolver.CriteriaSet;
+import net.shibboleth.shared.resolver.CriteriaSet;
 import org.opensaml.core.criterion.EntityIdCriterion;
 import org.opensaml.saml.common.xml.SAMLConstants;
 import org.opensaml.saml.criterion.ProtocolCriterion;
@@ -48,8 +48,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * This class was copied from Spring Security 5.6.0 to get the OpenSaml4AuthenticationProvider to work.
- * It should be removed once we are able to more to the spring-security version of OpenSaml4AuthenticationProvider.
+ * This class was copied from Spring Security 5.6.0 to get the OpenSaml5AuthenticationProvider to work.
+ * It should be removed once we are able to move to the spring-security version of OpenSaml5AuthenticationProvider.
  * <p/>
  * Utility methods for verifying SAML component signatures with OpenSAML
  * <p>
@@ -65,11 +65,11 @@ final class OpenSamlVerificationUtils {
 
     static SignatureTrustEngine trustEngine(RelyingPartyRegistration registration) {
         Set<Credential> credentials = new HashSet<>();
-        Collection<Saml2X509Credential> keys = registration.getAssertingPartyDetails().getVerificationX509Credentials();
+        Collection<Saml2X509Credential> keys = registration.getAssertingPartyMetadata().getVerificationX509Credentials();
         for (Saml2X509Credential key : keys) {
             BasicX509Credential cred = new BasicX509Credential(key.getCertificate());
             cred.setUsageType(UsageType.SIGNING);
-            cred.setEntityId(registration.getAssertingPartyDetails().getEntityId());
+            cred.setEntityId(registration.getAssertingPartyMetadata().getEntityId());
             credentials.add(cred);
         }
         CredentialResolver credentialsResolver = new CollectionCredentialResolver(credentials);
@@ -103,7 +103,7 @@ final class OpenSamlVerificationUtils {
             SAMLSignatureProfileValidator profileValidator = new SAMLSignatureProfileValidator();
             try {
                 profileValidator.validate(signature);
-            } catch (Exception ex) {
+            } catch (Exception _) {
                 errors.add(new Saml2Error(Saml2ErrorCodes.INVALID_SIGNATURE,
                         INVALID_SIGNATURE_FOR_OBJECT_COLON.formatted(this.id)));
             }
@@ -113,7 +113,7 @@ final class OpenSamlVerificationUtils {
                     errors.add(new Saml2Error(Saml2ErrorCodes.INVALID_SIGNATURE,
                             INVALID_SIGNATURE_FOR_OBJECT.formatted(this.id)));
                 }
-            } catch (Exception ex) {
+            } catch (Exception _) {
                 errors.add(new Saml2Error(Saml2ErrorCodes.INVALID_SIGNATURE,
                         INVALID_SIGNATURE_FOR_OBJECT_COLON.formatted(this.id)));
             }

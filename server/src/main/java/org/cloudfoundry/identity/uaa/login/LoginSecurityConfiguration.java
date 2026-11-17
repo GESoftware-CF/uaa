@@ -22,6 +22,7 @@ import org.cloudfoundry.identity.uaa.oauth.provider.error.OAuth2AuthenticationEn
 import org.cloudfoundry.identity.uaa.provider.saml.UaaDelegatingLogoutSuccessHandler;
 import org.cloudfoundry.identity.uaa.scim.DisableUserManagementSecurityFilter;
 import org.cloudfoundry.identity.uaa.security.CsrfAwareEntryPointAndDeniedHandler;
+import org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository;
 import org.cloudfoundry.identity.uaa.security.web.HttpsHeaderFilter;
 import org.cloudfoundry.identity.uaa.security.web.UaaRequestMatcher;
 import org.cloudfoundry.identity.uaa.web.FilterChainOrder;
@@ -59,12 +60,9 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.context.SecurityContextPersistenceFilter;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfLogoutHandler;
-import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.session.DisableEncodeUrlFilter;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
-import org.springframework.security.web.util.matcher.OrRequestMatcher;
-import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.io.IOException;
@@ -337,9 +335,9 @@ class LoginSecurityConfiguration {
     @Order(FilterChainOrder.AUTOLOGIN_CODE)
     UaaFilterChain autologinCode(
             HttpSecurity http,
+            CookieBasedCsrfTokenRepository csrfTokenRepository,
             @Qualifier("autologinAuthenticationManager") AuthenticationManager authenticationManager,
-            AccountSavingAuthenticationSuccessHandler loginSuccessHandler,
-            HttpSessionCsrfTokenRepository csrfTokenRepository
+            AccountSavingAuthenticationSuccessHandler loginSuccessHandler
     ) throws Exception {
         var autologinMatcher = new UaaRequestMatcher("/autologin");
         autologinMatcher.setParameters(Map.of("code", ""));
@@ -400,7 +398,7 @@ class LoginSecurityConfiguration {
     @Order(FilterChainOrder.INVITATIONS)
     UaaFilterChain invitation(
             HttpSecurity http,
-            HttpSessionCsrfTokenRepository csrfTokenRepository
+            CookieBasedCsrfTokenRepository csrfTokenRepository
     ) throws Exception {
         var originalChain = http
                 .securityMatcher(
@@ -467,7 +465,7 @@ class LoginSecurityConfiguration {
             HttpSecurity http,
             FilterRegistrationBean<DisableUserManagementSecurityFilter> disableUserManagementSecurityFilter,
             FilterRegistrationBean<ResetPasswordAuthenticationFilter> resetPasswordAuthenticationFilter,
-            HttpSessionCsrfTokenRepository csrfTokenRepository
+            CookieBasedCsrfTokenRepository csrfTokenRepository
     ) throws Exception {
         var originalChain = http
                 .securityMatcher(
@@ -507,13 +505,13 @@ class LoginSecurityConfiguration {
             @Qualifier("zoneAwareAuthzAuthenticationManager") AuthenticationManager authenticationManager,
             final @Qualifier("samlEntityID") String samlEntityID,
             FilterRegistrationBean<LogoutFilter> logoutFilter,
+            CookieBasedCsrfTokenRepository csrfTokenRepository,
             AccountSavingAuthenticationSuccessHandler loginSuccessHandler,
-            UaaAuthenticationFailureHandler loginFailureHandler,
-            HttpSessionCsrfTokenRepository csrfTokenRepository
+            UaaAuthenticationFailureHandler loginFailureHandler
     ) throws Exception {
         ReAuthenticationRequiredFilter reAuthenticationRequiredFilter = new ReAuthenticationRequiredFilter(samlEntityID);
         var clientRedirectStateCache = new UaaSavedRequestCache();
-        clientRedirectStateCache.setRequestMatcher(new AntPathRequestMatcher("/oauth/authorize**"));
+        clientRedirectStateCache.setRequestMatcher(PathPatternRequestMatcher.withDefaults().matcher("/oauth/authorize**"));
 
         // See: https://docs.spring.io/spring-security/reference/servlet/exploits/csrf.html#migrating-to-spring-security-6
         var csrfRequestHandler = new CsrfTokenRequestAttributeHandler();
@@ -540,7 +538,7 @@ class LoginSecurityConfiguration {
                     login.usernameParameter("username");
                     login.passwordParameter("password");
                     login.loginProcessingUrl("/login.do");
-                    login.defaultSuccessUrl("/"); // TODO is this exactly the same?
+                    login.defaultSuccessUrl("/");
                     login.successHandler(loginSuccessHandler);
                     login.failureHandler(loginFailureHandler);
                     login.authenticationDetailsSource(new UaaAuthenticationDetailsSource());
@@ -560,11 +558,6 @@ class LoginSecurityConfiguration {
         return new UaaFilterChain(originalChain, "uiSecurity");
     }
 
-    @Bean
-    public HttpSessionCsrfTokenRepository csrfTokenRepository() {
-        return new HttpSessionCsrfTokenRepository();
-    }
-
     /**
      * Handles a Logout click from the user, removes the Authentication object,
      * and determines if an OAuth2 or SAML2 Logout should be performed.
@@ -574,11 +567,11 @@ class LoginSecurityConfiguration {
     FilterRegistrationBean<LogoutFilter> logoutFilter(
             UaaDelegatingLogoutSuccessHandler delegatingLogoutSuccessHandler,
             UaaAuthenticationFailureHandler authenticationFailureHandler,
-            HttpSessionCsrfTokenRepository csrfTokenRepository
+            CookieBasedCsrfTokenRepository loginCookieCsrfRepository
     ) {
 
         SecurityContextLogoutHandler securityContextLogoutHandlerWithHandler = new SecurityContextLogoutHandler();
-        CsrfLogoutHandler csrfLogoutHandler = new CsrfLogoutHandler(csrfTokenRepository);
+        CsrfLogoutHandler csrfLogoutHandler = new CsrfLogoutHandler(loginCookieCsrfRepository);
         CookieClearingLogoutHandler cookieClearingLogoutHandlerWithHandler = new CookieClearingLogoutHandler("JSESSIONID");
 
         LogoutFilter logoutFilter = new LogoutFilter(
@@ -588,11 +581,7 @@ class LoginSecurityConfiguration {
                 csrfLogoutHandler,
                 cookieClearingLogoutHandlerWithHandler
         );
-        RequestMatcher logoutMatcher = new OrRequestMatcher(
-                new AntPathRequestMatcher("/logout.do"),
-                new AntPathRequestMatcher("/logout")
-        );
-        logoutFilter.setLogoutRequestMatcher(logoutMatcher);
+        logoutFilter.setLogoutRequestMatcher(PathPatternRequestMatcher.withDefaults().matcher("/logout.do"));
         FilterRegistrationBean<LogoutFilter> bean = new FilterRegistrationBean<>(logoutFilter);
         bean.setEnabled(false);
         return bean;

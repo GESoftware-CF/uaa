@@ -1,6 +1,5 @@
 package org.cloudfoundry.identity.uaa.mock.token;
 
-import org.apache.commons.codec.binary.Base64;
 import org.cloudfoundry.identity.uaa.DefaultTestContext;
 import org.cloudfoundry.identity.uaa.client.UaaClientDetails;
 import org.cloudfoundry.identity.uaa.oauth.common.util.RandomValueStringGenerator;
@@ -22,13 +21,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.context.WebApplicationContext;
 
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.CoreMatchers.any;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -74,6 +74,19 @@ class TokenKeyEndpointMockMvcTests {
             FYEQjpphGyQmtsqsOndL9zBvfQCp5oT4hukBc3yIR6GVXDi0UURVjKtlYMMD4O+f
             qwIDAQAB
             -----END PUBLIC KEY-----""";
+    /**
+     * EC key pair - contains both public and private components
+     */
+    private static final String EC_KEY_PAIR = """
+            -----BEGIN PRIVATE KEY-----
+            MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgevZzL1gdAFr88hb2
+            OF/2NxApJCzGCEDdfSp6VQO30hyhRANCAAQRWz+jn65BtOMvdyHKcvjBeBSDZH2r
+            1RTwjmYSi9R/zpBnuQ4EiMnCqfMPWiZqB4QdbAd0E7oH50VpuZ1P087G
+            -----END PRIVATE KEY-----
+            -----BEGIN PUBLIC KEY-----
+            MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEVs/o5+uQbTjL3chynL4wXgUg2R9
+            q9UU8I5mEovUf86QZ7kOBIjJwqnzD1omageEHWwHdBO6B+dFabmdT9POxg==
+            -----END PUBLIC KEY-----""";
 
     private UaaClientDetails defaultClient;
     private IdentityZone testZone;
@@ -110,7 +123,7 @@ class TokenKeyEndpointMockMvcTests {
                                 .with(new SetServerNameRequestPostProcessor(testZone.getSubdomain() + ".localhost"))
                                 .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(header().string("ETag", any(String.class)))
+                .andExpect(header().exists("ETag"))
                 .andReturn();
     }
 
@@ -235,7 +248,7 @@ class TokenKeyEndpointMockMvcTests {
                                 .with(new SetServerNameRequestPostProcessor(testZone.getSubdomain() + ".localhost"))
                                 .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(header().string("ETag", any(String.class)))
+                .andExpect(header().exists("ETag"))
                 .andReturn();
     }
 
@@ -284,7 +297,7 @@ class TokenKeyEndpointMockMvcTests {
 
     private String getBasicAuth(UaaClientDetails client) {
         return "Basic "
-                + new String(Base64.encodeBase64((client.getClientId() + ":" + client.getClientSecret()).getBytes()));
+                + new String(Base64.getEncoder().encode((client.getClientId() + ":" + client.getClientSecret()).getBytes()));
     }
 
     private void validateKey(Map<String, Object> key) {
@@ -361,8 +374,73 @@ class TokenKeyEndpointMockMvcTests {
     }
 
     private void isUrlSafeBase64(String base64) {
-        java.util.Base64.Encoder encoder = java.util.Base64.getUrlEncoder().withoutPadding();
-        java.util.Base64.Decoder decoder = java.util.Base64.getUrlDecoder();
+        Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
+        Base64.Decoder decoder = Base64.getUrlDecoder();
         assertThat(encoder.encodeToString(decoder.decode(base64))).isEqualTo(base64);
+    }
+
+    @Test
+    void checkTokenKeys_withECPair() throws Exception {
+        // Set up zone with EC signing key
+        setSigningKeyAndDefaultClient(EC_KEY_PAIR);
+
+        MvcResult result = mockMvc
+                .perform(
+                        get("/token_keys")
+                                .with(new SetServerNameRequestPostProcessor(testZone.getSubdomain() + ".localhost"))
+                                .accept(MediaType.APPLICATION_JSON)
+                                .header("Authorization", getBasicAuth(defaultClient))
+                )
+                .andDo(print()) // Print the full response for debugging
+                .andExpect(status().isOk())
+                .andReturn();
+
+        // Parse the response
+        Map<String, Object> response = JsonUtils.readValue(result.getResponse().getContentAsString(), Map.class);
+        assertThat(response).containsKey("keys");
+
+        List<Map<String, Object>> keys = (List<Map<String, Object>>) response.get("keys");
+        assertThat(keys).hasSize(1);
+
+        Map<String, Object> ecKey = keys.getFirst();
+
+        // Verify EC key
+        assertThat(ecKey).containsEntry("kty", "EC")
+                .containsEntry("alg", "ES256")
+                .containsKeys("crv", "x", "y")
+                .doesNotContainKey("d")
+                // Verify expected size - should be 7 parameters
+                // Base parameters: 4 (alg, use, kid, kty)
+                // EC public parameters: 3 (crv, x, y)
+                .hasSize(7)
+                // Verify the key can be used for verification
+                .containsEntry("use", "sig");
+    }
+
+    @Test
+    void checkTokenKey_withECPair() throws Exception {
+        setSigningKeyAndDefaultClient(EC_KEY_PAIR);
+
+        MvcResult result = mockMvc
+                .perform(
+                        get("/token_key")
+                                .with(new SetServerNameRequestPostProcessor(testZone.getSubdomain() + ".localhost"))
+                                .accept(MediaType.APPLICATION_JSON)
+                                .header("Authorization", getBasicAuth(defaultClient))
+                )
+                .andDo(print()) // Print the full response for debugging
+                .andExpect(status().isOk())
+                .andReturn();
+
+        Map<String, Object> keyResponse = JsonUtils.readValue(
+                result.getResponse().getContentAsString(),
+                Map.class
+        );
+
+        // Verify EC Key
+        assertThat(keyResponse).containsEntry("kty", "EC")
+                .containsKeys("crv", "x", "y")
+                .doesNotContainKey("d")
+                .hasSize(7);
     }
 }
